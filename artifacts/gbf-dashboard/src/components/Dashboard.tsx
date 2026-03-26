@@ -58,46 +58,46 @@ export default function Dashboard() {
       <div style={{ height: 5, backgroundColor: YELLOW }} />
 
       <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-5 py-2.5 flex items-center justify-between">
+        <div className="px-5 py-4 flex items-center justify-between">
 
           {/* Logo + app name */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <img
               src="/uncommon-logo.png"
               alt="Uncommon Schools"
-              className="h-8 w-auto object-contain"
+              className="h-12 w-auto object-contain"
               style={{ filter: "brightness(0) invert(1)" }}
             />
             {/* Vertical divider */}
-            <div style={{ width: 1, height: 28, backgroundColor: "rgba(255,181,0,0.45)" }} />
+            <div style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div>
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em" }}
+                style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.12em" }}
               >
                 Get Better Faster
               </p>
-              <p className="text-blue-200 text-[10px] font-medium">{currentUser.school}</p>
+              <p className="text-blue-200 font-medium" style={{ fontSize: 15 }}>{currentUser.school}</p>
             </div>
           </div>
 
           {/* Right side */}
           <div className="flex items-center gap-3">
-            <span className="text-blue-200 text-xs hidden sm:block">{today}</span>
+            <span className="text-blue-200 hidden sm:block" style={{ fontSize: 15 }}>{today}</span>
             <div
-              className="flex items-center gap-2 rounded px-2.5 py-1"
+              className="flex items-center gap-2 rounded px-3 py-1.5"
               style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
             >
               <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{ backgroundColor: YELLOW, color: NAVY }}
               >
                 PR
               </div>
-              <span className="text-white text-xs font-medium hidden sm:block">{currentUser.name}</span>
+              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser.name}</span>
               <span
-                className="text-[10px] font-semibold rounded-full px-2 py-0.5 hidden sm:block"
-                style={{ backgroundColor: YELLOW, color: NAVY }}
+                className="font-semibold rounded-full px-2.5 py-0.5 hidden sm:block"
+                style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 13 }}
               >
                 PRINCIPAL
               </span>
@@ -116,24 +116,25 @@ export default function Dashboard() {
           <div>
             <h2
               className="uppercase tracking-wide leading-none"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 22, color: NAVY }}
+              style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: NAVY }}
             >
               Observation Tracker
             </h2>
             {/* Underline — extends logo bar pattern */}
-            <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 4, width: "100%" }} />
-            <p className="text-slate-500 text-[11px] mt-1 font-medium">
+            <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
+            <p className="text-slate-500 mt-1.5 font-medium" style={{ fontSize: 14 }}>
               Most recent scores · {filtered.length} teacher{filtered.length !== 1 ? "s" : ""}
               {hasFilters ? " (filtered)" : ""}
             </p>
           </div>
 
           {/* Score legend */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+          <div className="flex items-center gap-2 flex-wrap mt-1">
             {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
               <span
                 key={score}
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold border ${bg} ${text} ${border}`}
+                className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
+                style={{ fontSize: 14 }}
               >
                 {score} <span className="font-normal opacity-80">{label}</span>
               </span>
