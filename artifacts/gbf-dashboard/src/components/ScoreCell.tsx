@@ -4,6 +4,7 @@ interface ScoreCellProps {
   score: number;
   className?: string;
   style?: CSSProperties;
+  onClick?: () => void;
 }
 
 export function getScoreColor(score: number): string {
@@ -25,16 +26,24 @@ export function getScoreColorExact(score: 1 | 2 | 3 | 4): string {
   }
 }
 
-export function ScoreCell({ score, className = "", style }: ScoreCellProps) {
+export function ScoreCell({ score, className = "", style, onClick }: ScoreCellProps) {
   const isExact = Number.isInteger(score);
   const colorClass = isExact
     ? getScoreColorExact(score as 1 | 2 | 3 | 4)
     : getScoreColor(score);
 
+  const clickable = !!onClick;
+
   return (
     <td
-      className={`text-center font-semibold ${colorClass} ${className}`}
+      className={`text-center font-semibold ${colorClass} ${className} ${
+        clickable
+          ? "cursor-pointer relative transition-all duration-100 hover:ring-2 hover:ring-inset hover:ring-white/60 hover:brightness-90"
+          : ""
+      }`}
       style={{ width: 68, minWidth: 68, ...style }}
+      onClick={onClick}
+      title={clickable ? "Click to view score history" : undefined}
     >
       {score.toFixed(isExact ? 0 : 1)}
     </td>

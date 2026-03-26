@@ -1,0 +1,24 @@
+We are ready for Phase 2 of the "Get Better Faster" (GBF) observation tracker. 
+
+Goal: Make the dashboard interactive by adding a "New Observation" form and a "Historical Drill-Down" view. Since we don't have a real database yet, please lift the dummy data into a React `useState` variable at the top level of the dashboard component so that new submissions temporarily update the table and recalculate averages in real-time.
+
+Please implement the following two major features using shadcn/ui components (like Dialog/Modal, Select, Form, etc.) and Tailwind CSS:
+
+1. THE "NEW OBSERVATION" FORM:
+Add a prominent "Add Observation" button at the top of the dashboard. When clicked, it should open a Modal/Dialog with a clean form containing:
+- Teacher selection (dropdown from the list of dummy teachers).
+- Date selector (defaults to today).
+- Domain Scores: A list of all the domains (grouped by Categories: Classroom Culture, The First 15, Academic Monitoring) with a 1-4 scale selector (radio buttons or dropdown) for each. 
+- Text areas for "Teacher Strengths" and "Teacher Growth Areas".
+- A "Submit" button. 
+When submitted, this form should append the new observation to the teacher's dummy data history and instantly update the main dashboard table to reflect their new "most recent" scores and the newly calculated averages.
+
+2. HISTORICAL DRILL-DOWN MODAL:
+Make the score cells in the main dashboard grid clickable. Provide a subtle hover effect (like a slightly darker background or a border) so the user knows they are clickable.
+When a principal clicks on a specific score cell (e.g., Jane Doe's score for "WTD Cycle"):
+- Open a Dialog/Modal.
+- Title the modal with the Teacher's Name and the Specific Domain (e.g., "Jane Doe - WTD Cycle Progression").
+- Display a list or a simple mini-table showing that teacher's past scores for that specific domain, sorted by Date (newest to oldest). 
+- Include the "Teacher Strengths" and "Growth Areas" notes from those past observations in this view so the principal can read the context of the scores.
+
+Ensure the code remains clean, modular, and the UI remains professional. Use shadcn/ui Dialogs for the popups to keep the user on the main dashboard page.

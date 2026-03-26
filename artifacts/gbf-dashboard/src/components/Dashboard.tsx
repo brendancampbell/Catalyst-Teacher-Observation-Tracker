@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
+import { Plus } from "lucide-react";
 import {
   CATEGORIES,
   ALL_DOMAINS,
-  TEACHERS,
+  TEACHERS as INITIAL_TEACHERS,
   DEPARTMENTS,
   GRADE_LEVELS,
   EXP_BUCKETS,
@@ -11,8 +12,12 @@ import {
   getDomainAverage,
   getExpBucket,
   type Score,
+  type Teacher,
+  type Observation,
 } from "@/data/dummy";
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
+import { NewObservationModal } from "@/components/NewObservationModal";
+import { DrillDownModal } from "@/components/DrillDownModal";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -26,35 +31,71 @@ const SCORE_LEGEND = [
 
 type FilterStr = string;
 
+interface DrillDownTarget {
+  teacher: Teacher;
+  domainId: string;
+  domainLabel: string;
+}
+
 export default function Dashboard() {
   const currentUser = { name: "Principal Rivera", school: "Lincoln Elementary" };
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
+  /* ── Lifted state ──────────────────────────────────── */
+  const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
+
+  /* ── Filter state ──────────────────────────────────── */
   const [search, setSearch]       = useState("");
   const [dept, setDept]           = useState<FilterStr>("");
   const [grade, setGrade]         = useState<FilterStr>("");
   const [expBucket, setExpBucket] = useState<FilterStr>("");
 
+  /* ── Modal state ───────────────────────────────────── */
+  const [newObsOpen, setNewObsOpen]     = useState(false);
+  const [drillDown, setDrillDown]       = useState<DrillDownTarget | null>(null);
+
+  /* ── Derived ───────────────────────────────────────── */
   const filtered = useMemo(() => {
-    return TEACHERS.filter((t) => {
+    return teachers.filter((t) => {
       if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (dept     && t.department !== dept) return false;
       if (grade    && t.gradeLevel !== grade) return false;
       if (expBucket && getExpBucket(t.yearsExperience) !== expBucket) return false;
       return true;
     });
-  }, [search, dept, grade, expBucket]);
+  }, [teachers, search, dept, grade, expBucket]);
 
-  const schoolAvg      = filtered.length ? filtered.reduce((s, t) => s + getTeacherAverage(t), 0) / filtered.length : 0;
-  const proficient     = filtered.filter((t) => getTeacherAverage(t) >= 3).length;
-  const needsSupport   = filtered.filter((t) => getTeacherAverage(t) < 2).length;
-  const hasFilters     = !!(search || dept || grade || expBucket);
+  const schoolAvg    = filtered.length ? filtered.reduce((s, t) => s + getTeacherAverage(t), 0) / filtered.length : 0;
+  const proficient   = filtered.filter((t) => getTeacherAverage(t) >= 3).length;
+  const needsSupport = filtered.filter((t) => getTeacherAverage(t) < 2).length;
+  const hasFilters   = !!(search || dept || grade || expBucket);
+
+  /* ── Handlers ──────────────────────────────────────── */
+  function handleNewObservation(
+    teacherId: string,
+    date: string,
+    scores: Record<string, Score>,
+    strengths: string,
+    growthAreas: string,
+  ) {
+    const newObs: Observation = { date, scores, strengths: strengths || undefined, growthAreas: growthAreas || undefined };
+    setTeachers((prev) =>
+      prev.map((t) =>
+        t.id === teacherId
+          ? { ...t, observations: [...t.observations, newObs] }
+          : t,
+      ),
+    );
+  }
+
+  function openDrillDown(teacher: Teacher, domainId: string, domainLabel: string) {
+    setDrillDown({ teacher, domainId, domainLabel });
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
-      {/* Yellow stripe — mimics logo top bar */}
       <div style={{ height: 5, backgroundColor: YELLOW }} />
 
       <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
@@ -68,7 +109,6 @@ export default function Dashboard() {
               className="h-12 w-auto object-contain"
               style={{ filter: "brightness(0) invert(1)" }}
             />
-            {/* Vertical divider */}
             <div style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div>
               <p
@@ -84,6 +124,23 @@ export default function Dashboard() {
           {/* Right side */}
           <div className="flex items-center gap-3">
             <span className="text-blue-200 hidden sm:block" style={{ fontSize: 15 }}>{today}</span>
+
+            {/* ── Add Observation button ── */}
+            <button
+              onClick={() => setNewObsOpen(true)}
+              className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+              style={{
+                backgroundColor: YELLOW,
+                color: NAVY,
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: 15,
+                letterSpacing: "0.06em",
+              }}
+            >
+              <Plus size={16} strokeWidth={3} />
+              Add Observation
+            </button>
+
             <div
               className="flex items-center gap-2 rounded px-3 py-1.5"
               style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
@@ -104,7 +161,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Yellow stripe — mimics logo bottom bar */}
         <div style={{ height: 3, backgroundColor: YELLOW }} />
       </header>
 
@@ -120,10 +176,9 @@ export default function Dashboard() {
             >
               Observation Tracker
             </h2>
-            {/* Underline — extends logo bar pattern */}
             <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
             <p className="text-slate-500 mt-1.5 font-medium" style={{ fontSize: 14 }}>
-              Scores reflect most recent observation
+              Scores reflect most recent observation · Click any cell to view history
             </p>
           </div>
 
@@ -181,7 +236,6 @@ export default function Dashboard() {
             Filters
           </span>
 
-          {/* Search */}
           <div className="relative">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -222,7 +276,6 @@ export default function Dashboard() {
 
                 {/* Category row */}
                 <tr style={{ backgroundColor: NAVY }}>
-                  {/* Teacher col header — spans 2 rows */}
                   <th
                     rowSpan={2}
                     className="text-left pl-3 pr-2 uppercase sticky left-0 z-30"
@@ -259,7 +312,6 @@ export default function Dashboard() {
                     </th>
                   ))}
 
-                  {/* Avg col — spans 2 rows */}
                   <th
                     rowSpan={2}
                     className="text-center text-white uppercase"
@@ -278,7 +330,6 @@ export default function Dashboard() {
                   </th>
                 </tr>
 
-                {/* Yellow accent bar between category and domain rows */}
                 {/* Domain headers — vertical text */}
                 <tr style={{ backgroundColor: "#0d2990" }}>
                   {ALL_DOMAINS.map((domain) => {
@@ -361,7 +412,7 @@ export default function Dashboard() {
                           </p>
                         </td>
 
-                        {/* Score cells */}
+                        {/* Score cells — clickable */}
                         {ALL_DOMAINS.map((domain) => {
                           const score        = recent.scores[domain.id] as Score | undefined;
                           const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
@@ -369,8 +420,9 @@ export default function Dashboard() {
                             <ScoreCell
                               key={domain.id}
                               score={score}
-                              className={`py-1.5 ${isFirstInCat ? "" : ""}`}
+                              className="py-1.5"
                               style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
+                              onClick={() => openDrillDown(teacher, domain.id, domain.label)}
                             />
                           ) : (
                             <td key={domain.id} className="text-center text-slate-300">—</td>
@@ -436,6 +488,22 @@ export default function Dashboard() {
         </div>
 
       </main>
+
+      {/* ══ MODALS ══════════════════════════════════════════════ */}
+      <NewObservationModal
+        teachers={teachers}
+        open={newObsOpen}
+        onOpenChange={setNewObsOpen}
+        onSubmit={handleNewObservation}
+      />
+
+      <DrillDownModal
+        teacher={drillDown?.teacher ?? null}
+        domainId={drillDown?.domainId ?? null}
+        domainLabel={drillDown?.domainLabel ?? null}
+        open={drillDown !== null}
+        onOpenChange={(open) => { if (!open) setDrillDown(null); }}
+      />
     </div>
   );
 }
