@@ -155,13 +155,13 @@ export default function Dashboard() {
               className="bg-white rounded-md shadow-sm overflow-hidden"
               style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}
             >
-              <div className="px-3.5 py-2.5">
-                <p className="uppercase tracking-wide text-[9px] font-semibold" style={{ color: "#64748b" }}>
+              <div className="px-4 py-3">
+                <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>
                   {label}
                 </p>
                 <p
-                  className="text-2xl font-bold mt-0.5 leading-none"
-                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800 }}
+                  className="font-bold mt-1 leading-none"
+                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
                 >
                   {value}
                 </p>
@@ -172,19 +172,19 @@ export default function Dashboard() {
 
         {/* ── Filters ───────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md px-3.5 py-2 flex flex-wrap gap-2 items-center"
+          className="bg-white rounded-md px-4 py-2.5 flex flex-wrap gap-3 items-center"
           style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
         >
           <span
-            className="text-[10px] font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY }}
+            className="font-bold uppercase tracking-widest shrink-0"
+            style={{ color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, letterSpacing: "0.1em" }}
           >
             Filters
           </span>
 
           {/* Search */}
           <div className="relative">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
             <input
@@ -192,8 +192,8 @@ export default function Dashboard() {
               placeholder="Search teacher…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-6 pr-2.5 py-1 text-xs rounded w-36 focus:outline-none"
-              style={{ border: "1px solid #dde3f0", backgroundColor: "#F4F6FB" }}
+              className="pl-8 pr-3 py-1.5 rounded w-44 focus:outline-none"
+              style={{ border: "1px solid #dde3f0", backgroundColor: "#F4F6FB", fontSize: 14 }}
             />
           </div>
 
@@ -204,8 +204,8 @@ export default function Dashboard() {
           {hasFilters && (
             <button
               onClick={() => { setSearch(""); setDept(""); setGrade(""); setExpBucket(""); }}
-              className="text-[11px] font-semibold underline underline-offset-2"
-              style={{ color: NAVY }}
+              className="font-semibold underline underline-offset-2"
+              style={{ color: NAVY, fontSize: 14 }}
             >
               Clear all
             </button>
@@ -235,7 +235,7 @@ export default function Dashboard() {
                       paddingTop: 8, paddingBottom: 8,
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontWeight: 700,
-                      fontSize: 15,
+                      fontSize: 18,
                       letterSpacing: "0.08em",
                     }}
                   >
@@ -249,7 +249,7 @@ export default function Dashboard() {
                       className="text-center font-bold uppercase tracking-wider text-white"
                       style={{
                         fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: 15,
+                        fontSize: 18,
                         letterSpacing: "0.08em",
                         borderLeft: `2px solid ${YELLOW}`,
                         paddingTop: 8, paddingBottom: 8,
@@ -268,7 +268,7 @@ export default function Dashboard() {
                       width: 54, minWidth: 54,
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontWeight: 700,
-                      fontSize: 15,
+                      fontSize: 18,
                       letterSpacing: "0.08em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
@@ -351,10 +351,10 @@ export default function Dashboard() {
                             borderRight: `2px solid ${YELLOW}`,
                           }}
                         >
-                          <p className="font-semibold text-xs leading-tight truncate" style={{ color: NAVY }}>
+                          <p className="font-semibold leading-tight truncate" style={{ color: NAVY, fontSize: 15 }}>
                             {teacher.name}
                           </p>
-                          <p className="text-[10px] text-slate-400 mt-px">
+                          <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
                             {teacher.department} · {teacher.gradeLevel} · {teacher.yearsExperience}yr
                           </p>
                         </td>
@@ -394,14 +394,14 @@ export default function Dashboard() {
                     style={{ backgroundColor: NAVY, borderTop: `3px solid ${YELLOW}` }}
                   >
                     <td
-                      className="pl-3 pr-2 py-1.5 text-xs sticky left-0 z-30 uppercase tracking-wide"
+                      className="pl-3 pr-2 py-2 sticky left-0 z-30 uppercase tracking-wide"
                       style={{
                         color: YELLOW,
                         backgroundColor: NAVY,
                         borderRight: `2px solid ${YELLOW}`,
                         fontFamily: "'Barlow Condensed', sans-serif",
                         fontWeight: 700,
-                        fontSize: 11,
+                        fontSize: 16,
                         letterSpacing: "0.07em",
                       }}
                     >
@@ -434,7 +434,7 @@ export default function Dashboard() {
         </div>
 
         {/* Footer */}
-        <p className="text-[10px] text-center pb-1" style={{ color: "#94a3b8" }}>
+        <p className="text-center pb-1" style={{ color: "#94a3b8", fontSize: 13 }}>
           Scores reflect most recent observation · 1 = Needs Improvement · 2 = Approaching · 3 = Proficient · 4 = Exemplary
         </p>
       </main>
@@ -451,14 +451,15 @@ function FilterSelect({ label, value, onChange, options }: {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="py-1 pl-2 pr-6 text-xs rounded focus:outline-none appearance-none cursor-pointer font-medium"
+      className="py-1.5 pl-3 pr-7 rounded focus:outline-none appearance-none cursor-pointer font-medium"
       style={{
+        fontSize: 14,
         border: `1px solid ${active ? NAVY : "#dde3f0"}`,
         backgroundColor: active ? "#eef2fc" : "#F4F6FB",
         color: active ? NAVY : "#64748b",
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%231034B4' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m1 1 4 4 4-4'/%3E%3C/svg%3E")`,
         backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 6px center",
+        backgroundPosition: "right 8px center",
       }}
     >
       <option value="">{label}: All</option>
