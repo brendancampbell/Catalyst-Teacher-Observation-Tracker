@@ -1,6 +1,9 @@
+import type { CSSProperties } from "react";
+
 interface ScoreCellProps {
   score: number;
   className?: string;
+  style?: CSSProperties;
 }
 
 export function getScoreColor(score: number): string {
@@ -22,14 +25,17 @@ export function getScoreColorExact(score: 1 | 2 | 3 | 4): string {
   }
 }
 
-export function ScoreCell({ score, className = "" }: ScoreCellProps) {
+export function ScoreCell({ score, className = "", style }: ScoreCellProps) {
   const isExact = Number.isInteger(score);
   const colorClass = isExact
     ? getScoreColorExact(score as 1 | 2 | 3 | 4)
     : getScoreColor(score);
 
   return (
-    <td className={`text-center font-semibold ${colorClass} ${className}`} style={{ width: 48, minWidth: 48 }}>
+    <td
+      className={`text-center font-semibold ${colorClass} ${className}`}
+      style={{ width: 48, minWidth: 48, ...style }}
+    >
       {score.toFixed(isExact ? 0 : 1)}
     </td>
   );

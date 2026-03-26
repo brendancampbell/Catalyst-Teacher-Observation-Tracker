@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -59,83 +60,83 @@
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
+  --font-display: var(--app-font-display);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Uncommon Schools brand tokens */
+  --uncommon-navy: #1034B4;
+  --uncommon-yellow: #FFB500;
 }
 
-/* LIGHT MODE */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0,0,0,.10);
+  --badge-outline: rgba(0,0,0,.05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0,0,0,.03);
+  --elevate-2: rgba(0,0,0,.08);
 
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
+  /* Uncommon Navy as primary */
+  --background: 220 20% 97%;
+  --foreground: 224 76% 9%;
+
+  --border: 220 20% 88%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
+  --card-foreground: 224 76% 9%;
+  --card-border: 220 20% 88%;
 
-  --sidebar: 222 47% 11%;
-  --sidebar-foreground: 210 20% 95%;
-  --sidebar-border: 222 40% 20%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 222 40% 20%;
-  --sidebar-accent-foreground: 210 20% 95%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar: 224 83% 37%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 224 83% 28%;
+  --sidebar-primary: 43 100% 50%;
+  --sidebar-primary-foreground: 224 76% 9%;
+  --sidebar-accent: 224 83% 28%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-ring: 43 100% 50%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
+  --popover-foreground: 224 76% 9%;
+  --popover-border: 220 20% 88%;
 
-  --primary: 217 91% 60%;
+  --primary: 224 83% 38%;      /* Uncommon Navy #1034B4 */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 20% 94%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 43 100% 50%;   /* Uncommon Yellow #FFB500 */
+  --secondary-foreground: 224 76% 9%;
 
-  --muted: 210 20% 94%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 220 16% 46%;
 
-  --accent: 210 20% 94%;
-  --accent-foreground: 222 47% 11%;
+  --accent: 43 100% 95%;
+  --accent-foreground: 224 76% 9%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 214 32% 91%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 60%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
+  --input: 220 20% 88%;
+  --ring: 224 83% 38%;
 
-  --app-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --chart-1: 224 83% 38%;
+  --chart-2: 43 100% 50%;
+  --chart-3: 160 60% 40%;
+  --chart-4: 340 75% 55%;
+  --chart-5: 30 80% 55%;
+
+  --app-font-sans: 'Libre Franklin', system-ui, -apple-system, sans-serif;
+  --app-font-display: 'Barlow Condensed', 'Libre Franklin', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: .5rem;
-  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.04);
-  --shadow-xs: 0px 1px 3px 0px rgba(0,0,0,0.06);
-  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.08), 0px 1px 2px -1px rgba(0,0,0,0.04);
-  --shadow: 0px 2px 4px 0px rgba(0,0,0,0.08), 0px 1px 2px -1px rgba(0,0,0,0.06);
-  --shadow-md: 0px 4px 6px -1px rgba(0,0,0,0.08), 0px 2px 4px -1px rgba(0,0,0,0.06);
-  --shadow-lg: 0px 10px 15px -3px rgba(0,0,0,0.08), 0px 4px 6px -2px rgba(0,0,0,0.05);
-  --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.08), 0px 10px 10px -5px rgba(0,0,0,0.04);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.12);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
+  --radius: .375rem;
 
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --shadow-sm: 0 1px 2px rgba(16,52,180,0.06), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow: 0 2px 4px rgba(16,52,180,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 8px rgba(16,52,180,0.1), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 16px rgba(16,52,180,0.1), 0 4px 6px rgba(0,0,0,0.05);
+
+  /* Borders computed */
   --primary-border: hsl(var(--primary));
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --secondary-border: hsl(var(--secondary));
@@ -146,122 +147,32 @@
   --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-}
-
-.dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-
-  --background: 222 47% 8%;
-  --foreground: 210 20% 95%;
-  --border: 222 40% 20%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 20% 95%;
-  --card-border: 222 40% 20%;
-
-  --sidebar: 222 47% 6%;
-  --sidebar-foreground: 210 20% 90%;
-  --sidebar-border: 222 40% 16%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 222 40% 16%;
-  --sidebar-accent-foreground: 210 20% 90%;
-  --sidebar-ring: 217 91% 60%;
-
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 20% 95%;
-  --popover-border: 222 40% 20%;
-
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 222 40% 16%;
-  --secondary-foreground: 210 20% 95%;
-
-  --muted: 222 40% 16%;
-  --muted-foreground: 215 20% 60%;
-
-  --accent: 222 40% 16%;
-  --accent-foreground: 210 20% 95%;
-
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-
-  --input: 222 40% 20%;
-  --ring: 217 91% 60%;
-  --chart-1: 217 91% 60%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
-
-  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.3);
-  --shadow-xs: 0px 1px 3px 0px rgba(0,0,0,0.4);
-  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.4), 0px 1px 2px -1px rgba(0,0,0,0.3);
-  --shadow: 0px 2px 4px 0px rgba(0,0,0,0.4), 0px 1px 2px -1px rgba(0,0,0,0.3);
-  --shadow-md: 0px 4px 6px -1px rgba(0,0,0,0.4), 0px 2px 4px -1px rgba(0,0,0,0.3);
-  --shadow-lg: 0px 10px 15px -3px rgba(0,0,0,0.4), 0px 4px 6px -2px rgba(0,0,0,0.3);
-  --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.4), 0px 10px 10px -5px rgba(0,0,0,0.3);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.5);
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; }
 }
 
 @layer utilities {
-  input[type="search"]::-webkit-search-cancel-button {
-    @apply hidden;
-  }
+  input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
 
-  [contenteditable][data-placeholder]:empty::before {
-    content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
-    pointer-events: none;
-  }
-
-  .no-default-hover-elevate {}
-  .no-default-active-elevate {}
-
-  .toggle-elevate::before,
-  .toggle-elevate-2::before {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0px;
-    border-radius: inherit;
-    z-index: -1;
-  }
-
-  .toggle-elevate.toggle-elevated::before {
-    background-color: var(--elevate-2);
-  }
-
-  .border.toggle-elevate::before {
-    inset: -1px;
+  .font-display {
+    font-family: var(--app-font-display);
   }
 
   .hover-elevate:not(.no-default-hover-elevate),
-  .active-elevate:not(.no-default-active-elevate),
-  .hover-elevate-2:not(.no-default-hover-elevate),
-  .active-elevate-2:not(.no-default-active-elevate) {
+  .active-elevate:not(.no-default-active-elevate) {
     position: relative;
     z-index: 0;
   }
 
   .hover-elevate:not(.no-default-hover-elevate)::after,
-  .active-elevate:not(.no-default-active-elevate)::after,
-  .hover-elevate-2:not(.no-default-hover-elevate)::after,
-  .active-elevate-2:not(.no-default-active-elevate)::after {
+  .active-elevate:not(.no-default-active-elevate)::after {
     content: "";
     pointer-events: none;
     position: absolute;
@@ -270,21 +181,10 @@
     z-index: 999;
   }
 
-  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate:active:not(.no-default-active-elevate)::after {
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after {
     background-color: var(--elevate-1);
   }
-
-  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate-2:active:not(.no-default-active-elevate)::after {
+  .active-elevate:active:not(.no-default-active-elevate)::after {
     background-color: var(--elevate-2);
-  }
-
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
-    inset: -1px;
   }
 }
