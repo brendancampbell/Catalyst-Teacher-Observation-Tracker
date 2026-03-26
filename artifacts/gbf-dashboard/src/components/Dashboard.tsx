@@ -123,8 +123,7 @@ export default function Dashboard() {
             {/* Underline — extends logo bar pattern */}
             <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
             <p className="text-slate-500 mt-1.5 font-medium" style={{ fontSize: 14 }}>
-              Most recent scores · {filtered.length} teacher{filtered.length !== 1 ? "s" : ""}
-              {hasFilters ? " (filtered)" : ""}
+              Scores reflect most recent observation
             </p>
           </div>
 
@@ -302,10 +301,11 @@ export default function Dashboard() {
                             maxHeight: 118,
                             lineHeight: 1.25,
                             fontSize: "13px",
+                            fontWeight: 700,
                             display: "flex",
-                            alignItems: "flex-start",
+                            alignItems: "center",
                             justifyContent: "flex-start",
-                            padding: "4px 6px",
+                            padding: "4px 4px",
                           }}
                         >
                           {domain.label}
@@ -433,10 +433,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center pb-1" style={{ color: "#94a3b8", fontSize: 13 }}>
-          Scores reflect most recent observation · 1 = Needs Improvement · 2 = Approaching · 3 = Proficient · 4 = Exemplary
-        </p>
       </main>
     </div>
   );
