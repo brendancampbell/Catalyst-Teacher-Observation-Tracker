@@ -225,13 +225,17 @@ export default function Dashboard() {
                   {/* Teacher col header — spans 2 rows */}
                   <th
                     rowSpan={2}
-                    className="text-left pl-3 pr-2 font-semibold text-xs sticky left-0 z-30"
+                    className="text-left pl-3 pr-2 uppercase sticky left-0 z-30"
                     style={{
                       width: 180, minWidth: 180,
                       backgroundColor: NAVY,
                       color: "white",
                       borderRight: `2px solid ${YELLOW}`,
                       paddingTop: 8, paddingBottom: 8,
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: "0.08em",
                     }}
                   >
                     Teacher / Dept
@@ -281,9 +285,9 @@ export default function Dashboard() {
                     return (
                       <th
                         key={domain.id}
-                        className="text-center font-medium align-bottom pb-1 pt-0"
+                        className="font-medium align-bottom pb-1 pt-0"
                         style={{
-                          width: 48, minWidth: 48, height: 108,
+                          width: 52, minWidth: 52, height: 120,
                           color: "#c8d4f5",
                           borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
                         }}
@@ -293,14 +297,13 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             whiteSpace: "normal",
-                            maxHeight: 106,
-                            lineHeight: 1.2,
-                            fontSize: "12px",
+                            maxHeight: 118,
+                            lineHeight: 1.25,
+                            fontSize: "13px",
                             display: "flex",
-                            alignItems: "center",
+                            alignItems: "flex-start",
                             justifyContent: "flex-start",
-                            margin: "0 auto",
-                            padding: "2px 0",
+                            padding: "4px 6px",
                           }}
                         >
                           {domain.label}
