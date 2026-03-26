@@ -125,6 +125,22 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <span className="text-blue-200 hidden sm:block" style={{ fontSize: 15 }}>{today}</span>
 
+            {/* ── Add Observation button ── */}
+            <button
+              onClick={() => setNewObsOpen(true)}
+              className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+              style={{
+                backgroundColor: YELLOW,
+                color: NAVY,
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: 15,
+                letterSpacing: "0.06em",
+              }}
+            >
+              <Plus size={16} strokeWidth={3} />
+              Add Observation
+            </button>
+
             <div
               className="flex items-center gap-2 rounded px-3 py-1.5"
               style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
@@ -166,36 +182,17 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Button + score legend stacked on the right */}
-          <div className="flex flex-col items-end gap-2">
-            <button
-              onClick={() => setNewObsOpen(true)}
-              className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 transition-opacity hover:opacity-90 shadow-sm shrink-0"
-              style={{
-                backgroundColor: NAVY,
-                color: YELLOW,
-                fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: 15,
-                letterSpacing: "0.06em",
-                border: `2px solid ${YELLOW}`,
-              }}
-            >
-              <Plus size={16} strokeWidth={3} />
-              Add Observation
-            </button>
-
-            {/* Score legend */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
-                <span
-                  key={score}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
-                  style={{ fontSize: 14 }}
-                >
-                  {score} <span className="font-normal opacity-80">{label}</span>
-                </span>
-              ))}
-            </div>
+          {/* Score legend */}
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
+              <span
+                key={score}
+                className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
+                style={{ fontSize: 14 }}
+              >
+                {score} <span className="font-normal opacity-80">{label}</span>
+              </span>
+            ))}
           </div>
         </div>
 
