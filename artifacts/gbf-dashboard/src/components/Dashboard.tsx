@@ -291,8 +291,8 @@ export default function Dashboard() {
                           color: "#c8d4f5",
                           borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
                           textAlign: "center",
-                          verticalAlign: "bottom",
-                          paddingBottom: 8,
+                          verticalAlign: "top",
+                          paddingTop: 8,
                           overflow: "visible",
                         }}
                       >
@@ -301,7 +301,7 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             display: "inline-block",
-                            height: "72px",
+                            height: "80px",
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
