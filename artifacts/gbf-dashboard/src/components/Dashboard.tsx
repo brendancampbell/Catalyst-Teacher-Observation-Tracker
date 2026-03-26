@@ -262,12 +262,13 @@ export default function Dashboard() {
                   {/* Avg col — spans 2 rows */}
                   <th
                     rowSpan={2}
-                    className="text-center font-bold text-white"
+                    className="text-center text-white uppercase"
                     style={{
                       width: 54, minWidth: 54,
                       fontFamily: "'Barlow Condensed', sans-serif",
-                      fontSize: 11,
-                      letterSpacing: "0.06em",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: "0.08em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
                       paddingTop: 8, paddingBottom: 8,
