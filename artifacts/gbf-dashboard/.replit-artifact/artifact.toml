@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "GBF Principal Dashboard"
+version = "1.0.0"
+id = "artifacts/gbf-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18277
+
+[services.development]
+run = "pnpm --filter @workspace/gbf-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gbf-dashboard", "run", "build" ]
+publicDir = "artifacts/gbf-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18277"
+BASE_PATH = "/"

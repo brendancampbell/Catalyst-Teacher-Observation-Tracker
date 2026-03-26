@@ -1,0 +1,39 @@
+You are an expert full-stack developer. We are building a web application called the "Get Better Faster" (GBF) observation tracker for school principals and coaches. 
+
+For the tech stack, we will use Next.js, React, Tailwind CSS, and shadcn/ui components.
+
+We are currently on Phase 1: Building the core Principal Dashboard UI with dummy data. 
+Do not build real authentication or a real database yet. Hardcode a dummy user context so the app assumes I am logged in as a "Principal". 
+
+Please build the main dashboard page with the following requirements:
+
+1. DATA STRUCTURE (Dummy Data):
+Create dummy data for about 10 teachers across different departments (English, Math, Science, etc.). 
+The evaluation rubric uses a 1 to 4 scale (1 = Needs Improvement, 2 = Approaching, 3 = Proficient, 4 = Exemplary). 
+
+Use these specific Domains, grouped by these Categories:
+- Category 1: Classroom Culture
+  - Domains: Confident Presence, WTD (What To Do) Cycle, Ratio & Engagement, Joy
+- Category 2: The First 15 
+  - Domains: F15: Entry/DN/DNR, F15: Fluency/OD, F15: Launch
+- Category 3: Academic Monitoring
+  - Domains: LP & Mks, Annotations & Notebook Habits, Academic Mon. 101
+
+Generate a few historical dummy observations for each teacher so we have data to calculate their "most recent" score and their "averages".
+
+2. THE UI / DATA GRID:
+Build a complex, clean data table using Tailwind CSS. 
+- Left-most column: Teacher Name & Department.
+- Top Headers: The Categories (spanning across their respective Domains), and a sub-header row for the individual Domains.
+- The Cells: Display the teacher's *most recent* score for that specific domain.
+- Right-most column: "Teacher Average" (average of their most recent scores across all domains).
+- Bottom row: "Domain Average" (average of all teachers' recent scores for that specific domain).
+
+3. CONDITIONAL FORMATTING:
+The score cells must be color-coded based on the 1-4 scale:
+- 1 = Light Red background
+- 2 = Light Yellow background
+- 3 = Light Green background
+- 4 = Dark Green background, white text
+
+Make the UI look incredibly clean, modern, and professional, fit for a school district enterprise tool. Ensure the table is scrollable if it overflows. Write all the necessary React components and dummy data structures to render this immediately.
