@@ -287,7 +287,7 @@ export default function Dashboard() {
                       <th
                         key={domain.id}
                         style={{
-                          width: 68, minWidth: 68, height: 88,
+                          width: 78, minWidth: 78, height: 88,
                           color: "#c8d4f5",
                           borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
                           textAlign: "center",
@@ -305,8 +305,8 @@ export default function Dashboard() {
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
-                            fontSize: "11px",
-                            fontWeight: 700,
+                            fontSize: "13px",
+                            fontWeight: 800,
                             lineHeight: 1.3,
                           }}
                         >

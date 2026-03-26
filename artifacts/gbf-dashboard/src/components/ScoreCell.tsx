@@ -34,7 +34,7 @@ export function ScoreCell({ score, className = "", style }: ScoreCellProps) {
   return (
     <td
       className={`text-center font-semibold ${colorClass} ${className}`}
-      style={{ width: 68, minWidth: 68, ...style }}
+      style={{ width: 78, minWidth: 78, ...style }}
     >
       {score.toFixed(isExact ? 0 : 1)}
     </td>
