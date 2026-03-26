@@ -286,26 +286,23 @@ export default function Dashboard() {
                     return (
                       <th
                         key={domain.id}
-                        className="font-medium align-bottom pb-1 pt-0"
                         style={{
                           width: 52, minWidth: 52, height: 120,
                           color: "#c8d4f5",
                           borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                          textAlign: "center",
+                          verticalAlign: "bottom",
+                          paddingBottom: 6,
                         }}
                       >
                         <div
                           style={{
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
-                            whiteSpace: "normal",
-                            maxHeight: 118,
-                            lineHeight: 1.25,
+                            display: "inline-block",
                             fontSize: "13px",
                             fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-start",
-                            padding: "4px 4px",
+                            lineHeight: 1.25,
                           }}
                         >
                           {domain.label}
