@@ -144,26 +144,23 @@ export default function Dashboard() {
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-2.5">
           {[
-            { label: "Teachers Shown",    value: filtered.length, accent: false },
-            { label: "Average Score",     value: filtered.length ? schoolAvg.toFixed(1) : "—", accent: true },
-            { label: "Proficient+ (≥ 3)", value: proficient, accent: false },
-            { label: "Need Support (< 2)", value: needsSupport, accent: false },
-          ].map(({ label, value, accent }) => (
+            { label: "Teachers Shown",     value: filtered.length },
+            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—" },
+            { label: "Proficient+ (≥ 3)", value: proficient },
+            { label: "Need Support (< 2)", value: needsSupport },
+          ].map(({ label, value }) => (
             <div
               key={label}
               className="bg-white rounded-md shadow-sm overflow-hidden"
-              style={{ border: `1px solid ${accent ? YELLOW : "#dde3f0"}`, borderTop: `3px solid ${accent ? YELLOW : NAVY}` }}
+              style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}
             >
               <div className="px-3.5 py-2.5">
-                <p
-                  className="uppercase tracking-wide text-[9px] font-semibold"
-                  style={{ color: accent ? "#b38200" : "#64748b" }}
-                >
+                <p className="uppercase tracking-wide text-[9px] font-semibold" style={{ color: "#64748b" }}>
                   {label}
                 </p>
                 <p
                   className="text-2xl font-bold mt-0.5 leading-none"
-                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: accent ? NAVY : NAVY, fontWeight: 800 }}
+                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800 }}
                 >
                   {value}
                 </p>
@@ -240,14 +237,14 @@ export default function Dashboard() {
                     Teacher / Dept
                   </th>
 
-                  {CATEGORIES.map((cat, ci) => (
+                  {CATEGORIES.map((cat) => (
                     <th
                       key={cat.id}
                       colSpan={cat.domains.length}
                       className="text-center font-bold uppercase tracking-wider text-white"
                       style={{
                         fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: 11,
+                        fontSize: 15,
                         letterSpacing: "0.08em",
                         borderLeft: `2px solid ${YELLOW}`,
                         paddingTop: 8, paddingBottom: 8,
@@ -298,7 +295,7 @@ export default function Dashboard() {
                             whiteSpace: "normal",
                             maxHeight: 106,
                             lineHeight: 1.2,
-                            fontSize: "10px",
+                            fontSize: "12px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "flex-start",
