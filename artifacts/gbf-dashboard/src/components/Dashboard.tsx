@@ -287,12 +287,13 @@ export default function Dashboard() {
                       <th
                         key={domain.id}
                         style={{
-                          width: 52, minWidth: 52, height: 120,
+                          width: 68, minWidth: 68, height: 88,
                           color: "#c8d4f5",
                           borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
                           textAlign: "center",
                           verticalAlign: "bottom",
-                          paddingBottom: 6,
+                          paddingBottom: 8,
+                          overflow: "visible",
                         }}
                       >
                         <div
@@ -300,9 +301,13 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             display: "inline-block",
-                            fontSize: "13px",
+                            height: "72px",
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                            overflow: "visible",
+                            fontSize: "11px",
                             fontWeight: 700,
-                            lineHeight: 1.25,
+                            lineHeight: 1.3,
                           }}
                         >
                           {domain.label}
