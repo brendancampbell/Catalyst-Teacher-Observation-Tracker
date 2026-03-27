@@ -83,7 +83,7 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
                 </div>
                 <DialogPrimitive.Title
                   className="text-white font-bold uppercase tracking-wider"
-                  style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, letterSpacing: "0.1em" }}
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.03em" }}
                 >
                   New Observation
                 </DialogPrimitive.Title>
@@ -160,7 +160,7 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
               <div key={cat.id}>
                 <div
                   className="px-3 py-1.5 rounded-t font-bold uppercase tracking-wider text-white text-xs"
-                  style={{ backgroundColor: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, letterSpacing: "0.08em" }}
+                  style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
                 >
                   {cat.label}
                 </div>

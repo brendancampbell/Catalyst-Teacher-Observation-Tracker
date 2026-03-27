@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Franklin:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -126,7 +126,7 @@
   --chart-5: 30 80% 55%;
 
   --app-font-sans: 'Libre Franklin', system-ui, -apple-system, sans-serif;
-  --app-font-display: 'Barlow Condensed', 'Libre Franklin', sans-serif;
+  --app-font-display: 'Bebas Neue', 'Libre Franklin', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: .375rem;

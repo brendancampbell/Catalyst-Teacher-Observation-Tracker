@@ -92,7 +92,7 @@ function StatCard({
       style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
     >
       <span className="text-blue-300 text-xs uppercase tracking-wider font-semibold mb-0.5">{label}</span>
-      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
+      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
         {children}
       </span>
     </div>
@@ -179,13 +179,13 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                 <div>
                   <DialogPrimitive.Title
                     className="leading-tight"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, letterSpacing: "0.05em" }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, letterSpacing: "0.02em" }}
                   >
                     {onTeacherClick ? (
                       <button
                         onClick={() => { onOpenChange(false); onTeacherClick(); }}
                         className="text-white hover:text-yellow-300 transition-colors underline underline-offset-2 decoration-yellow-400/60 hover:decoration-yellow-300 font-bold"
-                        style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, letterSpacing: "0.05em", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, letterSpacing: "0.02em", background: "none", border: "none", padding: 0, cursor: "pointer" }}
                       >
                         {teacher.name}
                       </button>

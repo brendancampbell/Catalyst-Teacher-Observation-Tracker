@@ -76,7 +76,7 @@ function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
           <div key={cat.id}>
             <p
               className="text-xs font-bold uppercase tracking-wider mb-1.5"
-              style={{ color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.08em" }}
+              style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}
             >
               {cat.label}
             </p>
@@ -181,7 +181,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
             <div className="hidden sm:block min-w-0">
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.12em" }}
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.02em" }}
               >
                 Get Better Faster
               </p>
@@ -200,7 +200,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
             <button
               onClick={onNewObs}
               className="flex items-center gap-1.5 font-bold rounded-md px-2.5 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
-              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, letterSpacing: "0.06em" }}
+              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.02em" }}
             >
               <Plus size={16} strokeWidth={3} />
               <span className="hidden sm:inline">Add Observation</span>
@@ -236,14 +236,14 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                 <div className="flex items-center gap-3 mb-1">
                   <div
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base sm:text-lg font-bold shrink-0"
-                    style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Barlow Condensed', sans-serif" }}
+                    style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif" }}
                   >
                     {teacher.name.split(" ").map((n) => n[0]).join("")}
                   </div>
                   <div>
                     <h1
                       className="text-white font-bold leading-tight"
-                      style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, letterSpacing: "0.04em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, letterSpacing: "0.02em" }}
                     >
                       {teacher.name}
                     </h1>
@@ -262,7 +262,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                   <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Current Avg</p>
                   <p
                     className="font-bold mt-0.5"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30, color: YELLOW, lineHeight: 1 }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, color: YELLOW, lineHeight: 1 }}
                   >
                     {overallAvg !== null ? overallAvg.toFixed(1) : "—"}
                   </p>
@@ -274,7 +274,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                   <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Observations</p>
                   <p
                     className="font-bold text-white mt-0.5"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1 }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1 }}
                   >
                     {teacher.observations.length}
                   </p>
@@ -291,7 +291,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                       <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Last Observed</p>
                       <p
                         className="font-bold text-white mt-0.5 leading-none"
-                        style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30 }}
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30 }}
                       >
                         {daysSince}
                         <span className="text-base font-semibold ml-0.5">d</span>
@@ -321,7 +321,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                 <BookOpen size={16} style={{ color: NAVY }} />
                 <h2
                   className="font-bold uppercase tracking-wide"
-                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.08em" }}
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                 >
                   Domain Scores — Most Recent
                 </h2>
@@ -332,7 +332,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                   <div key={cat.id}>
                     <div
                       className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
-                      style={{ backgroundColor: "#f0f3fc", color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.08em" }}
+                      style={{ backgroundColor: "#f0f3fc", color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}
                     >
                       {cat.label}
                     </div>
@@ -378,7 +378,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                     <Star size={16} className="text-green-600" />
                     <h2
                       className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.08em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                     >
                       ✦ Strengths
                     </h2>
@@ -404,7 +404,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                     <CalendarDays size={16} className="text-orange-600" />
                     <h2
                       className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.08em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                     >
                       ↑ Action Steps
                     </h2>
@@ -427,7 +427,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
         <div>
           <h2
             className="font-bold uppercase tracking-wide mb-3"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.08em" }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.02em" }}
           >
             Observation History
             <span

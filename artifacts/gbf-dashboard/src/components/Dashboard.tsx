@@ -159,7 +159,7 @@ export default function Dashboard() {
             <div className="hidden sm:block min-w-0">
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.12em" }}
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
               >
                 Get Better Faster Tracker
               </p>
@@ -178,9 +178,9 @@ export default function Dashboard() {
               style={{
                 backgroundColor: YELLOW,
                 color: NAVY,
-                fontFamily: "'Barlow Condensed', sans-serif",
+                fontFamily: "'Bebas Neue', sans-serif",
                 fontSize: 15,
-                letterSpacing: "0.06em",
+                letterSpacing: "0.02em",
               }}
             >
               <Plus size={16} strokeWidth={3} />
@@ -232,24 +232,24 @@ export default function Dashboard() {
                 </p>
                 {pct !== null ? (
                   <div className="flex items-center gap-0 mt-1">
-                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
                       {value}
                     </span>
-                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
                       {pct}%
                     </span>
                   </div>
                 ) : colorScore !== null ? (
                   <span
                     className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 36 }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 36 }}
                   >
                     {value}
                   </span>
                 ) : (
                   <p
                     className="font-bold mt-1 leading-none"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
                   >
                     {value}
                   </p>
@@ -266,7 +266,7 @@ export default function Dashboard() {
         >
           <span
             className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, letterSpacing: "0.1em" }}
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
           >
             Filters
           </span>
@@ -300,7 +300,7 @@ export default function Dashboard() {
           )}
 
           {/* View mode toggle — right-aligned */}
-          <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Barlow Condensed', sans-serif" }}>
+          <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
             {(["recent", "quarterAvg"] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
@@ -310,7 +310,7 @@ export default function Dashboard() {
                 style={{
                   backgroundColor: viewMode === mode ? NAVY : "transparent",
                   color: viewMode === mode ? "white" : NAVY,
-                  letterSpacing: "0.07em",
+                  letterSpacing: "0.02em",
                   fontSize: 13,
                 }}
               >
@@ -340,10 +340,10 @@ export default function Dashboard() {
                       color: "white",
                       borderRight: `2px solid ${YELLOW}`,
                       paddingTop: 8, paddingBottom: 8,
-                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
                       fontSize: 18,
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.02em",
                     }}
                   >
                     Teacher / Dept
@@ -355,9 +355,9 @@ export default function Dashboard() {
                       colSpan={cat.domains.length}
                       className="text-center font-bold uppercase tracking-wider text-white"
                       style={{
-                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontFamily: "'Bebas Neue', sans-serif",
                         fontSize: 18,
-                        letterSpacing: "0.08em",
+                        letterSpacing: "0.02em",
                         borderLeft: `2px solid ${YELLOW}`,
                         paddingTop: 8, paddingBottom: 8,
                         backgroundColor: NAVY,
@@ -372,10 +372,10 @@ export default function Dashboard() {
                     className="text-center text-white uppercase"
                     style={{
                       width: 54, minWidth: 54,
-                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
                       fontSize: 18,
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.02em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
                       paddingTop: 8, paddingBottom: 8,
@@ -514,10 +514,10 @@ export default function Dashboard() {
                         color: YELLOW,
                         backgroundColor: NAVY,
                         borderRight: `2px solid ${YELLOW}`,
-                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
                         fontSize: 16,
-                        letterSpacing: "0.07em",
+                        letterSpacing: "0.02em",
                       }}
                     >
                       Domain Avg
