@@ -122,7 +122,6 @@ export default function Dashboard() {
   const quarterId: number         = data?.quarter.id  ?? 0;
 
   /* ── Filter state ──────────────────────────────────── */
-  const [search, setSearch] = useState("");
   const [subject, setSubject]     = useState<string[]>([]);
   const [grade, setGrade]   = useState<string[]>([]);
 
@@ -141,12 +140,11 @@ export default function Dashboard() {
   /* ── Filtered teacher list ─────────────────────────── */
   const filtered = useMemo(() => {
     return teachers.filter((t) => {
-      if (viewBy === "teacher" && search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (subject.length  && !subject.includes(t.subject)) return false;
       if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
       return true;
     });
-  }, [teachers, search, subject, grade, viewBy]);
+  }, [teachers, subject, grade, viewBy]);
 
   /* ── Group rows (for rollup views) ─────────────────── */
   const groupRows = useMemo(
@@ -175,7 +173,7 @@ export default function Dashboard() {
     ? filtered.filter((t) => teacherAvgFn(t) < 2).length
     : groupAvgs.filter((a) => a < 2).length;
 
-  const hasFilters = !!(search || subject.length || grade.length);
+  const hasFilters = !!(subject.length || grade.length);
 
   /* ── Handlers ──────────────────────────────────────── */
   async function handleNewObservation(
@@ -421,7 +419,7 @@ export default function Dashboard() {
               <button
                 key={mode}
                 type="button"
-                onClick={() => { setViewBy(mode); if (mode !== "teacher") setSearch(""); }}
+                onClick={() => setViewBy(mode)}
                 className="px-3 sm:px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
                 style={{
                   backgroundColor: viewBy === mode ? NAVY : "transparent",
@@ -447,23 +445,6 @@ export default function Dashboard() {
             Filters
           </span>
 
-          {/* Search — only shown in teacher view */}
-          {viewBy === "teacher" && (
-            <div className="relative">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-              <input
-                type="search"
-                placeholder="Search teacher…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded w-44 focus:outline-none"
-                style={{ border: "1px solid #dde3f0", backgroundColor: "#F4F6FB", fontSize: 14 }}
-              />
-            </div>
-          )}
-
           {/* Subject filter — hidden when grouped by subject */}
           {viewBy !== "subject" && (
             <FilterMultiSelect label="Subject" values={subject}  onChange={setSubject}  options={[...SUBJECTS]} />
@@ -476,7 +457,7 @@ export default function Dashboard() {
 
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setSubject([]); setGrade([]); }}
+              onClick={() => { setSubject([]); setGrade([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
