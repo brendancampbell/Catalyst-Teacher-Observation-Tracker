@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus } from "lucide-react";
 import {
   CATEGORIES,
@@ -42,8 +42,6 @@ function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number {
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
-type FilterStr = string;
-
 interface DrillDownTarget {
   teacherId: string;
   domainId: string;
@@ -59,9 +57,9 @@ export default function Dashboard() {
 
   /* ── Filter state ──────────────────────────────────── */
   const [search, setSearch]       = useState("");
-  const [dept, setDept]           = useState<FilterStr>("");
-  const [grade, setGrade]         = useState<FilterStr>("");
-  const [expBucket, setExpBucket] = useState<FilterStr>("");
+  const [dept, setDept]           = useState<string[]>([]);
+  const [grade, setGrade]         = useState<string[]>([]);
+  const [expBucket, setExpBucket] = useState<string[]>([]);
 
   /* ── View mode ─────────────────────────────────────── */
   const [viewMode, setViewMode]         = useState<ViewMode>("recent");
@@ -77,9 +75,9 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     return teachers.filter((t) => {
       if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dept     && t.department !== dept) return false;
-      if (grade    && t.gradeLevel !== grade) return false;
-      if (expBucket && getExpBucket(t.yearsExperience) !== expBucket) return false;
+      if (dept.length      && !dept.includes(t.department)) return false;
+      if (grade.length     && !grade.includes(t.gradeLevel)) return false;
+      if (expBucket.length && !expBucket.includes(getExpBucket(t.yearsExperience))) return false;
       return true;
     });
   }, [teachers, search, dept, grade, expBucket]);
@@ -88,7 +86,7 @@ export default function Dashboard() {
   const schoolAvg    = filtered.length ? filtered.reduce((s, t) => s + avgFn(t), 0) / filtered.length : 0;
   const proficient   = filtered.filter((t) => avgFn(t) >= 3).length;
   const needsSupport = filtered.filter((t) => avgFn(t) < 2).length;
-  const hasFilters   = !!(search || dept || grade || expBucket);
+  const hasFilters   = !!(search || dept.length || grade.length || expBucket.length);
 
   /* ── Handlers ──────────────────────────────────────── */
   function handleNewObservation(
@@ -287,13 +285,13 @@ export default function Dashboard() {
             />
           </div>
 
-          <FilterSelect label="Department"  value={dept}      onChange={setDept}      options={[...DEPARTMENTS]} />
-          <FilterSelect label="Grade Level" value={grade}     onChange={setGrade}     options={[...GRADE_LEVELS]} />
-          <FilterSelect label="Experience"  value={expBucket} onChange={setExpBucket} options={[...EXP_BUCKETS]} />
+          <FilterMultiSelect label="Department" values={dept}      onChange={setDept}      options={[...DEPARTMENTS]} />
+          <FilterMultiSelect label="Grade"      values={grade}     onChange={setGrade}     options={[...GRADE_LEVELS]} />
+          <FilterMultiSelect label="Experience" values={expBucket} onChange={setExpBucket} options={[...EXP_BUCKETS]} />
 
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setDept(""); setGrade(""); setExpBucket(""); }}
+              onClick={() => { setSearch(""); setDept([]); setGrade([]); setExpBucket([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
@@ -588,27 +586,91 @@ export default function Dashboard() {
 }
 
 /* ── Filter select ──────────────────────────────── */
-function FilterSelect({ label, value, onChange, options }: {
-  label: string; value: string; onChange: (v: string) => void; options: string[];
+function FilterMultiSelect({ label, values, onChange, options }: {
+  label: string;
+  values: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
 }) {
-  const active = !!value;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = values.length > 0;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  function toggle(opt: string) {
+    onChange(values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt]);
+  }
+
+  const buttonLabel = active
+    ? values.length === 1 ? values[0] : `${label} (${values.length})`
+    : `${label}: All`;
+
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="py-1.5 pl-3 pr-7 rounded focus:outline-none appearance-none cursor-pointer font-medium"
-      style={{
-        fontSize: 14,
-        border: `1px solid ${active ? NAVY : "#dde3f0"}`,
-        backgroundColor: active ? "#eef2fc" : "#F4F6FB",
-        color: active ? NAVY : "#64748b",
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%231034B4' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m1 1 4 4 4-4'/%3E%3C/svg%3E")`,
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "right 8px center",
-      }}
-    >
-      <option value="">{label}: All</option>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 py-1.5 pl-3 pr-2.5 rounded font-medium whitespace-nowrap"
+        style={{
+          fontSize: 14,
+          border: `1px solid ${active ? NAVY : "#dde3f0"}`,
+          backgroundColor: active ? "#eef2fc" : "#F4F6FB",
+          color: active ? NAVY : "#64748b",
+        }}
+      >
+        {buttonLabel}
+        <svg width="10" height="6" fill="none" viewBox="0 0 10 6" style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }}>
+          <path stroke={active ? NAVY : "#94a3b8"} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="m1 1 4 4 4-4"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full left-0 mt-1 z-50 bg-white rounded-lg shadow-lg py-1 min-w-[160px]"
+          style={{ border: "1px solid #dde3f0" }}
+        >
+          {options.map((opt) => {
+            const checked = values.includes(opt);
+            return (
+              <label
+                key={opt}
+                className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-slate-50 select-none"
+                style={{ fontSize: 14 }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(opt)}
+                  className="rounded"
+                  style={{ accentColor: NAVY, width: 15, height: 15, cursor: "pointer" }}
+                />
+                <span style={{ color: checked ? NAVY : "#374151", fontWeight: checked ? 600 : 400 }}>{opt}</span>
+              </label>
+            );
+          })}
+          {active && (
+            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => { onChange([]); setOpen(false); }}
+                className="w-full text-left px-3 py-1.5 font-semibold hover:bg-slate-50"
+                style={{ fontSize: 13, color: "#64748b" }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
