@@ -6,7 +6,7 @@ export const teachers = pgTable("teachers", {
   id:         serial("id").primaryKey(),
   name:       text("name").notNull(),
   subject:    text("subject").notNull(),
-  gradeLevel: text("grade_level").notNull(),
+  gradeLevel: text("grade_level").array().notNull(),
 });
 
 export const insertTeacherSchema = createInsertSchema(teachers).omit({ id: true });

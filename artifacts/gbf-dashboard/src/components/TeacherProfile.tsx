@@ -243,7 +243,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                       {teacher.name}
                     </h1>
                     <p className="text-blue-200 text-sm font-medium">
-                      {teacher.subject} · Grades {teacher.gradeLevel}
+                      {teacher.subject} · Grade{teacher.gradeLevel.length !== 1 ? "s" : ""} {teacher.gradeLevel.join(", ")}
                     </p>
                   </div>
                 </div>

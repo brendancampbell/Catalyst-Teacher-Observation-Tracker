@@ -115,7 +115,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 >
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.subject})
+                      {t.name} ({t.subject}, Grade{t.gradeLevel.length !== 1 ? "s" : ""} {t.gradeLevel.join(", ")})
                     </option>
                   ))}
                 </select>

@@ -221,7 +221,7 @@ export function ObservationDetailModal({ teacher, observation, open, onOpenChang
             ) : (
               <>
                 <p className="text-xs text-slate-400">
-                  {teacher.subject} · {teacher.gradeLevel}
+                  {teacher.subject} · Grade{teacher.gradeLevel.length !== 1 ? "s" : ""} {teacher.gradeLevel.join(", ")}
                 </p>
                 <button
                   type="button"

@@ -54,15 +54,22 @@ function buildGroups(filteredTeachers: Teacher[], viewBy: ViewBy): GroupRow[] {
   const ORDER = viewBy === "subject" ? [...SUBJECTS] : [...GRADE_LEVELS];
   const map = new Map<string, Teacher[]>();
   for (const t of filteredTeachers) {
-    const k = viewBy === "subject" ? t.subject : t.gradeLevel;
-    if (!map.has(k)) map.set(k, []);
-    map.get(k)!.push(t);
+    if (viewBy === "subject") {
+      const k = t.subject;
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(t);
+    } else {
+      for (const g of t.gradeLevel) {
+        if (!map.has(g)) map.set(g, []);
+        map.get(g)!.push(t);
+      }
+    }
   }
   return ORDER
     .filter((k) => map.has(k))
     .map((k) => ({
       key: k,
-      label: k,
+      label: viewBy === "grade" ? `Grade ${k}` : k,
       subLabel: `${map.get(k)!.length} teacher${map.get(k)!.length === 1 ? "" : "s"}`,
       teachers: map.get(k)!,
     }));
@@ -136,7 +143,7 @@ export default function Dashboard() {
     return teachers.filter((t) => {
       if (viewBy === "teacher" && search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (subject.length  && !subject.includes(t.subject)) return false;
-      if (grade.length && !grade.includes(t.gradeLevel)) return false;
+      if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
       return true;
     });
   }, [teachers, search, subject, grade, viewBy]);
@@ -642,7 +649,7 @@ export default function Dashboard() {
                               {teacher.name}
                             </button>
                             <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
-                              {teacher.subject} · {teacher.gradeLevel}
+                              {teacher.subject} · Grade{teacher.gradeLevel.length !== 1 ? "s" : ""} {teacher.gradeLevel.join(", ")}
                             </p>
                           </td>
 
