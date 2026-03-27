@@ -234,10 +234,10 @@ export default function Dashboard() {
                 </p>
                 {pct !== null ? (
                   <div className="flex items-center gap-0 mt-1">
-                    <span className="font-bold leading-none pr-3" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
                       {value}
                     </span>
-                    <span className="font-bold leading-none pl-3" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
                       {pct}%
                     </span>
                   </div>
