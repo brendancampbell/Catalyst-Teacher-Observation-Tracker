@@ -166,13 +166,13 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   /* ── Derived stats (always from filtered school rows) ────── */
   const schoolCount    = filteredSchools.length;
-  const totalTeachers  = filteredSchools.reduce((s, r) => s + r.teacherCount,  0);
-  const totalObserved  = filteredSchools.reduce((s, r) => s + r.observedCount, 0);
   const districtAvgRaw = (() => {
     const rows = filteredSchools.filter((r) => r.overall != null);
     if (!rows.length) return null;
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
   })();
+  const proficient   = filteredSchools.filter((s) => s.overall != null && s.overall >= 3).length;
+  const needsSupport = filteredSchools.filter((s) => s.overall != null && s.overall <  2).length;
 
   /* First column label */
   const firstColLabel =
@@ -320,10 +320,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── Stats ────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
           {[
-            { label: "Schools",        value: schoolCount,   colorScore: null as number | null, pct: null as number | null },
-            { label: "Total Teachers", value: totalTeachers, colorScore: null,                  pct: null },
-            { label: "Observed",       value: totalObserved, colorScore: null,                  pct: totalTeachers ? Math.round(totalObserved / totalTeachers * 100) : null },
-            { label: "District Avg",   value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—", colorScore: districtAvgRaw, pct: null },
+            { label: "Schools",           value: schoolCount,                                                    colorScore: null as number | null, pct: null as number | null },
+            { label: "Average Score",     value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—",    colorScore: districtAvgRaw,        pct: null },
+            { label: "Proficient+ (≥ 3)", value: proficient,                                                   colorScore: null,                  pct: schoolCount ? Math.round(proficient   / schoolCount * 100) : null },
+            { label: "Need Support (< 2)", value: needsSupport,                                                colorScore: null,                  pct: schoolCount ? Math.round(needsSupport / schoolCount * 100) : null },
           ].map(({ label, value, colorScore, pct }) => (
             <div
               key={label}
