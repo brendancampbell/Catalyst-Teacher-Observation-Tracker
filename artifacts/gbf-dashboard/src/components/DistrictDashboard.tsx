@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDistrictSummary, fetchQuarters } from "@/lib/api";
+import { fetchDistrictSummary, fetchQuarters, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricQuarterRow } from "@/lib/api";
 import { getScoreColor } from "@/components/ScoreCell";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
 
 const NAVY   = "#1034B4";
@@ -122,8 +123,16 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser, users, setCurrentUser } = useUser();
   const [userMenuOpen,  setUserMenuOpen]  = useState(false);
   const [activeQuarter, setActiveQuarter] = useState("Q1");
-  const [viewBy,        setViewBy]        = useState<DistrictViewBy>("school");
-  const [scoreType,     setScoreType]     = useState<ScoreType>("recent");
+  const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
+  const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
+  const [filterRegion,    setFilterRegion]    = useState<string[]>([]);
+  const [filterGradeSpan, setFilterGradeSpan] = useState<string[]>([]);
+
+  function handleViewByChange(mode: DistrictViewBy) {
+    setViewBy(mode);
+    if (mode === "region")    setFilterRegion([]);
+    if (mode === "gradeSpan") setFilterGradeSpan([]);
+  }
 
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -142,18 +151,25 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const allDomains = useMemo(() => (data?.categories ?? []).flatMap((c) => c.domains), [data]);
   const allSlugs   = useMemo(() => allDomains.map((d) => d.id), [allDomains]);
 
+  /* Apply region + gradeSpan filters to school rows */
+  const filteredSchools = useMemo(() => {
+    let rows = data?.schools ?? [];
+    if (filterRegion.length    > 0) rows = rows.filter((s) => filterRegion.includes(s.region));
+    if (filterGradeSpan.length > 0) rows = rows.filter((s) => filterGradeSpan.includes(s.gradeSpan));
+    return rows;
+  }, [data, filterRegion, filterGradeSpan]);
+
   const displayRows = useMemo(
-    () => buildDisplayRows(data?.schools ?? [], viewBy, allSlugs),
-    [data, viewBy, allSlugs],
+    () => buildDisplayRows(filteredSchools, viewBy, allSlugs),
+    [filteredSchools, viewBy, allSlugs],
   );
 
-  /* ── Derived stats ─────────────────────────────────────── */
-  const schoolCount    = data?.schools.length ?? 0;
-  const totalTeachers  = data?.schools.reduce((s, r) => s + r.teacherCount,  0) ?? 0;
-  const totalObserved  = data?.schools.reduce((s, r) => s + r.observedCount, 0) ?? 0;
+  /* ── Derived stats (always from filtered school rows) ────── */
+  const schoolCount    = filteredSchools.length;
+  const totalTeachers  = filteredSchools.reduce((s, r) => s + r.teacherCount,  0);
+  const totalObserved  = filteredSchools.reduce((s, r) => s + r.observedCount, 0);
   const districtAvgRaw = (() => {
-    if (!data) return null;
-    const rows = data.schools.filter((r) => r.overall != null);
+    const rows = filteredSchools.filter((r) => r.overall != null);
     if (!rows.length) return null;
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
   })();
@@ -361,7 +377,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
               <button
                 key={mode}
                 type="button"
-                onClick={() => setViewBy(mode)}
+                onClick={() => handleViewByChange(mode)}
                 className="px-3 sm:px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
                 style={{
                   backgroundColor: viewBy === mode ? NAVY : "transparent",
@@ -377,6 +393,48 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           </div>
 
           {/* Divider */}
+          <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
+
+          {/* Filters label */}
+          <span
+            className="font-bold uppercase tracking-widest shrink-0"
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+          >
+            Filters
+          </span>
+
+          {/* Region filter — hidden when grouping by region */}
+          {viewBy !== "region" && (
+            <FilterMultiSelect
+              label="Region"
+              values={filterRegion}
+              onChange={setFilterRegion}
+              options={[...REGIONS]}
+            />
+          )}
+
+          {/* Grade Span filter — hidden when grouping by grade span */}
+          {viewBy !== "gradeSpan" && (
+            <FilterMultiSelect
+              label="Grade Span"
+              values={filterGradeSpan}
+              onChange={setFilterGradeSpan}
+              options={[...GRADE_SPANS]}
+            />
+          )}
+
+          {/* Clear all */}
+          {(filterRegion.length > 0 || filterGradeSpan.length > 0) && (
+            <button
+              onClick={() => { setFilterRegion([]); setFilterGradeSpan([]); }}
+              className="font-semibold underline underline-offset-2"
+              style={{ color: NAVY, fontSize: 14 }}
+            >
+              Clear all
+            </button>
+          )}
+
+          {/* Divider before score toggle */}
           <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
 
           {/* Most Recent / Quarter Avg — right-aligned */}
