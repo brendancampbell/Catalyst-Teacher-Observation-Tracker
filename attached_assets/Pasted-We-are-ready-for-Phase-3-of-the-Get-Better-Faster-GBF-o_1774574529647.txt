@@ -1,0 +1,32 @@
+We are ready for Phase 3 of the "Get Better Faster" (GBF) observation tracker.
+
+Goal: Replace our temporary React state with a real PostgreSQL database using Prisma ORM, and build an Admin Settings page to manage dynamic rubrics.
+
+Please implement the following steps:
+
+1. PRISMA DATABASE SCHEMA:
+Initialize Prisma and create the following schema models:
+- `Teacher`: id, name, department.
+- `RubricCategory`: id, name, quarter (String, e.g., "Q1").
+- `RubricDomain`: id, name, categoryId (relation to RubricCategory).
+- `Observation`: id, teacherId (relation), date, strengths (String), growthAreas (String).
+- `ObservationScore`: id, observationId (relation), domainId (relation), score (Int 1-4).
+
+Create a seed script (`seed.ts`) to populate the database with our existing Q1 Categories/Domains, our 10 dummy teachers, and a few historical observations so the dashboard works immediately.
+
+2. BACKEND API / SERVER ACTIONS:
+Create Next.js Server Actions (or API routes) to handle data fetching and mutations:
+- `getDashboardData()`: Fetches all teachers, the current active rubric, and calculates the "most recent" scores and averages for the main table.
+- `getTeacherHistory(teacherId, domainId)`: Fetches the historical scores and notes for the drill-down modal.
+- `submitObservation(data)`: Saves a new observation and its associated scores to the database.
+
+3. REFACTOR THE DASHBOARD:
+Update the main Dashboard page and the "New Observation" form to use these new Server Actions/API routes instead of the dummy `useState` variables. The UI should look exactly the same but now be powered by the real database.
+
+4. ADMIN SETTINGS PAGE:
+Create a new page route at `/admin`. 
+- Build a clean UI using shadcn/ui components where a District/School Leader can manage the Rubric.
+- Users should be able to create a new Quarter (e.g., "Q2"), add/edit Categories, and add/edit Domains underneath those categories. 
+- Include a toggle or selector on the main dashboard so the Principal can switch between viewing Q1 data and Q2 data.
+
+Please provide the necessary terminal commands to initialize Prisma, generate the client, and run the seed script, along with the code updates. Ensure the code remains modular and error handling is included for database operations.

@@ -1,9 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CATEGORIES,
-  ALL_DOMAINS,
-  TEACHERS as INITIAL_TEACHERS,
   DEPARTMENTS,
   GRADE_LEVELS,
   EXP_BUCKETS,
@@ -14,7 +12,10 @@ import {
   type Score,
   type Teacher,
   type Observation,
+  type DomainEntry,
 } from "@/data/dummy";
+import { fetchDashboard, createObservation, updateObservation } from "@/lib/api";
+import type { CategoryEntry } from "@/lib/api";
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
@@ -29,8 +30,8 @@ function getQuarterDomainScore(teacher: Teacher, domainId: string): number {
   return vals.length ? vals.reduce((sum, s) => sum + s, 0) / vals.length : 0;
 }
 
-function getQuarterTeacherAvg(teacher: Teacher): number {
-  const perDomain = ALL_DOMAINS.map((d) => getQuarterDomainScore(teacher, d.id));
+function getQuarterTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number {
+  const perDomain = allDomains.map((d) => getQuarterDomainScore(teacher, d.id));
   return perDomain.reduce((s, v) => s + v, 0) / perDomain.length;
 }
 
@@ -50,8 +51,19 @@ interface DrillDownTarget {
 
 export default function Dashboard() {
   const currentUser = { name: "Principal Rivera", school: "Lincoln Elementary" };
-  /* ── Lifted state ──────────────────────────────────── */
-  const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
+  const queryClient = useQueryClient();
+
+  /* ── API data ────────────────────────────────────── */
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["dashboard", "Q1"],
+    queryFn: () => fetchDashboard("Q1"),
+    staleTime: 30_000,
+  });
+
+  const teachers: Teacher[] = data?.teachers ?? [];
+  const categories: CategoryEntry[] = data?.categories ?? [];
+  const allDomains: DomainEntry[] = categories.flatMap((c) => c.domains);
+  const quarterId: number = data?.quarter.id ?? 0;
 
   /* ── Filter state ──────────────────────────────────── */
   const [search, setSearch]       = useState("");
@@ -60,14 +72,15 @@ export default function Dashboard() {
   const [expBucket, setExpBucket] = useState<string[]>([]);
 
   /* ── View mode ─────────────────────────────────────── */
-  const [viewMode, setViewMode]         = useState<ViewMode>("recent");
+  const [viewMode, setViewMode] = useState<ViewMode>("recent");
 
   /* ── Teacher profile ────────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
 
   /* ── Modal state ───────────────────────────────────── */
-  const [newObsOpen, setNewObsOpen]     = useState(false);
-  const [drillDown, setDrillDown]       = useState<DrillDownTarget | null>(null);
+  const [newObsOpen, setNewObsOpen] = useState(false);
+  const [drillDown, setDrillDown]   = useState<DrillDownTarget | null>(null);
+  const [saving, setSaving]         = useState(false);
 
   /* ── Derived ───────────────────────────────────────── */
   const filtered = useMemo(() => {
@@ -80,45 +93,57 @@ export default function Dashboard() {
     });
   }, [teachers, search, dept, grade, expBucket]);
 
-  const avgFn        = (t: Teacher) => viewMode === "recent" ? getTeacherAverage(t) : getQuarterTeacherAvg(t);
+  const avgFn        = (t: Teacher) =>
+    viewMode === "recent" ? getTeacherAverage(t) : getQuarterTeacherAvg(t, allDomains);
   const schoolAvg    = filtered.length ? filtered.reduce((s, t) => s + avgFn(t), 0) / filtered.length : 0;
   const proficient   = filtered.filter((t) => avgFn(t) >= 3).length;
   const needsSupport = filtered.filter((t) => avgFn(t) < 2).length;
   const hasFilters   = !!(search || dept.length || grade.length || expBucket.length);
 
   /* ── Handlers ──────────────────────────────────────── */
-  function handleNewObservation(
+  async function handleNewObservation(
     teacherId: string,
     date: string,
     scores: Record<string, Score>,
     strengths: string,
     growthAreas: string,
   ) {
-    const newObs: Observation = {
-      id: `obs_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      date,
-      scores,
-      strengths: strengths || undefined,
-      growthAreas: growthAreas || undefined,
-      observer: currentUser.name,
-    };
-    setTeachers((prev) =>
-      prev.map((t) =>
-        t.id === teacherId
-          ? { ...t, observations: [...t.observations, newObs] }
-          : t,
-      ),
-    );
+    if (!quarterId) return;
+    setSaving(true);
+    try {
+      await createObservation({
+        teacherId,
+        quarterId,
+        date,
+        scores,
+        strengths: strengths || undefined,
+        growthAreas: growthAreas || undefined,
+        observer: currentUser.name,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      console.error("Failed to save observation:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleUpdateObs(teacherId: string, updated: Observation) {
-    setTeachers((prev) =>
-      prev.map((t) =>
-        t.id === teacherId
-          ? { ...t, observations: t.observations.map((o) => (o.id === updated.id ? updated : o)) }
-          : t,
-      ),
-    );
+  async function handleUpdateObs(teacherId: string, updated: Observation) {
+    setSaving(true);
+    try {
+      await updateObservation(updated.id, {
+        date: updated.date,
+        strengths: updated.strengths,
+        growthAreas: updated.growthAreas,
+        observer: updated.observer,
+        scores: updated.scores as Record<string, Score>,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      console.error("Failed to update observation:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function openDrillDown(teacher: Teacher, domainId: string, domainLabel: string) {
@@ -126,6 +151,31 @@ export default function Dashboard() {
   }
 
   const profileTeacher = teacherProfileId ? (teachers.find((t) => t.id === teacherProfileId) ?? null) : null;
+
+  /* ── Loading / Error states ────────────────────────── */
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F4F6FB" }}>
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+          <p className="mt-4 font-semibold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
+            Loading Dashboard…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F4F6FB" }}>
+        <div className="text-center text-red-600 space-y-2">
+          <p className="text-lg font-bold">Failed to load dashboard data.</p>
+          <p className="text-sm text-slate-500">Check that the API server is running and try refreshing.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -167,7 +217,6 @@ export default function Dashboard() {
 
           {/* Right side */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* ── Add Observation button ── */}
             <button
               onClick={() => setNewObsOpen(true)}
               className="flex items-center gap-1.5 font-bold rounded-md px-3 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
@@ -182,6 +231,20 @@ export default function Dashboard() {
               <Plus size={16} strokeWidth={3} />
               <span className="hidden sm:inline">Add Observation</span>
             </button>
+
+            <a
+              href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/admin`}
+              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+              style={{
+                border: `1.5px solid rgba(255,181,0,0.5)`,
+                color: YELLOW,
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 14,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Admin
+            </a>
 
             <div
               className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
@@ -345,7 +408,7 @@ export default function Dashboard() {
                     Teacher / Dept
                   </th>
 
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <th
                       key={cat.id}
                       colSpan={cat.domains.length}
@@ -383,8 +446,8 @@ export default function Dashboard() {
 
                 {/* Domain headers — vertical text */}
                 <tr style={{ backgroundColor: "#0d2990" }}>
-                  {ALL_DOMAINS.map((domain) => {
-                    const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
+                  {allDomains.map((domain) => {
+                    const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                     return (
                       <th
                         key={domain.id}
@@ -421,21 +484,21 @@ export default function Dashboard() {
 
                 {/* Thick yellow separator under headers */}
                 <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                  <td colSpan={ALL_DOMAINS.length + 2} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
+                  <td colSpan={allDomains.length + 2} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
                 </tr>
 
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={ALL_DOMAINS.length + 2} className="text-center py-12 text-slate-400 text-sm">
+                    <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
                       No teachers match the current filters.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((teacher, rowIdx) => {
                     const recent = getMostRecentObservation(teacher);
-                    const avg    = viewMode === "recent" ? getTeacherAverage(teacher) : getQuarterTeacherAvg(teacher);
+                    const avg    = viewMode === "recent" ? getTeacherAverage(teacher) : getQuarterTeacherAvg(teacher, allDomains);
                     const isEven = rowIdx % 2 === 0;
 
                     return (
@@ -468,11 +531,11 @@ export default function Dashboard() {
                         </td>
 
                         {/* Score cells — clickable */}
-                        {ALL_DOMAINS.map((domain) => {
+                        {allDomains.map((domain) => {
                           const score = viewMode === "recent"
                             ? (recent.scores[domain.id] as Score | undefined)
                             : getQuarterDomainScore(teacher, domain.id);
-                          const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
+                          const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                           return score !== undefined && score !== 0 ? (
                             <ScoreCell
                               key={domain.id}
@@ -518,11 +581,11 @@ export default function Dashboard() {
                     >
                       Domain Avg
                     </td>
-                    {ALL_DOMAINS.map((domain) => {
+                    {allDomains.map((domain) => {
                       const avg          = viewMode === "recent"
                         ? getDomainAverage(domain.id, filtered)
                         : getQuarterDomainAvg(domain.id, filtered);
-                      const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
+                      const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                       return (
                         <td
                           key={domain.id}
@@ -558,9 +621,12 @@ export default function Dashboard() {
       {/* ══ MODALS — always rendered ═══════════════════════════ */}
       <NewObservationModal
         teachers={teachers}
+        categories={categories}
+        allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
         onSubmit={handleNewObservation}
+        saving={saving}
       />
 
       <DrillDownModal
@@ -598,40 +664,40 @@ function FilterMultiSelect({ label, values, onChange, options }: {
         setOpen(false);
       }
     }
-    if (open) document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
-  function toggle(opt: string) {
-    onChange(values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt]);
-  }
-
-  const buttonLabel = active
-    ? values.length === 1 ? values[0] : `${label} (${values.length})`
-    : `${label}: All`;
+  }, []);
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 py-1.5 pl-3 pr-2.5 rounded font-medium whitespace-nowrap"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-sm transition-colors"
         style={{
-          fontSize: 14,
-          border: `1px solid ${active ? NAVY : "#dde3f0"}`,
-          backgroundColor: active ? "#eef2fc" : "#F4F6FB",
-          color: active ? NAVY : "#64748b",
+          border: `1.5px solid ${active ? NAVY : "#dde3f0"}`,
+          backgroundColor: active ? NAVY : "white",
+          color: active ? "white" : "#334155",
+          fontFamily: "'Libre Franklin', sans-serif",
         }}
       >
-        {buttonLabel}
-        <svg width="10" height="6" fill="none" viewBox="0 0 10 6" style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }}>
-          <path stroke={active ? NAVY : "#94a3b8"} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="m1 1 4 4 4-4"/>
+        {label}
+        {active && (
+          <span
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+            style={{ backgroundColor: YELLOW, color: NAVY }}
+          >
+            {values.length}
+          </span>
+        )}
+        <svg className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 z-50 bg-white rounded-lg shadow-lg py-1 min-w-[160px]"
+          className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg z-50 py-1 min-w-[160px]"
           style={{ border: "1px solid #dde3f0" }}
         >
           {options.map((opt) => {
@@ -639,27 +705,24 @@ function FilterMultiSelect({ label, values, onChange, options }: {
             return (
               <label
                 key={opt}
-                className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-slate-50 select-none"
-                style={{ fontSize: 14 }}
+                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 text-sm font-medium text-slate-700"
               >
                 <input
                   type="checkbox"
                   checked={checked}
-                  onChange={() => toggle(opt)}
-                  className="rounded"
-                  style={{ accentColor: NAVY, width: 15, height: 15, cursor: "pointer" }}
+                  onChange={() => onChange(checked ? values.filter((v) => v !== opt) : [...values, opt])}
+                  className="w-4 h-4 rounded accent-blue-700"
                 />
-                <span style={{ color: checked ? NAVY : "#374151", fontWeight: checked ? 600 : 400 }}>{opt}</span>
+                {opt}
               </label>
             );
           })}
-          {active && (
-            <div style={{ borderTop: "1px solid #f1f5f9", marginTop: 4 }}>
+          {values.length > 0 && (
+            <div className="border-t border-slate-100 mt-1 pt-1 px-3 pb-1">
               <button
-                type="button"
-                onClick={() => { onChange([]); setOpen(false); }}
-                className="w-full text-left px-3 py-1.5 font-semibold hover:bg-slate-50"
-                style={{ fontSize: 13, color: "#64748b" }}
+                className="text-xs font-semibold underline underline-offset-1"
+                style={{ color: NAVY }}
+                onClick={(e) => { e.stopPropagation(); onChange([]); }}
               >
                 Clear
               </button>

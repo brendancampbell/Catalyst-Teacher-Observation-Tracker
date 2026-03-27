@@ -1,13 +1,16 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
-import { CATEGORIES, ALL_DOMAINS, type Score, type Teacher } from "@/data/dummy";
+import { type Score, type Teacher } from "@/data/dummy";
+import type { CategoryEntry, DomainEntry } from "@/lib/api";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
 interface Props {
   teachers: Teacher[];
+  categories: CategoryEntry[];
+  allDomains: DomainEntry[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (
@@ -17,6 +20,7 @@ interface Props {
     strengths: string,
     growthAreas: string,
   ) => void;
+  saving?: boolean;
 }
 
 const SCORE_LABELS: Record<Score, string> = {
@@ -36,7 +40,7 @@ function scorePillClass(s: Score, selected: boolean): string {
   }
 }
 
-export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
@@ -45,7 +49,7 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
 
-  const scoredCount = ALL_DOMAINS.filter((d) => scores[d.id] !== undefined).length;
+  const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
     setTeacherId(teachers[0]?.id ?? "");
@@ -135,13 +139,13 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
-                    width: `${(scoredCount / ALL_DOMAINS.length) * 100}%`,
-                    backgroundColor: scoredCount === ALL_DOMAINS.length ? "#16a34a" : NAVY,
+                    width: allDomains.length ? `${(scoredCount / allDomains.length) * 100}%` : "0%",
+                    backgroundColor: scoredCount === allDomains.length ? "#16a34a" : NAVY,
                   }}
                 />
               </div>
-              <span className="text-xs font-semibold shrink-0" style={{ color: scoredCount === ALL_DOMAINS.length ? "#16a34a" : "#64748b" }}>
-                {scoredCount} / {ALL_DOMAINS.length} scored
+              <span className="text-xs font-semibold shrink-0" style={{ color: scoredCount === allDomains.length ? "#16a34a" : "#64748b" }}>
+                {scoredCount} / {allDomains.length} scored
               </span>
             </div>
 
@@ -156,7 +160,7 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
             </div>
 
             {/* Domain scores per category */}
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <div key={cat.id}>
                 <div
                   className="px-3 py-1.5 rounded-t font-bold uppercase tracking-wider text-white text-xs"
@@ -230,9 +234,9 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
           {/* ── Footer ───────────────────────────────────── */}
           <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50">
             <p className="text-xs text-slate-400 order-2 sm:order-1">
-              {scoredCount === ALL_DOMAINS.length
+              {scoredCount === allDomains.length
                 ? "✓ All domains scored."
-                : `${scoredCount} of ${ALL_DOMAINS.length} domains scored — unscored domains will be left blank.`}
+                : `${scoredCount} of ${allDomains.length} domains scored — unscored domains will be left blank.`}
             </p>
             <div className="flex gap-2 sm:gap-3 order-1 sm:order-2">
               <DialogPrimitive.Close
@@ -243,10 +247,11 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                disabled={saving}
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
-                Submit Observation
+                {saving ? "Saving…" : "Submit Observation"}
               </button>
             </div>
           </div>
