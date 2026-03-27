@@ -19,14 +19,22 @@ router.get("/", async (_req, res) => {
 /* POST /api/admin/schools — create school */
 router.post("/", async (req, res) => {
   try {
-    const { name, region, gradeSpan } = req.body as { name: string; region?: string; gradeSpan?: string };
+    const { name, region, gradeSpan } = req.body as { name: string; region: string; gradeSpan: string };
     if (!name?.trim()) {
       res.status(400).json({ error: "name is required" });
       return;
     }
+    if (!region?.trim()) {
+      res.status(400).json({ error: "region is required" });
+      return;
+    }
+    if (!gradeSpan?.trim()) {
+      res.status(400).json({ error: "gradeSpan is required" });
+      return;
+    }
     const [row] = await db
       .insert(schools)
-      .values({ name: name.trim(), region: region ?? null, gradeSpan: gradeSpan ?? null })
+      .values({ name: name.trim(), region: region.trim(), gradeSpan: gradeSpan.trim() })
       .returning();
     res.status(201).json(row);
   } catch (err) {
@@ -39,11 +47,20 @@ router.post("/", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { name, region, gradeSpan } = req.body as Partial<{ name: string; region: string | null; gradeSpan: string | null }>;
+    const { name, region, gradeSpan } = req.body as Partial<{ name: string; region: string; gradeSpan: string }>;
     const updates: Record<string, unknown> = {};
-    if (name !== undefined)      updates.name      = name.trim();
-    if (region !== undefined)    updates.region    = region;
-    if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
+    if (name !== undefined) {
+      if (!name.trim()) { res.status(400).json({ error: "name cannot be empty" }); return; }
+      updates.name = name.trim();
+    }
+    if (region !== undefined) {
+      if (!region.trim()) { res.status(400).json({ error: "region is required" }); return; }
+      updates.region = region.trim();
+    }
+    if (gradeSpan !== undefined) {
+      if (!gradeSpan.trim()) { res.status(400).json({ error: "gradeSpan is required" }); return; }
+      updates.gradeSpan = gradeSpan.trim();
+    }
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "Nothing to update" });
       return;

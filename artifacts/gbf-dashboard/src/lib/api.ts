@@ -116,6 +116,8 @@ export interface DashboardData {
 export interface DistrictSchoolRow {
   id:            number;
   name:          string;
+  region:        string;
+  gradeSpan:     string;
   teacherCount:  number;
   observedCount: number;
   domainAverages: Record<string, number | null>;
@@ -128,8 +130,11 @@ export interface DistrictSummaryData {
   schools:    DistrictSchoolRow[];
 }
 
-export async function fetchDistrictSummary(quarter = "Q1"): Promise<DistrictSummaryData> {
-  return apiFetch<DistrictSummaryData>(`/district/summary?quarter=${quarter}`);
+export async function fetchDistrictSummary(
+  quarter = "Q1",
+  scoreType: "recent" | "average" = "recent",
+): Promise<DistrictSummaryData> {
+  return apiFetch<DistrictSummaryData>(`/district/summary?quarter=${quarter}&scoreType=${scoreType}`);
 }
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";

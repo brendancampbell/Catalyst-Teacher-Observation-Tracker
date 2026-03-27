@@ -11,8 +11,8 @@ export type GradeSpan = typeof GRADE_SPANS[number];
 export const schools = pgTable("schools", {
   id:        serial("id").primaryKey(),
   name:      text("name").notNull(),
-  region:    text("region"),
-  gradeSpan: text("grade_span"),
+  region:    text("region").notNull(),
+  gradeSpan: text("grade_span").notNull(),
 });
 
 export const insertSchoolSchema = createInsertSchema(schools).omit({ id: true });

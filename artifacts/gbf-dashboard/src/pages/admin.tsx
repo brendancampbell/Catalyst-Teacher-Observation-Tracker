@@ -537,12 +537,12 @@ function SchoolSettings() {
   function resetEdit() { setEditId(null); }
 
   const createMut = useMutation({
-    mutationFn: () => createAdminSchool({ name: newName.trim(), region: newRegion || null, gradeSpan: newSpan || null }),
+    mutationFn: () => createAdminSchool({ name: newName.trim(), region: newRegion, gradeSpan: newSpan }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetAdd(); },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminSchool(editId!, { name: editName.trim(), region: editRegion || null, gradeSpan: editSpan || null }),
+    mutationFn: () => updateAdminSchool(editId!, { name: editName.trim(), region: editRegion, gradeSpan: editSpan }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetEdit(); },
   });
 
@@ -571,7 +571,7 @@ function SchoolSettings() {
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500">Manage the schools in your district. Set each school's region and grade span.</p>
+        <p className="text-sm text-slate-500">Manage the schools in your district. Region and grade span are required for every school.</p>
         <button
           onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
           className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
@@ -608,7 +608,7 @@ function SchoolSettings() {
               className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
               style={{ backgroundColor: NAVY }}
               onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !newName.trim()}
+              disabled={createMut.isPending || !newName.trim() || !newRegion || !newSpan}
             >
               {createMut.isPending ? "Adding…" : "Add School"}
             </button>
@@ -652,7 +652,7 @@ function SchoolSettings() {
                       className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
                       style={{ backgroundColor: NAVY }}
                       onClick={() => updateMut.mutate()}
-                      disabled={updateMut.isPending || !editName.trim()}
+                      disabled={updateMut.isPending || !editName.trim() || !editRegion || !editSpan}
                     >
                       {updateMut.isPending ? "Saving…" : "Save"}
                     </button>
@@ -688,9 +688,6 @@ function SchoolSettings() {
                       >
                         {school.gradeSpan}
                       </span>
-                    )}
-                    {!school.region && !school.gradeSpan && (
-                      <span className="text-xs text-slate-300 italic">No tags</span>
                     )}
                   </div>
                   <button

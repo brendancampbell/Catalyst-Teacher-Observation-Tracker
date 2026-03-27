@@ -1,13 +1,118 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchQuarters } from "@/lib/api";
-import type { DistrictSummaryData, RubricQuarterRow } from "@/lib/api";
+import type { DistrictSummaryData, DistrictSchoolRow, RubricQuarterRow } from "@/lib/api";
 import { getScoreColor } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
+
+const REGION_ORDER    = ["Boston", "Camden", "NYC", "Newark", "Rochester"] as const;
+const GRADE_SPAN_ORDER = ["ES", "MS", "HS"] as const;
+
+type DistrictViewBy = "school" | "region" | "gradeSpan";
+type ScoreType      = "recent" | "average";
+
+interface DisplayRow {
+  key:           string;
+  label:         string;
+  subLabel:      string;
+  isClickable:   boolean;
+  schoolId?:     number;
+  domainAverages: Record<string, number | null>;
+  overall:       number | null;
+  teacherCount:  number;
+  observedCount: number;
+}
+
+/* Build the rows to display based on the current view-by setting */
+function buildDisplayRows(
+  schools:  DistrictSchoolRow[],
+  viewBy:   DistrictViewBy,
+  allSlugs: string[],
+): DisplayRow[] {
+  if (viewBy === "school") {
+    return schools.map((s) => ({
+      key:           String(s.id),
+      label:         s.name,
+      subLabel:      `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`,
+      isClickable:   true,
+      schoolId:      s.id,
+      domainAverages: s.domainAverages,
+      overall:       s.overall,
+      teacherCount:  s.teacherCount,
+      observedCount: s.observedCount,
+    }));
+  }
+
+  const groupKey = viewBy === "region" ? "region" : "gradeSpan";
+  const ORDER    = viewBy === "region" ? REGION_ORDER : GRADE_SPAN_ORDER;
+
+  const groups = new Map<string, DistrictSchoolRow[]>();
+  for (const s of schools) {
+    const k = s[groupKey] || "Other";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(s);
+  }
+
+  const result: DisplayRow[] = [];
+  for (const key of ORDER) {
+    const grp = groups.get(key);
+    if (!grp) continue;
+
+    /* Average domain scores across schools in group */
+    const domainSums:   Record<string, number> = {};
+    const domainCounts: Record<string, number> = {};
+    for (const s of grp) {
+      for (const [slug, val] of Object.entries(s.domainAverages)) {
+        if (val != null) {
+          domainSums[slug]   = (domainSums[slug]   ?? 0) + val;
+          domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+        }
+      }
+    }
+
+    const domainAverages: Record<string, number | null> = {};
+    let totalSum = 0, totalCount = 0;
+    for (const slug of allSlugs) {
+      const cnt = domainCounts[slug] ?? 0;
+      if (cnt > 0) {
+        const avg = domainSums[slug] / cnt;
+        domainAverages[slug] = Math.round(avg * 10) / 10;
+        totalSum += avg;
+        totalCount += 1;
+      } else {
+        domainAverages[slug] = null;
+      }
+    }
+
+    const overall      = totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null;
+    const teacherCount  = grp.reduce((s, r) => s + r.teacherCount,  0);
+    const observedCount = grp.reduce((s, r) => s + r.observedCount, 0);
+
+    const label = viewBy === "gradeSpan"
+      ? (key === "ES" ? "Elementary (ES)" : key === "MS" ? "Middle (MS)" : "High School (HS)")
+      : key;
+
+    result.push({
+      key,
+      label,
+      subLabel:      `${grp.length} school${grp.length !== 1 ? "s" : ""} · ${teacherCount} teachers`,
+      isClickable:   false,
+      domainAverages,
+      overall,
+      teacherCount,
+      observedCount,
+    });
+  }
+  return result;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Component
+   ═══════════════════════════════════════════════════════════════ */
 
 interface Props {
   onDrillDown: (schoolId: number, schoolName: string) => void;
@@ -15,8 +120,10 @@ interface Props {
 
 export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser, users, setCurrentUser } = useUser();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userMenuOpen,  setUserMenuOpen]  = useState(false);
   const [activeQuarter, setActiveQuarter] = useState("Q1");
+  const [viewBy,        setViewBy]        = useState<DistrictViewBy>("school");
+  const [scoreType,     setScoreType]     = useState<ScoreType>("recent");
 
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -27,14 +134,22 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   });
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
-    queryKey: ["district", activeQuarter],
-    queryFn: () => fetchDistrictSummary(activeQuarter),
+    queryKey: ["district", activeQuarter, scoreType],
+    queryFn: () => fetchDistrictSummary(activeQuarter, scoreType),
     staleTime: 30_000,
   });
 
+  const allDomains = useMemo(() => (data?.categories ?? []).flatMap((c) => c.domains), [data]);
+  const allSlugs   = useMemo(() => allDomains.map((d) => d.id), [allDomains]);
+
+  const displayRows = useMemo(
+    () => buildDisplayRows(data?.schools ?? [], viewBy, allSlugs),
+    [data, viewBy, allSlugs],
+  );
+
   /* ── Derived stats ─────────────────────────────────────── */
   const schoolCount    = data?.schools.length ?? 0;
-  const totalTeachers  = data?.schools.reduce((s, r) => s + r.teacherCount, 0) ?? 0;
+  const totalTeachers  = data?.schools.reduce((s, r) => s + r.teacherCount,  0) ?? 0;
   const totalObserved  = data?.schools.reduce((s, r) => s + r.observedCount, 0) ?? 0;
   const districtAvgRaw = (() => {
     if (!data) return null;
@@ -43,7 +158,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
   })();
 
-  const allDomains = (data?.categories ?? []).flatMap((c) => c.domains);
+  /* First column label */
+  const firstColLabel =
+    viewBy === "school"    ? "School" :
+    viewBy === "region"    ? "Region" :
+    "Grade Span";
 
   /* ── Render ────────────────────────────────────────────── */
   return (
@@ -185,10 +304,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── Stats ────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
           {[
-            { label: "Schools",          value: schoolCount,   colorScore: null as number | null, pct: null as number | null },
-            { label: "Total Teachers",   value: totalTeachers, colorScore: null,                  pct: null },
-            { label: "Observed",         value: totalObserved, colorScore: null,                  pct: totalTeachers ? Math.round(totalObserved / totalTeachers * 100) : null },
-            { label: "District Avg",     value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—", colorScore: districtAvgRaw, pct: null },
+            { label: "Schools",        value: schoolCount,   colorScore: null as number | null, pct: null as number | null },
+            { label: "Total Teachers", value: totalTeachers, colorScore: null,                  pct: null },
+            { label: "Observed",       value: totalObserved, colorScore: null,                  pct: totalTeachers ? Math.round(totalObserved / totalTeachers * 100) : null },
+            { label: "District Avg",   value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—", colorScore: districtAvgRaw, pct: null },
           ].map(({ label, value, colorScore, pct }) => (
             <div
               key={label}
@@ -223,6 +342,63 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── View By + Score Type toggles ─────────────────── */}
+        <div
+          className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
+        >
+          {/* View By label + pills */}
+          <span
+            className="font-bold uppercase tracking-widest shrink-0"
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+          >
+            View By
+          </span>
+          <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
+            {(["school", "region", "gradeSpan"] as DistrictViewBy[]).map((mode, i, arr) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewBy(mode)}
+                className="px-3 sm:px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
+                style={{
+                  backgroundColor: viewBy === mode ? NAVY : "transparent",
+                  color: viewBy === mode ? "white" : NAVY,
+                  letterSpacing: "0.02em",
+                  fontSize: 13,
+                  borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
+                }}
+              >
+                {mode === "school" ? "School" : mode === "region" ? "Region" : "Grade Span"}
+              </button>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
+
+          {/* Most Recent / Quarter Avg — right-aligned */}
+          <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
+            {(["recent", "average"] as ScoreType[]).map((mode, i) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setScoreType(mode)}
+                className="px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
+                style={{
+                  backgroundColor: scoreType === mode ? NAVY : "transparent",
+                  color: scoreType === mode ? "white" : NAVY,
+                  letterSpacing: "0.02em",
+                  fontSize: 13,
+                  borderRight: i === 0 ? `1px solid ${NAVY}` : undefined,
+                }}
+              >
+                {mode === "recent" ? "Most Recent" : "Quarter Avg"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Loading / Error ──────────────────────────────── */}
@@ -262,7 +438,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         letterSpacing: "0.02em",
                       }}
                     >
-                      School
+                      {firstColLabel}
                     </th>
 
                     {data.categories.map((cat) => (
@@ -346,67 +522,82 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
                 </thead>
                 <tbody>
-                  {data.schools.map((school, rowIdx) => {
+                  {displayRows.map((row, rowIdx) => {
                     const isEven = rowIdx % 2 === 0;
                     return (
                       <tr
-                        key={school.id}
+                        key={row.key}
                         className="border-b transition-colors"
                         style={{ borderColor: "#e8edf8", backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#eef2fc")}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isEven ? "#ffffff" : "#f7f9fd")}
                       >
-                        {/* School name cell — clickable */}
+                        {/* First column (school / region / grade span) */}
                         <td
                           className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
                           style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", borderRight: `2px solid ${YELLOW}` }}
                         >
-                          <button
-                            className="font-semibold leading-tight truncate text-left w-full hover:underline"
-                            style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
-                            onClick={() => onDrillDown(school.id, school.name)}
-                          >
-                            {school.name}
-                          </button>
+                          {row.isClickable ? (
+                            <button
+                              className="font-semibold leading-tight truncate text-left w-full hover:underline"
+                              style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
+                              onClick={() => row.schoolId != null && onDrillDown(row.schoolId, row.label)}
+                            >
+                              {row.label}
+                            </button>
+                          ) : (
+                            <span
+                              className="font-semibold leading-tight truncate block"
+                              style={{ color: NAVY, fontSize: 15 }}
+                            >
+                              {row.label}
+                            </span>
+                          )}
                           <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
-                            {school.teacherCount} teacher{school.teacherCount !== 1 ? "s" : ""} · {school.observedCount} observed
+                            {row.subLabel}
                           </p>
                         </td>
 
-                        {/* Domain average cells */}
+                        {/* Domain average cells — full-cell coloring */}
                         {allDomains.map((domain) => {
-                          const val = school.domainAverages[domain.id] ?? null;
+                          const val = row.domainAverages[domain.id] ?? null;
                           const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
-                          return (
+                          const borderStyle  = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                          return val != null ? (
                             <td
                               key={domain.id}
-                              className="text-center py-1.5"
-                              style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
+                              className={`text-center py-2 font-bold tabular-nums ${getScoreColor(val)}`}
+                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14 }}
                             >
-                              {val != null ? (
-                                <span
-                                  className={`inline-flex items-center justify-center font-bold tabular-nums rounded ${getScoreColor(val)}`}
-                                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, minWidth: 36, padding: "2px 4px" }}
-                                >
-                                  {val.toFixed(1)}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
+                              {val.toFixed(1)}
                             </td>
+                          ) : (
+                            <td key={domain.id} className="text-center text-slate-300 py-2" style={borderStyle}>—</td>
                           );
                         })}
 
-                        {/* AVG column */}
-                        <td
-                          className={`text-center font-bold py-1.5 ${school.overall != null ? getScoreColor(school.overall) : ""}`}
-                          style={{ borderLeft: `2px solid ${YELLOW}` }}
-                        >
-                          {school.overall != null ? school.overall.toFixed(1) : "—"}
-                        </td>
+                        {/* AVG column — full-cell coloring */}
+                        {row.overall != null ? (
+                          <td
+                            className={`text-center font-bold py-2 ${getScoreColor(row.overall)}`}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14 }}
+                          >
+                            {row.overall.toFixed(1)}
+                          </td>
+                        ) : (
+                          <td className="text-center text-slate-300 py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>—</td>
+                        )}
                       </tr>
                     );
                   })}
+
+                  {displayRows.length === 0 && (
+                    <tr>
+                      <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
+                        No data available for this quarter.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

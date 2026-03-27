@@ -8,12 +8,14 @@ import { eq, inArray, and, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/district/summary?quarter=Q1 ──────────────────────────
-   Returns per-school average scores for each domain, using the most
-   recent observation per teacher in the given quarter.             */
+/* ── GET /api/district/summary?quarter=Q1&scoreType=recent|average
+   Returns per-school average scores for each domain.
+   scoreType=recent  → most-recent observation per teacher (default)
+   scoreType=average → average ALL observations for the quarter per teacher  */
 router.get("/summary", async (req, res) => {
   try {
     const quarterSlug = (req.query.quarter as string) || "Q1";
+    const scoreType   = (req.query.scoreType as string) === "average" ? "average" : "recent";
 
     const quarter = await db.query.rubricQuarters.findFirst({
       where: eq(rubricQuarters.slug, quarterSlug),
@@ -31,13 +33,11 @@ router.get("/summary", async (req, res) => {
 
     const allSchools = await db.select().from(schools).orderBy(schools.name);
 
-    /* Fetch all active teachers with their school */
     const allTeachers = await db
       .select()
       .from(teachers)
       .where(and(eq(teachers.isActive, true), isNotNull(teachers.schoolId)));
 
-    /* Fetch all observations in this quarter */
     const allObs = await db
       .select()
       .from(observations)
@@ -55,34 +55,58 @@ router.get("/summary", async (req, res) => {
       scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
     }
 
-    /* Build lookup: teacherId → sorted observations (oldest first) */
+    /* Build lookup: teacherId → sorted observations (newest first) */
     const obsByTeacher = new Map<number, typeof allObs>();
     for (const o of allObs) {
       if (!obsByTeacher.has(o.teacherId)) obsByTeacher.set(o.teacherId, []);
       obsByTeacher.get(o.teacherId)!.push(o);
     }
-    for (const [, obs] of obsByTeacher) obs.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+    for (const [, obs] of obsByTeacher) obs.sort((a, b) => b.date.localeCompare(a.date));
 
-    /* All domain slugs (ordered) */
     const allDomains = categories.flatMap((c) => c.domains ?? []);
     const allSlugs   = allDomains.map((d) => d.slug);
 
-    /* Per-school: average the most-recent-observation scores for each teacher */
+    /* ── Per-school aggregation ───────────────────────────── */
     const schoolRows = allSchools.map((school) => {
       const schoolTeachers = allTeachers.filter((t) => t.schoolId === school.id);
-      const domainSums:  Record<string, number> = {};
+      const domainSums:   Record<string, number> = {};
       const domainCounts: Record<string, number> = {};
 
       for (const t of schoolTeachers) {
         const obs = obsByTeacher.get(t.id) ?? [];
-        const mostRecent = obs[0];
-        if (!mostRecent) continue;
-        const scores = scoresByObs.get(mostRecent.id) ?? {};
-        for (const slug of allSlugs) {
-          const v = scores[slug];
-          if (v != null) {
-            domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
-            domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+        if (obs.length === 0) continue;
+
+        if (scoreType === "recent") {
+          /* Most-recent observation only */
+          const scores = scoresByObs.get(obs[0].id) ?? {};
+          for (const slug of allSlugs) {
+            const v = scores[slug];
+            if (v != null) {
+              domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
+              domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+            }
+          }
+        } else {
+          /* Quarter average: average all observations for this teacher first */
+          const teacherDomainSums:   Record<string, number> = {};
+          const teacherDomainCounts: Record<string, number> = {};
+          for (const o of obs) {
+            const scores = scoresByObs.get(o.id) ?? {};
+            for (const slug of allSlugs) {
+              const v = scores[slug];
+              if (v != null) {
+                teacherDomainSums[slug]   = (teacherDomainSums[slug]   ?? 0) + v;
+                teacherDomainCounts[slug] = (teacherDomainCounts[slug] ?? 0) + 1;
+              }
+            }
+          }
+          /* Contribute the teacher's per-domain average to the school total */
+          for (const slug of allSlugs) {
+            const cnt = teacherDomainCounts[slug] ?? 0;
+            if (cnt > 0) {
+              domainSums[slug]   = (domainSums[slug]   ?? 0) + teacherDomainSums[slug] / cnt;
+              domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+            }
           }
         }
       }
@@ -94,8 +118,8 @@ router.get("/summary", async (req, res) => {
         if (cnt > 0) {
           const avg = domainSums[slug] / cnt;
           domainAverages[slug] = Math.round(avg * 10) / 10;
-          totalSum += domainSums[slug];
-          totalCount += cnt;
+          totalSum += avg;
+          totalCount += 1;
         } else {
           domainAverages[slug] = null;
         }
@@ -106,10 +130,12 @@ router.get("/summary", async (req, res) => {
         : null;
 
       return {
-        id:             school.id,
-        name:           school.name,
-        teacherCount:   schoolTeachers.length,
-        observedCount:  schoolTeachers.filter((t) => (obsByTeacher.get(t.id) ?? []).length > 0).length,
+        id:            school.id,
+        name:          school.name,
+        region:        school.region ?? null,
+        gradeSpan:     school.gradeSpan ?? null,
+        teacherCount:  schoolTeachers.length,
+        observedCount: schoolTeachers.filter((t) => (obsByTeacher.get(t.id) ?? []).length > 0).length,
         domainAverages,
         overall,
       };
