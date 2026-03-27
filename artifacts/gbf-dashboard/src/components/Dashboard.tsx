@@ -12,8 +12,8 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, createObservation, updateObservation } from "@/lib/api";
-import type { CategoryEntry } from "@/lib/api";
+import { fetchDashboard, fetchQuarters, createObservation, updateObservation } from "@/lib/api";
+import type { CategoryEntry, RubricQuarterRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
@@ -111,10 +111,19 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  /* ── Quarter selection ─────────────────────────────── */
+  const [activeQuarter, setActiveQuarter] = useState<string>("Q1");
+
+  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
+    queryKey: ["quarters"],
+    queryFn: fetchQuarters,
+    staleTime: 60_000,
+  });
+
   /* ── API data ──────────────────────────────────────── */
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard", "Q1"],
-    queryFn: () => fetchDashboard("Q1"),
+    queryKey: ["dashboard", activeQuarter],
+    queryFn: () => fetchDashboard(activeQuarter),
     staleTime: 30_000,
   });
 
@@ -386,6 +395,44 @@ export default function Dashboard() {
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
+
+        {/* ── Quarter Switcher ──────────────────────────────── */}
+        {quarters.length > 0 && (
+          <div
+            className="bg-white rounded-md px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2"
+            style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${YELLOW}` }}
+          >
+            <span
+              className="font-bold uppercase tracking-widest shrink-0"
+              style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            >
+              Quarter
+            </span>
+            <div className="flex gap-1.5 flex-wrap">
+              {quarters.map((q) => {
+                const active = q.slug === activeQuarter;
+                return (
+                  <button
+                    key={q.slug}
+                    type="button"
+                    onClick={() => setActiveQuarter(q.slug)}
+                    className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
+                    style={{
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontSize: 14,
+                      letterSpacing: "0.04em",
+                      backgroundColor: active ? NAVY : "transparent",
+                      color: active ? "white" : NAVY,
+                      border: `1.5px solid ${NAVY}`,
+                    }}
+                  >
+                    {q.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">

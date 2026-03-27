@@ -19,9 +19,44 @@ router.get("/quarters", async (_req, res) => {
 /* ── POST /api/rubric/quarters ──────────────────────────────────── */
 router.post("/quarters", async (req, res) => {
   try {
-    const { slug, name } = req.body;
+    const { slug, name, copyFromSlug } = req.body as {
+      slug: string;
+      name: string;
+      copyFromSlug?: string;
+    };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
+
     const [quarter] = await db.insert(rubricQuarters).values({ slug, name, isActive: false }).returning();
+
+    /* Optional: copy categories + domains from an existing quarter */
+    if (copyFromSlug) {
+      const source = await db.query.rubricQuarters.findFirst({
+        where: eq(rubricQuarters.slug, copyFromSlug),
+      });
+      if (source) {
+        const sourceCats = await db.query.rubricCategories.findMany({
+          where: eq(rubricCategories.quarterId, source.id),
+          orderBy: (c, { asc }) => [asc(c.displayOrder)],
+          with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
+        });
+        for (const cat of sourceCats) {
+          const [newCat] = await db.insert(rubricCategories)
+            .values({ quarterId: quarter.id, name: cat.name, displayOrder: cat.displayOrder })
+            .returning();
+          if (cat.domains?.length) {
+            await db.insert(rubricDomains).values(
+              cat.domains.map((d) => ({
+                categoryId: newCat.id,
+                name: d.name,
+                slug: d.slug,
+                displayOrder: d.displayOrder,
+              })),
+            );
+          }
+        }
+      }
+    }
+
     res.status(201).json(quarter);
   } catch (err) {
     console.error("POST /rubric/quarters error:", err);

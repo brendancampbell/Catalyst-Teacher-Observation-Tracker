@@ -137,10 +137,10 @@ export async function fetchQuarters(): Promise<RubricQuarterRow[]> {
   return apiFetch<RubricQuarterRow[]>("/rubric/quarters");
 }
 
-export async function createQuarter(slug: string, name: string): Promise<RubricQuarterRow> {
+export async function createQuarter(slug: string, name: string, copyFromSlug?: string): Promise<RubricQuarterRow> {
   return apiFetch<RubricQuarterRow>("/rubric/quarters", {
     method: "POST",
-    body: JSON.stringify({ slug, name }),
+    body: JSON.stringify({ slug, name, ...(copyFromSlug ? { copyFromSlug } : {}) }),
   });
 }
 
