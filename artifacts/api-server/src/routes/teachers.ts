@@ -41,7 +41,7 @@ router.get("/:id", async (req, res) => {
     res.json({
       id: String(teacher.id),
       name: teacher.name,
-      department: teacher.department,
+      subject: teacher.subject,
       gradeLevel: teacher.gradeLevel,
       observations: obsRows
         .sort((a, b) => a.date.localeCompare(b.date))

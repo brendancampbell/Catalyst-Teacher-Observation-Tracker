@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  DEPARTMENTS,
+  SUBJECTS,
   GRADE_LEVELS,
   getMostRecentObservation,
   getTeacherAverage,
@@ -20,7 +20,7 @@ import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
 
 type ViewMode = "recent" | "quarterAvg";
-type ViewBy   = "teacher" | "department" | "grade";
+type ViewBy   = "teacher" | "subject" | "grade";
 
 /* ── Per-teacher domain helpers ────────────────────── */
 
@@ -51,10 +51,10 @@ interface GroupRow {
 }
 
 function buildGroups(filteredTeachers: Teacher[], viewBy: ViewBy): GroupRow[] {
-  const ORDER = viewBy === "department" ? [...DEPARTMENTS] : [...GRADE_LEVELS];
+  const ORDER = viewBy === "subject" ? [...SUBJECTS] : [...GRADE_LEVELS];
   const map = new Map<string, Teacher[]>();
   for (const t of filteredTeachers) {
-    const k = viewBy === "department" ? t.department : t.gradeLevel;
+    const k = viewBy === "subject" ? t.subject : t.gradeLevel;
     if (!map.has(k)) map.set(k, []);
     map.get(k)!.push(t);
   }
@@ -116,7 +116,7 @@ export default function Dashboard() {
 
   /* ── Filter state ──────────────────────────────────── */
   const [search, setSearch] = useState("");
-  const [dept, setDept]     = useState<string[]>([]);
+  const [subject, setSubject]     = useState<string[]>([]);
   const [grade, setGrade]   = useState<string[]>([]);
 
   /* ── View toggles ──────────────────────────────────── */
@@ -135,11 +135,11 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     return teachers.filter((t) => {
       if (viewBy === "teacher" && search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dept.length  && !dept.includes(t.department)) return false;
+      if (subject.length  && !subject.includes(t.subject)) return false;
       if (grade.length && !grade.includes(t.gradeLevel)) return false;
       return true;
     });
-  }, [teachers, search, dept, grade, viewBy]);
+  }, [teachers, search, subject, grade, viewBy]);
 
   /* ── Group rows (for rollup views) ─────────────────── */
   const groupRows = useMemo(
@@ -168,7 +168,7 @@ export default function Dashboard() {
     ? filtered.filter((t) => teacherAvgFn(t) < 2).length
     : groupAvgs.filter((a) => a < 2).length;
 
-  const hasFilters = !!(search || dept.length || grade.length);
+  const hasFilters = !!(search || subject.length || grade.length);
 
   /* ── Handlers ──────────────────────────────────────── */
   async function handleNewObservation(
@@ -225,12 +225,12 @@ export default function Dashboard() {
     : null;
 
   /* ── Label helpers ─────────────────────────────────── */
-  const firstColLabel = viewBy === "teacher" ? "Teacher / Dept"
-    : viewBy === "department" ? "Department"
+  const firstColLabel = viewBy === "teacher" ? "Teacher / Subject"
+    : viewBy === "subject" ? "Subject"
     : "Grade Level";
 
   const rowCountLabel = viewBy === "teacher" ? "Teachers Shown"
-    : viewBy === "department" ? "Departments"
+    : viewBy === "subject" ? "Subjects"
     : "Grade Levels";
 
   /* ── Loading / Error states ─────────────────────────── */
@@ -410,7 +410,7 @@ export default function Dashboard() {
             View By
           </span>
           <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            {(["teacher", "department", "grade"] as ViewBy[]).map((mode) => (
+            {(["teacher", "subject", "grade"] as ViewBy[]).map((mode) => (
               <button
                 key={mode}
                 type="button"
@@ -424,7 +424,7 @@ export default function Dashboard() {
                   borderRight: mode !== "grade" ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "teacher" ? "Teacher" : mode === "department" ? "Department" : "Grade"}
+                {mode === "teacher" ? "Teacher" : mode === "subject" ? "Subject" : "Grade"}
               </button>
             ))}
           </div>
@@ -457,9 +457,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Department filter — hidden when grouped by dept */}
-          {viewBy !== "department" && (
-            <FilterMultiSelect label="Department" values={dept}  onChange={setDept}  options={[...DEPARTMENTS]} />
+          {/* Subject filter — hidden when grouped by subject */}
+          {viewBy !== "subject" && (
+            <FilterMultiSelect label="Subject" values={subject}  onChange={setSubject}  options={[...SUBJECTS]} />
           )}
 
           {/* Grade filter — hidden when grouped by grade */}
@@ -469,7 +469,7 @@ export default function Dashboard() {
 
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setDept([]); setGrade([]); }}
+              onClick={() => { setSearch(""); setSubject([]); setGrade([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
@@ -642,7 +642,7 @@ export default function Dashboard() {
                               {teacher.name}
                             </button>
                             <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
-                              {teacher.department} · {teacher.gradeLevel}
+                              {teacher.subject} · {teacher.gradeLevel}
                             </p>
                           </td>
 
@@ -681,7 +681,7 @@ export default function Dashboard() {
                   groupRows.length === 0 ? (
                     <tr>
                       <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
-                        No {viewBy === "department" ? "departments" : "grade levels"} match the current filters.
+                        No {viewBy === "subject" ? "subjects" : "grade levels"} match the current filters.
                       </td>
                     </tr>
                   ) : (
