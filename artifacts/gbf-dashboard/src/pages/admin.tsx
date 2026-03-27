@@ -519,9 +519,9 @@ export default function AdminPage() {
             Admin Settings
           </p>
           <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-blue-200 text-sm hidden sm:block">{currentUser.name}</span>
+            <span className="text-blue-200 text-sm hidden sm:block">{currentUser?.name}</span>
             <span className="text-xs font-bold rounded-full px-2.5 py-0.5" style={{ backgroundColor: YELLOW, color: NAVY }}>
-              {currentUser.role.replace("_", " ")}
+              {currentUser?.role?.replace("_", " ")}
             </span>
           </div>
         </div>

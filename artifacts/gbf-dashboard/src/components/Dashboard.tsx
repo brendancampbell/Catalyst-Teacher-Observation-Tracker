@@ -274,7 +274,6 @@ export default function Dashboard() {
       <TeacherProfile
         teacher={profileTeacher}
         onBack={() => setTeacherProfileId(null)}
-        currentUser={currentUser}
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (

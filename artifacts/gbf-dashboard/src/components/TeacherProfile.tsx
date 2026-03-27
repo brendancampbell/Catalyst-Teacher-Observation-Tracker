@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
 import { CATEGORIES, getMostRecentObservation, type Teacher, type Observation, type Score } from "@/data/dummy";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
+import { useUser } from "@/context/UserContext";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -121,11 +122,11 @@ function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
 interface Props {
   teacher: Teacher;
   onBack: () => void;
-  currentUser: { name: string; school: string };
   onNewObs: () => void;
 }
 
-export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props) {
+export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
+  const { currentUser } = useUser();
   const sortedObs = useMemo(
     () => [...teacher.observations].sort((a, b) => b.date.localeCompare(a.date)),
     [teacher],
@@ -180,7 +181,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
               >
                 Get Better Faster
               </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>{currentUser.school}</p>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>Lincoln Elementary</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -205,11 +206,11 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
               style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
             >
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: YELLOW, color: NAVY }}>
-                PR
+                {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
               </div>
-              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser.name}</span>
-              <span className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block" style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 13 }}>
-                PRINCIPAL
+              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser?.name ?? "Loading…"}</span>
+              <span className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block" style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}>
+                {currentUser?.role?.replace("_", " ") ?? ""}
               </span>
             </div>
           </div>
