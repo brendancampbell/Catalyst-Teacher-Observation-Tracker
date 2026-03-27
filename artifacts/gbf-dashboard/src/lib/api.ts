@@ -5,10 +5,12 @@ import type { Score, Teacher, Observation } from "../data/dummy";
 export type UserRole = "COACH" | "PRINCIPAL" | "DISTRICT_ADMIN";
 
 export interface UserRow {
-  id:    number;
-  email: string;
-  name:  string;
-  role:  UserRole;
+  id:         number;
+  email:      string;
+  name:       string;
+  role:       UserRole;
+  schoolId:   number | null;
+  schoolName: string | null;
 }
 
 export async function fetchUsers(): Promise<UserRow[]> {
@@ -70,6 +72,27 @@ export interface DashboardData {
   teachers: Teacher[];
 }
 
+/* ── District ────────────────────────────────────────────────── */
+
+export interface DistrictSchoolRow {
+  id:            number;
+  name:          string;
+  teacherCount:  number;
+  observedCount: number;
+  domainAverages: Record<string, number | null>;
+  overall:       number | null;
+}
+
+export interface DistrictSummaryData {
+  quarter:    QuarterInfo;
+  categories: CategoryEntry[];
+  schools:    DistrictSchoolRow[];
+}
+
+export async function fetchDistrictSummary(quarter = "Q1"): Promise<DistrictSummaryData> {
+  return apiFetch<DistrictSummaryData>(`/district/summary?quarter=${quarter}`);
+}
+
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -86,8 +109,10 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 /* ── Dashboard ─────────────────────────────────────────────────── */
 
-export async function fetchDashboard(quarter = "Q1"): Promise<DashboardData> {
-  return apiFetch<DashboardData>(`/dashboard?quarter=${quarter}`);
+export async function fetchDashboard(quarter = "Q1", schoolId?: number | null): Promise<DashboardData> {
+  const params = new URLSearchParams({ quarter });
+  if (schoolId != null) params.set("schoolId", String(schoolId));
+  return apiFetch<DashboardData>(`/dashboard?${params.toString()}`);
 }
 
 /* ── Observations ──────────────────────────────────────────────── */

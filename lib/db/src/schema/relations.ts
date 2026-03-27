@@ -1,15 +1,22 @@
 import { relations } from "drizzle-orm";
+import { schools } from "./schools";
 import { users } from "./users";
 import { teachers } from "./teachers";
 import { rubricQuarters, rubricCategories, rubricDomains } from "./rubric";
 import { observations, observationScores } from "./observations";
 
-export const teachersRelations = relations(teachers, ({ many }) => ({
+export const schoolsRelations = relations(schools, ({ many }) => ({
+  teachers: many(teachers),
+  users:    many(users),
+}));
+
+export const teachersRelations = relations(teachers, ({ one, many }) => ({
+  school:       one(schools, { fields: [teachers.schoolId], references: [schools.id] }),
   observations: many(observations),
 }));
 
 export const rubricQuartersRelations = relations(rubricQuarters, ({ many }) => ({
-  categories: many(rubricCategories),
+  categories:   many(rubricCategories),
   observations: many(observations),
 }));
 
@@ -22,7 +29,8 @@ export const rubricDomainsRelations = relations(rubricDomains, ({ one }) => ({
   category: one(rubricCategories, { fields: [rubricDomains.categoryId], references: [rubricCategories.id] }),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  school:       one(schools, { fields: [users.schoolId], references: [schools.id] }),
   observations: many(observations),
 }));
 

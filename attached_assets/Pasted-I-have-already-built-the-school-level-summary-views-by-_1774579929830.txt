@@ -1,0 +1,32 @@
+I have already built the school-level summary views (by teacher, by grade, and by department). All coaches and principals at a given school have access to view all teachers at their school. 
+
+We are now moving on to build the "District Admin Dashboard". 
+
+Goal: Introduce the concept of multiple schools into our database, and build a high-level District Dashboard that shows aggregated averages by School, allowing District Admins to drill down into specific schools.
+
+Please implement the following steps:
+
+1. DATABASE SCHEMA UPDATES:
+- Update the Prisma schema to add a `School` model (id, name).
+- Update the `Teacher` model to include a `schoolId` relation.
+- Update the `User` model to include a `schoolId` relation (so we know which school a Coach/Principal belongs to). If a user is a `DISTRICT_ADMIN`, their schoolId can be null.
+- Update the `seed.ts` script to create 3 or 4 dummy schools (e.g., "Washington High", "Lincoln Middle", "Roosevelt Elementary") and distribute our dummy teachers and dummy users among them.
+
+2. DISTRICT DASHBOARD DATA AGGREGATION:
+- Create a new Server Action or API route called `getDistrictSummary()`.
+- This function should calculate the average score for each rubric Domain, grouped by `School`. It should average all the most recent observations of all teachers within that school.
+
+3. DISTRICT DASHBOARD UI:
+- Create a new main view/page specifically for the `DISTRICT_ADMIN` role. (Use our existing "User Switcher" state to conditionally render this). 
+- Build a District Summary data table using Tailwind and shadcn/ui.
+- Left-most column: "School Name".
+- Top Headers: The specific Domains from the active rubric, grouped by Category.
+- The Cells: Display the calculated average score for that School for that Domain.
+- Right-most column: "School Overall Average".
+- Apply our standard 1-4 color-coding conditional formatting to this grid.
+
+4. THE DRILL-DOWN:
+- Make the "School Name" in the left-most column a clickable Link. 
+- When clicked, it should route the user to the school-level summary views I have already built, passing the `schoolId` in the URL (e.g., `/school/[schoolId]`) so the existing views know which school's data to display.
+
+Please provide the Prisma migration commands, the updated schema, and the code for the new District Dashboard.

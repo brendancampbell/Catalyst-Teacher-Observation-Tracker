@@ -4,15 +4,17 @@ import {
   teachers, rubricQuarters, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/dashboard?quarter=Q1 ──────────────────────────────────
-   Returns rubric + all teachers with full observation history.        */
+/* ── GET /api/dashboard?quarter=Q1&schoolId=2 ───────────────────────
+   Returns rubric + teachers (optionally filtered by school) with
+   full observation history.                                          */
 router.get("/", async (req, res) => {
   try {
     const quarterSlug = (req.query.quarter as string) || "Q1";
+    const schoolIdParam = req.query.schoolId ? Number(req.query.schoolId) : null;
 
     const quarter = await db.query.rubricQuarters.findFirst({
       where: eq(rubricQuarters.slug, quarterSlug),
@@ -32,7 +34,9 @@ router.get("/", async (req, res) => {
       },
     });
 
-    const allTeachers = await db.select().from(teachers).where(eq(teachers.isActive, true));
+    const allTeachers = schoolIdParam != null
+      ? await db.select().from(teachers).where(and(eq(teachers.isActive, true), eq(teachers.schoolId, schoolIdParam)))
+      : await db.select().from(teachers).where(eq(teachers.isActive, true));
 
     const allObs = await db.select().from(observations)
       .where(eq(observations.quarterId, quarter.id));
@@ -59,6 +63,7 @@ router.get("/", async (req, res) => {
       name: t.name,
       subject: t.subject,
       gradeLevel: t.gradeLevel,
+      schoolId: t.schoolId,
       observations: (obsByTeacher.get(t.id) ?? [])
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({

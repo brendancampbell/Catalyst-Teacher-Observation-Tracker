@@ -94,7 +94,8 @@ All routes mounted at `/api`:
 - `POST /api/rubric/categories/:id/domains` — Create domain
 - `PUT /api/rubric/domains/:id` — Update domain
 - `DELETE /api/rubric/domains/:id` — Delete domain
-- `GET /api/users` — List all users (for role switcher)
+- `GET /api/users` — List all users with schoolId + schoolName (for role switcher)
+- `GET /api/district/summary?quarter=Q1` — Per-school aggregated domain averages (DISTRICT_ADMIN)
 - `GET /api/admin/teachers` — All teachers incl. inactive (admin roster)
 - `POST /api/admin/teachers` — Create teacher
 - `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel
@@ -104,7 +105,8 @@ All routes mounted at `/api`:
 
 - `lib/api.ts` — Typed fetch helpers for all API endpoints
 - `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
-- `components/Dashboard.tsx` — Main grid with useQuery + filters + modals + user switcher
+- `components/Dashboard.tsx` — Main grid; routes DISTRICT_ADMIN (no schoolId) → DistrictDashboard; filters teachers by URL schoolId or currentUser.schoolId
+- `components/DistrictDashboard.tsx` — District-level school grid with per-school domain averages + drill-down
 - `components/TeacherProfile.tsx` — Full teacher view
 - `components/DrillDownModal.tsx` — Domain trend chart + observation list
 - `components/NewObservationModal.tsx` — Observation entry form

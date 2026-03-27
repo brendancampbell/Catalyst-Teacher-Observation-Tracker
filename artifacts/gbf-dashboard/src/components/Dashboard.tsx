@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, ArrowLeft } from "lucide-react";
+import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SUBJECTS,
@@ -19,6 +20,7 @@ import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
+import DistrictDashboard from "@/components/DistrictDashboard";
 
 type ViewMode = "recent" | "quarterAvg";
 type ViewBy   = "teacher" | "subject" | "grade";
@@ -111,6 +113,20 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  /* ── URL params: schoolId for district drill-down ─── */
+  const search = useSearch();
+  const schoolId = useMemo(() => {
+    const v = new URLSearchParams(search).get("schoolId");
+    return v ? Number(v) : null;
+  }, [search]);
+
+  const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+  /* ── School name from URL param (for drill-down label) */
+  const schoolName = useMemo(() => {
+    return new URLSearchParams(search).get("schoolName") ?? null;
+  }, [search]);
+
   /* ── Quarter selection ─────────────────────────────── */
   const [activeQuarter, setActiveQuarter] = useState<string>("Q1");
 
@@ -121,10 +137,16 @@ export default function Dashboard() {
   });
 
   /* ── API data ──────────────────────────────────────── */
+  const isDistrictHome = currentUser?.role === "DISTRICT_ADMIN" && schoolId == null;
+
+  // Use URL schoolId for district drill-down; otherwise fall back to user's own school
+  const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard", activeQuarter],
-    queryFn: () => fetchDashboard(activeQuarter),
+    queryKey: ["dashboard", activeQuarter, effectiveSchoolId],
+    queryFn: () => fetchDashboard(activeQuarter, effectiveSchoolId),
     staleTime: 30_000,
+    enabled: !isDistrictHome,
   });
 
   const teachers: Teacher[]       = data?.teachers   ?? [];
@@ -148,7 +170,7 @@ export default function Dashboard() {
   const [drillDown, setDrillDown]   = useState<DrillDownTarget | null>(null);
   const [saving, setSaving]         = useState(false);
 
-  /* ── Filtered teacher list ─────────────────────────── */
+  /* ── Derived lists (always computed — hooks must come before any return) */
   const filtered = useMemo(() => {
     return teachers.filter((t) => {
       if (subject.length  && !subject.includes(t.subject)) return false;
@@ -157,21 +179,32 @@ export default function Dashboard() {
     });
   }, [teachers, subject, grade, viewBy]);
 
-  /* ── Group rows (for rollup views) ─────────────────── */
   const groupRows = useMemo(
     () => (viewBy !== "teacher" ? buildGroups(filtered, viewBy) : []),
     [filtered, viewBy],
   );
 
-  /* ── Stats — teacher view ──────────────────────────── */
-  const teacherAvgFn   = (t: Teacher) =>
+  const teacherAvgFn = (t: Teacher) =>
     viewMode === "recent" ? getTeacherAverage(t) : getQuarterTeacherAvg(t, allDomains);
 
-  /* ── Stats — rollup view ───────────────────────────── */
   const groupAvgs = useMemo(
     () => groupRows.map((g) => getGroupOverallAvg(g.teachers, allDomains, viewMode)),
     [groupRows, allDomains, viewMode],
   );
+
+  /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
+  if (isDistrictHome) {
+    return (
+      <DistrictDashboard
+        onDrillDown={(id, name) => {
+          const params = new URLSearchParams({ schoolId: String(id), schoolName: name });
+          window.location.href = `${baseUrl}/?${params.toString()}`;
+        }}
+      />
+    );
+  }
+
+  /* ── Stats — teacher view ──────────────────────────── */
 
   const statCount        = viewBy === "teacher" ? filtered.length : groupRows.length;
   const filteredAvgs     = viewBy === "teacher"
@@ -303,13 +336,26 @@ export default function Dashboard() {
             />
             <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
+              {/* District breadcrumb when drilling into a school */}
+              {schoolId != null && currentUser?.role === "DISTRICT_ADMIN" && (
+                <a
+                  href={`${baseUrl}/`}
+                  className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
+                  style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                >
+                  <ArrowLeft size={12} />
+                  District Overview
+                </a>
+              )}
               <p
                 className="text-white uppercase tracking-widest leading-tight"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
               >
                 Get Better Faster Tracker
               </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>Lincoln Elementary</p>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
+                {schoolName ?? currentUser?.schoolName ?? ""}
+              </p>
             </div>
           </div>
 
