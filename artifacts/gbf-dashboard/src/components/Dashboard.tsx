@@ -251,11 +251,11 @@ export default function Dashboard() {
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-2.5">
           {[
-            { label: "Teachers Shown",     value: filtered.length,                                 pct: null },
-            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—",   pct: null },
-            { label: "Proficient+ (≥ 3)", value: proficient,    pct: filtered.length ? Math.round(proficient    / filtered.length * 100) : null },
-            { label: "Need Support (< 2)", value: needsSupport, pct: filtered.length ? Math.round(needsSupport  / filtered.length * 100) : null },
-          ].map(({ label, value, pct }) => (
+            { label: "Teachers Shown",     value: filtered.length,                                 pct: null, colorScore: null as number | null },
+            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—",   pct: null, colorScore: filtered.length ? schoolAvg : null },
+            { label: "Proficient+ (≥ 3)", value: proficient,    pct: filtered.length ? Math.round(proficient    / filtered.length * 100) : null, colorScore: null as number | null },
+            { label: "Need Support (< 2)", value: needsSupport, pct: filtered.length ? Math.round(needsSupport  / filtered.length * 100) : null, colorScore: null as number | null },
+          ].map(({ label, value, pct, colorScore }) => (
             <div
               key={label}
               className="bg-white rounded-md shadow-sm overflow-hidden"
@@ -266,20 +266,21 @@ export default function Dashboard() {
                   {label}
                 </p>
                 {pct !== null ? (
-                  <div className="flex items-end gap-0 mt-1">
-                    <div className="flex flex-col items-center pr-3" style={{ borderRight: `2px solid #dde3f0` }}>
-                      <span className="text-xs uppercase tracking-wide font-semibold" style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.4 }}>teachers</span>
-                      <span className="font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
-                        {value}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-center pl-3">
-                      <span className="text-xs uppercase tracking-wide font-semibold" style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.4 }}>of school</span>
-                      <span className="font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
-                        {pct}%
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-0 mt-1">
+                    <span className="font-bold leading-none pr-3" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                      {value}
+                    </span>
+                    <span className="font-bold leading-none pl-3" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                      {pct}%
+                    </span>
                   </div>
+                ) : colorScore !== null ? (
+                  <span
+                    className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
+                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
+                  </span>
                 ) : (
                   <p
                     className="font-bold mt-1 leading-none"
