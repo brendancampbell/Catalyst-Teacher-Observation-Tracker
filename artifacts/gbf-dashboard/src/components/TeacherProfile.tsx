@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
 import { CATEGORIES, getMostRecentObservation, type Teacher, type Observation, type Score } from "@/data/dummy";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 
@@ -29,8 +29,10 @@ function ScoreChip({ score }: { score: Score }) {
 
 function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
   const domains = CATEGORIES.flatMap((c) => c.domains);
-  const scores = domains.map((d) => (obs.scores[d.id] as Score));
-  const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+  const scores = domains
+    .map((d) => obs.scores[d.id] as Score | undefined)
+    .filter((s): s is Score => s !== undefined);
+  const avg = scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
   return (
     <div
       className="rounded-xl border overflow-hidden"
@@ -62,11 +64,11 @@ function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
             by {obs.observer}
           </span>
         </div>
-        <span
-          className={`font-bold text-sm px-3 py-1 rounded ${getScoreColor(avg)}`}
-        >
-          {avg.toFixed(1)} avg
-        </span>
+        {avg !== null && (
+          <span className={`font-bold text-sm px-3 py-1 rounded ${getScoreColor(avg)}`}>
+            {avg.toFixed(1)} avg
+          </span>
+        )}
       </div>
 
       <div className="px-4 py-3 space-y-3">
@@ -80,12 +82,11 @@ function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
             </p>
             <div className="flex flex-wrap gap-2">
               {cat.domains.map((d) => {
-                const s = obs.scores[d.id] as Score;
+                const s = obs.scores[d.id] as Score | undefined;
+                if (!s) return null;
                 return (
                   <div key={d.id} className="flex items-center gap-1.5">
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded ${getScoreColorExact(s)}`}
-                    >
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${getScoreColorExact(s)}`}>
                       {s}
                     </span>
                     <span className="text-xs text-slate-500">{d.label}</span>
@@ -121,9 +122,10 @@ interface Props {
   teacher: Teacher;
   onBack: () => void;
   currentUser: { name: string; school: string };
+  onNewObs: () => void;
 }
 
-export function TeacherProfile({ teacher, onBack, currentUser }: Props) {
+export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props) {
   const sortedObs = useMemo(
     () => [...teacher.observations].sort((a, b) => b.date.localeCompare(a.date)),
     [teacher],
@@ -132,26 +134,29 @@ export function TeacherProfile({ teacher, onBack, currentUser }: Props) {
   const recent = sortedObs[0];
   const recentScores = useMemo(() => {
     if (!recent) return [];
-    return CATEGORIES.flatMap((c) => c.domains).map((d) => ({
-      domain: d,
-      score: recent.scores[d.id] as Score,
-    }));
+    return CATEGORIES.flatMap((c) => c.domains)
+      .map((d) => ({ domain: d, score: recent.scores[d.id] as Score | undefined }))
+      .filter((x): x is { domain: typeof x.domain; score: Score } => x.score !== undefined);
   }, [recent]);
 
   const allScores = useMemo(() => {
     return CATEGORIES.flatMap((c) => c.domains).map((d) => {
-      const vals = teacher.observations.map((o) => o.scores[d.id] as Score);
-      const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-      const trend = vals.length >= 2
-        ? vals[vals.length - 1] - vals[0]
+      const vals = teacher.observations
+        .map((o) => o.scores[d.id] as Score | undefined)
+        .filter((s): s is Score => s !== undefined);
+      const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+      const definedVals = teacher.observations
+        .flatMap((o) => (o.scores[d.id] !== undefined ? [o.scores[d.id] as Score] : []));
+      const trend = definedVals.length >= 2
+        ? definedVals[definedVals.length - 1] - definedVals[0]
         : 0;
-      return { domain: d, recentScore: recent?.scores[d.id] as Score, avg, trend };
+      return { domain: d, recentScore: recent?.scores[d.id] as Score | undefined, avg, trend };
     });
   }, [teacher, recent]);
 
   const overallAvg = recentScores.length
     ? recentScores.reduce((s, { score }) => s + score, 0) / recentScores.length
-    : 0;
+    : null;
 
   const expLabel =
     teacher.yearsExperience <= 2 ? "Early Career" :
@@ -191,6 +196,14 @@ export function TeacherProfile({ teacher, onBack, currentUser }: Props) {
             >
               <ArrowLeft size={15} />
               Back to Dashboard
+            </button>
+            <button
+              onClick={onNewObs}
+              className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, letterSpacing: "0.06em" }}
+            >
+              <Plus size={16} strokeWidth={3} />
+              Add Observation
             </button>
             <div
               className="flex items-center gap-2 rounded px-3 py-1.5"
@@ -251,7 +264,7 @@ export function TeacherProfile({ teacher, onBack, currentUser }: Props) {
                     className="font-bold mt-0.5"
                     style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30, color: YELLOW, lineHeight: 1 }}
                   >
-                    {overallAvg.toFixed(1)}
+                    {overallAvg !== null ? overallAvg.toFixed(1) : "—"}
                   </p>
                 </div>
                 <div
@@ -331,7 +344,9 @@ export function TeacherProfile({ teacher, onBack, currentUser }: Props) {
                                 ? <><TrendingDown size={12} className="text-red-400" /> <span className="text-red-500 font-semibold">{item.trend}</span></>
                                 : <><Minus size={12} className="text-slate-300" /> <span>flat</span></>}
                             </div>
-                            <ScoreChip score={item.recentScore} />
+                            {item.recentScore !== undefined
+                              ? <ScoreChip score={item.recentScore} />
+                              : <span className="text-xs text-slate-400 italic">not scored</span>}
                           </div>
                         </div>
                       );

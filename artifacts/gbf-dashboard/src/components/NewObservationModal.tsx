@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Plus, AlertCircle } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { CATEGORIES, ALL_DOMAINS, type Score, type Teacher } from "@/data/dummy";
 
 const NAVY = "#1034B4";
@@ -44,10 +44,8 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
-  const [showValidation, setShowValidation] = useState(false);
 
-  const unscoredDomains = ALL_DOMAINS.filter((d) => scores[d.id] === undefined);
-  const allScored = unscoredDomains.length === 0;
+  const scoredCount = ALL_DOMAINS.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
     setTeacherId(teachers[0]?.id ?? "");
@@ -55,15 +53,10 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
     setScores({});
     setStrengths("");
     setGrowthAreas("");
-    setShowValidation(false);
   }
 
   function handleSubmit() {
     if (!teacherId) return;
-    if (!allScored) {
-      setShowValidation(true);
-      return;
-    }
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas);
     reset();
     onOpenChange(false);
@@ -101,17 +94,6 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
               </DialogPrimitive.Close>
             </div>
           </div>
-
-          {/* ── Validation banner ─────────────────────────── */}
-          {showValidation && !allScored && (
-            <div className="shrink-0 flex items-start gap-2.5 px-5 py-3 text-sm font-medium" style={{ backgroundColor: "#fef3c7", borderBottom: "1px solid #fde68a" }}>
-              <AlertCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#92400e" }} />
-              <span style={{ color: "#92400e" }}>
-                Please score all {unscoredDomains.length} remaining domain{unscoredDomains.length > 1 ? "s" : ""} before submitting:{" "}
-                <span className="font-semibold">{unscoredDomains.map((d) => d.label).join(", ")}</span>
-              </span>
-            </div>
-          )}
 
           {/* ── Scrollable Body ───────────────────────────── */}
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
@@ -153,13 +135,13 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
-                    width: `${((ALL_DOMAINS.length - unscoredDomains.length) / ALL_DOMAINS.length) * 100}%`,
-                    backgroundColor: allScored ? "#16a34a" : NAVY,
+                    width: `${(scoredCount / ALL_DOMAINS.length) * 100}%`,
+                    backgroundColor: scoredCount === ALL_DOMAINS.length ? "#16a34a" : NAVY,
                   }}
                 />
               </div>
-              <span className="text-xs font-semibold shrink-0" style={{ color: allScored ? "#16a34a" : "#64748b" }}>
-                {ALL_DOMAINS.length - unscoredDomains.length} / {ALL_DOMAINS.length} scored
+              <span className="text-xs font-semibold shrink-0" style={{ color: scoredCount === ALL_DOMAINS.length ? "#16a34a" : "#64748b" }}>
+                {scoredCount} / {ALL_DOMAINS.length} scored
               </span>
             </div>
 
@@ -185,14 +167,12 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
                 <div className="border border-t-0 border-slate-200 rounded-b divide-y divide-slate-100">
                   {cat.domains.map((domain) => {
                     const isUnscored = scores[domain.id] === undefined;
-                    const needsAttention = showValidation && isUnscored;
                     return (
                       <div
                         key={domain.id}
                         className="flex items-center justify-between px-3 py-2.5 transition-colors"
-                        style={needsAttention ? { backgroundColor: "#fffbeb" } : undefined}
                       >
-                        <span className="text-sm font-medium flex-1 pr-4" style={{ color: needsAttention ? "#92400e" : "#374151" }}>
+                        <span className="text-sm font-medium flex-1 pr-4 text-slate-700">
                           {domain.label}
                           {isUnscored && (
                             <span className="ml-2 text-xs font-normal text-slate-400 italic">— not scored</span>
@@ -204,10 +184,7 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
                               key={s}
                               type="button"
                               title={SCORE_LABELS[s]}
-                              onClick={() => {
-                                setScores((prev) => ({ ...prev, [domain.id]: s }));
-                                if (showValidation) setShowValidation(false);
-                              }}
+                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: s }))}
                               className={`w-9 h-9 rounded font-bold text-sm transition-all ${scorePillClass(s, scores[domain.id] === s)}`}
                             >
                               {s}
@@ -253,7 +230,9 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
           {/* ── Footer ───────────────────────────────────── */}
           <div className="shrink-0 px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
             <p className="text-xs text-slate-400">
-              {allScored ? "✓ All domains scored — ready to submit." : `${unscoredDomains.length} domain${unscoredDomains.length > 1 ? "s" : ""} still need a score.`}
+              {scoredCount === ALL_DOMAINS.length
+                ? "✓ All domains scored."
+                : `${scoredCount} of ${ALL_DOMAINS.length} domains scored — unscored domains will be left blank.`}
             </p>
             <div className="flex gap-3">
               <DialogPrimitive.Close
@@ -264,11 +243,8 @@ export function NewObservationModal({ teachers, open, onOpenChange, onSubmit }: 
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="px-6 py-2 rounded text-sm font-bold text-white transition-opacity shadow-sm"
-                style={{
-                  backgroundColor: allScored ? NAVY : "#94a3b8",
-                  cursor: allScored ? "pointer" : "default",
-                }}
+                className="px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                style={{ backgroundColor: NAVY }}
               >
                 Submit Observation
               </button>

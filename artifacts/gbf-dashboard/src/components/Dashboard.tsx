@@ -136,21 +136,18 @@ export default function Dashboard() {
     setDrillDown({ teacherId: teacher.id, domainId, domainLabel });
   }
 
-  /* ── Teacher profile overlay ────────────────────────── */
-  if (teacherProfileId) {
-    const profileTeacher = teachers.find((t) => t.id === teacherProfileId);
-    if (profileTeacher) {
-      return (
-        <TeacherProfile
-          teacher={profileTeacher}
-          onBack={() => setTeacherProfileId(null)}
-          currentUser={currentUser}
-        />
-      );
-    }
-  }
+  const profileTeacher = teacherProfileId ? (teachers.find((t) => t.id === teacherProfileId) ?? null) : null;
 
   return (
+    <>
+    {profileTeacher ? (
+      <TeacherProfile
+        teacher={profileTeacher}
+        onBack={() => setTeacherProfileId(null)}
+        currentUser={currentUser}
+        onNewObs={() => setNewObsOpen(true)}
+      />
+    ) : (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
@@ -235,49 +232,19 @@ export default function Dashboard() {
               Observation Tracker
             </h2>
             <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
-            <p className="text-slate-500 mt-1.5 font-medium" style={{ fontSize: 14 }}>
-              {viewMode === "recent"
-                ? "Scores reflect most recent observation · Click any cell to view history"
-                : "Showing average across all observations this quarter · Click any cell to view history"}
-            </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2 mt-1">
-            {/* View mode toggle */}
-            <div
-              className="flex rounded-md overflow-hidden shadow-sm shrink-0"
-              style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Barlow Condensed', sans-serif" }}
-            >
-              {(["recent", "quarterAvg"] as ViewMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode(mode)}
-                  className="px-4 py-1.5 font-bold uppercase tracking-wider text-sm transition-colors"
-                  style={{
-                    backgroundColor: viewMode === mode ? NAVY : "white",
-                    color: viewMode === mode ? "white" : NAVY,
-                    letterSpacing: "0.07em",
-                    fontSize: 13,
-                  }}
-                >
-                  {mode === "recent" ? "Most Recent" : "Quarter Avg"}
-                </button>
-              ))}
-            </div>
-
-            {/* Score legend */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
-                <span
-                  key={score}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
-                  style={{ fontSize: 14 }}
-                >
-                  {score} <span className="font-normal opacity-80">{label}</span>
-                </span>
-              ))}
-            </div>
+          {/* Score legend */}
+          <div className="flex items-center gap-2 flex-wrap justify-end mt-1">
+            {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
+              <span
+                key={score}
+                className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
+                style={{ fontSize: 14 }}
+              >
+                {score} <span className="font-normal opacity-80">{label}</span>
+              </span>
+            ))}
           </div>
         </div>
 
@@ -348,6 +315,26 @@ export default function Dashboard() {
               Clear all
             </button>
           )}
+
+          {/* View mode toggle — right-aligned */}
+          <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Barlow Condensed', sans-serif" }}>
+            {(["recent", "quarterAvg"] as ViewMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className="px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
+                style={{
+                  backgroundColor: viewMode === mode ? NAVY : "transparent",
+                  color: viewMode === mode ? "white" : NAVY,
+                  letterSpacing: "0.07em",
+                  fontSize: 13,
+                }}
+              >
+                {mode === "recent" ? "Most Recent" : "Quarter Avg"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Table ─────────────────────────────────────────── */}
@@ -582,7 +569,10 @@ export default function Dashboard() {
 
       </main>
 
-      {/* ══ MODALS ══════════════════════════════════════════════ */}
+    </div>
+    )}
+
+      {/* ══ MODALS — always rendered ═══════════════════════════ */}
       <NewObservationModal
         teachers={teachers}
         open={newObsOpen}
@@ -598,7 +588,7 @@ export default function Dashboard() {
         onOpenChange={(open) => { if (!open) setDrillDown(null); }}
         onUpdateObs={handleUpdateObs}
       />
-    </div>
+    </>
   );
 }
 
