@@ -41,9 +41,9 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   return (
     <div
       className="bg-white rounded-xl shadow-xl border border-slate-200 p-3.5 text-sm"
-      style={{ minWidth: 210, fontFamily: "'Libre Franklin', sans-serif" }}
+      style={{ minWidth: 220, fontFamily: "'Libre Franklin', sans-serif" }}
     >
-      <p className="font-bold text-slate-800 text-sm">{d.dateLabel}</p>
+      <p className="font-bold text-slate-800">{d.dateLabel}</p>
       <div className="flex items-center gap-2 mt-2">
         <span
           className="font-bold text-base px-2.5 py-0.5 rounded"
@@ -57,19 +57,14 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
         Observed by <span className="font-semibold text-slate-700">{d.observer}</span>
       </p>
       <p className="text-blue-500 text-xs mt-2 border-t border-slate-100 pt-2">
-        Click dot to open full observation →
+        Click to open full observation →
       </p>
     </div>
   );
 }
 
 /* ── Custom dot rendered on line ─────────────────── */
-function CustomDot(props: {
-  cx?: number;
-  cy?: number;
-  index?: number;
-  payload?: ChartPoint;
-}) {
+function CustomDot(props: { cx?: number; cy?: number; payload?: ChartPoint }) {
   const { cx, cy, payload } = props;
   if (!cx || !cy || !payload?.score) return null;
   const color = DOT_COLORS[payload.score] ?? "#94a3b8";
@@ -83,9 +78,31 @@ function CustomDot(props: {
   );
 }
 
+/* ── Stat card in header ──────────────────────────── */
+function StatCard({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex flex-col rounded-lg px-4 py-2.5 min-w-[90px]"
+      style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+    >
+      <span className="text-blue-300 text-xs uppercase tracking-wider font-semibold mb-0.5">{label}</span>
+      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 28, lineHeight: 1 }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
 interface ChartPoint {
   date: string;
   dateLabel: string;
+  timestamp: number;
   score: number | null;
   observer: string;
   obsId: string;
@@ -107,17 +124,17 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
     if (!teacher || !domainId) return [];
     return [...teacher.observations]
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map((obs) => ({
-        date: obs.date,
-        dateLabel: new Date(obs.date + "T00:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "2-digit",
-        }),
-        score: (obs.scores[domainId] as number) ?? null,
-        observer: obs.observer,
-        obsId: obs.id,
-      }));
+      .map((obs) => {
+        const dt = new Date(obs.date + "T00:00:00");
+        return {
+          date: obs.date,
+          dateLabel: dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          timestamp: dt.getTime(),
+          score: (obs.scores[domainId] as number) ?? null,
+          observer: obs.observer,
+          obsId: obs.id,
+        };
+      });
   }, [teacher, domainId]);
 
   const detailObs = useMemo(
@@ -132,6 +149,11 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
   const firstScore = scores[0];
   const lastScore = scores[scores.length - 1];
   const trendDelta = scores.length >= 2 ? lastScore - firstScore : null;
+
+  // X-axis domain: add 5-day padding on each side
+  const timestamps = chartData.map((d) => d.timestamp);
+  const minTs = Math.min(...timestamps) - 5 * 86_400_000;
+  const maxTs = Math.max(...timestamps) + 5 * 86_400_000;
 
   function handleChartClick(data: { activePayload?: Array<{ payload: ChartPoint }> } | null) {
     if (data?.activePayload?.[0]) {
@@ -151,12 +173,12 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
           <DialogPrimitive.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl max-h-[88vh] flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
 
             {/* ── Header ───────────────────────────────── */}
-            <div className="shrink-0 px-6 py-4" style={{ backgroundColor: NAVY }}>
-              <div className="flex items-start justify-between gap-4">
+            <div className="shrink-0 px-6 pt-4 pb-5" style={{ backgroundColor: NAVY }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <DialogPrimitive.Title
                     className="text-white font-bold leading-tight"
-                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, letterSpacing: "0.05em" }}
+                    style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, letterSpacing: "0.05em" }}
                   >
                     {teacher.name}
                   </DialogPrimitive.Title>
@@ -170,49 +192,50 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                 </DialogPrimitive.Close>
               </div>
 
-              {/* Stats strip */}
-              <div className="flex items-center gap-6 mt-3 pt-3 border-t border-blue-800">
-                <div>
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Observations</p>
-                  <p className="text-white font-bold text-lg" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
-                    {chartData.length}
-                  </p>
-                </div>
+              {/* ── Stat cards ─────────────────────────── */}
+              <div className="flex items-stretch gap-3 flex-wrap">
+                <StatCard label="Observations">
+                  <span className="text-white">{chartData.length}</span>
+                </StatCard>
+
                 {avgScore !== null && (
-                  <div>
-                    <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Avg Score</p>
-                    <p className="font-bold text-lg" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: YELLOW }}>
-                      {avgScore.toFixed(1)}
-                    </p>
-                  </div>
+                  <StatCard label="Avg Score">
+                    <span style={{ color: YELLOW }}>{avgScore.toFixed(1)}</span>
+                  </StatCard>
                 )}
+
                 {trendDelta !== null && (
-                  <div>
-                    <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Overall Trend</p>
-                    <p
-                      className="font-bold text-lg flex items-center gap-1"
-                      style={{ fontFamily: "'Barlow Condensed', sans-serif", color: trendDelta > 0 ? "#4ade80" : trendDelta < 0 ? "#f87171" : "#94a3b8" }}
+                  <StatCard label="Overall Trend">
+                    <span
+                      className="flex items-center gap-1"
+                      style={{ color: trendDelta > 0 ? "#4ade80" : trendDelta < 0 ? "#f87171" : "#94a3b8" }}
                     >
-                      {trendDelta > 0 ? <TrendingUp size={16} /> : trendDelta < 0 ? <TrendingDown size={16} /> : <Minus size={16} />}
+                      {trendDelta > 0 ? <TrendingUp size={20} /> : trendDelta < 0 ? <TrendingDown size={20} /> : <Minus size={20} />}
                       {trendDelta > 0 ? `+${trendDelta}` : trendDelta === 0 ? "Flat" : trendDelta}
-                    </p>
-                  </div>
+                    </span>
+                  </StatCard>
                 )}
-                <div className="ml-auto text-right">
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Latest</p>
-                  <p className="text-white font-bold text-lg" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+
+                <StatCard label="Current Score">
+                  <span
+                    style={{
+                      color: lastScore
+                        ? lastScore >= 3 ? "#4ade80" : lastScore >= 2 ? YELLOW : "#f87171"
+                        : "#94a3b8",
+                    }}
+                  >
                     {lastScore ?? "—"}
-                  </p>
-                </div>
+                  </span>
+                </StatCard>
               </div>
             </div>
 
             {/* ── Line Chart ───────────────────────────── */}
-            <div className="shrink-0 px-4 pt-5 pb-3 bg-white" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+            <div className="shrink-0 px-4 pt-4 pb-3 bg-white" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
               <p className="text-xs text-slate-400 text-center mb-3 uppercase tracking-wider font-semibold">
                 Hover a dot to see observer · Click to open full observation
               </p>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <LineChart
                   data={chartData}
                   margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
@@ -221,13 +244,20 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                   <XAxis
-                    dataKey="dateLabel"
+                    type="number"
+                    scale="time"
+                    dataKey="timestamp"
+                    domain={[minTs, maxTs]}
+                    tickFormatter={(ts: number) =>
+                      new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    }
                     tick={{ fontSize: 11, fill: "#64748b", fontFamily: "'Libre Franklin', sans-serif" }}
                     axisLine={{ stroke: "#e2e8f0" }}
                     tickLine={false}
+                    tickCount={Math.min(chartData.length + 2, 8)}
                   />
                   <YAxis
-                    domain={[1, 4]}
+                    domain={[0.5, 4.5]}
                     ticks={[1, 2, 3, 4]}
                     tick={{ fontSize: 11, fill: "#64748b", fontFamily: "'Libre Franklin', sans-serif" }}
                     tickFormatter={(v) => `${v}`}

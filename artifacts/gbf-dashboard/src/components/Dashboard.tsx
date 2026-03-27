@@ -18,6 +18,26 @@ import {
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
+import { TeacherProfile } from "@/components/TeacherProfile";
+
+type ViewMode = "recent" | "quarterAvg";
+
+function getQuarterDomainScore(teacher: Teacher, domainId: string): number {
+  const vals = teacher.observations
+    .map((o) => o.scores[domainId] as Score | undefined)
+    .filter((s): s is Score => s !== undefined);
+  return vals.length ? vals.reduce((sum, s) => sum + s, 0) / vals.length : 0;
+}
+
+function getQuarterTeacherAvg(teacher: Teacher): number {
+  const perDomain = ALL_DOMAINS.map((d) => getQuarterDomainScore(teacher, d.id));
+  return perDomain.reduce((s, v) => s + v, 0) / perDomain.length;
+}
+
+function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number {
+  const vals = teachers.map((t) => getQuarterDomainScore(t, domainId));
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -50,6 +70,12 @@ export default function Dashboard() {
   const [grade, setGrade]         = useState<FilterStr>("");
   const [expBucket, setExpBucket] = useState<FilterStr>("");
 
+  /* ── View mode ─────────────────────────────────────── */
+  const [viewMode, setViewMode]         = useState<ViewMode>("recent");
+
+  /* ── Teacher profile ────────────────────────────────── */
+  const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
+
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen]     = useState(false);
   const [drillDown, setDrillDown]       = useState<DrillDownTarget | null>(null);
@@ -65,9 +91,10 @@ export default function Dashboard() {
     });
   }, [teachers, search, dept, grade, expBucket]);
 
-  const schoolAvg    = filtered.length ? filtered.reduce((s, t) => s + getTeacherAverage(t), 0) / filtered.length : 0;
-  const proficient   = filtered.filter((t) => getTeacherAverage(t) >= 3).length;
-  const needsSupport = filtered.filter((t) => getTeacherAverage(t) < 2).length;
+  const avgFn        = (t: Teacher) => viewMode === "recent" ? getTeacherAverage(t) : getQuarterTeacherAvg(t);
+  const schoolAvg    = filtered.length ? filtered.reduce((s, t) => s + avgFn(t), 0) / filtered.length : 0;
+  const proficient   = filtered.filter((t) => avgFn(t) >= 3).length;
+  const needsSupport = filtered.filter((t) => avgFn(t) < 2).length;
   const hasFilters   = !!(search || dept || grade || expBucket);
 
   /* ── Handlers ──────────────────────────────────────── */
@@ -107,6 +134,20 @@ export default function Dashboard() {
 
   function openDrillDown(teacher: Teacher, domainId: string, domainLabel: string) {
     setDrillDown({ teacherId: teacher.id, domainId, domainLabel });
+  }
+
+  /* ── Teacher profile overlay ────────────────────────── */
+  if (teacherProfileId) {
+    const profileTeacher = teachers.find((t) => t.id === teacherProfileId);
+    if (profileTeacher) {
+      return (
+        <TeacherProfile
+          teacher={profileTeacher}
+          onBack={() => setTeacherProfileId(null)}
+          currentUser={currentUser}
+        />
+      );
+    }
   }
 
   return (
@@ -195,21 +236,48 @@ export default function Dashboard() {
             </h2>
             <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
             <p className="text-slate-500 mt-1.5 font-medium" style={{ fontSize: 14 }}>
-              Scores reflect most recent observation · Click any cell to view history
+              {viewMode === "recent"
+                ? "Scores reflect most recent observation · Click any cell to view history"
+                : "Showing average across all observations this quarter · Click any cell to view history"}
             </p>
           </div>
 
-          {/* Score legend */}
-          <div className="flex items-center gap-2 flex-wrap mt-1">
-            {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
-              <span
-                key={score}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
-                style={{ fontSize: 14 }}
-              >
-                {score} <span className="font-normal opacity-80">{label}</span>
-              </span>
-            ))}
+          <div className="flex flex-col items-end gap-2 mt-1">
+            {/* View mode toggle */}
+            <div
+              className="flex rounded-md overflow-hidden shadow-sm shrink-0"
+              style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Barlow Condensed', sans-serif" }}
+            >
+              {(["recent", "quarterAvg"] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  className="px-4 py-1.5 font-bold uppercase tracking-wider text-sm transition-colors"
+                  style={{
+                    backgroundColor: viewMode === mode ? NAVY : "white",
+                    color: viewMode === mode ? "white" : NAVY,
+                    letterSpacing: "0.07em",
+                    fontSize: 13,
+                  }}
+                >
+                  {mode === "recent" ? "Most Recent" : "Quarter Avg"}
+                </button>
+              ))}
+            </div>
+
+            {/* Score legend */}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
+                <span
+                  key={score}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1 font-semibold border ${bg} ${text} ${border}`}
+                  style={{ fontSize: 14 }}
+                >
+                  {score} <span className="font-normal opacity-80">{label}</span>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -401,7 +469,7 @@ export default function Dashboard() {
                 ) : (
                   filtered.map((teacher, rowIdx) => {
                     const recent = getMostRecentObservation(teacher);
-                    const avg    = getTeacherAverage(teacher);
+                    const avg    = viewMode === "recent" ? getTeacherAverage(teacher) : getQuarterTeacherAvg(teacher);
                     const isEven = rowIdx % 2 === 0;
 
                     return (
@@ -421,9 +489,13 @@ export default function Dashboard() {
                             borderRight: `2px solid ${YELLOW}`,
                           }}
                         >
-                          <p className="font-semibold leading-tight truncate" style={{ color: NAVY, fontSize: 15 }}>
+                          <button
+                            className="font-semibold leading-tight truncate text-left w-full hover:underline"
+                            style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
+                            onClick={() => setTeacherProfileId(teacher.id)}
+                          >
                             {teacher.name}
-                          </p>
+                          </button>
                           <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
                             {teacher.department} · {teacher.gradeLevel} · {teacher.yearsExperience}yr
                           </p>
@@ -431,9 +503,11 @@ export default function Dashboard() {
 
                         {/* Score cells — clickable */}
                         {ALL_DOMAINS.map((domain) => {
-                          const score        = recent.scores[domain.id] as Score | undefined;
+                          const score = viewMode === "recent"
+                            ? (recent.scores[domain.id] as Score | undefined)
+                            : getQuarterDomainScore(teacher, domain.id);
                           const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
-                          return score !== undefined ? (
+                          return score !== undefined && score !== 0 ? (
                             <ScoreCell
                               key={domain.id}
                               score={score}
@@ -479,7 +553,9 @@ export default function Dashboard() {
                       Domain Avg
                     </td>
                     {ALL_DOMAINS.map((domain) => {
-                      const avg          = getDomainAverage(domain.id, filtered);
+                      const avg          = viewMode === "recent"
+                        ? getDomainAverage(domain.id, filtered)
+                        : getQuarterDomainAvg(domain.id, filtered);
                       const isFirstInCat = CATEGORIES.some((c) => c.domains[0].id === domain.id);
                       return (
                         <td
