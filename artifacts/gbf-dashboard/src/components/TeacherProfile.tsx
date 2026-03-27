@@ -169,51 +169,51 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
       {/* ── Top bar ──────────────────────────────────────── */}
       <div style={{ height: 5, backgroundColor: YELLOW }} />
       <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-5">
+        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
             <img
               src="/uncommon-logo.png"
               alt="Uncommon Schools"
-              className="h-12 w-auto object-contain"
+              className="h-8 sm:h-12 w-auto object-contain shrink-0"
               style={{ filter: "brightness(0) invert(1)" }}
             />
-            <div style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
-            <div>
+            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
+            <div className="hidden sm:block min-w-0">
               <p
                 className="text-white uppercase tracking-widest leading-tight"
                 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.12em" }}
               >
                 Get Better Faster
               </p>
-              <p className="text-blue-200 font-medium" style={{ fontSize: 15 }}>{currentUser.school}</p>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>{currentUser.school}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={onBack}
-              className="flex items-center gap-2 px-4 py-2 rounded font-semibold text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded font-semibold text-sm transition-colors"
               style={{ color: "white", backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}
             >
               <ArrowLeft size={15} />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
             </button>
             <button
               onClick={onNewObs}
-              className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+              className="flex items-center gap-1.5 font-bold rounded-md px-2.5 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
               style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, letterSpacing: "0.06em" }}
             >
               <Plus size={16} strokeWidth={3} />
-              Add Observation
+              <span className="hidden sm:inline">Add Observation</span>
             </button>
             <div
-              className="flex items-center gap-2 rounded px-3 py-1.5"
+              className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
               style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
             >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: YELLOW, color: NAVY }}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: YELLOW, color: NAVY }}>
                 PR
               </div>
               <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser.name}</span>
-              <span className="font-semibold rounded-full px-2.5 py-0.5 hidden sm:block" style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 13 }}>
+              <span className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block" style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 13 }}>
                 PRINCIPAL
               </span>
             </div>
@@ -223,19 +223,19 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
       </header>
 
       {/* ── Page body ─────────────────────────────────────── */}
-      <main className="px-5 py-5 flex flex-col gap-5 flex-1">
+      <main className="px-3 sm:px-5 py-3 sm:py-5 flex flex-col gap-4 sm:gap-5 flex-1">
 
         {/* Teacher hero card */}
         <div
           className="rounded-xl overflow-hidden shadow-sm"
           style={{ border: "1px solid #dde3f0" }}
         >
-          <div className="px-6 py-5" style={{ backgroundColor: NAVY }}>
-            <div className="flex items-start justify-between gap-4">
+          <div className="px-4 sm:px-6 py-4 sm:py-5" style={{ backgroundColor: NAVY }}>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base sm:text-lg font-bold shrink-0"
                     style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Barlow Condensed', sans-serif" }}
                   >
                     {teacher.name.split(" ").map((n) => n[0]).join("")}
@@ -243,18 +243,18 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                   <div>
                     <h1
                       className="text-white font-bold leading-tight"
-                      style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, letterSpacing: "0.04em" }}
+                      style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 26, letterSpacing: "0.04em" }}
                     >
                       {teacher.name}
                     </h1>
                     <p className="text-blue-200 text-sm font-medium">
-                      {teacher.department} · Grades {teacher.gradeLevel} · {teacher.yearsExperience} years · {expLabel}
+                      {teacher.department} · Grades {teacher.gradeLevel} · {teacher.yearsExperience}yr · {expLabel}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-2 sm:gap-3 flex-wrap">
                 <div
                   className="text-center rounded-lg px-4 py-2.5 min-w-[80px]"
                   style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
@@ -306,10 +306,10 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">
 
           {/* LEFT: Domain score breakdown */}
-          <div className="col-span-3 space-y-4">
+          <div className="lg:col-span-3 space-y-4">
             <div
               className="bg-white rounded-xl shadow-sm overflow-hidden"
               style={{ border: "1px solid #dde3f0" }}
@@ -364,7 +364,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
           </div>
 
           {/* RIGHT: Action Steps */}
-          <div className="col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             {recent && (
               <>
                 <div
