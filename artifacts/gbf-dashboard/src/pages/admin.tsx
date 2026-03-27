@@ -540,10 +540,15 @@ export default function AdminPage() {
     );
   }
 
+  const isDistrictAdmin = currentUser?.role === "DISTRICT_ADMIN";
+
   const tabs: { id: AdminTab; label: string }[] = [
-    { id: "rubric", label: "Rubric Settings" },
+    ...(isDistrictAdmin ? [{ id: "rubric" as AdminTab, label: "Rubric Settings" }] : []),
     { id: "roster", label: "Teacher Roster" },
   ];
+
+  /* If a Principal lands on the rubric tab (e.g. bookmark), redirect to roster */
+  const visibleTab = activeTab === "rubric" && !isDistrictAdmin ? "roster" : activeTab;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
@@ -580,7 +585,7 @@ export default function AdminPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className="px-5 py-3 text-sm font-semibold transition-colors relative"
-              style={activeTab === tab.id
+              style={visibleTab === tab.id
                 ? { color: NAVY, borderBottom: `3px solid ${NAVY}` }
                 : { color: "#64748b", borderBottom: "3px solid transparent" }
               }
@@ -594,8 +599,8 @@ export default function AdminPage() {
       {/* Tab content */}
       <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
 
-        {/* ── Quarter manager (Rubric tab only) ────────────────── */}
-        {activeTab === "rubric" && (
+        {/* ── Quarter manager (Rubric tab only, District Admin only) ── */}
+        {visibleTab === "rubric" && isDistrictAdmin && (
           <div
             className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-3"
             style={{ border: "1px solid #dde3f0", borderLeft: `4px solid ${YELLOW}` }}
@@ -646,8 +651,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === "rubric" && <RubricSettings quarterSlug={selectedQuarterSlug} />}
-        {activeTab === "roster" && <TeacherRoster />}
+        {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings quarterSlug={selectedQuarterSlug} />}
+        {visibleTab === "roster" && <TeacherRoster />}
       </main>
 
       {/* ── New Quarter dialog ────────────────────────────────── */}
