@@ -50,8 +50,6 @@ interface DrillDownTarget {
 
 export default function Dashboard() {
   const currentUser = { name: "Principal Rivera", school: "Lincoln Elementary" };
-  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-
   /* ── Lifted state ──────────────────────────────────── */
   const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
 
@@ -169,8 +167,6 @@ export default function Dashboard() {
 
           {/* Right side */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <span className="text-blue-200 hidden md:block" style={{ fontSize: 15 }}>{today}</span>
-
             {/* ── Add Observation button ── */}
             <button
               onClick={() => setNewObsOpen(true)}
