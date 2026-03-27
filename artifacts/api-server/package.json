@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
+    "seed": "node --enable-source-maps ./dist/seed.mjs",
+    "build:all": "node ./build.mjs && node --enable-source-maps ./dist/seed.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
