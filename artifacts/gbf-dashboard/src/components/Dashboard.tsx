@@ -251,11 +251,11 @@ export default function Dashboard() {
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-2.5">
           {[
-            { label: "Teachers Shown",     value: filtered.length },
-            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—" },
-            { label: "Proficient+ (≥ 3)", value: proficient },
-            { label: "Need Support (< 2)", value: needsSupport },
-          ].map(({ label, value }) => (
+            { label: "Teachers Shown",     value: filtered.length,                                       sub: null },
+            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—",          sub: null },
+            { label: "Proficient+ (≥ 3)", value: proficient,    sub: filtered.length ? `${Math.round(proficient    / filtered.length * 100)}% of teachers` : null },
+            { label: "Need Support (< 2)", value: needsSupport, sub: filtered.length ? `${Math.round(needsSupport  / filtered.length * 100)}% of teachers` : null },
+          ].map(({ label, value, sub }) => (
             <div
               key={label}
               className="bg-white rounded-md shadow-sm overflow-hidden"
@@ -271,6 +271,11 @@ export default function Dashboard() {
                 >
                   {value}
                 </p>
+                {sub && (
+                  <p className="mt-1 font-medium" style={{ color: "#94a3b8", fontSize: 12 }}>
+                    {sub}
+                  </p>
+                )}
               </div>
             </div>
           ))}
