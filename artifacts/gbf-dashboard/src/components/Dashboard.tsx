@@ -210,8 +210,13 @@ export default function Dashboard() {
   const filteredAvgs     = viewBy === "teacher"
     ? filtered.map((t) => teacherAvgFn(t)).filter((a): a is number => a !== null)
     : groupAvgs;
-  const statAvg          = filteredAvgs.length
-    ? filteredAvgs.reduce((a, b) => a + b, 0) / filteredAvgs.length
+  /* Always compute school-wide average from individual teacher scores,
+     never from group subtotals, so it stays consistent across all view modes. */
+  const teacherAvgsForStat = filtered
+    .map((t) => teacherAvgFn(t))
+    .filter((a): a is number => a !== null);
+  const statAvg = teacherAvgsForStat.length
+    ? teacherAvgsForStat.reduce((a, b) => a + b, 0) / teacherAvgsForStat.length
     : 0;
   const statProficient   = viewBy === "teacher"
     ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 3; }).length
