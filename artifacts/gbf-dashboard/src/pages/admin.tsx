@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School } from "lucide-react";
 import {
   fetchRubric,
   fetchQuarters,
@@ -15,11 +15,16 @@ import {
   createAdminTeacher,
   updateAdminTeacher,
   toggleTeacherActive,
+  fetchAdminSchools,
+  createAdminSchool,
+  updateAdminSchool,
+  deleteAdminSchool,
   type FullRubric,
   type RubricCategoryRow,
   type RubricDomainRow,
   type RubricQuarterRow,
   type AdminTeacher,
+  type AdminSchool,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -208,7 +213,7 @@ function RubricSettings({ quarterSlug }: { quarterSlug: string }) {
    TEACHER ROSTER TAB
    ════════════════════════════════════════════════════════════════ */
 
-function TeacherRoster() {
+function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "teachers"] as const;
 
@@ -217,27 +222,38 @@ function TeacherRoster() {
     queryFn: fetchAdminTeachers,
   });
 
+  const { data: schools = [] } = useQuery<AdminSchool[]>({
+    queryKey: ["admin", "schools"],
+    queryFn: fetchAdminSchools,
+    enabled: isDistrictAdmin,
+  });
+
   /* Add form */
-  const [adding, setAdding]           = useState(false);
-  const [newName, setNewName]         = useState("");
-  const [newSubject, setNewSubject]   = useState("");
-  const [newGrades, setNewGrades]     = useState<string[]>([]);
+  const [adding, setAdding]               = useState(false);
+  const [newName, setNewName]             = useState("");
+  const [newSubject, setNewSubject]       = useState("");
+  const [newGrades, setNewGrades]         = useState<string[]>([]);
+  const [newSchoolId, setNewSchoolId]     = useState<number | null>(null);
 
   /* Edit form */
-  const [editId, setEditId]           = useState<number | null>(null);
-  const [editName, setEditName]       = useState("");
-  const [editSubject, setEditSubject] = useState("");
-  const [editGrades, setEditGrades]   = useState<string[]>([]);
+  const [editId, setEditId]               = useState<number | null>(null);
+  const [editName, setEditName]           = useState("");
+  const [editSubject, setEditSubject]     = useState("");
+  const [editGrades, setEditGrades]       = useState<string[]>([]);
+  const [editSchoolId, setEditSchoolId]   = useState<number | null>(null);
 
   const [showInactive, setShowInactive] = useState(false);
 
   const createMut = useMutation({
-    mutationFn: () => createAdminTeacher({ name: newName.trim(), subject: newSubject, gradeLevel: newGrades }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); },
+    mutationFn: () => createAdminTeacher({ name: newName.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
+    },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), subject: editSubject, gradeLevel: editGrades }),
+    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
   });
 
@@ -247,7 +263,8 @@ function TeacherRoster() {
   });
 
   function startEdit(t: AdminTeacher) {
-    setEditId(t.id); setEditName(t.name); setEditSubject(t.subject); setEditGrades(t.gradeLevel);
+    setEditId(t.id); setEditName(t.name); setEditSubject(t.subject);
+    setEditGrades(t.gradeLevel); setEditSchoolId(t.schoolId);
   }
 
   function toggleGrade(g: string, arr: string[], setArr: (v: string[]) => void) {
@@ -257,6 +274,7 @@ function TeacherRoster() {
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   const shown = showInactive ? teachers : teachers.filter((t) => t.isActive);
+  const colSpanTotal = isDistrictAdmin ? 6 : 5;
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
@@ -290,8 +308,10 @@ function TeacherRoster() {
           subject={newSubject} setSubject={setNewSubject}
           grades={newGrades}
           onToggleGrade={(g) => toggleGrade(g, newGrades, setNewGrades)}
+          schools={isDistrictAdmin ? schools : null}
+          schoolId={newSchoolId} setSchoolId={setNewSchoolId}
           onSave={() => createMut.mutate()}
-          onCancel={() => { setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); }}
+          onCancel={() => { setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
           saving={createMut.isPending}
           inputCls={inputCls}
         />
@@ -305,24 +325,29 @@ function TeacherRoster() {
               <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Name</th>
               <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Subject</th>
               <th className="text-left px-4 py-2.5 font-semibold hidden md:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Grades</th>
+              {isDistrictAdmin && (
+                <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>
+              )}
               <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shown.length === 0 && (
-              <tr><td colSpan={5} className="text-center py-8 text-slate-400">No teachers found.</td></tr>
+              <tr><td colSpan={colSpanTotal} className="text-center py-8 text-slate-400">No teachers found.</td></tr>
             )}
             {shown.map((t) => (
               <tr key={t.id}>
                 {editId === t.id ? (
-                  <td colSpan={5} className="px-4 py-3 bg-blue-50">
+                  <td colSpan={colSpanTotal} className="px-4 py-3 bg-blue-50">
                     <TeacherForm
                       title={`Editing: ${t.name}`}
                       name={editName} setName={setEditName}
                       subject={editSubject} setSubject={setEditSubject}
                       grades={editGrades}
                       onToggleGrade={(g) => toggleGrade(g, editGrades, setEditGrades)}
+                      schools={isDistrictAdmin ? schools : null}
+                      schoolId={editSchoolId} setSchoolId={setEditSchoolId}
                       onSave={() => updateMut.mutate()}
                       onCancel={() => setEditId(null)}
                       saving={updateMut.isPending}
@@ -337,6 +362,11 @@ function TeacherRoster() {
                     <td className="px-4 py-2.5 text-slate-500 hidden md:table-cell" style={{ opacity: t.isActive ? 1 : 0.5 }}>
                       {t.gradeLevel.length ? t.gradeLevel.map((g) => `Gr ${g}`).join(", ") : "—"}
                     </td>
+                    {isDistrictAdmin && (
+                      <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: t.isActive ? 1 : 0.5 }}>
+                        {t.schoolName ?? <span className="text-slate-300 italic">Unassigned</span>}
+                      </td>
+                    )}
                     <td className="px-4 py-2.5">
                       <span
                         className="text-xs font-bold rounded-full px-2.5 py-1"
@@ -385,11 +415,14 @@ function TeacherRoster() {
 /* Shared form component */
 function TeacherForm({
   title, name, setName, subject, setSubject, grades, onToggleGrade,
+  schools, schoolId, setSchoolId,
   onSave, onCancel, saving, inputCls, compact = false,
 }: {
   title: string; name: string; setName: (v: string) => void;
   subject: string; setSubject: (v: string) => void;
   grades: string[]; onToggleGrade: (g: string) => void;
+  schools: AdminSchool[] | null;
+  schoolId: number | null; setSchoolId: (v: number | null) => void;
   onSave: () => void; onCancel: () => void; saving: boolean;
   inputCls: string; compact?: boolean;
 }) {
@@ -412,6 +445,16 @@ function TeacherForm({
           <option value="">— Subject —</option>
           {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        {schools !== null && (
+          <select
+            className={`${inputCls} flex-1 min-w-[160px]`}
+            value={schoolId ?? ""}
+            onChange={(e) => setSchoolId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">— School —</option>
+            {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        )}
       </div>
       <div>
         <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
@@ -450,10 +493,150 @@ function TeacherForm({
 }
 
 /* ════════════════════════════════════════════════════════════════
+   SCHOOL SETTINGS TAB (District Admin only)
+   ════════════════════════════════════════════════════════════════ */
+
+function SchoolSettings() {
+  const queryClient = useQueryClient();
+  const qKey = ["admin", "schools"] as const;
+
+  const { data: schools = [], isLoading } = useQuery<AdminSchool[]>({
+    queryKey: qKey,
+    queryFn: fetchAdminSchools,
+  });
+
+  const [adding, setAdding]           = useState(false);
+  const [newName, setNewName]         = useState("");
+  const [editId, setEditId]           = useState<number | null>(null);
+  const [editName, setEditName]       = useState("");
+
+  const createMut = useMutation({
+    mutationFn: () => createAdminSchool(newName.trim()),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAdding(false); setNewName(""); },
+  });
+
+  const updateMut = useMutation({
+    mutationFn: () => updateAdminSchool(editId!, editName.trim()),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => deleteAdminSchool(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-slate-500">Manage the schools in your district. Schools are used to organise teachers and filter dashboard views.</p>
+        <button
+          onClick={() => { setAdding(true); setEditId(null); setNewName(""); }}
+          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
+          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+        >
+          <Plus size={14} />
+          Add School
+        </button>
+      </div>
+
+      {/* Add school form */}
+      {adding && (
+        <div className="bg-white rounded-lg p-4 flex items-center gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
+          <School size={18} style={{ color: NAVY, flexShrink: 0 }} />
+          <input
+            className={`${inputCls} flex-1`}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="School name (e.g. Roosevelt Elementary)"
+            autoFocus
+            onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) createMut.mutate(); if (e.key === "Escape") setAdding(false); }}
+          />
+          <button
+            className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
+            style={{ backgroundColor: NAVY }}
+            onClick={() => createMut.mutate()}
+            disabled={createMut.isPending || !newName.trim()}
+          >
+            {createMut.isPending ? "Adding…" : "Add"}
+          </button>
+          <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => { setAdding(false); setNewName(""); }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Schools list */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        {schools.length === 0 && !adding && (
+          <div className="text-center py-10 text-slate-400 text-sm">No schools yet. Add your first school above.</div>
+        )}
+        <ul className="divide-y divide-slate-100">
+          {schools.map((school) => (
+            <li key={school.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+              <School size={16} className="text-slate-300 shrink-0" />
+              {editId === school.id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    className={`${inputCls} flex-1`}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter" && editName.trim()) updateMut.mutate(); if (e.key === "Escape") setEditId(null); }}
+                  />
+                  <button className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50" onClick={() => updateMut.mutate()} disabled={updateMut.isPending || !editName.trim()}>
+                    <Check size={16} />
+                  </button>
+                  <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditId(null)}>
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span className="flex-1 font-medium text-slate-700 text-sm">{school.name}</span>
+                  <button
+                    className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
+                    title="Rename"
+                    onClick={() => { setEditId(school.id); setEditName(school.name); setAdding(false); }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
+                    title="Delete"
+                    onClick={() => { if (confirm(`Delete "${school.name}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
+                    disabled={deleteMut.isPending}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="text-center text-slate-400 text-xs pb-2">
+        Schools with teachers assigned cannot be deleted. Reassign or remove all teachers first.
+      </p>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "roster";
+type AdminTab = "rubric" | "roster" | "schools";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -545,6 +728,7 @@ export default function AdminPage() {
   const tabs: { id: AdminTab; label: string }[] = [
     ...(isDistrictAdmin ? [{ id: "rubric" as AdminTab, label: "Rubric Settings" }] : []),
     { id: "roster", label: "Teacher Roster" },
+    ...(isDistrictAdmin ? [{ id: "schools" as AdminTab, label: "Schools" }] : []),
   ];
 
   /* If a Principal lands on the rubric tab (e.g. bookmark), redirect to roster */
@@ -652,7 +836,8 @@ export default function AdminPage() {
         )}
 
         {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings quarterSlug={selectedQuarterSlug} />}
-        {visibleTab === "roster" && <TeacherRoster />}
+        {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} />}
+        {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
       </main>
 
       {/* ── New Quarter dialog ────────────────────────────────── */}

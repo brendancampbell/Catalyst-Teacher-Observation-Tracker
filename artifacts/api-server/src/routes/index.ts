@@ -7,6 +7,7 @@ import observationsRouter from "./observations";
 import rubricRouter from "./rubric";
 import usersRouter from "./users";
 import adminTeachersRouter from "./admin-teachers";
+import adminSchoolsRouter from "./admin-schools";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/observations", observationsRouter);
 router.use("/rubric", rubricRouter);
 router.use("/users", usersRouter);
 router.use("/admin/teachers", adminTeachersRouter);
+router.use("/admin/schools", adminSchoolsRouter);
 
 export default router;

@@ -17,6 +17,29 @@ export async function fetchUsers(): Promise<UserRow[]> {
   return apiFetch<UserRow[]>("/users");
 }
 
+/* ── Admin: Schools ─────────────────────────────────────────────── */
+
+export interface AdminSchool {
+  id:   number;
+  name: string;
+}
+
+export async function fetchAdminSchools(): Promise<AdminSchool[]> {
+  return apiFetch<AdminSchool[]>("/admin/schools");
+}
+
+export async function createAdminSchool(name: string): Promise<AdminSchool> {
+  return apiFetch<AdminSchool>("/admin/schools", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export async function updateAdminSchool(id: number, name: string): Promise<AdminSchool> {
+  return apiFetch<AdminSchool>(`/admin/schools/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+export async function deleteAdminSchool(id: number): Promise<void> {
+  await apiFetch<void>(`/admin/schools/${id}`, { method: "DELETE" });
+}
+
 /* ── Admin: Teachers ────────────────────────────────────────────── */
 
 export interface AdminTeacher {
@@ -25,20 +48,22 @@ export interface AdminTeacher {
   subject:    string;
   gradeLevel: string[];
   isActive:   boolean;
+  schoolId:   number | null;
+  schoolName: string | null;
 }
 
 export async function fetchAdminTeachers(): Promise<AdminTeacher[]> {
   return apiFetch<AdminTeacher[]>("/admin/teachers");
 }
 
-export async function createAdminTeacher(payload: { name: string; subject: string; gradeLevel: string[] }): Promise<AdminTeacher> {
+export async function createAdminTeacher(payload: { name: string; subject: string; gradeLevel: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>("/admin/teachers", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAdminTeacher(id: number, payload: { name?: string; subject?: string; gradeLevel?: string[] }): Promise<AdminTeacher> {
+export async function updateAdminTeacher(id: number, payload: { name?: string; subject?: string; gradeLevel?: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>(`/admin/teachers/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -103,6 +128,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error?: string }).error ?? res.statusText);
+  }
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
   }
   return res.json() as Promise<T>;
 }
