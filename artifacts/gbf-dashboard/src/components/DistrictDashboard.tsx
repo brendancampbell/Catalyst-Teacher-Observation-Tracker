@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, ChevronRight, Users, Eye } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchQuarters } from "@/lib/api";
 import type { DistrictSummaryData, RubricQuarterRow } from "@/lib/api";
@@ -9,31 +9,6 @@ import { useUser } from "@/context/UserContext";
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 
-/* ── Avg score display cell ─────────────────────────── */
-function AvgCell({ val, size = "md" }: { val: number | null; size?: "sm" | "md" | "lg" }) {
-  if (val == null) return (
-    <td className="px-3 py-2 text-center">
-      <span className="text-slate-300 font-semibold">—</span>
-    </td>
-  );
-
-  const colorCls = getScoreColor(val);
-  const fs = size === "lg" ? 20 : size === "md" ? 16 : 13;
-
-  return (
-    <td className="px-2 py-2 text-center">
-      <span
-        className={`inline-flex items-center justify-center rounded font-bold tabular-nums ${colorCls}`}
-        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: fs, minWidth: size === "lg" ? 48 : 36, padding: "2px 6px" }}
-      >
-        {val.toFixed(1)}
-      </span>
-    </td>
-  );
-}
-
-/* ══ DistrictDashboard ══════════════════════════════════════════════ */
-
 interface Props {
   onDrillDown: (schoolId: number, schoolName: string) => void;
 }
@@ -42,6 +17,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser, users, setCurrentUser } = useUser();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [activeQuarter, setActiveQuarter] = useState("Q1");
+
+  const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
     queryKey: ["quarters"],
@@ -55,51 +32,103 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     staleTime: 30_000,
   });
 
-  const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+  /* ── Derived stats ─────────────────────────────────────── */
+  const schoolCount    = data?.schools.length ?? 0;
+  const totalTeachers  = data?.schools.reduce((s, r) => s + r.teacherCount, 0) ?? 0;
+  const totalObserved  = data?.schools.reduce((s, r) => s + r.observedCount, 0) ?? 0;
+  const districtAvgRaw = (() => {
+    if (!data) return null;
+    const rows = data.schools.filter((r) => r.overall != null);
+    if (!rows.length) return null;
+    return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
+  })();
 
-  /* ── Header ─────────────────────────────────────────────────── */
+  const allDomains = (data?.categories ?? []).flatMap((c) => c.domains);
+
+  /* ── Render ────────────────────────────────────────────── */
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+
+      {/* ══ HEADER ═══════════════════════════════════════════ */}
       <div style={{ height: 5, backgroundColor: YELLOW }} />
 
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shadow-md">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <Building2 size={22} className="shrink-0" style={{ color: YELLOW }} />
-            <div className="min-w-0">
-              <p className="text-white font-bold uppercase leading-tight" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
+      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
+        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
+
+          {/* Left: logo + title */}
+          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+            <img
+              src="/uncommon-logo.png"
+              alt="Uncommon Schools"
+              className="h-8 sm:h-12 w-auto object-contain shrink-0"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
+            <div className="hidden sm:block min-w-0">
+              <p
+                className="text-white uppercase tracking-widest leading-tight"
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
+              >
                 Get Better Faster Tracker
               </p>
-              <p className="text-blue-200 text-xs font-medium leading-tight uppercase tracking-wide">District Overview</p>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
+                District Overview
+              </p>
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Right: Admin + user switcher */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href={`${baseUrl}/admin`}
-              className="hidden sm:flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.03em" }}
+              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+              style={{
+                border: `1.5px solid rgba(255,181,0,0.5)`,
+                color: YELLOW,
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 14,
+                letterSpacing: "0.02em",
+              }}
             >
-              ADMIN
+              Admin
             </a>
 
+            {/* User switcher */}
             <div className="relative">
               <button
-                onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                onClick={() => setUserMenuOpen((p) => !p)}
+                className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
               >
-                <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif" }}>
-                  {currentUser?.name.split(" ").map((w) => w[0]).join("").slice(0, 2) ?? "?"}
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                >
+                  {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
                 </div>
-                <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-white font-semibold leading-tight" style={{ fontSize: 13 }}>{currentUser?.name ?? "—"}</span>
-                  <span className="font-bold rounded-full px-1.5 text-xs" style={{ backgroundColor: YELLOW, color: NAVY }}>{currentUser?.role?.replace("_", " ")}</span>
-                </div>
+                <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
+                  {currentUser?.name ?? "Loading…"}
+                </span>
+                <span
+                  className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
+                >
+                  {currentUser?.role?.replace("_", " ") ?? ""}
+                </span>
+                <ChevronDown size={14} className="text-white/70 hidden sm:block" />
               </button>
+
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 min-w-[200px] overflow-hidden" style={{ backgroundColor: NAVY, border: `1.5px solid ${YELLOW}` }}>
+                <div
+                  className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 min-w-[200px] overflow-hidden"
+                  style={{ backgroundColor: NAVY, border: `1.5px solid ${YELLOW}` }}
+                >
                   {users.map((u) => (
-                    <button key={u.id} onClick={() => { setCurrentUser(u); setUserMenuOpen(false); }} className="w-full text-left px-4 py-2.5 flex flex-col gap-0.5 hover:bg-white/10 transition-colors">
+                    <button
+                      key={u.id}
+                      onClick={() => { setCurrentUser(u); setUserMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 flex flex-col gap-0.5 hover:bg-white/10 transition-colors"
+                    >
                       <span className="text-white font-medium" style={{ fontSize: 14 }}>{u.name}</span>
                       <span style={{ fontSize: 11, color: YELLOW }}>{u.role.replace("_", " ")}</span>
                     </button>
@@ -112,22 +141,39 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         <div style={{ height: 3, backgroundColor: YELLOW }} />
       </header>
 
-      {/* ══ MAIN ═════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1">
+      {/* ══ MAIN ═════════════════════════════════════════════ */}
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
-        {/* ── Quarter switcher ─────────────────────────────────── */}
+        {/* ── Quarter Switcher ─────────────────────────────── */}
         {quarters.length > 0 && (
-          <div className="bg-white rounded-md px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2" style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${YELLOW}` }}>
-            <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
+          <div
+            className="bg-white rounded-md px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2"
+            style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${YELLOW}` }}
+          >
+            <span
+              className="font-bold uppercase tracking-widest shrink-0"
+              style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            >
               Quarter
             </span>
             <div className="flex gap-1.5 flex-wrap">
               {quarters.map((q) => {
                 const active = q.slug === activeQuarter;
                 return (
-                  <button key={q.slug} type="button" onClick={() => setActiveQuarter(q.slug)}
+                  <button
+                    key={q.slug}
+                    type="button"
+                    onClick={() => setActiveQuarter(q.slug)}
                     className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em", backgroundColor: active ? NAVY : "transparent", color: active ? "white" : NAVY, border: `1.5px solid ${NAVY}` }}>
+                    style={{
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontSize: 14,
+                      letterSpacing: "0.04em",
+                      backgroundColor: active ? NAVY : "transparent",
+                      color: active ? "white" : NAVY,
+                      border: `1.5px solid ${NAVY}`,
+                    }}
+                  >
                     {q.name}
                   </button>
                 );
@@ -136,7 +182,50 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           </div>
         )}
 
-        {/* ── Loading / Error states ─────────────────────────── */}
+        {/* ── Stats ────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
+          {[
+            { label: "Schools",          value: schoolCount,   colorScore: null as number | null, pct: null as number | null },
+            { label: "Total Teachers",   value: totalTeachers, colorScore: null,                  pct: null },
+            { label: "Observed",         value: totalObserved, colorScore: null,                  pct: totalTeachers ? Math.round(totalObserved / totalTeachers * 100) : null },
+            { label: "District Avg",     value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—", colorScore: districtAvgRaw, pct: null },
+          ].map(({ label, value, colorScore, pct }) => (
+            <div
+              key={label}
+              className="bg-white rounded-md shadow-sm overflow-hidden"
+              style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}
+            >
+              <div className="px-4 py-3">
+                <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>
+                  {label}
+                </p>
+                {pct !== null ? (
+                  <div className="flex items-center gap-0 mt-1">
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                      {value}
+                    </span>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                      {pct}%
+                    </span>
+                  </div>
+                ) : colorScore !== null ? (
+                  <span
+                    className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
+                  </span>
+                ) : (
+                  <p className="font-bold mt-1 leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                    {value}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Loading / Error ──────────────────────────────── */}
         {isLoading && (
           <div className="flex-1 flex items-center justify-center py-20">
             <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
@@ -146,152 +235,182 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           <div className="py-10 text-center text-red-600 font-semibold">Failed to load district summary.</div>
         )}
 
-        {/* ── District summary grid ──────────────────────────── */}
+        {/* ── Grid ─────────────────────────────────────────── */}
         {data && !isLoading && (
-          <>
-            {/* Stats row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
-              {[
-                { label: "Schools",         value: data.schools.length },
-                { label: "Total Teachers",  value: data.schools.reduce((s, r) => s + r.teacherCount, 0) },
-                { label: "Observed",        value: data.schools.reduce((s, r) => s + r.observedCount, 0) },
-                {
-                  label: "District Avg",
-                  value: (() => {
-                    const rows = data.schools.filter((r) => r.overall != null);
-                    if (!rows.length) return "—";
-                    return (rows.reduce((s, r) => s + r.overall!, 0) / rows.length).toFixed(1);
-                  })(),
-                },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-white rounded-md shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}>
-                  <div className="px-4 py-3">
-                    <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>{label}</p>
-                    <p className="font-bold mt-1 leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>{value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div
+            className="bg-white rounded-md overflow-hidden flex-1 min-h-0 shadow-sm"
+            style={{ border: "1px solid #dde3f0" }}
+          >
+            <div className="overflow-auto h-full">
+              <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
+                <thead className="sticky top-0 z-20">
 
-            {/* Grid table */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    {/* Category header row */}
-                    <tr>
-                      <th rowSpan={2} className="px-4 py-3 text-left font-bold uppercase whitespace-nowrap" style={{ backgroundColor: NAVY, color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em", borderRight: `2px solid ${YELLOW}`, minWidth: 200 }}>
-                        School
+                  {/* Category row */}
+                  <tr style={{ backgroundColor: NAVY }}>
+                    <th
+                      rowSpan={2}
+                      className="text-left pl-3 pr-2 uppercase sticky left-0 z-30"
+                      style={{
+                        width: 200, minWidth: 200,
+                        backgroundColor: NAVY,
+                        color: "white",
+                        borderRight: `2px solid ${YELLOW}`,
+                        paddingTop: 8, paddingBottom: 8,
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontWeight: 700,
+                        fontSize: 18,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      School
+                    </th>
+
+                    {data.categories.map((cat) => (
+                      <th
+                        key={cat.id}
+                        colSpan={cat.domains.length}
+                        className="text-center font-bold uppercase tracking-wider text-white"
+                        style={{
+                          fontFamily: "'Bebas Neue', sans-serif",
+                          fontSize: 18,
+                          letterSpacing: "0.02em",
+                          borderLeft: `2px solid ${YELLOW}`,
+                          paddingTop: 8, paddingBottom: 8,
+                          backgroundColor: NAVY,
+                        }}
+                      >
+                        {cat.label}
                       </th>
-                      {data.categories.map((cat) => (
+                    ))}
+
+                    <th
+                      rowSpan={2}
+                      className="text-center text-white uppercase"
+                      style={{
+                        width: 54, minWidth: 54,
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontWeight: 700,
+                        fontSize: 18,
+                        letterSpacing: "0.02em",
+                        borderLeft: `2px solid ${YELLOW}`,
+                        backgroundColor: NAVY,
+                        paddingTop: 8, paddingBottom: 8,
+                      }}
+                    >
+                      AVG
+                    </th>
+                  </tr>
+
+                  {/* Domain headers — vertical text */}
+                  <tr style={{ backgroundColor: "#0d2990" }}>
+                    {allDomains.map((domain) => {
+                      const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
+                      return (
                         <th
-                          key={cat.id}
-                          colSpan={cat.domains.length}
-                          className="px-2 py-2 text-center font-bold uppercase"
-                          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em", borderRight: "1px solid rgba(255,255,255,0.15)", borderBottom: `2px solid ${YELLOW}` }}
+                          key={domain.id}
+                          style={{
+                            width: 68, minWidth: 68, height: 88,
+                            color: "#c8d4f5",
+                            borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                            textAlign: "center",
+                            verticalAlign: "top",
+                            paddingTop: 8,
+                            overflow: "visible",
+                          }}
                         >
-                          {cat.label}
-                        </th>
-                      ))}
-                      <th rowSpan={2} className="px-3 py-2 text-center font-bold uppercase" style={{ backgroundColor: NAVY, color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em", borderLeft: `2px solid ${YELLOW}`, minWidth: 72 }}>
-                        Overall
-                      </th>
-                    </tr>
-                    {/* Domain header row */}
-                    <tr>
-                      {data.categories.flatMap((cat) =>
-                        cat.domains.map((dom, di) => (
-                          <th
-                            key={dom.id}
-                            className="px-2 py-1 text-center font-semibold"
+                          <div
                             style={{
-                              backgroundColor: "#1a3fc4",
-                              color: "rgba(255,255,255,0.85)",
-                              fontSize: 10,
-                              lineHeight: 1.2,
-                              maxWidth: 68,
-                              borderRight: di === cat.domains.length - 1 ? "1px solid rgba(255,255,255,0.15)" : undefined,
+                              writingMode: "vertical-rl",
+                              transform: "rotate(180deg)",
+                              display: "inline-block",
+                              height: "80px",
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                              overflow: "visible",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              lineHeight: 1.3,
                             }}
                           >
-                            <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: 72, display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" }}>
-                              {dom.label}
-                            </div>
-                          </th>
-                        ))
-                      )}
-                    </tr>
-                  </thead>
+                            {domain.label}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
 
-                  <tbody>
-                    {data.schools.map((school, si) => (
+                  {/* Yellow separator */}
+                  <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                    <td colSpan={allDomains.length + 2} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
+                  </tr>
+
+                </thead>
+                <tbody>
+                  {data.schools.map((school, rowIdx) => {
+                    const isEven = rowIdx % 2 === 0;
+                    return (
                       <tr
                         key={school.id}
-                        className="border-b border-slate-100 hover:bg-blue-50/40 transition-colors"
-                        style={{ backgroundColor: si % 2 === 0 ? "white" : "#fafbff" }}
+                        className="border-b transition-colors"
+                        style={{ borderColor: "#e8edf8", backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#eef2fc")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isEven ? "#ffffff" : "#f7f9fd")}
                       >
-                        {/* School name — clickable */}
-                        <td className="px-4 py-3" style={{ borderRight: `2px solid ${YELLOW}` }}>
+                        {/* School name cell — clickable */}
+                        <td
+                          className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
+                          style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", borderRight: `2px solid ${YELLOW}` }}
+                        >
                           <button
+                            className="font-semibold leading-tight truncate text-left w-full hover:underline"
+                            style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
                             onClick={() => onDrillDown(school.id, school.name)}
-                            className="flex items-center gap-2 group text-left w-full"
                           >
-                            <div>
-                              <p className="font-bold group-hover:underline transition-all" style={{ color: NAVY, fontSize: 14 }}>
-                                {school.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="flex items-center gap-1 text-slate-400" style={{ fontSize: 11 }}>
-                                  <Users size={10} /> {school.teacherCount} teachers
-                                </span>
-                                <span className="flex items-center gap-1 text-slate-400" style={{ fontSize: 11 }}>
-                                  <Eye size={10} /> {school.observedCount} observed
-                                </span>
-                              </div>
-                            </div>
-                            <ChevronRight size={14} className="ml-auto shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                            {school.name}
                           </button>
+                          <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
+                            {school.teacherCount} teacher{school.teacherCount !== 1 ? "s" : ""} · {school.observedCount} observed
+                          </p>
                         </td>
 
-                        {/* Domain averages */}
-                        {data.categories.flatMap((cat) =>
-                          cat.domains.map((dom) => (
-                            <AvgCell key={dom.id} val={school.domainAverages[dom.id] ?? null} />
-                          ))
-                        )}
-
-                        {/* Overall avg */}
-                        <td className="px-2 py-2 text-center" style={{ borderLeft: `2px solid ${YELLOW}` }}>
-                          {school.overall != null ? (
-                            <span
-                              className={`inline-flex items-center justify-center rounded font-bold tabular-nums ${getScoreColor(school.overall)}`}
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, minWidth: 48, padding: "2px 6px" }}
+                        {/* Domain average cells */}
+                        {allDomains.map((domain) => {
+                          const val = school.domainAverages[domain.id] ?? null;
+                          const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
+                          return (
+                            <td
+                              key={domain.id}
+                              className="text-center py-1.5"
+                              style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
                             >
-                              {school.overall.toFixed(1)}
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 font-semibold">—</span>
-                          )}
+                              {val != null ? (
+                                <span
+                                  className={`inline-flex items-center justify-center font-bold tabular-nums rounded ${getScoreColor(val)}`}
+                                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, minWidth: 36, padding: "2px 4px" }}
+                                >
+                                  {val.toFixed(1)}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+
+                        {/* AVG column */}
+                        <td
+                          className={`text-center font-bold py-1.5 ${school.overall != null ? getScoreColor(school.overall) : ""}`}
+                          style={{ borderLeft: `2px solid ${YELLOW}` }}
+                        >
+                          {school.overall != null ? school.overall.toFixed(1) : "—"}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Color legend */}
-              <div className="px-4 py-2 border-t border-slate-100 flex flex-wrap items-center gap-3">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Score Key</span>
-                {[
-                  { range: "4.0 — Exemplary",    cls: "bg-green-700 text-white" },
-                  { range: "3.0 — Proficient",   cls: "bg-green-400 text-white" },
-                  { range: "2.0 — Developing",   cls: "bg-yellow-200 text-yellow-900" },
-                  { range: "1.0 — Beginning",    cls: "bg-red-200 text-red-800" },
-                ].map(({ range, cls }) => (
-                  <span key={range} className={`text-xs font-semibold px-2 py-0.5 rounded ${cls}`}>{range}</span>
-                ))}
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>
