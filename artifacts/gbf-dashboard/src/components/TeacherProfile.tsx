@@ -279,21 +279,27 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                     {teacher.observations.length}
                   </p>
                 </div>
-                {recent && (
-                  <div
-                    className="text-center rounded-lg px-4 py-2.5"
-                    style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
-                  >
-                    <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Last Observed</p>
-                    <p
-                      className="font-semibold text-white mt-0.5 text-sm"
-                      style={{ lineHeight: 1.2 }}
+                {recent && (() => {
+                  const daysSince = Math.floor(
+                    (Date.now() - new Date(recent.date + "T00:00:00").getTime()) / 86_400_000
+                  );
+                  return (
+                    <div
+                      className="text-center rounded-lg px-4 py-2.5 min-w-[90px]"
+                      style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                     >
-                      {formatDate(recent.date)}
-                    </p>
-                    <p className="text-blue-300 text-xs mt-0.5">by {recent.observer}</p>
-                  </div>
-                )}
+                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Last Observed</p>
+                      <p
+                        className="font-bold text-white mt-0.5 leading-none"
+                        style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30 }}
+                      >
+                        {daysSince}
+                        <span className="text-base font-semibold ml-0.5">d</span>
+                      </p>
+                      <p className="text-blue-200 text-xs mt-1">{formatDate(recent.date)}</p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
