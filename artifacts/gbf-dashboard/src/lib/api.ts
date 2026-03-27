@@ -19,21 +19,35 @@ export async function fetchUsers(): Promise<UserRow[]> {
 
 /* ── Admin: Schools ─────────────────────────────────────────────── */
 
+export const REGIONS = ["Boston", "Camden", "NYC", "Newark", "Rochester"] as const;
+export type Region = typeof REGIONS[number];
+
+export const GRADE_SPANS = ["ES", "MS", "HS"] as const;
+export type GradeSpan = typeof GRADE_SPANS[number];
+
 export interface AdminSchool {
-  id:   number;
-  name: string;
+  id:        number;
+  name:      string;
+  region:    string | null;
+  gradeSpan: string | null;
+}
+
+export interface SchoolPayload {
+  name:      string;
+  region?:   string | null;
+  gradeSpan?: string | null;
 }
 
 export async function fetchAdminSchools(): Promise<AdminSchool[]> {
   return apiFetch<AdminSchool[]>("/admin/schools");
 }
 
-export async function createAdminSchool(name: string): Promise<AdminSchool> {
-  return apiFetch<AdminSchool>("/admin/schools", { method: "POST", body: JSON.stringify({ name }) });
+export async function createAdminSchool(payload: SchoolPayload): Promise<AdminSchool> {
+  return apiFetch<AdminSchool>("/admin/schools", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function updateAdminSchool(id: number, name: string): Promise<AdminSchool> {
-  return apiFetch<AdminSchool>(`/admin/schools/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+export async function updateAdminSchool(id: number, payload: Partial<SchoolPayload>): Promise<AdminSchool> {
+  return apiFetch<AdminSchool>(`/admin/schools/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 export async function deleteAdminSchool(id: number): Promise<void> {

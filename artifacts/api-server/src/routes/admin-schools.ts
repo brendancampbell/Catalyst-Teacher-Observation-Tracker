@@ -19,12 +19,15 @@ router.get("/", async (_req, res) => {
 /* POST /api/admin/schools — create school */
 router.post("/", async (req, res) => {
   try {
-    const { name } = req.body as { name: string };
+    const { name, region, gradeSpan } = req.body as { name: string; region?: string; gradeSpan?: string };
     if (!name?.trim()) {
       res.status(400).json({ error: "name is required" });
       return;
     }
-    const [row] = await db.insert(schools).values({ name: name.trim() }).returning();
+    const [row] = await db
+      .insert(schools)
+      .values({ name: name.trim(), region: region ?? null, gradeSpan: gradeSpan ?? null })
+      .returning();
     res.status(201).json(row);
   } catch (err) {
     console.error("POST /admin/schools error:", err);
@@ -32,18 +35,22 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* PATCH /api/admin/schools/:id — rename school */
+/* PATCH /api/admin/schools/:id — update school */
 router.patch("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { name } = req.body as { name: string };
-    if (!name?.trim()) {
-      res.status(400).json({ error: "name is required" });
+    const { name, region, gradeSpan } = req.body as Partial<{ name: string; region: string | null; gradeSpan: string | null }>;
+    const updates: Record<string, unknown> = {};
+    if (name !== undefined)      updates.name      = name.trim();
+    if (region !== undefined)    updates.region    = region;
+    if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "Nothing to update" });
       return;
     }
     const [row] = await db
       .update(schools)
-      .set({ name: name.trim() })
+      .set(updates)
       .where(eq(schools.id, id))
       .returning();
     if (!row) { res.status(404).json({ error: "School not found" }); return; }

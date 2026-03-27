@@ -19,6 +19,8 @@ import {
   createAdminSchool,
   updateAdminSchool,
   deleteAdminSchool,
+  REGIONS,
+  GRADE_SPANS,
   type FullRubric,
   type RubricCategoryRow,
   type RubricDomainRow,
@@ -496,6 +498,20 @@ function TeacherForm({
    SCHOOL SETTINGS TAB (District Admin only)
    ════════════════════════════════════════════════════════════════ */
 
+const REGION_COLORS: Record<string, { bg: string; color: string }> = {
+  Boston:    { bg: "#dbeafe", color: "#1d4ed8" },
+  Camden:    { bg: "#fef9c3", color: "#854d0e" },
+  NYC:       { bg: "#f3e8ff", color: "#7e22ce" },
+  Newark:    { bg: "#dcfce7", color: "#15803d" },
+  Rochester: { bg: "#ffe4e6", color: "#be123c" },
+};
+
+const GRADE_SPAN_COLORS: Record<string, { bg: string; color: string }> = {
+  ES: { bg: "#fef3c7", color: "#92400e" },
+  MS: { bg: "#e0f2fe", color: "#0369a1" },
+  HS: { bg: "#f0fdf4", color: "#166534" },
+};
+
 function SchoolSettings() {
   const queryClient = useQueryClient();
   const qKey = ["admin", "schools"] as const;
@@ -505,19 +521,29 @@ function SchoolSettings() {
     queryFn: fetchAdminSchools,
   });
 
+  /* Add form */
   const [adding, setAdding]           = useState(false);
   const [newName, setNewName]         = useState("");
+  const [newRegion, setNewRegion]     = useState("");
+  const [newSpan, setNewSpan]         = useState("");
+
+  /* Edit form */
   const [editId, setEditId]           = useState<number | null>(null);
   const [editName, setEditName]       = useState("");
+  const [editRegion, setEditRegion]   = useState("");
+  const [editSpan, setEditSpan]       = useState("");
+
+  function resetAdd() { setAdding(false); setNewName(""); setNewRegion(""); setNewSpan(""); }
+  function resetEdit() { setEditId(null); }
 
   const createMut = useMutation({
-    mutationFn: () => createAdminSchool(newName.trim()),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAdding(false); setNewName(""); },
+    mutationFn: () => createAdminSchool({ name: newName.trim(), region: newRegion || null, gradeSpan: newSpan || null }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetAdd(); },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminSchool(editId!, editName.trim()),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
+    mutationFn: () => updateAdminSchool(editId!, { name: editName.trim(), region: editRegion || null, gradeSpan: editSpan || null }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetEdit(); },
   });
 
   const deleteMut = useMutation({
@@ -526,7 +552,14 @@ function SchoolSettings() {
     onError: (err: Error) => alert(err.message),
   });
 
+  function startEdit(s: AdminSchool) {
+    setEditId(s.id); setEditName(s.name);
+    setEditRegion(s.region ?? ""); setEditSpan(s.gradeSpan ?? "");
+    setAdding(false);
+  }
+
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+  const selCls   = `${inputCls} cursor-pointer`;
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
@@ -538,9 +571,9 @@ function SchoolSettings() {
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500">Manage the schools in your district. Schools are used to organise teachers and filter dashboard views.</p>
+        <p className="text-sm text-slate-500">Manage the schools in your district. Set each school's region and grade span.</p>
         <button
-          onClick={() => { setAdding(true); setEditId(null); setNewName(""); }}
+          onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
           className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
           style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
         >
@@ -551,27 +584,38 @@ function SchoolSettings() {
 
       {/* Add school form */}
       {adding && (
-        <div className="bg-white rounded-lg p-4 flex items-center gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
-          <School size={18} style={{ color: NAVY, flexShrink: 0 }} />
-          <input
-            className={`${inputCls} flex-1`}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="School name (e.g. Roosevelt Elementary)"
-            autoFocus
-            onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) createMut.mutate(); if (e.key === "Escape") setAdding(false); }}
-          />
-          <button
-            className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
-            style={{ backgroundColor: NAVY }}
-            onClick={() => createMut.mutate()}
-            disabled={createMut.isPending || !newName.trim()}
-          >
-            {createMut.isPending ? "Adding…" : "Add"}
-          </button>
-          <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => { setAdding(false); setNewName(""); }}>
-            <X size={16} />
-          </button>
+        <div className="bg-white rounded-lg p-4 flex flex-col gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
+          <div className="flex flex-wrap gap-3">
+            <input
+              className={`${inputCls} flex-1 min-w-[200px]`}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="School name (e.g. Lincoln Middle School)"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Escape") resetAdd(); }}
+            />
+            <select className={`${selCls} min-w-[130px]`} value={newRegion} onChange={(e) => setNewRegion(e.target.value)}>
+              <option value="">— Region —</option>
+              {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <select className={`${selCls} min-w-[120px]`} value={newSpan} onChange={(e) => setNewSpan(e.target.value)}>
+              <option value="">— Grade Span —</option>
+              {GRADE_SPANS.map((g) => <option key={g} value={g}>{g === "ES" ? "ES (Elementary)" : g === "MS" ? "MS (Middle)" : "HS (High School)"}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
+              style={{ backgroundColor: NAVY }}
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending || !newName.trim()}
+            >
+              {createMut.isPending ? "Adding…" : "Add School"}
+            </button>
+            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={resetAdd}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -582,31 +626,77 @@ function SchoolSettings() {
         )}
         <ul className="divide-y divide-slate-100">
           {schools.map((school) => (
-            <li key={school.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-              <School size={16} className="text-slate-300 shrink-0" />
+            <li key={school.id}>
               {editId === school.id ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    className={`${inputCls} flex-1`}
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter" && editName.trim()) updateMut.mutate(); if (e.key === "Escape") setEditId(null); }}
-                  />
-                  <button className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50" onClick={() => updateMut.mutate()} disabled={updateMut.isPending || !editName.trim()}>
-                    <Check size={16} />
-                  </button>
-                  <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditId(null)}>
-                    <X size={16} />
-                  </button>
+                /* ── Inline edit form ── */
+                <div className="px-4 py-3 bg-blue-50 flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-3">
+                    <input
+                      className={`${inputCls} flex-1 min-w-[200px]`}
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Escape") resetEdit(); }}
+                    />
+                    <select className={`${selCls} min-w-[130px]`} value={editRegion} onChange={(e) => setEditRegion(e.target.value)}>
+                      <option value="">— Region —</option>
+                      {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <select className={`${selCls} min-w-[120px]`} value={editSpan} onChange={(e) => setEditSpan(e.target.value)}>
+                      <option value="">— Grade Span —</option>
+                      {GRADE_SPANS.map((g) => <option key={g} value={g}>{g === "ES" ? "ES (Elementary)" : g === "MS" ? "MS (Middle)" : "HS (High School)"}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
+                      style={{ backgroundColor: NAVY }}
+                      onClick={() => updateMut.mutate()}
+                      disabled={updateMut.isPending || !editName.trim()}
+                    >
+                      {updateMut.isPending ? "Saving…" : "Save"}
+                    </button>
+                    <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={resetEdit}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <>
+                /* ── Display row ── */
+                <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                  <School size={16} className="text-slate-300 shrink-0" />
                   <span className="flex-1 font-medium text-slate-700 text-sm">{school.name}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {school.region && (
+                      <span
+                        className="text-xs font-bold rounded-full px-2.5 py-0.5"
+                        style={{
+                          backgroundColor: (REGION_COLORS[school.region] ?? { bg: "#f1f5f9" }).bg,
+                          color: (REGION_COLORS[school.region] ?? { color: "#475569" }).color,
+                        }}
+                      >
+                        {school.region}
+                      </span>
+                    )}
+                    {school.gradeSpan && (
+                      <span
+                        className="text-xs font-bold rounded-full px-2.5 py-0.5"
+                        style={{
+                          backgroundColor: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { bg: "#f1f5f9" }).bg,
+                          color: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { color: "#475569" }).color,
+                        }}
+                      >
+                        {school.gradeSpan}
+                      </span>
+                    )}
+                    {!school.region && !school.gradeSpan && (
+                      <span className="text-xs text-slate-300 italic">No tags</span>
+                    )}
+                  </div>
                   <button
                     className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
-                    title="Rename"
-                    onClick={() => { setEditId(school.id); setEditName(school.name); setAdding(false); }}
+                    title="Edit"
+                    onClick={() => startEdit(school)}
                   >
                     <Pencil size={13} />
                   </button>
@@ -618,7 +708,7 @@ function SchoolSettings() {
                   >
                     <Trash2 size={13} />
                   </button>
-                </>
+                </div>
               )}
             </li>
           ))}
