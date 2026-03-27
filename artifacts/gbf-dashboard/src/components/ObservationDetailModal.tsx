@@ -221,7 +221,7 @@ export function ObservationDetailModal({ teacher, observation, open, onOpenChang
             ) : (
               <>
                 <p className="text-xs text-slate-400">
-                  {teacher.department} · {teacher.gradeLevel} · {teacher.yearsExperience} yrs experience
+                  {teacher.department} · {teacher.gradeLevel}
                 </p>
                 <button
                   type="button"

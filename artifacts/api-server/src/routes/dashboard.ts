@@ -59,7 +59,6 @@ router.get("/", async (req, res) => {
       name: t.name,
       department: t.department,
       gradeLevel: t.gradeLevel,
-      yearsExperience: t.yearsExperience,
       observations: (obsByTeacher.get(t.id) ?? [])
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({

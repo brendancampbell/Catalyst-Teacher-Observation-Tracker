@@ -4,11 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DEPARTMENTS,
   GRADE_LEVELS,
-  EXP_BUCKETS,
   getMostRecentObservation,
   getTeacherAverage,
   getDomainAverage,
-  getExpBucket,
   type Score,
   type Teacher,
   type Observation,
@@ -117,10 +115,9 @@ export default function Dashboard() {
   const quarterId: number         = data?.quarter.id  ?? 0;
 
   /* ── Filter state ──────────────────────────────────── */
-  const [search, setSearch]       = useState("");
-  const [dept, setDept]           = useState<string[]>([]);
-  const [grade, setGrade]         = useState<string[]>([]);
-  const [expBucket, setExpBucket] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [dept, setDept]     = useState<string[]>([]);
+  const [grade, setGrade]   = useState<string[]>([]);
 
   /* ── View toggles ──────────────────────────────────── */
   const [viewMode, setViewMode] = useState<ViewMode>("recent");
@@ -138,12 +135,11 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     return teachers.filter((t) => {
       if (viewBy === "teacher" && search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dept.length      && !dept.includes(t.department)) return false;
-      if (grade.length     && !grade.includes(t.gradeLevel)) return false;
-      if (expBucket.length && !expBucket.includes(getExpBucket(t.yearsExperience))) return false;
+      if (dept.length  && !dept.includes(t.department)) return false;
+      if (grade.length && !grade.includes(t.gradeLevel)) return false;
       return true;
     });
-  }, [teachers, search, dept, grade, expBucket, viewBy]);
+  }, [teachers, search, dept, grade, viewBy]);
 
   /* ── Group rows (for rollup views) ─────────────────── */
   const groupRows = useMemo(
@@ -172,7 +168,7 @@ export default function Dashboard() {
     ? filtered.filter((t) => teacherAvgFn(t) < 2).length
     : groupAvgs.filter((a) => a < 2).length;
 
-  const hasFilters = !!(search || dept.length || grade.length || expBucket.length);
+  const hasFilters = !!(search || dept.length || grade.length);
 
   /* ── Handlers ──────────────────────────────────────── */
   async function handleNewObservation(
@@ -471,11 +467,9 @@ export default function Dashboard() {
             <FilterMultiSelect label="Grade"      values={grade} onChange={setGrade} options={[...GRADE_LEVELS]} />
           )}
 
-          <FilterMultiSelect label="Experience" values={expBucket} onChange={setExpBucket} options={[...EXP_BUCKETS]} />
-
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setDept([]); setGrade([]); setExpBucket([]); }}
+              onClick={() => { setSearch(""); setDept([]); setGrade([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
@@ -648,7 +642,7 @@ export default function Dashboard() {
                               {teacher.name}
                             </button>
                             <p className="text-slate-400 mt-px" style={{ fontSize: 12 }}>
-                              {teacher.department} · {teacher.gradeLevel} · {teacher.yearsExperience}yr
+                              {teacher.department} · {teacher.gradeLevel}
                             </p>
                           </td>
 

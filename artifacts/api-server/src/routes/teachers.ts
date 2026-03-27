@@ -43,7 +43,6 @@ router.get("/:id", async (req, res) => {
       name: teacher.name,
       department: teacher.department,
       gradeLevel: teacher.gradeLevel,
-      yearsExperience: teacher.yearsExperience,
       observations: obsRows
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({

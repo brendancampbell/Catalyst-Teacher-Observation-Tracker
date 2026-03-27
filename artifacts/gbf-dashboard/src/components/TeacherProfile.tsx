@@ -158,11 +158,6 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
     ? recentScores.reduce((s, { score }) => s + score, 0) / recentScores.length
     : null;
 
-  const expLabel =
-    teacher.yearsExperience <= 2 ? "Early Career" :
-    teacher.yearsExperience <= 5 ? "Developing" :
-    teacher.yearsExperience <= 10 ? "Experienced" : "Veteran";
-
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
@@ -248,7 +243,7 @@ export function TeacherProfile({ teacher, onBack, currentUser, onNewObs }: Props
                       {teacher.name}
                     </h1>
                     <p className="text-blue-200 text-sm font-medium">
-                      {teacher.department} · Grades {teacher.gradeLevel} · {teacher.yearsExperience}yr · {expLabel}
+                      {teacher.department} · Grades {teacher.gradeLevel}
                     </p>
                   </div>
                 </div>
