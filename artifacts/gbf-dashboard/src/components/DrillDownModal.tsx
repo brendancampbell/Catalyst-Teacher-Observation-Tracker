@@ -115,9 +115,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdateObs: (teacherId: string, updated: Observation) => void;
+  onTeacherClick?: () => void;
 }
 
-export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs }: Props) {
+export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onTeacherClick }: Props) {
   const [detailObsId, setDetailObsId] = useState<string | null>(null);
 
   const chartData = useMemo<ChartPoint[]>(() => {
@@ -177,10 +178,20 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <DialogPrimitive.Title
-                    className="text-white font-bold leading-tight"
+                    className="leading-tight"
                     style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, letterSpacing: "0.05em" }}
                   >
-                    {teacher.name}
+                    {onTeacherClick ? (
+                      <button
+                        onClick={() => { onOpenChange(false); onTeacherClick(); }}
+                        className="text-white hover:text-yellow-300 transition-colors underline underline-offset-2 decoration-yellow-400/60 hover:decoration-yellow-300 font-bold"
+                        style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, letterSpacing: "0.05em", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                      >
+                        {teacher.name}
+                      </button>
+                    ) : (
+                      <span className="text-white font-bold">{teacher.name}</span>
+                    )}
                   </DialogPrimitive.Title>
                   <DialogPrimitive.Description className="text-blue-200 text-sm mt-0.5 font-medium">
                     {domainLabel} · Score Progression

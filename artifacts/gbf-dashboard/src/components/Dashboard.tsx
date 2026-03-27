@@ -587,6 +587,12 @@ export default function Dashboard() {
         open={drillDown !== null}
         onOpenChange={(open) => { if (!open) setDrillDown(null); }}
         onUpdateObs={handleUpdateObs}
+        onTeacherClick={() => {
+          if (drillDown) {
+            setTeacherProfileId(drillDown.teacherId);
+            setDrillDown(null);
+          }
+        }}
       />
     </>
   );
