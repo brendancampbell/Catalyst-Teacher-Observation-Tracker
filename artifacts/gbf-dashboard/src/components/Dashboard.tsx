@@ -251,11 +251,11 @@ export default function Dashboard() {
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-4 gap-2.5">
           {[
-            { label: "Teachers Shown",     value: filtered.length,                                       sub: null },
-            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—",          sub: null },
-            { label: "Proficient+ (≥ 3)", value: proficient,    sub: filtered.length ? `${Math.round(proficient    / filtered.length * 100)}% of teachers` : null },
-            { label: "Need Support (< 2)", value: needsSupport, sub: filtered.length ? `${Math.round(needsSupport  / filtered.length * 100)}% of teachers` : null },
-          ].map(({ label, value, sub }) => (
+            { label: "Teachers Shown",     value: filtered.length,                                 pct: null },
+            { label: "Average Score",      value: filtered.length ? schoolAvg.toFixed(1) : "—",   pct: null },
+            { label: "Proficient+ (≥ 3)", value: proficient,    pct: filtered.length ? Math.round(proficient    / filtered.length * 100) : null },
+            { label: "Need Support (< 2)", value: needsSupport, pct: filtered.length ? Math.round(needsSupport  / filtered.length * 100) : null },
+          ].map(({ label, value, pct }) => (
             <div
               key={label}
               className="bg-white rounded-md shadow-sm overflow-hidden"
@@ -265,15 +265,27 @@ export default function Dashboard() {
                 <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>
                   {label}
                 </p>
-                <p
-                  className="font-bold mt-1 leading-none"
-                  style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
-                >
-                  {value}
-                </p>
-                {sub && (
-                  <p className="mt-1 font-medium" style={{ color: "#94a3b8", fontSize: 12 }}>
-                    {sub}
+                {pct !== null ? (
+                  <div className="flex items-end gap-0 mt-1">
+                    <div className="flex flex-col items-center pr-3" style={{ borderRight: `2px solid #dde3f0` }}>
+                      <span className="text-xs uppercase tracking-wide font-semibold" style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.4 }}>teachers</span>
+                      <span className="font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                        {value}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center pl-3">
+                      <span className="text-xs uppercase tracking-wide font-semibold" style={{ color: "#94a3b8", fontSize: 10, lineHeight: 1.4 }}>of school</span>
+                      <span className="font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p
+                    className="font-bold mt-1 leading-none"
+                    style={{ fontFamily: "'Barlow Condensed', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
                   </p>
                 )}
               </div>
