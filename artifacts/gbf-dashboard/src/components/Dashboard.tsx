@@ -32,7 +32,7 @@ const SCORE_LEGEND = [
 type FilterStr = string;
 
 interface DrillDownTarget {
-  teacher: Teacher;
+  teacherId: string;
   domainId: string;
   domainLabel: string;
 }
@@ -78,7 +78,14 @@ export default function Dashboard() {
     strengths: string,
     growthAreas: string,
   ) {
-    const newObs: Observation = { date, scores, strengths: strengths || undefined, growthAreas: growthAreas || undefined };
+    const newObs: Observation = {
+      id: `obs_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      date,
+      scores,
+      strengths: strengths || undefined,
+      growthAreas: growthAreas || undefined,
+      observer: currentUser.name,
+    };
     setTeachers((prev) =>
       prev.map((t) =>
         t.id === teacherId
@@ -88,8 +95,18 @@ export default function Dashboard() {
     );
   }
 
+  function handleUpdateObs(teacherId: string, updated: Observation) {
+    setTeachers((prev) =>
+      prev.map((t) =>
+        t.id === teacherId
+          ? { ...t, observations: t.observations.map((o) => (o.id === updated.id ? updated : o)) }
+          : t,
+      ),
+    );
+  }
+
   function openDrillDown(teacher: Teacher, domainId: string, domainLabel: string) {
-    setDrillDown({ teacher, domainId, domainLabel });
+    setDrillDown({ teacherId: teacher.id, domainId, domainLabel });
   }
 
   return (
@@ -498,11 +515,12 @@ export default function Dashboard() {
       />
 
       <DrillDownModal
-        teacher={drillDown?.teacher ?? null}
+        teacher={drillDown ? (teachers.find((t) => t.id === drillDown.teacherId) ?? null) : null}
         domainId={drillDown?.domainId ?? null}
         domainLabel={drillDown?.domainLabel ?? null}
         open={drillDown !== null}
         onOpenChange={(open) => { if (!open) setDrillDown(null); }}
+        onUpdateObs={handleUpdateObs}
       />
     </div>
   );
