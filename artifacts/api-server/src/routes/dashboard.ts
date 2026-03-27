@@ -4,7 +4,7 @@ import {
   teachers, rubricQuarters, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
       },
     });
 
-    const allTeachers = await db.select().from(teachers);
+    const allTeachers = await db.select().from(teachers).where(eq(teachers.isActive, true));
 
     const allObs = await db.select().from(observations)
       .where(eq(observations.quarterId, quarter.id));

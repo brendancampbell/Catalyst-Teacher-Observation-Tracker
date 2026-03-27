@@ -44,18 +44,23 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 ### Key Pages
 
 - `/` — Main dashboard grid (observation tracker)
-- `/admin` — Rubric manager (add/edit/delete categories and domains)
+- `/admin` — Admin settings (Rubric Manager + Teacher Roster; COACH role blocked)
 
 ### Features
 
 - Real-time data from PostgreSQL via Express API
 - 20 seeded teachers with 3 observations each (Q1 2026 data)
-- Filter by department, grade level, experience, or search by name
+- Filter by subject, grade level; view by teacher, subject, or grade
 - "Most Recent" vs "Quarter Average" toggle
 - Click any teacher name → full profile view
 - Click any score cell → drill-down with trend chart
 - "Add Observation" modal with all 10 domains scored 1–4
 - Admin rubric manager for managing categories and domains
+- **User Permissions / RBAC**: Roles: COACH, PRINCIPAL, DISTRICT_ADMIN
+  - User switcher dropdown in header (persists to localStorage)
+  - Admin button hidden from COACH role
+  - Admin page blocked for COACH (shows Access Restricted screen)
+- **Teacher Roster** (Admin > Teacher Roster tab): Add, Edit, Deactivate teachers; show/hide inactive
 
 ### Design
 
@@ -65,18 +70,19 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 ### Database Schema (lib/db/src/schema/)
 
-- `teachers` — id, name, department, gradeLevel, yearsExperience
+- `users` — id, email, name, role (COACH | PRINCIPAL | DISTRICT_ADMIN)
+- `teachers` — id, name, subject, gradeLevel (text[]), isActive (bool)
 - `rubric_quarters` — id, slug (Q1), name, isActive
 - `rubric_categories` — id, quarterId, name, displayOrder
 - `rubric_domains` — id, categoryId, name, slug, displayOrder
-- `observations` — id, teacherId, quarterId, date, strengths, growthAreas, observer
+- `observations` — id, teacherId, quarterId, observerId (FK→users), date, strengths, growthAreas, observer
 - `observation_scores` — id, observationId, domainSlug, score (1–4)
 
 ### API Endpoints (artifacts/api-server/)
 
 All routes mounted at `/api`:
 
-- `GET /api/dashboard?quarter=Q1` — Full dashboard data (rubric + all teachers + observations)
+- `GET /api/dashboard?quarter=Q1` — Full dashboard data (active teachers only + observations)
 - `GET /api/teachers/:id?quarter=Q1` — Single teacher detail
 - `POST /api/observations` — Create new observation
 - `PUT /api/observations/:id` — Update observation
@@ -88,16 +94,22 @@ All routes mounted at `/api`:
 - `POST /api/rubric/categories/:id/domains` — Create domain
 - `PUT /api/rubric/domains/:id` — Update domain
 - `DELETE /api/rubric/domains/:id` — Delete domain
+- `GET /api/users` — List all users (for role switcher)
+- `GET /api/admin/teachers` — All teachers incl. inactive (admin roster)
+- `POST /api/admin/teachers` — Create teacher
+- `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel
+- `PATCH /api/admin/teachers/:id/toggle-active` — Toggle isActive
 
 ### Frontend Client (artifacts/gbf-dashboard/src/)
 
 - `lib/api.ts` — Typed fetch helpers for all API endpoints
-- `components/Dashboard.tsx` — Main grid with useQuery + filters + modals
+- `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
+- `components/Dashboard.tsx` — Main grid with useQuery + filters + modals + user switcher
 - `components/TeacherProfile.tsx` — Full teacher view
 - `components/DrillDownModal.tsx` — Domain trend chart + observation list
 - `components/NewObservationModal.tsx` — Observation entry form
 - `components/ObservationDetailModal.tsx` — View/edit individual observation
-- `pages/admin.tsx` — Rubric CRUD manager
+- `pages/admin.tsx` — Rubric Settings + Teacher Roster tabs; RBAC block for COACH
 - `data/dummy.ts` — Type definitions + helper functions (data now comes from API)
 
 ### Vite Proxy

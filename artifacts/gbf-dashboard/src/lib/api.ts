@@ -1,5 +1,52 @@
 import type { Score, Teacher, Observation } from "../data/dummy";
 
+/* ── Users ─────────────────────────────────────────────────────── */
+
+export type UserRole = "COACH" | "PRINCIPAL" | "DISTRICT_ADMIN";
+
+export interface UserRow {
+  id:    number;
+  email: string;
+  name:  string;
+  role:  UserRole;
+}
+
+export async function fetchUsers(): Promise<UserRow[]> {
+  return apiFetch<UserRow[]>("/users");
+}
+
+/* ── Admin: Teachers ────────────────────────────────────────────── */
+
+export interface AdminTeacher {
+  id:         number;
+  name:       string;
+  subject:    string;
+  gradeLevel: string[];
+  isActive:   boolean;
+}
+
+export async function fetchAdminTeachers(): Promise<AdminTeacher[]> {
+  return apiFetch<AdminTeacher[]>("/admin/teachers");
+}
+
+export async function createAdminTeacher(payload: { name: string; subject: string; gradeLevel: string[] }): Promise<AdminTeacher> {
+  return apiFetch<AdminTeacher>("/admin/teachers", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminTeacher(id: number, payload: { name?: string; subject?: string; gradeLevel?: string[] }): Promise<AdminTeacher> {
+  return apiFetch<AdminTeacher>(`/admin/teachers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function toggleTeacherActive(id: number): Promise<AdminTeacher> {
+  return apiFetch<AdminTeacher>(`/admin/teachers/${id}/toggle-active`, { method: "PATCH" });
+}
+
 export interface DomainEntry {
   id: string;
   label: string;

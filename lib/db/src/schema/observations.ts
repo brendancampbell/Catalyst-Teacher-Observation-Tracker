@@ -3,11 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachers } from "./teachers";
 import { rubricQuarters } from "./rubric";
+import { users } from "./users";
 
 export const observations = pgTable("observations", {
   id:          serial("id").primaryKey(),
   teacherId:   integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
   quarterId:   integer("quarter_id").notNull().references(() => rubricQuarters.id, { onDelete: "cascade" }),
+  observerId:  integer("observer_id").references(() => users.id, { onDelete: "set null" }),
   date:        date("date").notNull(),
   strengths:   text("strengths"),
   growthAreas: text("growth_areas"),

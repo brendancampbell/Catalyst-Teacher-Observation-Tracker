@@ -1,0 +1,26 @@
+We need to expand on Phase 3 to handle User Permissions and Teacher Roster management before we introduce real authentication. 
+
+Please implement the following updates to our database and UI:
+
+1. UPDATE PRISMA SCHEMA:
+Update the `schema.prisma` file to include the following:
+- Create an Enum called `Role` with values: `COACH`, `PRINCIPAL`, `DISTRICT_ADMIN`.
+- Create a `User` model: id, email, name, role (default to COACH).
+- Update the `Teacher` model to ensure it has: id, firstName, lastName, department, gradeLevel (optional), and isActive (boolean, default true).
+- Update the `Observation` model to include an `observerId` that relates back to the `User` model (so we know who submitted the observation).
+- Update the seed script to create a few dummy Users with different roles, and replace the old dummy teachers with a fresh batch using the new schema.
+
+2. ADD A TEMPORARY "USER SWITCHER":
+Since we don't have real auth yet, build a "User Switcher" component in the main navigation bar. It should be a dropdown listing the dummy users from the database. When a user is selected, store their data in a React Context or global state so the app knows "who is currently logged in" and what their role is.
+
+3. ROLE-BASED ACCESS CONTROL (RBAC):
+- Protect the `/admin` route: If the currently selected user has the `COACH` role, they should not be able to see the Admin Settings button, and if they try to navigate to `/admin`, they should see an "Unauthorized" message.
+
+4. ROSTER MANAGEMENT UI:
+Update the `/admin` page to use a Tabs component (from shadcn/ui) to separate "Rubric Settings" and "Teacher Roster".
+In the "Teacher Roster" tab:
+- Build a data table displaying all teachers.
+- Add an "Add Teacher" button that opens a form to add a new teacher (First Name, Last Name, Department).
+- Add an "Edit" and "Deactivate" button for each row. 
+
+Please provide the necessary Prisma migration commands (like `npx prisma db push`) and the updated code for the Schema, Navigation/User Switcher, and the Admin page.

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SUBJECTS,
@@ -14,6 +14,7 @@ import {
 } from "@/data/dummy";
 import { fetchDashboard, createObservation, updateObservation } from "@/lib/api";
 import type { CategoryEntry } from "@/lib/api";
+import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
@@ -79,7 +80,7 @@ function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMod
   const scores = groupTeachers
     .map((t) =>
       viewMode === "recent"
-        ? ((getMostRecentObservation(t).scores[domainId] as number) ?? 0)
+        ? ((getMostRecentObservation(t)?.scores[domainId] as number | undefined) ?? 0)
         : getQuarterDomainScore(t, domainId),
     )
     .filter((s) => s > 0);
@@ -106,8 +107,9 @@ interface DrillDownTarget {
 /* ══ Dashboard component ════════════════════════════════════════════ */
 
 export default function Dashboard() {
-  const currentUser = { name: "Principal Rivera", school: "Lincoln Elementary" };
+  const { currentUser, users, setCurrentUser } = useUser();
   const queryClient = useQueryClient();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   /* ── API data ──────────────────────────────────────── */
   const { data, isLoading, isError } = useQuery({
@@ -163,14 +165,17 @@ export default function Dashboard() {
   );
 
   const statCount        = viewBy === "teacher" ? filtered.length : groupRows.length;
-  const statAvg          = viewBy === "teacher"
-    ? (filtered.length ? filtered.reduce((s, t) => s + teacherAvgFn(t), 0) / filtered.length : 0)
-    : (groupAvgs.length  ? groupAvgs.reduce((a, b) => a + b, 0) / groupAvgs.length : 0);
+  const filteredAvgs     = viewBy === "teacher"
+    ? filtered.map((t) => teacherAvgFn(t)).filter((a): a is number => a !== null)
+    : groupAvgs;
+  const statAvg          = filteredAvgs.length
+    ? filteredAvgs.reduce((a, b) => a + b, 0) / filteredAvgs.length
+    : 0;
   const statProficient   = viewBy === "teacher"
-    ? filtered.filter((t) => teacherAvgFn(t) >= 3).length
+    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 3; }).length
     : groupAvgs.filter((a) => a >= 3).length;
   const statNeedsSupport = viewBy === "teacher"
-    ? filtered.filter((t) => teacherAvgFn(t) < 2).length
+    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 2; }).length
     : groupAvgs.filter((a) => a < 2).length;
 
   const hasFilters = !!(subject.length || grade.length);
@@ -193,7 +198,7 @@ export default function Dashboard() {
         scores,
         strengths: strengths || undefined,
         growthAreas: growthAreas || undefined,
-        observer: currentUser.name,
+        observer: currentUser?.name ?? "Unknown",
       });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err) {
@@ -296,7 +301,7 @@ export default function Dashboard() {
               >
                 Get Better Faster Tracker
               </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>{currentUser.school}</p>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>Lincoln Elementary</p>
             </div>
           </div>
 
@@ -316,37 +321,64 @@ export default function Dashboard() {
               <span className="hidden sm:inline">Add Observation</span>
             </button>
 
-            <a
-              href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/admin`}
-              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
-              style={{
-                border: `1.5px solid rgba(255,181,0,0.5)`,
-                color: YELLOW,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "0.02em",
-              }}
-            >
-              Admin
-            </a>
+            {currentUser && currentUser.role !== "COACH" && (
+              <a
+                href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/admin`}
+                className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+                style={{
+                  border: `1.5px solid rgba(255,181,0,0.5)`,
+                  color: YELLOW,
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 14,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Admin
+              </a>
+            )}
 
-            <div
-              className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
-              style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-            >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ backgroundColor: YELLOW, color: NAVY }}
+            {/* ── User switcher ────────── */}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen((p) => !p)}
+                className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
               >
-                PR
-              </div>
-              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser.name}</span>
-              <span
-                className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
-                style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 13 }}
-              >
-                PRINCIPAL
-              </span>
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                >
+                  {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
+                </div>
+                <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
+                  {currentUser?.name ?? "Loading…"}
+                </span>
+                <span
+                  className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
+                >
+                  {currentUser?.role?.replace("_", " ") ?? ""}
+                </span>
+                <ChevronDown size={14} className="text-white/70 hidden sm:block" />
+              </button>
+
+              {userMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 min-w-[200px] overflow-hidden"
+                  style={{ backgroundColor: NAVY, border: `1.5px solid ${YELLOW}` }}
+                >
+                  {users.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => { setCurrentUser(u); setUserMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 flex flex-col gap-0.5 hover:bg-white/10 transition-colors"
+                    >
+                      <span className="text-white font-medium" style={{ fontSize: 14 }}>{u.name}</span>
+                      <span style={{ fontSize: 11, color: YELLOW }}>{u.role.replace("_", " ")}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -636,7 +668,7 @@ export default function Dashboard() {
 
                           {allDomains.map((domain) => {
                             const score = viewMode === "recent"
-                              ? (recent.scores[domain.id] as Score | undefined)
+                              ? (recent?.scores[domain.id] as Score | undefined)
                               : getQuarterDomainScore(teacher, domain.id);
                             const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                             return score !== undefined && score !== 0 ? (
@@ -653,10 +685,10 @@ export default function Dashboard() {
                           })}
 
                           <td
-                            className={`text-center font-bold py-1.5 ${getScoreColor(avg)}`}
+                            className={`text-center font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : ""}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {avg.toFixed(1)}
+                            {avg !== null ? avg.toFixed(1) : "—"}
                           </td>
                         </tr>
                       );

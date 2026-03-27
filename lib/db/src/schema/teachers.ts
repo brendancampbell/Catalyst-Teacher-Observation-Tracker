@@ -1,4 +1,4 @@
-import { pgTable, serial, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,7 @@ export const teachers = pgTable("teachers", {
   name:       text("name").notNull(),
   subject:    text("subject").notNull(),
   gradeLevel: text("grade_level").array().notNull(),
+  isActive:   boolean("is_active").notNull().default(true),
 });
 
 export const insertTeacherSchema = createInsertSchema(teachers).omit({ id: true });

@@ -1,3 +1,4 @@
+export * from "./users";
 export * from "./teachers";
 export * from "./rubric";
 export * from "./observations";

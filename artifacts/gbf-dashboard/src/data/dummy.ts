@@ -176,23 +176,29 @@ export const TEACHERS: Teacher[] = [
   ]},
 ];
 
-export function getMostRecentObservation(teacher: Teacher): Observation {
+export function getMostRecentObservation(teacher: Teacher): Observation | null {
+  if (!teacher.observations.length) return null;
   return teacher.observations.reduce((latest, obs) =>
     obs.date > latest.date ? obs : latest
   );
 }
 
-export function getTeacherAverage(teacher: Teacher): number {
+export function getTeacherAverage(teacher: Teacher): number | null {
   const recent = getMostRecentObservation(teacher);
+  if (!recent) return null;
   const scores = Object.values(recent.scores) as Score[];
+  if (!scores.length) return null;
   return scores.reduce((sum, s) => sum + s, 0) / scores.length;
 }
 
 export function getDomainAverage(domainId: string, teachers: Teacher[]): number {
-  const scores = teachers.map((t) => {
-    const recent = getMostRecentObservation(t);
-    return (recent.scores[domainId] ?? 0) as number;
-  });
+  const scores = teachers
+    .map((t) => {
+      const recent = getMostRecentObservation(t);
+      return recent ? ((recent.scores[domainId] ?? null) as number | null) : null;
+    })
+    .filter((s): s is number => s !== null);
+  if (!scores.length) return 0;
   return scores.reduce((sum, s) => sum + s, 0) / scores.length;
 }
 
