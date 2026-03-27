@@ -42,13 +42,6 @@ function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number {
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
-const SCORE_LEGEND = [
-  { score: 1, label: "Needs Improvement", bg: "bg-red-100",    text: "text-red-800",    border: "border-red-200" },
-  { score: 2, label: "Approaching",        bg: "bg-yellow-50", text: "text-yellow-800", border: "border-yellow-200" },
-  { score: 3, label: "Proficient",         bg: "bg-green-100", text: "text-green-800",  border: "border-green-200" },
-  { score: 4, label: "Exemplary",          bg: "bg-green-700", text: "text-white",       border: "border-green-800" },
-];
-
 type FilterStr = string;
 
 interface DrillDownTarget {
@@ -170,7 +163,7 @@ export default function Dashboard() {
                 className="text-white uppercase tracking-widest leading-tight"
                 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.12em" }}
               >
-                Get Better Faster
+                Get Better Faster Tracker
               </p>
               <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>{currentUser.school}</p>
             </div>
@@ -221,32 +214,6 @@ export default function Dashboard() {
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
-
-        {/* Page title + legend */}
-        <div className="flex items-start justify-between flex-wrap gap-2">
-          <div>
-            <h2
-              className="uppercase tracking-wide leading-none"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 28, color: NAVY }}
-            >
-              Observation Tracker
-            </h2>
-            <div style={{ height: 3, backgroundColor: YELLOW, marginTop: 5, width: "100%" }} />
-          </div>
-
-          {/* Score legend */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end mt-1">
-            {SCORE_LEGEND.map(({ score, label, bg, text, border }) => (
-              <span
-                key={score}
-                className={`inline-flex items-center gap-1 sm:gap-1.5 rounded px-2 sm:px-3 py-0.5 sm:py-1 font-semibold border ${bg} ${text} ${border}`}
-                style={{ fontSize: 13 }}
-              >
-                {score} <span className="font-normal opacity-80 hidden sm:inline">{label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
 
         {/* ── Stats ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
