@@ -624,8 +624,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           return val != null ? (
                             <td
                               key={domain.id}
-                              className={`text-center py-2 font-bold tabular-nums ${getScoreColor(val)}`}
-                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14 }}
+                              className={`text-center py-2 text-xl font-bold tabular-nums ${getScoreColor(val)}`}
+                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif" }}
                             >
                               {val.toFixed(1)}
                             </td>
@@ -637,8 +637,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         {/* AVG column — full-cell coloring */}
                         {row.overall != null ? (
                           <td
-                            className={`text-center font-bold py-2 ${getScoreColor(row.overall)}`}
-                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14 }}
+                            className={`text-center text-xl font-bold py-2 ${getScoreColor(row.overall)}`}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                           >
                             {row.overall.toFixed(1)}
                           </td>
