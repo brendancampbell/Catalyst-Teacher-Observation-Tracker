@@ -783,7 +783,7 @@ export default function Dashboard() {
                           })}
 
                           <td
-                            className={`text-center font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : ""}`}
+                            className={`text-center text-xl font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : ""}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
                             {avg !== null ? avg.toFixed(1) : "—"}
@@ -834,7 +834,7 @@ export default function Dashboard() {
                             return score > 0 ? (
                               <td
                                 key={domain.id}
-                                className={`text-center font-bold py-2 ${getScoreColor(score)}`}
+                                className={`text-center text-xl font-bold py-2 ${getScoreColor(score)}`}
                                 style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
                               >
                                 {score.toFixed(1)}
@@ -846,7 +846,7 @@ export default function Dashboard() {
 
                           {/* Group overall avg */}
                           <td
-                            className={`text-center font-bold py-2 ${getScoreColor(groupAvg)}`}
+                            className={`text-center text-xl font-bold py-2 ${getScoreColor(groupAvg)}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
                             {groupAvg.toFixed(1)}
@@ -887,7 +887,7 @@ export default function Dashboard() {
                       return (
                         <td
                           key={domain.id}
-                          className={`text-center font-bold py-1.5 ${getScoreColor(avg)}`}
+                          className={`text-center text-xl font-bold py-1.5 ${getScoreColor(avg)}`}
                           style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
                         >
                           {avg.toFixed(1)}
@@ -895,7 +895,7 @@ export default function Dashboard() {
                       );
                     })}
                     <td
-                      className={`text-center font-bold py-1.5 ${getScoreColor(statAvg)}`}
+                      className={`text-center text-xl font-bold py-1.5 ${getScoreColor(statAvg)}`}
                       style={{ borderLeft: `2px solid ${YELLOW}` }}
                     >
                       {statAvg.toFixed(1)}

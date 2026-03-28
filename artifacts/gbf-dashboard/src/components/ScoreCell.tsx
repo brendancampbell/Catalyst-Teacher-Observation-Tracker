@@ -36,7 +36,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
 
   return (
     <td
-      className={`text-center font-semibold ${colorClass} ${className} ${
+      className={`text-center text-xl font-bold ${colorClass} ${className} ${
         clickable
           ? "cursor-pointer relative transition-all duration-100 hover:ring-2 hover:ring-inset hover:ring-white/60 hover:brightness-90"
           : ""
