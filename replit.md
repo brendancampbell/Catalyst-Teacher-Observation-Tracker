@@ -100,18 +100,30 @@ All routes mounted at `/api`:
 - `POST /api/admin/teachers` — Create teacher
 - `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel
 - `PATCH /api/admin/teachers/:id/toggle-active` — Toggle isActive
+- `GET /api/action-center/rescore-queue` — Teachers where needsRescore=true + school info + due date
+
+### Phase 5 Features (District Walkthrough + Action Center)
+
+- **`observations.isWalkthrough`** (boolean, DB column `is_walkthrough`) — marks an observation as a district walkthrough
+- **`teachers.needsRescore`** (boolean, DB column `needs_rescore`) — set true when district walkthrough avg < 3.0
+- **`teachers.rescoreDueDate`** (date, DB column `rescore_due_date`) — 14 days after the walkthrough date
+- **Rescore logic**: POST /api/observations — if `isWalkthrough=true` and `observerId` resolves to DISTRICT_ADMIN, auto-flags teacher
+- **Dashboard `?walkthroughsOnly=true`** — filters to walkthrough-only observations
+- **Action Center page** (`/action-center`) — rescore queue table with due date status
+- **NewObservationModal walkthrough toggle** — shown only to DISTRICT_ADMIN users
 
 ### Frontend Client (artifacts/gbf-dashboard/src/)
 
 - `lib/api.ts` — Typed fetch helpers for all API endpoints
 - `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
-- `components/Dashboard.tsx` — Main grid; routes DISTRICT_ADMIN (no schoolId) → DistrictDashboard; filters teachers by URL schoolId or currentUser.schoolId
+- `components/Dashboard.tsx` — Main grid; routes DISTRICT_ADMIN (no schoolId) → DistrictDashboard; filters teachers by URL schoolId or currentUser.schoolId; includes "Walkthroughs Only" toggle
 - `components/DistrictDashboard.tsx` — District-level school grid with per-school domain averages + drill-down
 - `components/TeacherProfile.tsx` — Full teacher view
 - `components/DrillDownModal.tsx` — Domain trend chart + observation list
-- `components/NewObservationModal.tsx` — Observation entry form
+- `components/NewObservationModal.tsx` — Observation entry form; district walkthrough toggle for DISTRICT_ADMIN
 - `components/ObservationDetailModal.tsx` — View/edit individual observation
 - `pages/admin.tsx` — Rubric Settings + Teacher Roster tabs; RBAC block for COACH
+- `pages/action-center.tsx` — Rescore queue table with status badges and due dates
 - `data/dummy.ts` — Type definitions + helper functions (data now comes from API)
 
 ### Vite Proxy

@@ -1,0 +1,32 @@
+We are ready for Phase 5 of the "Get Better Faster" (GBF) tracker. 
+
+Goal: Integrate District "Walkthroughs", an automated "Needs Rescore" workflow, and a new "Analysis & Action" page. 
+
+Please implement the following steps:
+
+1. DATABASE SCHEMA UPDATES:
+- Update the `Observation` model to include a boolean field `isWalkthrough` (default false).
+- Update the `Teacher` model to include `needsRescore` (Boolean, default false) and `rescoreDueDate` (DateTime, optional).
+
+2. WALKTHROUGH & RESCORE LOGIC (Server Action):
+- Update the `submitObservation` server action. 
+- Add an `isWalkthrough` boolean to the submission payload.
+- LOGIC RULE: When an observation is submitted, calculate the overall average of the submitted scores. 
+- If `isWalkthrough` is TRUE AND the submitting user's role is `DISTRICT_ADMIN`:
+   - If the average is < 3.0: Set the Teacher's `needsRescore` to true, and set `rescoreDueDate` to 14 days from the observation date. (If this was already a rescore, this resets the clock for another 14 days).
+   - If the average is >= 3.0: Set the Teacher's `needsRescore` to false, and `rescoreDueDate` to null (clearing the flag).
+- If `isWalkthrough` is FALSE (or submitted by a COACH/PRINCIPAL): Do NOT alter the Teacher's `needsRescore` or `rescoreDueDate` fields at all, even if they score above a 3.0.
+
+3. UI - NEW OBSERVATION FORM & DASHBOARD:
+- In the "New Observation" form, add a toggle/checkbox for "District Walkthrough". Only render this toggle if the current logged-in user is a `DISTRICT_ADMIN`.
+- On the main Dashboard, add a toggle group or dropdown near the top: "View: All Observations | Walkthroughs Only".
+- By default (All Observations), the grid calculates most recent scores and averages using all data. If "Walkthroughs Only" is selected, filter the data to only calculate most recent scores and averages using observations where `isWalkthrough === true`.
+
+4. ANALYSIS & ACTION PAGE:
+- Create a new page route at `/action-center` (or a prominent tab on the dashboard) titled "Analysis & Action". This page must be visible to ALL roles (COACH, PRINCIPAL, DISTRICT_ADMIN).
+- Build a "Walkthrough Rescore Queue" data table using shadcn/ui.
+- Fetch and display only Teachers where `needsRescore === true`.
+- Columns should include: Teacher Name, School Name, Department, Due Date, and Status.
+- Status should calculate the days remaining (e.g., "Due in 4 days" or "Overdue by 2 days" formatted in red).
+
+Please provide the Prisma migration commands, the updated schema, and the updated frontend/backend code.

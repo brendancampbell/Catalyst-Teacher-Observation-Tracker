@@ -143,9 +143,11 @@ export default function Dashboard() {
   // Use URL schoolId for district drill-down; otherwise fall back to user's own school
   const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
 
+  const [walkthroughsOnly, setWalkthroughsOnly] = useState(false);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard", activeQuarter, effectiveSchoolId],
-    queryFn: () => fetchDashboard(activeQuarter, effectiveSchoolId),
+    queryKey: ["dashboard", activeQuarter, effectiveSchoolId, walkthroughsOnly],
+    queryFn: () => fetchDashboard(activeQuarter, effectiveSchoolId, walkthroughsOnly),
     staleTime: 30_000,
     enabled: !isDistrictHome,
   });
@@ -235,6 +237,7 @@ export default function Dashboard() {
     scores: Record<string, Score>,
     strengths: string,
     growthAreas: string,
+    isWalkthrough: boolean,
   ) {
     if (!quarterId) return;
     setSaving(true);
@@ -244,9 +247,11 @@ export default function Dashboard() {
         quarterId,
         date,
         scores,
-        strengths: strengths || undefined,
-        growthAreas: growthAreas || undefined,
-        observer: currentUser?.name ?? "Unknown",
+        strengths:    strengths || undefined,
+        growthAreas:  growthAreas || undefined,
+        observer:     currentUser?.name ?? "Unknown",
+        observerId:   currentUser?.id,
+        isWalkthrough,
       });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err) {
@@ -380,6 +385,20 @@ export default function Dashboard() {
               <Plus size={16} strokeWidth={3} />
               <span className="hidden sm:inline">Add Observation</span>
             </button>
+
+            <a
+              href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/action-center`}
+              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+              style={{
+                border: `1.5px solid rgba(255,181,0,0.5)`,
+                color: YELLOW,
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 14,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Action Center
+            </a>
 
             {currentUser && currentUser.role !== "COACH" && (
               <a
@@ -594,6 +613,46 @@ export default function Dashboard() {
               Clear all
             </button>
           )}
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
+
+          {/* Walkthroughs toggle */}
+          <span
+            className="font-bold uppercase tracking-widest shrink-0"
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+          >
+            Show
+          </span>
+          <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
+            <button
+              type="button"
+              onClick={() => setWalkthroughsOnly(false)}
+              className="px-3 py-1.5 font-bold uppercase tracking-wider transition-colors"
+              style={{
+                backgroundColor: !walkthroughsOnly ? NAVY : "transparent",
+                color: !walkthroughsOnly ? "white" : NAVY,
+                fontSize: 13,
+                letterSpacing: "0.02em",
+                borderRight: `1px solid ${NAVY}`,
+              }}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setWalkthroughsOnly(true)}
+              className="px-3 py-1.5 font-bold uppercase tracking-wider transition-colors"
+              style={{
+                backgroundColor: walkthroughsOnly ? NAVY : "transparent",
+                color: walkthroughsOnly ? "white" : NAVY,
+                fontSize: 13,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Walkthroughs
+            </button>
+          </div>
 
           {/* Most Recent / Quarter Avg — right-aligned */}
           <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
@@ -923,6 +982,7 @@ export default function Dashboard() {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
+        isDistrictAdmin={currentUser?.role === "DISTRICT_ADMIN"}
         onSubmit={handleNewObservation}
         saving={saving}
       />

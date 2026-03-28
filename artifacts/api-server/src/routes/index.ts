@@ -8,6 +8,7 @@ import rubricRouter from "./rubric";
 import usersRouter from "./users";
 import adminTeachersRouter from "./admin-teachers";
 import adminSchoolsRouter from "./admin-schools";
+import actionCenterRouter from "./action-center";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/rubric", rubricRouter);
 router.use("/users", usersRouter);
 router.use("/admin/teachers", adminTeachersRouter);
 router.use("/admin/schools", adminSchoolsRouter);
+router.use("/action-center", actionCenterRouter);
 
 export default router;

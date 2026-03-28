@@ -4,17 +4,19 @@ import {
   teachers, rubricQuarters, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
-import { eq, inArray, and, isNotNull } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/dashboard?quarter=Q1&schoolId=2 ───────────────────────
-   Returns rubric + teachers (optionally filtered by school) with
-   full observation history.                                          */
+/* ── GET /api/dashboard?quarter=Q1&schoolId=2&walkthroughsOnly=true ──
+   Returns rubric + teachers with full observation history.
+   When walkthroughsOnly=true, only observations where isWalkthrough
+   is true are included in the response.                               */
 router.get("/", async (req, res) => {
   try {
-    const quarterSlug = (req.query.quarter as string) || "Q1";
-    const schoolIdParam = req.query.schoolId ? Number(req.query.schoolId) : null;
+    const quarterSlug      = (req.query.quarter as string) || "Q1";
+    const schoolIdParam    = req.query.schoolId ? Number(req.query.schoolId) : null;
+    const walkthroughsOnly = req.query.walkthroughsOnly === "true";
 
     const quarter = await db.query.rubricQuarters.findFirst({
       where: eq(rubricQuarters.slug, quarterSlug),
@@ -38,8 +40,11 @@ router.get("/", async (req, res) => {
       ? await db.select().from(teachers).where(and(eq(teachers.isActive, true), eq(teachers.schoolId, schoolIdParam)))
       : await db.select().from(teachers).where(eq(teachers.isActive, true));
 
-    const allObs = await db.select().from(observations)
-      .where(eq(observations.quarterId, quarter.id));
+    const obsWhere = walkthroughsOnly
+      ? and(eq(observations.quarterId, quarter.id), eq(observations.isWalkthrough, true))
+      : eq(observations.quarterId, quarter.id);
+
+    const allObs = await db.select().from(observations).where(obsWhere);
 
     const obsIds = allObs.map((o) => o.id);
     const allScores = obsIds.length > 0
@@ -59,20 +64,23 @@ router.get("/", async (req, res) => {
     }
 
     const teacherData = allTeachers.map((t) => ({
-      id: String(t.id),
-      name: t.name,
-      subject: t.subject,
-      gradeLevel: t.gradeLevel,
-      schoolId: t.schoolId,
-      observations: (obsByTeacher.get(t.id) ?? [])
+      id:             String(t.id),
+      name:           t.name,
+      subject:        t.subject,
+      gradeLevel:     t.gradeLevel,
+      schoolId:       t.schoolId,
+      needsRescore:   t.needsRescore,
+      rescoreDueDate: t.rescoreDueDate,
+      observations:   (obsByTeacher.get(t.id) ?? [])
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({
-          id: String(o.id),
-          date: o.date,
-          strengths: o.strengths ?? undefined,
-          growthAreas: o.growthAreas ?? undefined,
-          observer: o.observer,
-          scores: scoresByObs.get(o.id) ?? {},
+          id:            String(o.id),
+          date:          o.date,
+          isWalkthrough: o.isWalkthrough,
+          strengths:     o.strengths ?? undefined,
+          growthAreas:   o.growthAreas ?? undefined,
+          observer:      o.observer,
+          scores:        scoresByObs.get(o.id) ?? {},
         })),
     }));
 

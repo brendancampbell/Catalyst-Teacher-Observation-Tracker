@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachers } from "./teachers";
@@ -6,14 +6,15 @@ import { rubricQuarters } from "./rubric";
 import { users } from "./users";
 
 export const observations = pgTable("observations", {
-  id:          serial("id").primaryKey(),
-  teacherId:   integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
-  quarterId:   integer("quarter_id").notNull().references(() => rubricQuarters.id, { onDelete: "cascade" }),
-  observerId:  integer("observer_id").references(() => users.id, { onDelete: "set null" }),
-  date:        date("date").notNull(),
-  strengths:   text("strengths"),
-  growthAreas: text("growth_areas"),
-  observer:    text("observer").notNull().default("Principal Rivera"),
+  id:             serial("id").primaryKey(),
+  teacherId:      integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  quarterId:      integer("quarter_id").notNull().references(() => rubricQuarters.id, { onDelete: "cascade" }),
+  observerId:     integer("observer_id").references(() => users.id, { onDelete: "set null" }),
+  date:           date("date").notNull(),
+  strengths:      text("strengths"),
+  growthAreas:    text("growth_areas"),
+  observer:       text("observer").notNull().default("Principal Rivera"),
+  isWalkthrough:  boolean("is_walkthrough").notNull().default(false),
 });
 
 export const observationScores = pgTable("observation_scores", {

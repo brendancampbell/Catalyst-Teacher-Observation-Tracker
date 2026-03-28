@@ -1,28 +1,34 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores } from "@workspace/db/schema";
+import { observations, observationScores, teachers, users } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
 
 /* ── POST /api/observations ─────────────────────────────────────────
-   Body: { teacherId, quarterId, date, strengths?, growthAreas?, observer?, scores }
-   scores: { [domainSlug]: number }                                   */
+   Body: { teacherId, quarterId, date, strengths?, growthAreas?,
+           observer?, observerId?, scores, isWalkthrough? }           */
 router.post("/", async (req, res) => {
   try {
-    const { teacherId, quarterId, date, strengths, growthAreas, observer, scores } = req.body;
+    const {
+      teacherId, quarterId, date, strengths, growthAreas,
+      observer, observerId, scores, isWalkthrough,
+    } = req.body;
+
     if (!teacherId || !quarterId || !date || !scores) {
       res.status(400).json({ error: "teacherId, quarterId, date and scores are required" });
       return;
     }
 
     const [obs] = await db.insert(observations).values({
-      teacherId: Number(teacherId),
-      quarterId: Number(quarterId),
+      teacherId:     Number(teacherId),
+      quarterId:     Number(quarterId),
       date,
-      strengths: strengths || null,
-      growthAreas: growthAreas || null,
-      observer: observer || "Principal Rivera",
+      strengths:     strengths || null,
+      growthAreas:   growthAreas || null,
+      observer:      observer || "Principal Rivera",
+      observerId:    observerId ? Number(observerId) : null,
+      isWalkthrough: !!isWalkthrough,
     }).returning();
 
     const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
@@ -35,17 +41,43 @@ router.post("/", async (req, res) => {
       await db.insert(observationScores).values(scoreRows);
     }
 
-    // Fetch full scores back
+    /* ── Walkthrough rescore logic ────────────────────────────────
+       Only applies when isWalkthrough === true AND the submitter
+       is a DISTRICT_ADMIN (looked up via observerId).              */
+    if (obs.isWalkthrough && obs.observerId) {
+      const submitter = await db.query.users.findFirst({
+        where: eq(users.id, obs.observerId),
+      });
+
+      if (submitter?.role === "DISTRICT_ADMIN" && scoreRows.length > 0) {
+        const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
+
+        if (avg < 3.0) {
+          const due = new Date(date);
+          due.setDate(due.getDate() + 14);
+          const dueDateStr = due.toISOString().split("T")[0];
+          await db.update(teachers)
+            .set({ needsRescore: true, rescoreDueDate: dueDateStr })
+            .where(eq(teachers.id, Number(teacherId)));
+        } else {
+          await db.update(teachers)
+            .set({ needsRescore: false, rescoreDueDate: null })
+            .where(eq(teachers.id, Number(teacherId)));
+        }
+      }
+    }
+
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obs.id));
 
     res.status(201).json({
-      id: String(obs.id),
-      date: obs.date,
-      strengths: obs.strengths ?? undefined,
-      growthAreas: obs.growthAreas ?? undefined,
-      observer: obs.observer,
-      scores: Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      id:           String(obs.id),
+      date:         obs.date,
+      isWalkthrough: obs.isWalkthrough,
+      strengths:    obs.strengths ?? undefined,
+      growthAreas:  obs.growthAreas ?? undefined,
+      observer:     obs.observer,
+      scores:       Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("POST /observations error:", err);
@@ -68,9 +100,9 @@ router.put("/:id", async (req, res) => {
     const [updated] = await db.update(observations)
       .set({
         ...(date && { date }),
-        strengths: strengths ?? existing.strengths,
+        strengths:  strengths ?? existing.strengths,
         growthAreas: growthAreas ?? existing.growthAreas,
-        observer: observer ?? existing.observer,
+        observer:   observer ?? existing.observer,
       })
       .where(eq(observations.id, obsId))
       .returning();
@@ -89,12 +121,13 @@ router.put("/:id", async (req, res) => {
       .where(eq(observationScores.observationId, obsId));
 
     res.json({
-      id: String(updated.id),
-      date: updated.date,
-      strengths: updated.strengths ?? undefined,
-      growthAreas: updated.growthAreas ?? undefined,
-      observer: updated.observer,
-      scores: Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      id:           String(updated.id),
+      date:         updated.date,
+      isWalkthrough: updated.isWalkthrough,
+      strengths:    updated.strengths ?? undefined,
+      growthAreas:  updated.growthAreas ?? undefined,
+      observer:     updated.observer,
+      scores:       Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("PUT /observations/:id error:", err);

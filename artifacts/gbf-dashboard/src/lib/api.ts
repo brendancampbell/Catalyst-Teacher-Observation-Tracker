@@ -156,10 +156,27 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 /* ── Dashboard ─────────────────────────────────────────────────── */
 
-export async function fetchDashboard(quarter = "Q1", schoolId?: number | null): Promise<DashboardData> {
+export async function fetchDashboard(quarter = "Q1", schoolId?: number | null, walkthroughsOnly?: boolean): Promise<DashboardData> {
   const params = new URLSearchParams({ quarter });
   if (schoolId != null) params.set("schoolId", String(schoolId));
+  if (walkthroughsOnly) params.set("walkthroughsOnly", "true");
   return apiFetch<DashboardData>(`/dashboard?${params.toString()}`);
+}
+
+/* ── Action Center ─────────────────────────────────────────────── */
+
+export interface RescoreQueueItem {
+  teacherId:      number;
+  teacherName:    string;
+  subject:        string;
+  gradeLevel:     string[];
+  schoolName:     string | null;
+  rescoreDueDate: string | null;
+  needsRescore:   boolean;
+}
+
+export async function fetchRescoreQueue(): Promise<RescoreQueueItem[]> {
+  return apiFetch<RescoreQueueItem[]>("/action-center/rescore-queue");
 }
 
 /* ── Observations ──────────────────────────────────────────────── */
@@ -171,6 +188,8 @@ export interface CreateObservationPayload {
   strengths?: string;
   growthAreas?: string;
   observer?: string;
+  observerId?: number;
+  isWalkthrough?: boolean;
   scores: Record<string, Score>;
 }
 

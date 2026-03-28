@@ -7,6 +7,7 @@ export interface Observation {
   strengths?: string;
   growthAreas?: string;
   observer: string;
+  isWalkthrough?: boolean;
 }
 
 export interface Teacher {
@@ -15,6 +16,8 @@ export interface Teacher {
   subject: string;
   gradeLevel: string[];
   observations: Observation[];
+  needsRescore?: boolean;
+  rescoreDueDate?: string | null;
 }
 
 export const CATEGORIES = [

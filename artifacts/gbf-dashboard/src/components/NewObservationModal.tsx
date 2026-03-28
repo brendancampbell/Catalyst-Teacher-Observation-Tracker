@@ -13,12 +13,14 @@ interface Props {
   allDomains: DomainEntry[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isDistrictAdmin?: boolean;
   onSubmit: (
     teacherId: string,
     date: string,
     scores: Record<string, Score>,
     strengths: string,
     growthAreas: string,
+    isWalkthrough: boolean,
   ) => void;
   saving?: boolean;
 }
@@ -40,7 +42,7 @@ function scorePillClass(s: Score, selected: boolean): string {
   }
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, onSubmit, saving }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, isDistrictAdmin, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
@@ -48,6 +50,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
+  const [isWalkthrough, setIsWalkthrough] = useState(false);
 
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
@@ -57,11 +60,12 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setScores({});
     setStrengths("");
     setGrowthAreas("");
+    setIsWalkthrough(false);
   }
 
   function handleSubmit() {
     if (!teacherId) return;
-    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas);
+    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
     reset();
     onOpenChange(false);
   }
@@ -132,6 +136,34 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 />
               </div>
             </div>
+
+            {/* District Walkthrough toggle (only for DISTRICT_ADMIN) */}
+            {isDistrictAdmin && (
+              <div
+                className="flex items-center justify-between px-4 py-3 rounded-lg"
+                style={{ backgroundColor: isWalkthrough ? "#EEF1FB" : "#f8fafc", border: `1.5px solid ${isWalkthrough ? NAVY : "#dde3f0"}` }}
+              >
+                <div>
+                  <p className="font-bold text-sm" style={{ color: NAVY }}>District Walkthrough</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mark this as an official district walkthrough. Teachers scoring below 3.0 will be added to the rescore queue.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isWalkthrough}
+                  onClick={() => setIsWalkthrough((v) => !v)}
+                  className="relative shrink-0 ml-4 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: isWalkthrough ? "translateX(20px)" : "translateX(0)" }}
+                  />
+                </button>
+              </div>
+            )}
 
             {/* Progress indicator */}
             <div className="flex items-center gap-3">
@@ -251,7 +283,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
-                {saving ? "Saving…" : "Submit Observation"}
+                {saving ? "Saving…" : isWalkthrough ? "Submit Walkthrough" : "Submit Observation"}
               </button>
             </div>
           </div>
