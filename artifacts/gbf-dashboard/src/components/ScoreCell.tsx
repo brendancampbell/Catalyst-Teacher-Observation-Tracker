@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 interface ScoreCellProps {
-  score: number;
+  score: number | null;
   className?: string;
   style?: CSSProperties;
   onClick?: () => void;
@@ -24,12 +24,25 @@ export function getScoreColorExact(score: 1 | 2 | 3 | 4): string {
 }
 
 export function ScoreCell({ score, className = "", style, onClick }: ScoreCellProps) {
-  const isExact = Number.isInteger(score);
+  const clickable = !!onClick;
+
+  if (score === null || score === 0) {
+    return (
+      <td
+        className={`text-center text-slate-300 ${className} ${clickable ? "cursor-pointer" : ""}`}
+        style={{ width: 68, minWidth: 68, ...style }}
+        onClick={onClick}
+        title={clickable ? "Click to view score history" : undefined}
+      >
+        —
+      </td>
+    );
+  }
+
+  const isExact    = Number.isInteger(score);
   const colorClass = isExact
     ? getScoreColorExact(score as 1 | 2 | 3 | 4)
     : getScoreColor(score);
-
-  const clickable = !!onClick;
 
   return (
     <td

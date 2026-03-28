@@ -14,7 +14,7 @@ const REGION_ORDER    = ["Boston", "Camden", "NYC", "Newark", "Rochester"] as co
 const GRADE_SPAN_ORDER = ["ES", "MS", "HS"] as const;
 
 type DistrictViewBy = "school" | "region" | "gradeSpan";
-type ScoreType      = "recent" | "average";
+type ScoreType      = "recent" | "average" | "walkthroughs";
 
 interface DisplayRow {
   key:           string;
@@ -437,9 +437,9 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           {/* Divider before score toggle */}
           <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
 
-          {/* Most Recent / Quarter Avg — right-aligned */}
+          {/* Most Recent / Quarter Avg / Walkthroughs — right-aligned */}
           <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            {(["recent", "average"] as ScoreType[]).map((mode, i) => (
+            {(["recent", "average", "walkthroughs"] as ScoreType[]).map((mode, i, arr) => (
               <button
                 key={mode}
                 type="button"
@@ -450,10 +450,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   color: scoreType === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
                   fontSize: 13,
-                  borderRight: i === 0 ? `1px solid ${NAVY}` : undefined,
+                  borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : "Quarter Avg"}
+                {mode === "recent" ? "Most Recent" : mode === "average" ? "Quarter Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>

@@ -6,9 +6,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SUBJECTS,
   GRADE_LEVELS,
-  getMostRecentObservation,
-  getTeacherAverage,
-  getDomainAverage,
   type Score,
   type Teacher,
   type Observation,
@@ -23,26 +20,49 @@ import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
 import DistrictDashboard from "@/components/DistrictDashboard";
 
-type ViewMode = "recent" | "quarterAvg";
+type ViewMode = "recent" | "quarterAvg" | "walkthroughs";
 type ViewBy   = "teacher" | "subject" | "grade";
 
 /* ── Per-teacher domain helpers ────────────────────── */
 
-function getQuarterDomainScore(teacher: Teacher, domainId: string): number {
+/* Most-recent score for a specific domain — iterates observations newest→oldest,
+   returns the first observation that actually scored this domain. */
+function getMostRecentDomainScore(teacher: Teacher, domainId: string): number | null {
+  const sorted = [...teacher.observations].sort((a, b) => b.date.localeCompare(a.date));
+  for (const obs of sorted) {
+    const score = obs.scores[domainId];
+    if (score !== undefined) return score as number;
+  }
+  return null;
+}
+
+/* Average of per-domain most-recent scores across all domains. */
+function getMostRecentTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number | null {
+  const scores = allDomains
+    .map((d) => getMostRecentDomainScore(teacher, d.id))
+    .filter((s): s is number => s !== null);
+  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+}
+
+function getQuarterDomainScore(teacher: Teacher, domainId: string): number | null {
   const vals = teacher.observations
     .map((o) => o.scores[domainId] as Score | undefined)
     .filter((s): s is Score => s !== undefined);
-  return vals.length ? vals.reduce((sum, s) => sum + s, 0) / vals.length : 0;
+  return vals.length ? vals.reduce((sum, s) => sum + s, 0) / vals.length : null;
 }
 
-function getQuarterTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number {
-  const perDomain = allDomains.map((d) => getQuarterDomainScore(teacher, d.id));
-  return perDomain.reduce((s, v) => s + v, 0) / perDomain.length;
+function getQuarterTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number | null {
+  const perDomain = allDomains
+    .map((d) => getQuarterDomainScore(teacher, d.id))
+    .filter((s): s is number => s !== null);
+  return perDomain.length ? perDomain.reduce((s, v) => s + v, 0) / perDomain.length : null;
 }
 
-function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number {
-  const vals = teachers.map((t) => getQuarterDomainScore(t, domainId));
-  return vals.reduce((s, v) => s + v, 0) / vals.length;
+function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number | null {
+  const vals = teachers
+    .map((t) => getQuarterDomainScore(t, domainId))
+    .filter((s): s is number => s !== null);
+  return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
 }
 
 /* ── Group (rollup) helpers ─────────────────────────── */
@@ -79,21 +99,22 @@ function buildGroups(filteredTeachers: Teacher[], viewBy: ViewBy): GroupRow[] {
     }));
 }
 
-function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMode: ViewMode): number {
+function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMode: ViewMode): number | null {
   const scores = groupTeachers
     .map((t) =>
-      viewMode === "recent"
-        ? ((getMostRecentObservation(t)?.scores[domainId] as number | undefined) ?? 0)
-        : getQuarterDomainScore(t, domainId),
+      viewMode === "quarterAvg"
+        ? getQuarterDomainScore(t, domainId)
+        : getMostRecentDomainScore(t, domainId),
     )
-    .filter((s) => s > 0);
-  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    .filter((s): s is number => s !== null);
+  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
 }
 
-function getGroupOverallAvg(groupTeachers: Teacher[], allDomains: DomainEntry[], viewMode: ViewMode): number {
-  const perDomain = allDomains.map((d) => getGroupDomainScore(groupTeachers, d.id, viewMode));
-  const nonZero = perDomain.filter((s) => s > 0);
-  return nonZero.length ? nonZero.reduce((a, b) => a + b, 0) / nonZero.length : 0;
+function getGroupOverallAvg(groupTeachers: Teacher[], allDomains: DomainEntry[], viewMode: ViewMode): number | null {
+  const perDomain = allDomains
+    .map((d) => getGroupDomainScore(groupTeachers, d.id, viewMode))
+    .filter((s): s is number => s !== null);
+  return perDomain.length ? perDomain.reduce((a, b) => a + b, 0) / perDomain.length : null;
 }
 
 /* ── Constants ──────────────────────────────────────── */
@@ -143,7 +164,11 @@ export default function Dashboard() {
   // Use URL schoolId for district drill-down; otherwise fall back to user's own school
   const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
 
-  const [walkthroughsOnly, setWalkthroughsOnly] = useState(false);
+  /* ── View toggles — must be before walkthroughsOnly derivation ─── */
+  const [viewMode, setViewMode] = useState<ViewMode>("recent");
+  const [viewBy,   setViewBy]   = useState<ViewBy>("teacher");
+
+  const walkthroughsOnly = viewMode === "walkthroughs";
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard", activeQuarter, effectiveSchoolId, walkthroughsOnly],
@@ -160,10 +185,6 @@ export default function Dashboard() {
   /* ── Filter state ──────────────────────────────────── */
   const [subject, setSubject]     = useState<string[]>([]);
   const [grade, setGrade]   = useState<string[]>([]);
-
-  /* ── View toggles ──────────────────────────────────── */
-  const [viewMode, setViewMode] = useState<ViewMode>("recent");
-  const [viewBy,   setViewBy]   = useState<ViewBy>("teacher");
 
   /* ── Teacher profile ───────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
@@ -188,7 +209,9 @@ export default function Dashboard() {
   );
 
   const teacherAvgFn = (t: Teacher) =>
-    viewMode === "recent" ? getTeacherAverage(t) : getQuarterTeacherAvg(t, allDomains);
+    viewMode === "quarterAvg"
+      ? getQuarterTeacherAvg(t, allDomains)
+      : getMostRecentTeacherAvg(t, allDomains);
 
   const groupAvgs = useMemo(
     () => groupRows.map((g) => getGroupOverallAvg(g.teachers, allDomains, viewMode)),
@@ -223,10 +246,10 @@ export default function Dashboard() {
     : 0;
   const statProficient   = viewBy === "teacher"
     ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 3; }).length
-    : groupAvgs.filter((a) => a >= 3).length;
+    : groupAvgs.filter((a): a is number => a !== null && a >= 3).length;
   const statNeedsSupport = viewBy === "teacher"
     ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 2; }).length
-    : groupAvgs.filter((a) => a < 2).length;
+    : groupAvgs.filter((a): a is number => a !== null && a < 2).length;
 
   const hasFilters = !!(subject.length || grade.length);
 
@@ -617,46 +640,9 @@ export default function Dashboard() {
           {/* Divider */}
           <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
 
-          {/* Walkthroughs toggle */}
-          <span
-            className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
-          >
-            Show
-          </span>
-          <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            <button
-              type="button"
-              onClick={() => setWalkthroughsOnly(false)}
-              className="px-3 py-1.5 font-bold uppercase tracking-wider transition-colors"
-              style={{
-                backgroundColor: !walkthroughsOnly ? NAVY : "transparent",
-                color: !walkthroughsOnly ? "white" : NAVY,
-                fontSize: 13,
-                letterSpacing: "0.02em",
-                borderRight: `1px solid ${NAVY}`,
-              }}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => setWalkthroughsOnly(true)}
-              className="px-3 py-1.5 font-bold uppercase tracking-wider transition-colors"
-              style={{
-                backgroundColor: walkthroughsOnly ? NAVY : "transparent",
-                color: walkthroughsOnly ? "white" : NAVY,
-                fontSize: 13,
-                letterSpacing: "0.02em",
-              }}
-            >
-              Walkthroughs
-            </button>
-          </div>
-
-          {/* Most Recent / Quarter Avg — right-aligned */}
+          {/* View mode toggle — right-aligned */}
           <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            {(["recent", "quarterAvg"] as ViewMode[]).map((mode) => (
+            {(["recent", "quarterAvg", "walkthroughs"] as ViewMode[]).map((mode, i, arr) => (
               <button
                 key={mode}
                 type="button"
@@ -667,9 +653,10 @@ export default function Dashboard() {
                   color: viewMode === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
                   fontSize: 13,
+                  borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : "Quarter Avg"}
+                {mode === "recent" ? "Most Recent" : mode === "quarterAvg" ? "Quarter Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>
@@ -796,8 +783,7 @@ export default function Dashboard() {
                     </tr>
                   ) : (
                     filtered.map((teacher, rowIdx) => {
-                      const recent = getMostRecentObservation(teacher);
-                      const avg    = viewMode === "recent" ? getTeacherAverage(teacher) : getQuarterTeacherAvg(teacher, allDomains);
+                      const avg    = teacherAvgFn(teacher);
                       const isEven = rowIdx % 2 === 0;
                       return (
                         <tr
@@ -824,20 +810,19 @@ export default function Dashboard() {
                           </td>
 
                           {allDomains.map((domain) => {
-                            const score = viewMode === "recent"
-                              ? (recent?.scores[domain.id] as Score | undefined)
-                              : getQuarterDomainScore(teacher, domain.id);
+                            const score = viewMode === "quarterAvg"
+                              ? getQuarterDomainScore(teacher, domain.id)
+                              : getMostRecentDomainScore(teacher, domain.id);
                             const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
-                            return score !== undefined && score !== 0 ? (
+                            const borderStyle = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                            return (
                               <ScoreCell
                                 key={domain.id}
                                 score={score}
                                 className="py-1.5"
-                                style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
-                                onClick={() => openDrillDown(teacher, domain.id, domain.label)}
+                                style={borderStyle}
+                                onClick={score !== null ? () => openDrillDown(teacher, domain.id, domain.label) : undefined}
                               />
-                            ) : (
-                              <td key={domain.id} className="text-center text-slate-300" style={categories.some((c) => c.domains[0]?.id === domain.id) ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}>—</td>
                             );
                           })}
 
@@ -890,25 +875,26 @@ export default function Dashboard() {
                           {allDomains.map((domain) => {
                             const score        = getGroupDomainScore(group.teachers, domain.id, viewMode);
                             const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
-                            return score > 0 ? (
+                            const borderStyle  = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                            return score !== null ? (
                               <td
                                 key={domain.id}
                                 className={`text-center text-xl font-bold py-2 ${getScoreColor(score)}`}
-                                style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}
+                                style={borderStyle}
                               >
                                 {score.toFixed(1)}
                               </td>
                             ) : (
-                              <td key={domain.id} className="text-center text-slate-300" style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" }}>—</td>
+                              <td key={domain.id} className="text-center text-slate-300" style={borderStyle}>—</td>
                             );
                           })}
 
                           {/* Group overall avg */}
                           <td
-                            className={`text-center text-xl font-bold py-2 ${getScoreColor(groupAvg)}`}
+                            className={`text-center text-xl font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {groupAvg.toFixed(1)}
+                            {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
                           </td>
                         </tr>
                       );
@@ -937,27 +923,37 @@ export default function Dashboard() {
                       Domain Avg
                     </td>
                     {allDomains.map((domain) => {
-                      const avg = viewBy === "teacher"
-                        ? (viewMode === "recent"
-                            ? getDomainAverage(domain.id, filtered)
-                            : getQuarterDomainAvg(domain.id, filtered))
-                        : (groupRows.reduce((sum, g) => sum + getGroupDomainScore(g.teachers, domain.id, viewMode), 0) / groupRows.length);
+                      const avg: number | null = viewBy === "teacher"
+                        ? (viewMode === "quarterAvg"
+                            ? getQuarterDomainAvg(domain.id, filtered)
+                            : (() => {
+                                const vals = filtered
+                                  .map((t) => getMostRecentDomainScore(t, domain.id))
+                                  .filter((s): s is number => s !== null);
+                                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+                              })())
+                        : (() => {
+                            const vals = groupRows
+                              .map((g) => getGroupDomainScore(g.teachers, domain.id, viewMode))
+                              .filter((s): s is number => s !== null);
+                            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+                          })();
                       const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                       return (
                         <td
                           key={domain.id}
-                          className={`text-center text-xl font-bold py-1.5 ${getScoreColor(avg)}`}
+                          className={`text-center text-xl font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-400"}`}
                           style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
                         >
-                          {avg.toFixed(1)}
+                          {avg !== null ? avg.toFixed(1) : "—"}
                         </td>
                       );
                     })}
                     <td
-                      className={`text-center text-xl font-bold py-1.5 ${getScoreColor(statAvg)}`}
+                      className={`text-center text-xl font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
                       style={{ borderLeft: `2px solid ${YELLOW}` }}
                     >
-                      {statAvg.toFixed(1)}
+                      {statAvg ? statAvg.toFixed(1) : "—"}
                     </td>
                   </tr>
                 )}

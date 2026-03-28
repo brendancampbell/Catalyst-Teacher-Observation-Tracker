@@ -1,6 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
-import { fetchRescoreQueue, type RescoreQueueItem } from "@/lib/api";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, AlertTriangle, CheckCircle2, Clock, Plus } from "lucide-react";
+import {
+  fetchRescoreQueue,
+  fetchDashboard,
+  fetchQuarters,
+  createObservation,
+  type RescoreQueueItem,
+  type RubricQuarterRow,
+} from "@/lib/api";
+import type { Teacher, Score } from "@/data/dummy";
+import type { CategoryEntry, DomainEntry } from "@/lib/api";
+import { NewObservationModal } from "@/components/NewObservationModal";
 import { useUser } from "@/context/UserContext";
 
 const NAVY   = "#1034B4";
@@ -20,13 +31,76 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
 
 export default function ActionCenterPage() {
   const { currentUser } = useUser();
+  const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  /* ── Rescore queue ─────────────────────────────────── */
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({
     queryKey: ["rescoreQueue"],
-    queryFn: fetchRescoreQueue,
+    queryFn:  fetchRescoreQueue,
     staleTime: 30_000,
   });
+
+  /* ── Data for New Observation modal ─────────────────── */
+  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
+    queryKey: ["quarters"],
+    queryFn:  fetchQuarters,
+    staleTime: 60_000,
+  });
+
+  const activeQuarter   = quarters[0]?.slug ?? "Q1";
+  const activeQuarterId = quarters[0]?.id   ?? 0;
+
+  const { data: dashData } = useQuery({
+    queryKey: ["dashboard", activeQuarter, null],
+    queryFn:  () => fetchDashboard(activeQuarter, null),
+    staleTime: 60_000,
+    enabled:  !!activeQuarter,
+  });
+
+  const allTeachers: Teacher[]      = dashData?.teachers   ?? [];
+  const categories:  CategoryEntry[] = dashData?.categories ?? [];
+  const allDomains:  DomainEntry[]   = categories.flatMap((c) => c.domains);
+
+  /* ── Add-Observation modal state ────────────────────── */
+  const [addObsTeacherId, setAddObsTeacherId] = useState<string | null>(null);
+  const [newObsOpen, setNewObsOpen]           = useState(false);
+  const [saving, setSaving]                   = useState(false);
+
+  function handleAddObsClick(teacherId: number) {
+    setAddObsTeacherId(String(teacherId));
+    setNewObsOpen(true);
+  }
+
+  async function handleSubmitObs(
+    teacherId:    string,
+    date:         string,
+    scores:       Record<string, Score>,
+    strengths:    string,
+    growthAreas:  string,
+    isWalkthrough: boolean,
+  ) {
+    setSaving(true);
+    try {
+      await createObservation({
+        teacherId,
+        quarterId:    activeQuarterId,
+        date,
+        scores,
+        strengths:    strengths  || undefined,
+        growthAreas:  growthAreas || undefined,
+        observer:     currentUser?.name ?? "Unknown",
+        observerId:   currentUser?.id,
+        isWalkthrough,
+      });
+      queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } finally {
+      setSaving(false);
+      setNewObsOpen(false);
+      setAddObsTeacherId(null);
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
@@ -134,9 +208,9 @@ export default function ActionCenterPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ backgroundColor: NAVY }}>
-                    {["Teacher", "School", "Subject / Grade", "Due Date", "Status"].map((h) => (
+                    {["Teacher", "School", "Subject / Grade", "Due Date", "Status", ""].map((h, i) => (
                       <th
-                        key={h}
+                        key={i}
                         className="px-4 py-3 text-left font-bold uppercase tracking-wider text-white"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
                       >
@@ -176,6 +250,22 @@ export default function ActionCenterPage() {
                             {status.label}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleAddObsClick(item.teacherId)}
+                            className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90"
+                            style={{
+                              backgroundColor: NAVY,
+                              color: "white",
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              letterSpacing: "0.03em",
+                              fontSize: 13,
+                            }}
+                          >
+                            <Plus size={13} />
+                            Add Observation
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -190,6 +280,24 @@ export default function ActionCenterPage() {
       <footer className="text-center py-4" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
         &copy; 2026 Uncommon Schools, Inc. All rights reserved.
       </footer>
+
+      {/* New Observation Modal */}
+      {allTeachers.length > 0 && (
+        <NewObservationModal
+          teachers={allTeachers}
+          categories={categories}
+          allDomains={allDomains}
+          open={newObsOpen}
+          onOpenChange={(o) => {
+            setNewObsOpen(o);
+            if (!o) setAddObsTeacherId(null);
+          }}
+          isDistrictAdmin={currentUser?.role === "DISTRICT_ADMIN"}
+          defaultTeacherId={addObsTeacherId ?? undefined}
+          onSubmit={handleSubmitObs}
+          saving={saving}
+        />
+      )}
 
     </div>
   );

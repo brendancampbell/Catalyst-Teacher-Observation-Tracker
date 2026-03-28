@@ -132,9 +132,13 @@ export interface DistrictSummaryData {
 
 export async function fetchDistrictSummary(
   quarter = "Q1",
-  scoreType: "recent" | "average" = "recent",
+  scoreType: "recent" | "average" | "walkthroughs" = "recent",
 ): Promise<DistrictSummaryData> {
-  return apiFetch<DistrictSummaryData>(`/district/summary?quarter=${quarter}&scoreType=${scoreType}`);
+  const apiScoreType     = scoreType === "walkthroughs" ? "recent" : scoreType;
+  const walkthroughsOnly = scoreType === "walkthroughs";
+  const params = new URLSearchParams({ quarter, scoreType: apiScoreType });
+  if (walkthroughsOnly) params.set("walkthroughsOnly", "true");
+  return apiFetch<DistrictSummaryData>(`/district/summary?${params.toString()}`);
 }
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";

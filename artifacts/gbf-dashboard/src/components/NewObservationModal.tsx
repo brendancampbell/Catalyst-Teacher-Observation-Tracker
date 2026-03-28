@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { type Score, type Teacher } from "@/data/dummy";
@@ -14,6 +14,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isDistrictAdmin?: boolean;
+  defaultTeacherId?: string;
   onSubmit: (
     teacherId: string,
     date: string,
@@ -42,20 +43,32 @@ function scorePillClass(s: Score, selected: boolean): string {
   }
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, isDistrictAdmin, onSubmit, saving }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, isDistrictAdmin, defaultTeacherId, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
-  const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
+  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
   const [date, setDate] = useState(todayIso);
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
 
+  /* Reset form (and apply defaultTeacherId) whenever the modal opens */
+  useEffect(() => {
+    if (open) {
+      setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
+      setDate(new Date().toISOString().split("T")[0]);
+      setScores({});
+      setStrengths("");
+      setGrowthAreas("");
+      setIsWalkthrough(false);
+    }
+  }, [open, defaultTeacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
-    setTeacherId(teachers[0]?.id ?? "");
+    setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
     setDate(todayIso);
     setScores({});
     setStrengths("");

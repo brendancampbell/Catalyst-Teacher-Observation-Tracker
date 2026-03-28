@@ -8,14 +8,16 @@ import { eq, inArray, and, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/district/summary?quarter=Q1&scoreType=recent|average
+/* ── GET /api/district/summary?quarter=Q1&scoreType=recent|average&walkthroughsOnly=true
    Returns per-school average scores for each domain.
-   scoreType=recent  → most-recent observation per teacher (default)
-   scoreType=average → average ALL observations for the quarter per teacher  */
+   scoreType=recent       → most-recent score per teacher per domain
+   scoreType=average      → average ALL observations for the quarter
+   walkthroughsOnly=true  → restrict to is_walkthrough observations only  */
 router.get("/summary", async (req, res) => {
   try {
-    const quarterSlug = (req.query.quarter as string) || "Q1";
-    const scoreType   = (req.query.scoreType as string) === "average" ? "average" : "recent";
+    const quarterSlug      = (req.query.quarter   as string) || "Q1";
+    const scoreType        = (req.query.scoreType as string) === "average" ? "average" : "recent";
+    const walkthroughsOnly = req.query.walkthroughsOnly === "true";
 
     const quarter = await db.query.rubricQuarters.findFirst({
       where: eq(rubricQuarters.slug, quarterSlug),
@@ -31,19 +33,19 @@ router.get("/summary", async (req, res) => {
       with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
     });
 
-    const allSchools = await db.select().from(schools).orderBy(schools.name);
-
+    const allSchools  = await db.select().from(schools).orderBy(schools.name);
     const allTeachers = await db
       .select()
       .from(teachers)
       .where(and(eq(teachers.isActive, true), isNotNull(teachers.schoolId)));
 
-    const allObs = await db
-      .select()
-      .from(observations)
-      .where(eq(observations.quarterId, quarter.id));
+    const obsWhere = walkthroughsOnly
+      ? and(eq(observations.quarterId, quarter.id), eq(observations.isWalkthrough, true))
+      : eq(observations.quarterId, quarter.id);
 
-    const obsIds = allObs.map((o) => o.id);
+    const allObs = await db.select().from(observations).where(obsWhere);
+
+    const obsIds    = allObs.map((o) => o.id);
     const allScores = obsIds.length > 0
       ? await db.select().from(observationScores).where(inArray(observationScores.observationId, obsIds))
       : [];
@@ -77,17 +79,21 @@ router.get("/summary", async (req, res) => {
         if (obs.length === 0) continue;
 
         if (scoreType === "recent") {
-          /* Most-recent observation only */
-          const scores = scoresByObs.get(obs[0].id) ?? {};
+          /* Most-recent score per domain: iterate observations newest-first.
+             For each domain, stop at the first observation that scored it.  */
           for (const slug of allSlugs) {
-            const v = scores[slug];
-            if (v != null) {
-              domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
-              domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+            for (const o of obs) {
+              const scores = scoresByObs.get(o.id) ?? {};
+              const v = scores[slug];
+              if (v != null) {
+                domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
+                domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+                break;
+              }
             }
           }
         } else {
-          /* Quarter average: average all observations for this teacher first */
+          /* Quarter average: average ALL observations for this teacher first */
           const teacherDomainSums:   Record<string, number> = {};
           const teacherDomainCounts: Record<string, number> = {};
           for (const o of obs) {
@@ -118,7 +124,7 @@ router.get("/summary", async (req, res) => {
         if (cnt > 0) {
           const avg = domainSums[slug] / cnt;
           domainAverages[slug] = Math.round(avg * 10) / 10;
-          totalSum += avg;
+          totalSum   += avg;
           totalCount += 1;
         } else {
           domainAverages[slug] = null;
