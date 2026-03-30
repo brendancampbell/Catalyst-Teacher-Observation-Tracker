@@ -11,8 +11,8 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchQuarters, createObservation, updateObservation } from "@/lib/api";
-import type { CategoryEntry, RubricQuarterRow } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, createObservation, updateObservation } from "@/lib/api";
+import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
@@ -20,7 +20,7 @@ import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
 import DistrictDashboard from "@/components/DistrictDashboard";
 
-type ViewMode = "recent" | "quarterAvg" | "walkthroughs";
+type ViewMode = "recent" | "periodAvg" | "walkthroughs";
 type ViewBy   = "teacher" | "subject" | "grade";
 
 /* ── Per-teacher domain helpers ────────────────────── */
@@ -102,7 +102,7 @@ function buildGroups(filteredTeachers: Teacher[], viewBy: ViewBy): GroupRow[] {
 function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMode: ViewMode): number | null {
   const scores = groupTeachers
     .map((t) =>
-      viewMode === "quarterAvg"
+      viewMode === "periodAvg"
         ? getQuarterDomainScore(t, domainId)
         : getMostRecentDomainScore(t, domainId),
     )
@@ -149,12 +149,12 @@ export default function Dashboard() {
     return new URLSearchParams(search).get("schoolName") ?? null;
   }, [search]);
 
-  /* ── Quarter selection ─────────────────────────────── */
-  const [activeQuarter, setActiveQuarter] = useState<string>("Q1");
+  /* ── Rubric set selection ──────────────────────────── */
+  const [activeRubricSet, setActiveRubricSet] = useState<string>("Q1");
 
-  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
-    queryKey: ["quarters"],
-    queryFn: fetchQuarters,
+  const { data: rubricSets = [] } = useQuery<RubricSetRow[]>({
+    queryKey: ["rubricSets"],
+    queryFn: fetchRubricSets,
     staleTime: 60_000,
   });
 
@@ -171,8 +171,8 @@ export default function Dashboard() {
   const walkthroughsOnly = viewMode === "walkthroughs";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard", activeQuarter, effectiveSchoolId, walkthroughsOnly],
-    queryFn: () => fetchDashboard(activeQuarter, effectiveSchoolId, walkthroughsOnly),
+    queryKey: ["dashboard", activeRubricSet, effectiveSchoolId, walkthroughsOnly],
+    queryFn: () => fetchDashboard(activeRubricSet, effectiveSchoolId, walkthroughsOnly),
     staleTime: 30_000,
     enabled: !isDistrictHome,
   });
@@ -180,7 +180,7 @@ export default function Dashboard() {
   const teachers: Teacher[]       = data?.teachers   ?? [];
   const categories: CategoryEntry[] = data?.categories ?? [];
   const allDomains: DomainEntry[] = categories.flatMap((c) => c.domains);
-  const quarterId: number         = data?.quarter.id  ?? 0;
+  const rubricSetId: number       = data?.rubricSet.id ?? 0;
 
   /* ── Filter state ──────────────────────────────────── */
   const [subject, setSubject]     = useState<string[]>([]);
@@ -209,7 +209,7 @@ export default function Dashboard() {
   );
 
   const teacherAvgFn = (t: Teacher) =>
-    viewMode === "quarterAvg"
+    viewMode === "periodAvg"
       ? getQuarterTeacherAvg(t, allDomains)
       : getMostRecentTeacherAvg(t, allDomains);
 
@@ -262,12 +262,12 @@ export default function Dashboard() {
     growthAreas: string,
     isWalkthrough: boolean,
   ) {
-    if (!quarterId) return;
+    if (!rubricSetId) return;
     setSaving(true);
     try {
       await createObservation({
         teacherId,
-        quarterId,
+        rubricSetId,
         date,
         scores,
         strengths:    strengths || undefined,
@@ -490,8 +490,8 @@ export default function Dashboard() {
       {/* ══ MAIN ════════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
-        {/* ── Quarter Switcher ──────────────────────────────── */}
-        {quarters.length > 0 && (
+        {/* ── Rubric Set Switcher ────────────────────────────── */}
+        {rubricSets.length > 0 && (
           <div
             className="bg-white rounded-md px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2"
             style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${YELLOW}` }}
@@ -500,16 +500,16 @@ export default function Dashboard() {
               className="font-bold uppercase tracking-widest shrink-0"
               style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
             >
-              Quarter
+              Rubric
             </span>
             <div className="flex gap-1.5 flex-wrap">
-              {quarters.map((q) => {
-                const active = q.slug === activeQuarter;
+              {rubricSets.map((q) => {
+                const active = q.slug === activeRubricSet;
                 return (
                   <button
                     key={q.slug}
                     type="button"
-                    onClick={() => setActiveQuarter(q.slug)}
+                    onClick={() => setActiveRubricSet(q.slug)}
                     className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
                     style={{
                       fontFamily: "'Bebas Neue', sans-serif",
@@ -642,7 +642,7 @@ export default function Dashboard() {
 
           {/* View mode toggle — right-aligned */}
           <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            {(["recent", "quarterAvg", "walkthroughs"] as ViewMode[]).map((mode, i, arr) => (
+            {(["recent", "periodAvg", "walkthroughs"] as ViewMode[]).map((mode, i, arr) => (
               <button
                 key={mode}
                 type="button"
@@ -656,7 +656,7 @@ export default function Dashboard() {
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : mode === "quarterAvg" ? "Quarter Avg" : "Walkthroughs"}
+                {mode === "recent" ? "Most Recent" : mode === "periodAvg" ? "Period Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>
@@ -810,7 +810,7 @@ export default function Dashboard() {
                           </td>
 
                           {allDomains.map((domain) => {
-                            const score = viewMode === "quarterAvg"
+                            const score = viewMode === "periodAvg"
                               ? getQuarterDomainScore(teacher, domain.id)
                               : getMostRecentDomainScore(teacher, domain.id);
                             const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
@@ -924,7 +924,7 @@ export default function Dashboard() {
                     </td>
                     {allDomains.map((domain) => {
                       const avg: number | null = viewBy === "teacher"
-                        ? (viewMode === "quarterAvg"
+                        ? (viewMode === "periodAvg"
                             ? getQuarterDomainAvg(domain.id, filtered)
                             : (() => {
                                 const vals = filtered

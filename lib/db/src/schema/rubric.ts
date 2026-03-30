@@ -2,16 +2,17 @@ import { pgTable, serial, text, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const rubricQuarters = pgTable("rubric_quarters", {
-  id:       serial("id").primaryKey(),
-  slug:     text("slug").notNull().unique(),
-  name:     text("name").notNull(),
-  isActive: boolean("is_active").notNull().default(false),
+export const rubricSets = pgTable("rubric_sets", {
+  id:        serial("id").primaryKey(),
+  slug:      text("slug").notNull().unique(),
+  name:      text("name").notNull(),
+  isActive:  boolean("is_active").notNull().default(false),
+  gradeSpan: text("grade_span"),
 });
 
 export const rubricCategories = pgTable("rubric_categories", {
   id:           serial("id").primaryKey(),
-  quarterId:    integer("quarter_id").notNull().references(() => rubricQuarters.id, { onDelete: "cascade" }),
+  rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   name:         text("name").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
 });
@@ -24,13 +25,17 @@ export const rubricDomains = pgTable("rubric_domains", {
   displayOrder: integer("display_order").notNull().default(0),
 });
 
-export const insertRubricQuarterSchema = createInsertSchema(rubricQuarters).omit({ id: true });
+export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
 export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true });
 export const insertRubricDomainSchema = createInsertSchema(rubricDomains).omit({ id: true });
 
-export type InsertRubricQuarter = z.infer<typeof insertRubricQuarterSchema>;
+export type InsertRubricSet = z.infer<typeof insertRubricSetSchema>;
 export type InsertRubricCategory = z.infer<typeof insertRubricCategorySchema>;
 export type InsertRubricDomain = z.infer<typeof insertRubricDomainSchema>;
-export type RubricQuarter = typeof rubricQuarters.$inferSelect;
+export type RubricSet = typeof rubricSets.$inferSelect;
 export type RubricCategory = typeof rubricCategories.$inferSelect;
 export type RubricDomain = typeof rubricDomains.$inferSelect;
+
+/* ── Backward-compat aliases (remove after full migration) ─────── */
+export const rubricQuarters = rubricSets;
+export type RubricQuarter = RubricSet;

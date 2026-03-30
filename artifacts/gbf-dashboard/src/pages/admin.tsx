@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School } from "lucide-react";
 import {
   fetchRubric,
-  fetchQuarters,
-  createQuarter,
+  fetchRubricSets,
+  createRubricSet,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -24,7 +24,7 @@ import {
   type FullRubric,
   type RubricCategoryRow,
   type RubricDomainRow,
-  type RubricQuarterRow,
+  type RubricSetRow,
   type AdminTeacher,
   type AdminSchool,
 } from "@/lib/api";
@@ -38,13 +38,13 @@ const YELLOW = "#FFB500";
    RUBRIC SETTINGS TAB
    ════════════════════════════════════════════════════════════════ */
 
-function RubricSettings({ quarterSlug }: { quarterSlug: string }) {
+function RubricSettings({ setSlug }: { setSlug: string }) {
   const queryClient = useQueryClient();
-  const qKey = ["rubric", quarterSlug] as const;
+  const qKey = ["rubric", setSlug] as const;
 
   const { data, isLoading, isError } = useQuery<FullRubric>({
     queryKey: qKey,
-    queryFn: () => fetchRubric(quarterSlug),
+    queryFn: () => fetchRubric(setSlug),
   });
 
   const [editingCatId,   setEditingCatId]   = useState<number | null>(null);
@@ -63,7 +63,7 @@ function RubricSettings({ quarterSlug }: { quarterSlug: string }) {
   }
 
   const addCatMut = useMutation({
-    mutationFn: ({ name, order }: { name: string; order: number }) => createCategory(quarterSlug, name, order),
+    mutationFn: ({ name, order }: { name: string; order: number }) => createCategory(setSlug, name, order),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingCat(false); setNewCatName(""); },
   });
 
@@ -120,9 +120,9 @@ function RubricSettings({ quarterSlug }: { quarterSlug: string }) {
           className="px-4 py-1.5 rounded-full font-bold uppercase text-white"
           style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
         >
-          {data.quarter.name}
+          {data.rubricSet.name}
         </span>
-        <span className="text-slate-400 text-sm">Managing categories and domains for this quarter</span>
+        <span className="text-slate-400 text-sm">Managing categories and domains for this rubric set</span>
       </div>
 
       {data.categories.map((cat) => (
@@ -205,7 +205,7 @@ function RubricSettings({ quarterSlug }: { quarterSlug: string }) {
       )}
 
       <p className="text-center text-slate-400 text-xs pb-4">
-        Changes apply to all future and existing observations in {quarterSlug}. Existing scores for deleted domains will no longer display.
+        Changes apply to all future and existing observations in {setSlug}. Existing scores for deleted domains will no longer display.
       </p>
     </div>
   );
@@ -729,26 +729,27 @@ export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
   const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
 
-  /* ── Quarter management ─────────────────────────────────────── */
+  /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
-  const { data: quarters = [], isLoading: quartersLoading } = useQuery<RubricQuarterRow[]>({
-    queryKey: ["quarters"],
-    queryFn: fetchQuarters,
+  const { data: rubricSets = [], isLoading: rubricSetsLoading } = useQuery<RubricSetRow[]>({
+    queryKey: ["rubricSets"],
+    queryFn: fetchRubricSets,
     staleTime: 60_000,
   });
 
-  const [selectedQuarterSlug, setSelectedQuarterSlug] = useState<string>("Q1");
+  const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
 
-  /* Sync selected quarter to the first available quarter once loaded */
+  /* Sync selected rubric set to the first available one once loaded */
   useEffect(() => {
-    if (quarters.length > 0 && !quarters.find((q) => q.slug === selectedQuarterSlug)) {
-      setSelectedQuarterSlug(quarters[0].slug);
+    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === selectedRubricSetSlug)) {
+      setSelectedRubricSetSlug(rubricSets[0].slug);
     }
-  }, [quarters]);
+  }, [rubricSets]);
 
-  /* New Quarter dialog */
-  const [showNewQuarterDialog, setShowNewQuarterDialog] = useState(false);
-  const [newQName, setNewQName]       = useState("");
+  /* New Rubric Set dialog */
+  const [showNewRubricSetDialog, setShowNewRubricSetDialog] = useState(false);
+  const [newQName, setNewQName]         = useState("");
+  const [newQGradeSpan, setNewQGradeSpan] = useState<string>("");
   const [copyFromSlug, setCopyFromSlug] = useState<string>("");
 
   function slugify(s: string) {
@@ -756,16 +757,18 @@ export default function AdminPage() {
   }
 
   const createQMut = useMutation({
-    mutationFn: () => createQuarter(
-      slugify(newQName) || `Q${quarters.length + 1}`,
+    mutationFn: () => createRubricSet(
+      slugify(newQName) || `RS${rubricSets.length + 1}`,
       newQName.trim(),
+      newQGradeSpan || undefined,
       copyFromSlug || undefined,
     ),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["quarters"] });
-      setSelectedQuarterSlug(created.slug);
-      setShowNewQuarterDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      setSelectedRubricSetSlug(created.slug);
+      setShowNewRubricSetDialog(false);
       setNewQName("");
+      setNewQGradeSpan("");
       setCopyFromSlug("");
     },
   });
@@ -870,7 +873,7 @@ export default function AdminPage() {
       {/* Tab content */}
       <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
 
-        {/* ── Quarter manager (Rubric tab only, District Admin only) ── */}
+        {/* ── Rubric set manager (Rubric tab only, District Admin only) ── */}
         {visibleTab === "rubric" && isDistrictAdmin && (
           <div
             className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-3"
@@ -880,20 +883,20 @@ export default function AdminPage() {
               className="font-bold uppercase tracking-widest shrink-0"
               style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
             >
-              Quarter
+              Rubric
             </span>
 
-            {quartersLoading ? (
+            {rubricSetsLoading ? (
               <div className="inline-block w-5 h-5 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
             ) : (
               <div className="flex gap-1.5 flex-wrap">
-                {quarters.map((q) => {
-                  const active = q.slug === selectedQuarterSlug;
+                {rubricSets.map((q) => {
+                  const active = q.slug === selectedRubricSetSlug;
                   return (
                     <button
                       key={q.slug}
                       type="button"
-                      onClick={() => setSelectedQuarterSlug(q.slug)}
+                      onClick={() => setSelectedRubricSetSlug(q.slug)}
                       className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
                       style={{
                         fontFamily: "'Bebas Neue', sans-serif",
@@ -905,6 +908,9 @@ export default function AdminPage() {
                       }}
                     >
                       {q.name}
+                      {q.gradeSpan && (
+                        <span className="ml-1 text-xs opacity-70">({q.gradeSpan})</span>
+                      )}
                     </button>
                   );
                 })}
@@ -912,35 +918,35 @@ export default function AdminPage() {
             )}
 
             <button
-              onClick={() => { setShowNewQuarterDialog(true); setNewQName(""); setCopyFromSlug(""); }}
+              onClick={() => { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpan(""); setCopyFromSlug(""); }}
               className="ml-auto flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 text-sm hover:opacity-90 transition-opacity"
               style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
             >
               <Plus size={14} />
-              New Quarter
+              New Rubric Set
             </button>
           </div>
         )}
 
-        {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings quarterSlug={selectedQuarterSlug} />}
+        {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings setSlug={selectedRubricSetSlug} />}
         {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} />}
         {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
       </main>
 
-      {/* ── New Quarter dialog ────────────────────────────────── */}
-      {showNewQuarterDialog && (
+      {/* ── New Rubric Set dialog ─────────────────────────────── */}
+      {showNewRubricSetDialog && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowNewQuarterDialog(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowNewRubricSetDialog(false); }}
         >
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             {/* Header */}
             <div className="px-5 py-4 flex items-center justify-between" style={{ backgroundColor: NAVY, borderBottom: `3px solid ${YELLOW}` }}>
               <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-                New Quarter
+                New Rubric Set
               </h2>
-              <button onClick={() => setShowNewQuarterDialog(false)} className="text-blue-200 hover:text-white p-1">
+              <button onClick={() => setShowNewRubricSetDialog(false)} className="text-blue-200 hover:text-white p-1">
                 <X size={20} />
               </button>
             </div>
@@ -948,7 +954,7 @@ export default function AdminPage() {
             {/* Body */}
             <div className="px-5 py-5 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Quarter Name</label>
+                <label className="text-sm font-semibold text-slate-700">Rubric Set Name</label>
                 <input
                   className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                   placeholder="e.g. Quarter 2 or Q2 2026"
@@ -959,9 +965,28 @@ export default function AdminPage() {
                 />
                 {newQName.trim() && (
                   <p className="text-xs text-slate-400">
-                    Slug: <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{slugify(newQName) || `Q${quarters.length + 1}`}</code>
+                    Slug: <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{slugify(newQName) || `RS${rubricSets.length + 1}`}</code>
                   </p>
                 )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Grade Span (optional)</label>
+                <select
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                  value={newQGradeSpan}
+                  onChange={(e) => setNewQGradeSpan(e.target.value)}
+                >
+                  <option value="">— All grade spans —</option>
+                  {GRADE_SPANS.map((gs) => (
+                    <option key={gs} value={gs}>{gs === "ES" ? "Elementary (ES)" : gs === "MS" ? "Middle (MS)" : "High School (HS)"}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400">
+                  {newQGradeSpan
+                    ? `This rubric set will be scoped to ${newQGradeSpan} schools.`
+                    : "Leave blank to apply this rubric set to all grade spans."}
+                </p>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -975,14 +1000,14 @@ export default function AdminPage() {
                   onChange={(e) => setCopyFromSlug(e.target.value)}
                 >
                   <option value="">— Start blank —</option>
-                  {quarters.map((q) => (
+                  {rubricSets.map((q) => (
                     <option key={q.slug} value={q.slug}>{q.name}</option>
                   ))}
                 </select>
                 <p className="text-xs text-slate-400">
                   {copyFromSlug
-                    ? `All categories and domains from ${quarters.find((q) => q.slug === copyFromSlug)?.name} will be copied.`
-                    : "The new quarter will start with no categories or domains."}
+                    ? `All categories and domains from ${rubricSets.find((q) => q.slug === copyFromSlug)?.name} will be copied.`
+                    : "The new rubric set will start with no categories or domains."}
                 </p>
               </div>
             </div>
@@ -990,7 +1015,7 @@ export default function AdminPage() {
             {/* Footer */}
             <div className="px-5 pb-5 flex justify-end gap-3">
               <button
-                onClick={() => setShowNewQuarterDialog(false)}
+                onClick={() => setShowNewRubricSetDialog(false)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
               >
                 Cancel
@@ -1001,7 +1026,7 @@ export default function AdminPage() {
                 className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
                 style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
               >
-                {createQMut.isPending ? "Creating…" : "Create Quarter"}
+                {createQMut.isPending ? "Creating…" : "Create Rubric Set"}
               </button>
             </div>
           </div>

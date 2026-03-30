@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDistrictSummary, fetchQuarters, REGIONS, GRADE_SPANS } from "@/lib/api";
-import type { DistrictSummaryData, DistrictSchoolRow, RubricQuarterRow } from "@/lib/api";
+import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
+import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow } from "@/lib/api";
 import { getScoreColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
@@ -122,7 +122,7 @@ interface Props {
 export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser, users, setCurrentUser } = useUser();
   const [userMenuOpen,  setUserMenuOpen]  = useState(false);
-  const [activeQuarter, setActiveQuarter] = useState("Q1");
+  const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
   const [filterRegion,    setFilterRegion]    = useState<string[]>([]);
@@ -136,15 +136,15 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
-    queryKey: ["quarters"],
-    queryFn: fetchQuarters,
+  const { data: rubricSets = [] } = useQuery<RubricSetRow[]>({
+    queryKey: ["rubricSets"],
+    queryFn: fetchRubricSets,
     staleTime: 60_000,
   });
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
-    queryKey: ["district", activeQuarter, scoreType],
-    queryFn: () => fetchDistrictSummary(activeQuarter, scoreType),
+    queryKey: ["district", activeRubricSet, scoreType],
+    queryFn: () => fetchDistrictSummary(activeRubricSet, scoreType),
     staleTime: 30_000,
   });
 
@@ -279,8 +279,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       {/* ══ MAIN ═════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
-        {/* ── Quarter Switcher ─────────────────────────────── */}
-        {quarters.length > 0 && (
+        {/* ── Rubric Set Switcher ──────────────────────────── */}
+        {rubricSets.length > 0 && (
           <div
             className="bg-white rounded-md px-3 sm:px-4 py-2 flex flex-wrap items-center gap-2"
             style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${YELLOW}` }}
@@ -289,16 +289,16 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
               className="font-bold uppercase tracking-widest shrink-0"
               style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
             >
-              Quarter
+              Rubric
             </span>
             <div className="flex gap-1.5 flex-wrap">
-              {quarters.map((q) => {
-                const active = q.slug === activeQuarter;
+              {rubricSets.map((q) => {
+                const active = q.slug === activeRubricSet;
                 return (
                   <button
                     key={q.slug}
                     type="button"
-                    onClick={() => setActiveQuarter(q.slug)}
+                    onClick={() => setActiveRubricSet(q.slug)}
                     className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
                     style={{
                       fontFamily: "'Bebas Neue', sans-serif",
@@ -453,7 +453,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : mode === "average" ? "Quarter Avg" : "Walkthroughs"}
+                {mode === "recent" ? "Most Recent" : mode === "average" ? "Period Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>

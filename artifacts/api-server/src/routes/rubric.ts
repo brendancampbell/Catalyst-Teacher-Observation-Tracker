@@ -1,47 +1,51 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { rubricQuarters, rubricCategories, rubricDomains } from "@workspace/db/schema";
+import { rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/rubric/quarters ───────────────────────────────────── */
-router.get("/quarters", async (_req, res) => {
+/* ── GET /api/rubric/sets ───────────────────────────────────────── */
+router.get("/sets", async (_req, res) => {
   try {
-    const quarters = await db.select().from(rubricQuarters).orderBy(rubricQuarters.id);
-    res.json(quarters);
+    const sets = await db.select().from(rubricSets).orderBy(rubricSets.id);
+    res.json(sets);
   } catch (err) {
-    console.error("GET /rubric/quarters error:", err);
+    console.error("GET /rubric/sets error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/* ── POST /api/rubric/quarters ──────────────────────────────────── */
-router.post("/quarters", async (req, res) => {
+/* ── POST /api/rubric/sets ──────────────────────────────────────── */
+router.post("/sets", async (req, res) => {
   try {
-    const { slug, name, copyFromSlug } = req.body as {
+    const { slug, name, gradeSpan, copyFromSlug } = req.body as {
       slug: string;
       name: string;
+      gradeSpan?: string;
       copyFromSlug?: string;
     };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
 
-    const [quarter] = await db.insert(rubricQuarters).values({ slug, name, isActive: false }).returning();
+    const [rubricSet] = await db
+      .insert(rubricSets)
+      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null })
+      .returning();
 
-    /* Optional: copy categories + domains from an existing quarter */
+    /* Optional: copy categories + domains from an existing rubric set */
     if (copyFromSlug) {
-      const source = await db.query.rubricQuarters.findFirst({
-        where: eq(rubricQuarters.slug, copyFromSlug),
+      const source = await db.query.rubricSets.findFirst({
+        where: eq(rubricSets.slug, copyFromSlug),
       });
       if (source) {
         const sourceCats = await db.query.rubricCategories.findMany({
-          where: eq(rubricCategories.quarterId, source.id),
+          where: eq(rubricCategories.rubricSetId, source.id),
           orderBy: (c, { asc }) => [asc(c.displayOrder)],
           with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
         });
         for (const cat of sourceCats) {
           const [newCat] = await db.insert(rubricCategories)
-            .values({ quarterId: quarter.id, name: cat.name, displayOrder: cat.displayOrder })
+            .values({ rubricSetId: rubricSet.id, name: cat.name, displayOrder: cat.displayOrder })
             .returning();
           if (cat.domains?.length) {
             await db.insert(rubricDomains).values(
@@ -57,51 +61,51 @@ router.post("/quarters", async (req, res) => {
       }
     }
 
-    res.status(201).json(quarter);
+    res.status(201).json(rubricSet);
   } catch (err) {
-    console.error("POST /rubric/quarters error:", err);
+    console.error("POST /rubric/sets error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/* ── GET /api/rubric/:quarterSlug ───────────────────────────────── */
-router.get("/:quarterSlug", async (req, res) => {
+/* ── GET /api/rubric/:setSlug ───────────────────────────────────── */
+router.get("/:setSlug", async (req, res) => {
   try {
-    const quarter = await db.query.rubricQuarters.findFirst({
-      where: eq(rubricQuarters.slug, req.params.quarterSlug),
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.slug, req.params.setSlug),
     });
-    if (!quarter) { res.status(404).json({ error: "Quarter not found" }); return; }
+    if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
     const categories = await db.query.rubricCategories.findMany({
-      where: eq(rubricCategories.quarterId, quarter.id),
+      where: eq(rubricCategories.rubricSetId, rubricSet.id),
       orderBy: (c, { asc }) => [asc(c.displayOrder)],
       with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
     });
 
-    res.json({ quarter, categories });
+    res.json({ rubricSet, categories });
   } catch (err) {
-    console.error("GET /rubric/:quarterSlug error:", err);
+    console.error("GET /rubric/:setSlug error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/* ── POST /api/rubric/:quarterSlug/categories ───────────────────── */
-router.post("/:quarterSlug/categories", async (req, res) => {
+/* ── POST /api/rubric/:setSlug/categories ───────────────────────── */
+router.post("/:setSlug/categories", async (req, res) => {
   try {
-    const quarter = await db.query.rubricQuarters.findFirst({
-      where: eq(rubricQuarters.slug, req.params.quarterSlug),
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.slug, req.params.setSlug),
     });
-    if (!quarter) { res.status(404).json({ error: "Quarter not found" }); return; }
+    if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
     const { name, displayOrder } = req.body;
     if (!name) { res.status(400).json({ error: "name required" }); return; }
 
     const [cat] = await db.insert(rubricCategories)
-      .values({ quarterId: quarter.id, name, displayOrder: displayOrder ?? 0 })
+      .values({ rubricSetId: rubricSet.id, name, displayOrder: displayOrder ?? 0 })
       .returning();
     res.status(201).json(cat);
   } catch (err) {
-    console.error("POST /rubric/:quarterSlug/categories error:", err);
+    console.error("POST /rubric/:setSlug/categories error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

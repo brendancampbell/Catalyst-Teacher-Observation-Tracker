@@ -6,23 +6,26 @@ import { eq } from "drizzle-orm";
 const router = Router();
 
 /* ── POST /api/observations ─────────────────────────────────────────
-   Body: { teacherId, quarterId, date, strengths?, growthAreas?,
-           observer?, observerId?, scores, isWalkthrough? }           */
+   Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,
+           observer?, observerId?, scores, isWalkthrough? }
+   Also accepts legacy field `quarterId` as fallback.                 */
 router.post("/", async (req, res) => {
   try {
     const {
-      teacherId, quarterId, date, strengths, growthAreas,
+      teacherId, rubricSetId, quarterId, date, strengths, growthAreas,
       observer, observerId, scores, isWalkthrough,
     } = req.body;
 
-    if (!teacherId || !quarterId || !date || !scores) {
-      res.status(400).json({ error: "teacherId, quarterId, date and scores are required" });
+    const resolvedRubricSetId = rubricSetId ?? quarterId;
+
+    if (!teacherId || !resolvedRubricSetId || !date || !scores) {
+      res.status(400).json({ error: "teacherId, rubricSetId, date and scores are required" });
       return;
     }
 
     const [obs] = await db.insert(observations).values({
       teacherId:     Number(teacherId),
-      quarterId:     Number(quarterId),
+      rubricSetId:   Number(resolvedRubricSetId),
       date,
       strengths:     strengths || null,
       growthAreas:   growthAreas || null,

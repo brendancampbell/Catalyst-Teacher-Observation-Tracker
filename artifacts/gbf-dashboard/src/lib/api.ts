@@ -99,16 +99,19 @@ export interface CategoryEntry {
   domains: DomainEntry[];
 }
 
-export interface QuarterInfo {
-  id: number;
-  slug: string;
-  name: string;
+/* ── Rubric Set Info ─────────────────────────────────────────────── */
+
+export interface RubricSetInfo {
+  id:        number;
+  slug:      string;
+  name:      string;
+  gradeSpan: string | null;
 }
 
 export interface DashboardData {
-  quarter: QuarterInfo;
+  rubricSet:  RubricSetInfo;
   categories: CategoryEntry[];
-  teachers: Teacher[];
+  teachers:   Teacher[];
 }
 
 /* ── District ────────────────────────────────────────────────── */
@@ -125,18 +128,18 @@ export interface DistrictSchoolRow {
 }
 
 export interface DistrictSummaryData {
-  quarter:    QuarterInfo;
+  rubricSet:  RubricSetInfo;
   categories: CategoryEntry[];
   schools:    DistrictSchoolRow[];
 }
 
 export async function fetchDistrictSummary(
-  quarter = "Q1",
+  rubricSetSlug = "Q1",
   scoreType: "recent" | "average" | "walkthroughs" = "recent",
 ): Promise<DistrictSummaryData> {
   const apiScoreType     = scoreType === "walkthroughs" ? "recent" : scoreType;
   const walkthroughsOnly = scoreType === "walkthroughs";
-  const params = new URLSearchParams({ quarter, scoreType: apiScoreType });
+  const params = new URLSearchParams({ rubricSet: rubricSetSlug, scoreType: apiScoreType });
   if (walkthroughsOnly) params.set("walkthroughsOnly", "true");
   return apiFetch<DistrictSummaryData>(`/district/summary?${params.toString()}`);
 }
@@ -160,8 +163,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 /* ── Dashboard ─────────────────────────────────────────────────── */
 
-export async function fetchDashboard(quarter = "Q1", schoolId?: number | null, walkthroughsOnly?: boolean): Promise<DashboardData> {
-  const params = new URLSearchParams({ quarter });
+export async function fetchDashboard(rubricSetSlug = "Q1", schoolId?: number | null, walkthroughsOnly?: boolean): Promise<DashboardData> {
+  const params = new URLSearchParams({ rubricSet: rubricSetSlug });
   if (schoolId != null) params.set("schoolId", String(schoolId));
   if (walkthroughsOnly) params.set("walkthroughsOnly", "true");
   return apiFetch<DashboardData>(`/dashboard?${params.toString()}`);
@@ -186,15 +189,15 @@ export async function fetchRescoreQueue(): Promise<RescoreQueueItem[]> {
 /* ── Observations ──────────────────────────────────────────────── */
 
 export interface CreateObservationPayload {
-  teacherId: string;
-  quarterId: number;
-  date: string;
-  strengths?: string;
+  teacherId:    string;
+  rubricSetId:  number;
+  date:         string;
+  strengths?:   string;
   growthAreas?: string;
-  observer?: string;
-  observerId?: number;
+  observer?:    string;
+  observerId?:  number;
   isWalkthrough?: boolean;
-  scores: Record<string, Score>;
+  scores:       Record<string, Score>;
 }
 
 export async function createObservation(payload: CreateObservationPayload): Promise<Observation> {
@@ -205,11 +208,11 @@ export async function createObservation(payload: CreateObservationPayload): Prom
 }
 
 export interface UpdateObservationPayload {
-  date?: string;
-  strengths?: string;
+  date?:        string;
+  strengths?:   string;
   growthAreas?: string;
-  observer?: string;
-  scores?: Record<string, Score>;
+  observer?:    string;
+  scores?:      Record<string, Score>;
 }
 
 export async function updateObservation(id: string, payload: UpdateObservationPayload): Promise<Observation> {
@@ -219,52 +222,64 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
   });
 }
 
-/* ── Rubric (admin) ────────────────────────────────────────────── */
+/* ── Rubric Sets (admin) ───────────────────────────────────────── */
 
-export interface RubricQuarterRow {
-  id: number;
-  slug: string;
-  name: string;
-  isActive: boolean;
+export interface RubricSetRow {
+  id:        number;
+  slug:      string;
+  name:      string;
+  isActive:  boolean;
+  gradeSpan: string | null;
 }
 
-export async function fetchQuarters(): Promise<RubricQuarterRow[]> {
-  return apiFetch<RubricQuarterRow[]>("/rubric/quarters");
+/** @deprecated Use RubricSetRow */
+export type RubricQuarterRow = RubricSetRow;
+
+export async function fetchRubricSets(): Promise<RubricSetRow[]> {
+  return apiFetch<RubricSetRow[]>("/rubric/sets");
 }
 
-export async function createQuarter(slug: string, name: string, copyFromSlug?: string): Promise<RubricQuarterRow> {
-  return apiFetch<RubricQuarterRow>("/rubric/quarters", {
+/** @deprecated Use fetchRubricSets */
+export const fetchQuarters = fetchRubricSets;
+
+export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string): Promise<RubricSetRow> {
+  return apiFetch<RubricSetRow>("/rubric/sets", {
     method: "POST",
-    body: JSON.stringify({ slug, name, ...(copyFromSlug ? { copyFromSlug } : {}) }),
+    body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}) }),
   });
 }
 
+/** @deprecated Use createRubricSet */
+export function createQuarter(slug: string, name: string, copyFromSlug?: string): Promise<RubricSetRow> {
+  return createRubricSet(slug, name, undefined, copyFromSlug);
+}
+
 export interface RubricCategoryRow {
-  id: number;
-  quarterId: number;
-  name: string;
+  id:           number;
+  rubricSetId:  number;
+  name:         string;
   displayOrder: number;
 }
 
 export interface RubricDomainRow {
-  id: number;
-  categoryId: number;
-  name: string;
-  slug: string;
+  id:           number;
+  categoryId:   number;
+  name:         string;
+  slug:         string;
   displayOrder: number;
 }
 
 export interface FullRubric {
-  quarter: RubricQuarterRow;
+  rubricSet:  RubricSetRow;
   categories: (RubricCategoryRow & { domains: RubricDomainRow[] })[];
 }
 
-export async function fetchRubric(quarterSlug: string): Promise<FullRubric> {
-  return apiFetch<FullRubric>(`/rubric/${quarterSlug}`);
+export async function fetchRubric(setSlug: string): Promise<FullRubric> {
+  return apiFetch<FullRubric>(`/rubric/${setSlug}`);
 }
 
-export async function createCategory(quarterSlug: string, name: string, displayOrder: number): Promise<RubricCategoryRow> {
-  return apiFetch<RubricCategoryRow>(`/rubric/${quarterSlug}/categories`, {
+export async function createCategory(setSlug: string, name: string, displayOrder: number): Promise<RubricCategoryRow> {
+  return apiFetch<RubricCategoryRow>(`/rubric/${setSlug}/categories`, {
     method: "POST",
     body: JSON.stringify({ name, displayOrder }),
   });

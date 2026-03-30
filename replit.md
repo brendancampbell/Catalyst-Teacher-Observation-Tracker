@@ -72,30 +72,30 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 - `users` — id, email, name, role (COACH | PRINCIPAL | DISTRICT_ADMIN)
 - `teachers` — id, name, subject, gradeLevel (text[]), isActive (bool)
-- `rubric_quarters` — id, slug (Q1), name, isActive
-- `rubric_categories` — id, quarterId, name, displayOrder
+- `rubric_sets` — id, slug (Q1), name, isActive, gradeSpan (nullable)
+- `rubric_categories` — id, rubricSetId, name, displayOrder
 - `rubric_domains` — id, categoryId, name, slug, displayOrder
-- `observations` — id, teacherId, quarterId, observerId (FK→users), date, strengths, growthAreas, observer
+- `observations` — id, teacherId, rubricSetId, observerId (FK→users), date, strengths, growthAreas, observer
 - `observation_scores` — id, observationId, domainSlug, score (1–4)
 
 ### API Endpoints (artifacts/api-server/)
 
 All routes mounted at `/api`:
 
-- `GET /api/dashboard?quarter=Q1` — Full dashboard data (active teachers only + observations)
-- `GET /api/teachers/:id?quarter=Q1` — Single teacher detail
+- `GET /api/dashboard?rubricSet=Q1` — Full dashboard data (active teachers only + observations)
+- `GET /api/teachers/:id?rubricSet=Q1` — Single teacher detail
 - `POST /api/observations` — Create new observation
 - `PUT /api/observations/:id` — Update observation
-- `GET /api/rubric/quarters` — List all quarters
-- `GET /api/rubric/:quarterSlug` — Full rubric (categories + domains)
-- `POST /api/rubric/:quarterSlug/categories` — Create category
+- `GET /api/rubric/sets` — List all rubric sets
+- `GET /api/rubric/:setSlug` — Full rubric (categories + domains)
+- `POST /api/rubric/:setSlug/categories` — Create category
 - `PUT /api/rubric/categories/:id` — Update category
 - `DELETE /api/rubric/categories/:id` — Delete category
 - `POST /api/rubric/categories/:id/domains` — Create domain
 - `PUT /api/rubric/domains/:id` — Update domain
 - `DELETE /api/rubric/domains/:id` — Delete domain
 - `GET /api/users` — List all users with schoolId + schoolName (for role switcher)
-- `GET /api/district/summary?quarter=Q1` — Per-school aggregated domain averages (DISTRICT_ADMIN)
+- `GET /api/district/summary?rubricSet=Q1` — Per-school aggregated domain averages (DISTRICT_ADMIN)
 - `GET /api/admin/teachers` — All teachers incl. inactive (admin roster)
 - `POST /api/admin/teachers` — Create teacher
 - `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel

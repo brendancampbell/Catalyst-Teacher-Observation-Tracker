@@ -1,33 +1,34 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  teachers, rubricQuarters, rubricCategories,
+  teachers, rubricSets, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
 import { eq, inArray, and } from "drizzle-orm";
 
 const router = Router();
 
-/* ── GET /api/dashboard?quarter=Q1&schoolId=2&walkthroughsOnly=true ──
+/* ── GET /api/dashboard?rubricSet=Q1&schoolId=2&walkthroughsOnly=true ──
+   Accepts legacy param `quarter` as fallback for backward compat.
    Returns rubric + teachers with full observation history.
    When walkthroughsOnly=true, only observations where isWalkthrough
-   is true are included in the response.                               */
+   is true are included in the response.                                  */
 router.get("/", async (req, res) => {
   try {
-    const quarterSlug      = (req.query.quarter as string) || "Q1";
+    const setSlug          = (req.query.rubricSet as string) || (req.query.quarter as string) || "Q1";
     const schoolIdParam    = req.query.schoolId ? Number(req.query.schoolId) : null;
     const walkthroughsOnly = req.query.walkthroughsOnly === "true";
 
-    const quarter = await db.query.rubricQuarters.findFirst({
-      where: eq(rubricQuarters.slug, quarterSlug),
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.slug, setSlug),
     });
-    if (!quarter) {
-      res.status(404).json({ error: `Quarter '${quarterSlug}' not found` });
+    if (!rubricSet) {
+      res.status(404).json({ error: `Rubric set '${setSlug}' not found` });
       return;
     }
 
     const categories = await db.query.rubricCategories.findMany({
-      where: eq(rubricCategories.quarterId, quarter.id),
+      where: eq(rubricCategories.rubricSetId, rubricSet.id),
       orderBy: (c, { asc }) => [asc(c.displayOrder)],
       with: {
         domains: {
@@ -41,8 +42,8 @@ router.get("/", async (req, res) => {
       : await db.select().from(teachers).where(eq(teachers.isActive, true));
 
     const obsWhere = walkthroughsOnly
-      ? and(eq(observations.quarterId, quarter.id), eq(observations.isWalkthrough, true))
-      : eq(observations.quarterId, quarter.id);
+      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true))
+      : eq(observations.rubricSetId, rubricSet.id);
 
     const allObs = await db.select().from(observations).where(obsWhere);
 
@@ -85,7 +86,7 @@ router.get("/", async (req, res) => {
     }));
 
     res.json({
-      quarter: { id: quarter.id, slug: quarter.slug, name: quarter.name },
+      rubricSet: { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan },
       categories: categories.map((cat) => ({
         id: `cat_${cat.id}`,
         label: cat.name,
