@@ -53,6 +53,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomId,   setEditingDomId]   = useState<number | null>(null);
   const [editingDomName, setEditingDomName] = useState("");
   const [editingDomSlug, setEditingDomSlug] = useState("");
+  const [editingDomDesc, setEditingDomDesc] = useState("");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
   const [addingDomForCat,   setAddingDomForCat]   = useState<number | null>(null);
@@ -93,7 +94,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   });
 
   const updDomMut = useMutation({
-    mutationFn: ({ id, name, slug }: { id: number; name: string; slug: string }) => updateDomain(id, name, slug),
+    mutationFn: ({ id, name, slug, description }: { id: number; name: string; slug: string; description: string }) =>
+      updateDomain(id, name, slug, description),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditingDomId(null); },
   });
 
@@ -107,7 +109,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   }
 
   function startEditDom(dom: RubricDomainRow) {
-    setEditingDomId(dom.id); setEditingDomName(dom.name); setEditingDomSlug(dom.slug); setEditingCatId(null);
+    setEditingDomId(dom.id); setEditingDomName(dom.name); setEditingDomSlug(dom.slug);
+    setEditingDomDesc(dom.description ?? ""); setEditingCatId(null);
   }
 
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
@@ -202,21 +205,37 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
           <div className="divide-y divide-slate-100">
             {cat.domains.map((dom) => (
-              <div key={dom.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+              <div key={dom.id} className="px-4 py-2.5 hover:bg-slate-50 transition-colors">
                 {editingDomId === dom.id ? (
-                  <div className="flex items-center gap-2 flex-1">
-                    <input className={`${inputCls} flex-1`} value={editingDomName} onChange={(e) => setEditingDomName(e.target.value)} placeholder="Domain name" autoFocus onKeyDown={(e) => { if (e.key === "Enter") updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug }); if (e.key === "Escape") setEditingDomId(null); }} />
-                    <input className={`${inputCls} w-36`} value={editingDomSlug} onChange={(e) => setEditingDomSlug(e.target.value)} placeholder="slug" onKeyDown={(e) => { if (e.key === "Enter") updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug }); if (e.key === "Escape") setEditingDomId(null); }} />
-                    <button className="text-green-600 hover:text-green-800 p-1" onClick={() => updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug })}><Check size={16} /></button>
-                    <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingDomId(null)}><X size={16} /></button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input className={`${inputCls} flex-1`} value={editingDomName} onChange={(e) => setEditingDomName(e.target.value)} placeholder="Domain name" autoFocus onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }} />
+                      <input className={`${inputCls} w-36`} value={editingDomSlug} onChange={(e) => setEditingDomSlug(e.target.value)} placeholder="slug" onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }} />
+                      <button className="text-green-600 hover:text-green-800 p-1 shrink-0" onClick={() => updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug, description: editingDomDesc })} disabled={updDomMut.isPending}><Check size={16} /></button>
+                      <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => setEditingDomId(null)}><X size={16} /></button>
+                    </div>
+                    <input
+                      className={`${inputCls} w-full text-xs`}
+                      value={editingDomDesc}
+                      onChange={(e) => setEditingDomDesc(e.target.value)}
+                      placeholder="Hover tooltip text — describe what this domain measures…"
+                      onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }}
+                    />
                   </div>
                 ) : (
-                  <>
-                    <span className="flex-1 font-medium text-slate-700 text-sm">{dom.name}</span>
-                    <code className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-mono">{dom.slug}</code>
-                    <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded" onClick={() => startEditDom(dom)}><Pencil size={13} /></button>
-                    <button className="text-slate-400 hover:text-red-500 p-1.5 rounded" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button>
-                  </>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-slate-700 text-sm">{dom.name}</span>
+                        <code className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded font-mono shrink-0">{dom.slug}</code>
+                      </div>
+                      {dom.description && (
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{dom.description}</p>
+                      )}
+                    </div>
+                    <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded shrink-0" onClick={() => startEditDom(dom)}><Pencil size={13} /></button>
+                    <button className="text-slate-400 hover:text-red-500 p-1.5 rounded shrink-0" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button>
+                  </div>
                 )}
               </div>
             ))}

@@ -89,8 +89,9 @@ export async function toggleTeacherActive(id: number): Promise<AdminTeacher> {
 }
 
 export interface DomainEntry {
-  id: string;
-  label: string;
+  id:          string;
+  label:       string;
+  description?: string;
 }
 
 export interface CategoryEntry {
@@ -275,6 +276,7 @@ export interface RubricDomainRow {
   name:         string;
   slug:         string;
   displayOrder: number;
+  description:  string | null;
 }
 
 export interface FullRubric {
@@ -311,10 +313,10 @@ export async function createDomain(categoryId: number, name: string, slug: strin
   });
 }
 
-export async function updateDomain(id: number, name: string, slug: string): Promise<RubricDomainRow> {
+export async function updateDomain(id: number, name: string, slug: string, description?: string | null): Promise<RubricDomainRow> {
   return apiFetch<RubricDomainRow>(`/rubric/domains/${id}`, {
     method: "PUT",
-    body: JSON.stringify({ name, slug }),
+    body: JSON.stringify({ name, slug, ...(description !== undefined ? { description } : {}) }),
   });
 }
 

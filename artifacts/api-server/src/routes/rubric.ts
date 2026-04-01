@@ -178,12 +178,13 @@ router.post("/categories/:id/domains", async (req, res) => {
 /* ── PUT /api/rubric/domains/:id ────────────────────────────────── */
 router.put("/domains/:id", async (req, res) => {
   try {
-    const { name, slug, displayOrder } = req.body;
+    const { name, slug, displayOrder, description } = req.body;
     const [updated] = await db.update(rubricDomains)
       .set({
         ...(name && { name }),
         ...(slug && { slug }),
         ...(displayOrder !== undefined && { displayOrder }),
+        ...(description !== undefined && { description }),
       })
       .where(eq(rubricDomains.id, Number(req.params.id)))
       .returning();

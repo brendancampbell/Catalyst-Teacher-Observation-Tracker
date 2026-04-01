@@ -227,7 +227,7 @@ export default function Dashboard() {
   const rubricSetId: number       = data?.rubricSet.id ?? 0;
 
   /* ── Domain tooltip state ──────────────────────────── */
-  const [domainTooltip, setDomainTooltip] = useState<{ slug: string; x: number; y: number } | null>(null);
+  const [domainTooltip, setDomainTooltip] = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
 
   /* ── Filter state ──────────────────────────────────── */
   const [subject, setSubject]       = useState<string[]>([]);
@@ -821,7 +821,8 @@ export default function Dashboard() {
                   {categories.map((cat) => (
                     <Fragment key={cat.id}>
                       {cat.domains.map((domain, di) => {
-                        const hasDesc = !!DOMAIN_DESCRIPTIONS[domain.id];
+                        const domainDesc = domain.description || DOMAIN_DESCRIPTIONS[domain.id] || "";
+                        const hasDesc = !!domainDesc;
                         return (
                           <th
                             key={domain.id}
@@ -837,7 +838,7 @@ export default function Dashboard() {
                             }}
                             onMouseEnter={hasDesc ? (e) => {
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6 });
+                              setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6, description: domainDesc });
                             } : undefined}
                             onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                           >
@@ -1223,7 +1224,7 @@ export default function Dashboard() {
       />
 
       {/* ── Domain tooltip overlay ───────────────────────── */}
-      {domainTooltip && DOMAIN_DESCRIPTIONS[domainTooltip.slug] && (
+      {domainTooltip && domainTooltip.description && (
         <div
           style={{
             position: "fixed",
@@ -1254,7 +1255,7 @@ export default function Dashboard() {
             boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
             textAlign: "left",
           }}>
-            {DOMAIN_DESCRIPTIONS[domainTooltip.slug]}
+            {domainTooltip.description}
           </div>
         </div>
       )}

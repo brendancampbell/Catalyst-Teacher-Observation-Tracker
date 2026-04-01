@@ -24,6 +24,7 @@ export const rubricDomains = pgTable("rubric_domains", {
   name:         text("name").notNull(),
   slug:         text("slug").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
+  description:  text("description"),
 });
 
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
