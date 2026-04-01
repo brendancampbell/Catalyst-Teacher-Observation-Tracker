@@ -171,8 +171,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     if (!rows.length) return null;
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
   })();
-  const proficient   = filteredSchools.filter((s) => s.overall != null && s.overall >= 3).length;
-  const needsSupport = filteredSchools.filter((s) => s.overall != null && s.overall <  2).length;
+  const proficient   = filteredSchools.filter((s) => s.overall != null && s.overall >= 0.7).length;
+  const needsSupport = filteredSchools.filter((s) => s.overall != null && s.overall <  0.7).length;
 
   /* First column label */
   const firstColLabel =
@@ -322,8 +322,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           {[
             { label: "Schools",           value: schoolCount,                                                    colorScore: null as number | null, pct: null as number | null },
             { label: "Average Score",     value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—",    colorScore: districtAvgRaw,        pct: null },
-            { label: "Proficient+ (≥ 3)", value: proficient,                                                   colorScore: null,                  pct: schoolCount ? Math.round(proficient   / schoolCount * 100) : null },
-            { label: "Need Support (< 2)", value: needsSupport,                                                colorScore: null,                  pct: schoolCount ? Math.round(needsSupport / schoolCount * 100) : null },
+            { label: "Proficient (≥ 0.7)", value: proficient,                                                  colorScore: null,                  pct: schoolCount ? Math.round(proficient   / schoolCount * 100) : null },
+            { label: "Not Proficient (< 0.7)", value: needsSupport,                                           colorScore: null,                  pct: schoolCount ? Math.round(needsSupport / schoolCount * 100) : null },
           ].map(({ label, value, colorScore, pct }) => (
             <div
               key={label}

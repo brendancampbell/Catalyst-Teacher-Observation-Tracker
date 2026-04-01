@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { Plus, ChevronDown, ArrowLeft } from "lucide-react";
 import { useSearch } from "wouter";
@@ -25,6 +25,10 @@ type ViewBy   = "teacher" | "subject" | "grade";
 
 /* ── Per-teacher domain helpers ────────────────────── */
 
+function avg(nums: number[]): number {
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
 /* Most-recent score for a specific domain — iterates observations newest→oldest,
    returns the first observation that actually scored this domain. */
 function getMostRecentDomainScore(teacher: Teacher, domainId: string): number | null {
@@ -36,33 +40,40 @@ function getMostRecentDomainScore(teacher: Teacher, domainId: string): number | 
   return null;
 }
 
-/* Average of per-domain most-recent scores across all domains. */
-function getMostRecentTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number | null {
-  const scores = allDomains
-    .map((d) => getMostRecentDomainScore(teacher, d.id))
-    .filter((s): s is number => s !== null);
-  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-}
-
+/* Period (quarter) average for a specific domain across all observations. */
 function getQuarterDomainScore(teacher: Teacher, domainId: string): number | null {
   const vals = teacher.observations
     .map((o) => o.scores[domainId] as Score | undefined)
     .filter((s): s is Score => s !== undefined);
-  return vals.length ? vals.reduce((sum, s) => sum + s, 0) / vals.length : null;
+  return vals.length ? avg(vals as number[]) : null;
 }
 
-function getQuarterTeacherAvg(teacher: Teacher, allDomains: DomainEntry[]): number | null {
-  const perDomain = allDomains
-    .map((d) => getQuarterDomainScore(teacher, d.id))
+/* Category sub-average for a teacher: avg of domain scores within that category. */
+function getCategoryAvg(teacher: Teacher, catDomains: DomainEntry[], viewMode: ViewMode): number | null {
+  const domainScores = catDomains
+    .map((d) =>
+      viewMode === "periodAvg"
+        ? getQuarterDomainScore(teacher, d.id)
+        : getMostRecentDomainScore(teacher, d.id),
+    )
     .filter((s): s is number => s !== null);
-  return perDomain.length ? perDomain.reduce((s, v) => s + v, 0) / perDomain.length : null;
+  return domainScores.length ? avg(domainScores) : null;
 }
 
+/* Overall teacher average = average of category sub-averages. */
+function getTeacherOverallAvg(teacher: Teacher, categories: CategoryEntry[], viewMode: ViewMode): number | null {
+  const catAvgs = categories
+    .map((c) => getCategoryAvg(teacher, c.domains, viewMode))
+    .filter((s): s is number => s !== null);
+  return catAvgs.length ? avg(catAvgs) : null;
+}
+
+/* Domain-level avg across multiple teachers (for footer and group cells). */
 function getQuarterDomainAvg(domainId: string, teachers: Teacher[]): number | null {
   const vals = teachers
     .map((t) => getQuarterDomainScore(t, domainId))
     .filter((s): s is number => s !== null);
-  return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  return vals.length ? avg(vals) : null;
 }
 
 /* ── Group (rollup) helpers ─────────────────────────── */
@@ -107,14 +118,23 @@ function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMod
         : getMostRecentDomainScore(t, domainId),
     )
     .filter((s): s is number => s !== null);
-  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+  return scores.length ? avg(scores) : null;
 }
 
-function getGroupOverallAvg(groupTeachers: Teacher[], allDomains: DomainEntry[], viewMode: ViewMode): number | null {
-  const perDomain = allDomains
-    .map((d) => getGroupDomainScore(groupTeachers, d.id, viewMode))
+/* Group category sub-average = avg of per-teacher category avgs within group. */
+function getGroupCategoryAvg(groupTeachers: Teacher[], catDomains: DomainEntry[], viewMode: ViewMode): number | null {
+  const vals = groupTeachers
+    .map((t) => getCategoryAvg(t, catDomains, viewMode))
     .filter((s): s is number => s !== null);
-  return perDomain.length ? perDomain.reduce((a, b) => a + b, 0) / perDomain.length : null;
+  return vals.length ? avg(vals) : null;
+}
+
+/* Group overall avg = avg of group category sub-avgs. */
+function getGroupOverallAvg(groupTeachers: Teacher[], categories: CategoryEntry[], viewMode: ViewMode): number | null {
+  const catAvgs = categories
+    .map((c) => getGroupCategoryAvg(groupTeachers, c.domains, viewMode))
+    .filter((s): s is number => s !== null);
+  return catAvgs.length ? avg(catAvgs) : null;
 }
 
 /* ── Constants ──────────────────────────────────────── */
@@ -208,14 +228,11 @@ export default function Dashboard() {
     [filtered, viewBy],
   );
 
-  const teacherAvgFn = (t: Teacher) =>
-    viewMode === "periodAvg"
-      ? getQuarterTeacherAvg(t, allDomains)
-      : getMostRecentTeacherAvg(t, allDomains);
+  const teacherAvgFn = (t: Teacher) => getTeacherOverallAvg(t, categories, viewMode);
 
   const groupAvgs = useMemo(
-    () => groupRows.map((g) => getGroupOverallAvg(g.teachers, allDomains, viewMode)),
-    [groupRows, allDomains, viewMode],
+    () => groupRows.map((g) => getGroupOverallAvg(g.teachers, categories, viewMode)),
+    [groupRows, categories, viewMode],
   );
 
   /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
@@ -245,11 +262,11 @@ export default function Dashboard() {
     ? teacherAvgsForStat.reduce((a, b) => a + b, 0) / teacherAvgsForStat.length
     : 0;
   const statProficient   = viewBy === "teacher"
-    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 3; }).length
-    : groupAvgs.filter((a): a is number => a !== null && a >= 3).length;
+    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 0.7; }).length
+    : groupAvgs.filter((a): a is number => a !== null && a >= 0.7).length;
   const statNeedsSupport = viewBy === "teacher"
-    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 2; }).length
-    : groupAvgs.filter((a): a is number => a !== null && a < 2).length;
+    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 0.7; }).length
+    : groupAvgs.filter((a): a is number => a !== null && a < 0.7).length;
 
   const hasFilters = !!(subject.length || grade.length);
 
@@ -533,8 +550,8 @@ export default function Dashboard() {
           {[
             { label: rowCountLabel,          value: statCount,                                       pct: null,                                                                      colorScore: null as number | null },
             { label: "Average Score",         value: statCount ? statAvg.toFixed(1) : "—",           pct: null,                                                                      colorScore: statCount ? statAvg : null },
-            { label: "Proficient+ (≥ 3)",    value: statProficient,    pct: statCount ? Math.round(statProficient    / statCount * 100) : null, colorScore: null as number | null },
-            { label: "Need Support (< 2)",   value: statNeedsSupport,  pct: statCount ? Math.round(statNeedsSupport  / statCount * 100) : null, colorScore: null as number | null },
+            { label: "Proficient (≥ 0.7)",   value: statProficient,    pct: statCount ? Math.round(statProficient    / statCount * 100) : null, colorScore: null as number | null },
+            { label: "Not Proficient (< 0.7)", value: statNeedsSupport, pct: statCount ? Math.round(statNeedsSupport  / statCount * 100) : null, colorScore: null as number | null },
           ].map(({ label, value, pct, colorScore }) => (
             <div
               key={label}
@@ -694,7 +711,7 @@ export default function Dashboard() {
                   {categories.map((cat) => (
                     <th
                       key={cat.id}
-                      colSpan={cat.domains.length}
+                      colSpan={cat.domains.length + 1}
                       className="text-center font-bold uppercase tracking-wider text-white"
                       style={{
                         fontFamily: "'Bebas Neue', sans-serif",
@@ -713,7 +730,7 @@ export default function Dashboard() {
                     rowSpan={2}
                     className="text-center text-white uppercase"
                     style={{
-                      width: 54, minWidth: 54,
+                      width: 60, minWidth: 60,
                       fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
                       fontSize: 18,
@@ -725,22 +742,71 @@ export default function Dashboard() {
                   >
                     AVG
                   </th>
+
+                  <th
+                    rowSpan={2}
+                    className="text-center text-white uppercase"
+                    style={{
+                      width: 90, minWidth: 90,
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      letterSpacing: "0.02em",
+                      borderLeft: `2px solid ${YELLOW}`,
+                      backgroundColor: NAVY,
+                      paddingTop: 8, paddingBottom: 8,
+                    }}
+                  >
+                    Proficient
+                  </th>
                 </tr>
 
-                {/* Domain headers — vertical text */}
+                {/* Domain headers — vertical text, with sub-avg after each category */}
                 <tr style={{ backgroundColor: "#0d2990" }}>
-                  {allDomains.map((domain) => {
-                    const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
-                    return (
+                  {categories.map((cat) => (
+                    <Fragment key={cat.id}>
+                      {cat.domains.map((domain, di) => (
+                        <th
+                          key={domain.id}
+                          style={{
+                            width: 60, minWidth: 60, height: 88,
+                            color: "#c8d4f5",
+                            borderLeft: di === 0 ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                            textAlign: "center",
+                            verticalAlign: "top",
+                            paddingTop: 8,
+                            overflow: "visible",
+                          }}
+                        >
+                          <div
+                            style={{
+                              writingMode: "vertical-rl",
+                              transform: "rotate(180deg)",
+                              display: "inline-block",
+                              height: "80px",
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                              overflow: "visible",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {domain.label}
+                          </div>
+                        </th>
+                      ))}
+                      {/* Category sub-avg column header */}
                       <th
-                        key={domain.id}
+                        key={`subt-${cat.id}`}
                         style={{
-                          width: 68, minWidth: 68, height: 88,
-                          color: "#c8d4f5",
-                          borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                          width: 58, minWidth: 58, height: 88,
+                          color: YELLOW,
+                          borderLeft: "1px solid rgba(255,181,0,0.35)",
                           textAlign: "center",
                           verticalAlign: "top",
                           paddingTop: 8,
+                          backgroundColor: "#0a2070",
                           overflow: "visible",
                         }}
                       >
@@ -753,21 +819,23 @@ export default function Dashboard() {
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
-                            fontSize: "11px",
-                            fontWeight: 700,
+                            fontSize: "10px",
+                            fontWeight: 800,
                             lineHeight: 1.3,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
                           }}
                         >
-                          {domain.label}
+                          Sub Avg
                         </div>
                       </th>
-                    );
-                  })}
+                    </Fragment>
+                  ))}
                 </tr>
 
                 {/* Yellow separator */}
                 <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                  <td colSpan={allDomains.length + 2} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
+                  <td colSpan={allDomains.length + categories.length + 3} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
                 </tr>
 
               </thead>
@@ -777,7 +845,7 @@ export default function Dashboard() {
                 {viewBy === "teacher" && (
                   filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
+                      <td colSpan={allDomains.length + categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
                         No teachers match the current filters.
                       </td>
                     </tr>
@@ -809,28 +877,59 @@ export default function Dashboard() {
                             </p>
                           </td>
 
-                          {allDomains.map((domain) => {
-                            const score = viewMode === "periodAvg"
-                              ? getQuarterDomainScore(teacher, domain.id)
-                              : getMostRecentDomainScore(teacher, domain.id);
-                            const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
-                            const borderStyle = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                          {categories.map((cat) => {
+                            const catAvg = getCategoryAvg(teacher, cat.domains, viewMode);
                             return (
-                              <ScoreCell
-                                key={domain.id}
-                                score={score}
-                                className="py-1.5"
-                                style={borderStyle}
-                                onClick={score !== null ? () => openDrillDown(teacher, domain.id, domain.label) : undefined}
-                              />
+                              <Fragment key={cat.id}>
+                                {cat.domains.map((domain, di) => {
+                                  const score = viewMode === "periodAvg"
+                                    ? getQuarterDomainScore(teacher, domain.id)
+                                    : getMostRecentDomainScore(teacher, domain.id);
+                                  const borderStyle = di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                                  return (
+                                    <ScoreCell
+                                      key={domain.id}
+                                      score={score}
+                                      className="py-1.5"
+                                      style={borderStyle}
+                                      onClick={score !== null ? () => openDrillDown(teacher, domain.id, domain.label) : undefined}
+                                    />
+                                  );
+                                })}
+                                {/* Sub-avg cell */}
+                                <td
+                                  className={`text-center text-sm font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", backgroundColor: catAvg !== null ? undefined : "#f7f9fd", opacity: 0.92 }}
+                                >
+                                  {catAvg !== null ? catAvg.toFixed(2) : "—"}
+                                </td>
+                              </Fragment>
                             );
                           })}
 
+                          {/* Overall avg */}
                           <td
-                            className={`text-center text-xl font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : ""}`}
+                            className={`text-center text-base font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {avg !== null ? avg.toFixed(1) : "—"}
+                            {avg !== null ? avg.toFixed(2) : "—"}
+                          </td>
+
+                          {/* Proficient badge */}
+                          <td className="text-center py-1.5 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                            {avg !== null ? (
+                              <span
+                                className="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                                style={{
+                                  backgroundColor: avg >= 0.7 ? "#dcfce7" : "#fee2e2",
+                                  color: avg >= 0.7 ? "#15803d" : "#b91c1c",
+                                }}
+                              >
+                                {avg >= 0.7 ? "Proficient" : "Not Yet"}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -842,13 +941,13 @@ export default function Dashboard() {
                 {viewBy !== "teacher" && (
                   groupRows.length === 0 ? (
                     <tr>
-                      <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
+                      <td colSpan={allDomains.length + categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
                         No {viewBy === "subject" ? "subjects" : "grade levels"} match the current filters.
                       </td>
                     </tr>
                   ) : (
                     groupRows.map((group, rowIdx) => {
-                      const groupAvg = getGroupOverallAvg(group.teachers, allDomains, viewMode);
+                      const groupAvg = getGroupOverallAvg(group.teachers, categories, viewMode);
                       const isEven   = rowIdx % 2 === 0;
                       return (
                         <tr
@@ -871,30 +970,60 @@ export default function Dashboard() {
                             </p>
                           </td>
 
-                          {/* Averaged domain score cells */}
-                          {allDomains.map((domain) => {
-                            const score        = getGroupDomainScore(group.teachers, domain.id, viewMode);
-                            const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
-                            const borderStyle  = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
-                            return score !== null ? (
-                              <td
-                                key={domain.id}
-                                className={`text-center text-xl font-bold py-2 ${getScoreColor(score)}`}
-                                style={borderStyle}
-                              >
-                                {score.toFixed(1)}
-                              </td>
-                            ) : (
-                              <td key={domain.id} className="text-center text-slate-300" style={borderStyle}>—</td>
+                          {/* Averaged domain score cells + category sub-avg */}
+                          {categories.map((cat) => {
+                            const catAvg = getGroupCategoryAvg(group.teachers, cat.domains, viewMode);
+                            return (
+                              <Fragment key={cat.id}>
+                                {cat.domains.map((domain, di) => {
+                                  const score = getGroupDomainScore(group.teachers, domain.id, viewMode);
+                                  const borderStyle = di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                                  return score !== null ? (
+                                    <td
+                                      key={domain.id}
+                                      className={`text-center text-base font-bold py-2 ${getScoreColor(score)}`}
+                                      style={borderStyle}
+                                    >
+                                      {score.toFixed(2)}
+                                    </td>
+                                  ) : (
+                                    <td key={domain.id} className="text-center text-slate-300" style={borderStyle}>—</td>
+                                  );
+                                })}
+                                {/* Group category sub-avg */}
+                                <td
+                                  className={`text-center text-sm font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", opacity: 0.92 }}
+                                >
+                                  {catAvg !== null ? catAvg.toFixed(2) : "—"}
+                                </td>
+                              </Fragment>
                             );
                           })}
 
                           {/* Group overall avg */}
                           <td
-                            className={`text-center text-xl font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
+                            className={`text-center text-base font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
+                            {groupAvg !== null ? groupAvg.toFixed(2) : "—"}
+                          </td>
+
+                          {/* Proficient badge */}
+                          <td className="text-center py-2 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                            {groupAvg !== null ? (
+                              <span
+                                className="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                                style={{
+                                  backgroundColor: groupAvg >= 0.7 ? "#dcfce7" : "#fee2e2",
+                                  color: groupAvg >= 0.7 ? "#15803d" : "#b91c1c",
+                                }}
+                              >
+                                {groupAvg >= 0.7 ? "Proficient" : "Not Yet"}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 text-xs">—</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -922,39 +1051,66 @@ export default function Dashboard() {
                     >
                       Domain Avg
                     </td>
-                    {allDomains.map((domain) => {
-                      const avg: number | null = viewBy === "teacher"
-                        ? (viewMode === "periodAvg"
-                            ? getQuarterDomainAvg(domain.id, filtered)
-                            : (() => {
-                                const vals = filtered
-                                  .map((t) => getMostRecentDomainScore(t, domain.id))
-                                  .filter((s): s is number => s !== null);
-                                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-                              })())
+                    {categories.map((cat) => {
+                      const catFooterAvg: number | null = viewBy === "teacher"
+                        ? (() => {
+                            const vals = filtered
+                              .map((t) => getCategoryAvg(t, cat.domains, viewMode))
+                              .filter((s): s is number => s !== null);
+                            return vals.length ? avg(vals) : null;
+                          })()
                         : (() => {
                             const vals = groupRows
-                              .map((g) => getGroupDomainScore(g.teachers, domain.id, viewMode))
+                              .map((g) => getGroupCategoryAvg(g.teachers, cat.domains, viewMode))
                               .filter((s): s is number => s !== null);
-                            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+                            return vals.length ? avg(vals) : null;
                           })();
-                      const isFirstInCat = categories.some((c) => c.domains[0]?.id === domain.id);
                       return (
-                        <td
-                          key={domain.id}
-                          className={`text-center text-xl font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-400"}`}
-                          style={isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
-                        >
-                          {avg !== null ? avg.toFixed(1) : "—"}
-                        </td>
+                        <Fragment key={cat.id}>
+                          {cat.domains.map((domain, di) => {
+                            const domAvg: number | null = viewBy === "teacher"
+                              ? (viewMode === "periodAvg"
+                                  ? getQuarterDomainAvg(domain.id, filtered)
+                                  : (() => {
+                                      const vals = filtered
+                                        .map((t) => getMostRecentDomainScore(t, domain.id))
+                                        .filter((s): s is number => s !== null);
+                                      return vals.length ? avg(vals) : null;
+                                    })())
+                              : (() => {
+                                  const vals = groupRows
+                                    .map((g) => getGroupDomainScore(g.teachers, domain.id, viewMode))
+                                    .filter((s): s is number => s !== null);
+                                  return vals.length ? avg(vals) : null;
+                                })();
+                            return (
+                              <td
+                                key={domain.id}
+                                className={`text-center text-base font-bold py-1.5 ${domAvg !== null ? getScoreColor(domAvg) : "text-slate-400"}`}
+                                style={di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
+                              >
+                                {domAvg !== null ? domAvg.toFixed(2) : "—"}
+                              </td>
+                            );
+                          })}
+                          {/* Category sub-avg footer cell */}
+                          <td
+                            className={`text-center text-sm font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
+                            style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", opacity: 0.92 }}
+                          >
+                            {catFooterAvg !== null ? catFooterAvg.toFixed(2) : "—"}
+                          </td>
+                        </Fragment>
                       );
                     })}
                     <td
-                      className={`text-center text-xl font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
+                      className={`text-center text-base font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
                       style={{ borderLeft: `2px solid ${YELLOW}` }}
                     >
-                      {statAvg ? statAvg.toFixed(1) : "—"}
+                      {statAvg ? statAvg.toFixed(2) : "—"}
                     </td>
+                    {/* Blank proficient cell in footer */}
+                    <td style={{ borderLeft: `2px solid ${YELLOW}` }} />
                   </tr>
                 )}
               </tbody>

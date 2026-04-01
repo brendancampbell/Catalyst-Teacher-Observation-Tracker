@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachers } from "./teachers";
@@ -21,7 +21,7 @@ export const observationScores = pgTable("observation_scores", {
   id:            serial("id").primaryKey(),
   observationId: integer("observation_id").notNull().references(() => observations.id, { onDelete: "cascade" }),
   domainSlug:    text("domain_slug").notNull(),
-  score:         integer("score").notNull(),
+  score:         real("score").notNull(),
 });
 
 export const insertObservationSchema = createInsertSchema(observations).omit({ id: true });

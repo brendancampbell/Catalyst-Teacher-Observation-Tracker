@@ -231,7 +231,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                   <span
                     style={{
                       color: lastScore
-                        ? lastScore >= 3 ? "#4ade80" : lastScore >= 2 ? YELLOW : "#f87171"
+                        ? lastScore >= 0.7 ? "#4ade80" : lastScore >= 0.5 ? YELLOW : "#f87171"
                         : "#94a3b8",
                     }}
                   >

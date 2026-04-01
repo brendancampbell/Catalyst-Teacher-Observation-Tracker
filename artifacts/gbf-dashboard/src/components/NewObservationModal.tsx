@@ -26,21 +26,17 @@ interface Props {
   saving?: boolean;
 }
 
-const SCORE_LABELS: Record<Score, string> = {
-  1: "Needs Improvement",
-  2: "Approaching",
-  3: "Proficient",
-  4: "Exemplary",
-};
+const SCORE_OPTIONS: { value: Score; label: string }[] = [
+  { value: 0,   label: "Not Yet" },
+  { value: 0.5, label: "Developing" },
+  { value: 1,   label: "Proficient" },
+];
 
 function scorePillClass(s: Score, selected: boolean): string {
   if (!selected) return "bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200";
-  switch (s) {
-    case 4: return "bg-green-700 text-white border-2 border-green-600 shadow-sm";
-    case 3: return "bg-green-200 text-green-900 border-2 border-green-400 shadow-sm";
-    case 2: return "bg-yellow-100 text-yellow-900 border-2 border-yellow-300 shadow-sm";
-    case 1: return "bg-red-100 text-red-900 border-2 border-red-300 shadow-sm";
-  }
+  if (s >= 1)   return "bg-green-600 text-white border-2 border-green-500 shadow-sm";
+  if (s >= 0.5) return "bg-yellow-300 text-yellow-900 border-2 border-yellow-400 shadow-sm";
+  return "bg-red-300 text-red-900 border-2 border-red-400 shadow-sm";
 }
 
 export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, isDistrictAdmin, defaultTeacherId, onSubmit, saving }: Props) {
@@ -53,7 +49,6 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
 
-  /* Reset form (and apply defaultTeacherId) whenever the modal opens */
   useEffect(() => {
     if (open) {
       setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
@@ -150,7 +145,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               </div>
             </div>
 
-            {/* District Walkthrough toggle (only for DISTRICT_ADMIN) */}
+            {/* District Walkthrough toggle */}
             {isDistrictAdmin && (
               <div
                 className="flex items-center justify-between px-4 py-3 rounded-lg"
@@ -159,7 +154,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 <div>
                   <p className="font-bold text-sm" style={{ color: NAVY }}>District Walkthrough</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Mark this as an official district walkthrough. Teachers scoring below 3.0 will be added to the rescore queue.
+                    Mark this as an official district walkthrough. Teachers averaging below 0.7 will be added to the rescore queue.
                   </p>
                 </div>
                 <button
@@ -197,9 +192,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             {/* Score legend */}
             <div className="flex items-center gap-3 flex-wrap text-xs font-semibold">
               <span className="text-slate-400 uppercase tracking-wide mr-1">Scale:</span>
-              {([1, 2, 3, 4] as Score[]).map((s) => (
-                <span key={s} className={`px-2.5 py-0.5 rounded ${scorePillClass(s, true)}`}>
-                  {s} · {SCORE_LABELS[s]}
+              {SCORE_OPTIONS.map(({ value, label }) => (
+                <span key={value} className={`px-2.5 py-0.5 rounded ${scorePillClass(value, true)}`}>
+                  {value === 0 ? "0" : value === 1 ? "1" : "0.5"} · {label}
                 </span>
               ))}
             </div>
@@ -227,16 +222,16 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                             <span className="ml-2 text-xs font-normal text-slate-400 italic">— not scored</span>
                           )}
                         </span>
-                        <div className="flex gap-1.5 shrink-0">
-                          {([1, 2, 3, 4] as Score[]).map((s) => (
+                        <div className="flex gap-2 shrink-0">
+                          {SCORE_OPTIONS.map(({ value, label }) => (
                             <button
-                              key={s}
+                              key={value}
                               type="button"
-                              title={SCORE_LABELS[s]}
-                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: s }))}
-                              className={`w-9 h-9 rounded font-bold text-sm transition-all ${scorePillClass(s, scores[domain.id] === s)}`}
+                              title={label}
+                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: value }))}
+                              className={`px-3 h-9 rounded font-bold text-sm transition-all whitespace-nowrap ${scorePillClass(value, scores[domain.id] === value)}`}
                             >
-                              {s}
+                              {value === 0 ? "0" : value === 1 ? "1" : "0.5"}
                             </button>
                           ))}
                         </div>

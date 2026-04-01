@@ -7,21 +7,29 @@ import { getScoreColorExact } from "@/components/ScoreCell";
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
-const SCORE_LABELS: Record<Score, string> = {
-  1: "Needs Improvement",
-  2: "Approaching",
-  3: "Proficient",
-  4: "Exemplary",
+const SCORE_OPTIONS: { value: Score; label: string }[] = [
+  { value: 0,   label: "Not Yet" },
+  { value: 0.5, label: "Developing" },
+  { value: 1,   label: "Proficient" },
+];
+
+const SCORE_LABEL_MAP: Record<number, string> = {
+  0:   "Not Yet",
+  0.5: "Developing",
+  1:   "Proficient",
 };
 
 function scorePillClass(s: Score, selected: boolean): string {
   if (!selected) return "bg-slate-100 text-slate-400 hover:bg-slate-200 border border-transparent";
-  switch (s) {
-    case 4: return "bg-green-700 text-white border-2 border-green-600";
-    case 3: return "bg-green-200 text-green-900 border-2 border-green-400";
-    case 2: return "bg-yellow-100 text-yellow-900 border-2 border-yellow-300";
-    case 1: return "bg-red-100 text-red-900 border-2 border-red-300";
-  }
+  if (s >= 1)   return "bg-green-600 text-white border-2 border-green-500";
+  if (s >= 0.5) return "bg-yellow-300 text-yellow-900 border-2 border-yellow-400";
+  return "bg-red-300 text-red-900 border-2 border-red-400";
+}
+
+function scoreDisplay(s: Score): string {
+  if (s === 0) return "0";
+  if (s === 1) return "1";
+  return "0.5";
 }
 
 function formatDate(iso: string) {
@@ -122,29 +130,31 @@ export function ObservationDetailModal({ teacher, observation, open, onOpenChang
                 </div>
                 <div className="border border-t-0 border-slate-200 rounded-b divide-y divide-slate-100">
                   {cat.domains.map((domain) => {
-                    const viewScore = observation.scores[domain.id] as Score;
-                    const editScore = draftScores[domain.id] as Score;
+                    const viewScore = observation.scores[domain.id] as Score | undefined;
+                    const editScore = draftScores[domain.id] as Score | undefined;
                     return (
                       <div key={domain.id} className="flex items-center justify-between px-3 py-2.5 gap-4">
                         <span className="text-sm font-medium text-slate-700 flex-1">{domain.label}</span>
                         {editing ? (
-                          <div className="flex gap-1.5 shrink-0">
-                            {([1, 2, 3, 4] as Score[]).map((s) => (
+                          <div className="flex gap-2 shrink-0">
+                            {SCORE_OPTIONS.map(({ value, label }) => (
                               <button
-                                key={s}
+                                key={value}
                                 type="button"
-                                title={SCORE_LABELS[s]}
-                                onClick={() => setDraftScores((prev) => ({ ...prev, [domain.id]: s }))}
-                                className={`w-9 h-9 rounded font-bold text-sm transition-all ${scorePillClass(s, editScore === s)}`}
+                                title={label}
+                                onClick={() => setDraftScores((prev) => ({ ...prev, [domain.id]: value }))}
+                                className={`px-3 h-9 rounded font-bold text-sm transition-all whitespace-nowrap ${scorePillClass(value, editScore === value)}`}
                               >
-                                {s}
+                                {scoreDisplay(value)}
                               </button>
                             ))}
                           </div>
-                        ) : (
-                          <span className={`text-sm font-bold px-3 py-1 rounded min-w-[3rem] text-center ${getScoreColorExact(viewScore)}`}>
-                            {viewScore} · {SCORE_LABELS[viewScore]}
+                        ) : viewScore !== undefined ? (
+                          <span className={`text-sm font-bold px-3 py-1 rounded min-w-[5rem] text-center ${getScoreColorExact(viewScore)}`}>
+                            {scoreDisplay(viewScore)} · {SCORE_LABEL_MAP[viewScore] ?? "—"}
                           </span>
+                        ) : (
+                          <span className="text-sm text-slate-400 italic px-3 py-1">not scored</span>
                         )}
                       </div>
                     );

@@ -1,4 +1,4 @@
-export type Score = 1 | 2 | 3 | 4;
+export type Score = 0 | 0.5 | 1;
 
 export interface Observation {
   id: string;
@@ -58,9 +58,16 @@ export const SUBJECTS = ["English", "Math", "Science", "History", "PE", "Art", "
 export const GRADE_LEVELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] as const;
 
 let _obsId = 0;
+
+function remapLegacyScore(v: number): Score {
+  if (v <= 1) return 0;
+  if (v <= 2) return 0.5;
+  return 1;
+}
+
 function obs(
   date: string,
-  s: Score[],
+  s: number[],
   strengths?: string,
   growthAreas?: string,
   observer = "Principal Rivera",
@@ -69,7 +76,7 @@ function obs(
   return {
     id: `obs_${++_obsId}`,
     date,
-    scores: Object.fromEntries(ids.map((id, i) => [id, s[i]])) as Record<string, Score>,
+    scores: Object.fromEntries(ids.map((id, i) => [id, remapLegacyScore(s[i])])) as Record<string, Score>,
     strengths,
     growthAreas,
     observer,

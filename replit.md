@@ -39,7 +39,7 @@ artifacts-monorepo/
 
 ### Application Overview
 
-A principal observation tracker for Uncommon Schools. Principals log classroom observations for 20 teachers, scoring them on 10 rubric domains across 3 categories. The dashboard shows most-recent or quarter-average scores for all teachers in a color-coded grid.
+A principal observation tracker for Uncommon Schools. Principals log classroom observations for 20 teachers, scoring them on rubric domains across 3 categories. The dashboard shows most-recent or period-average scores for all teachers in a color-coded grid with category sub-averages and a Proficient column.
 
 ### Key Pages
 
@@ -54,7 +54,10 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 - "Most Recent" vs "Quarter Average" toggle
 - Click any teacher name → full profile view
 - Click any score cell → drill-down with trend chart
-- "Add Observation" modal with all 10 domains scored 1–4
+- "Add Observation" modal with all domains scored 0 / 0.5 / 1.0
+- Category sub-average columns for each rubric category
+- Overall AVG = average of category sub-averages
+- Proficient column (≥0.7 = Proficient, <0.7 = Not Yet)
 - Admin rubric manager for managing categories and domains
 - **User Permissions / RBAC**: Roles: COACH, PRINCIPAL, DISTRICT_ADMIN
   - User switcher dropdown in header (persists to localStorage)
@@ -66,7 +69,8 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 - **Brand colors**: Navy `#1034B4`, Yellow `#FFB500`
 - **Fonts**: Bebas Neue (headlines, stats, buttons), Libre Franklin (body)
-- Score colors: Green (4=exemplary), Light green (3=proficient), Yellow (2=approaching), Red (1=needs improvement)
+- Score colors: Green (≥0.7 = Proficient), Yellow (≥0.5 = Developing), Red (<0.5 = Not Yet)
+- Scoring scale: 0 (Not Yet) / 0.5 (Developing) / 1.0 (Proficient)
 
 ### Database Schema (lib/db/src/schema/)
 
@@ -76,7 +80,7 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 - `rubric_categories` — id, rubricSetId, name, displayOrder
 - `rubric_domains` — id, categoryId, name, slug, displayOrder
 - `observations` — id, teacherId, rubricSetId, observerId (FK→users), date, strengths, growthAreas, observer
-- `observation_scores` — id, observationId, domainSlug, score (1–4)
+- `observation_scores` — id, observationId, domainSlug, score (real: 0 / 0.5 / 1.0)
 
 ### API Endpoints (artifacts/api-server/)
 

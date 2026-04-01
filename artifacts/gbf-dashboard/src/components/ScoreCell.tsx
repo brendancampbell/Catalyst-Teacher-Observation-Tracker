@@ -8,29 +8,25 @@ interface ScoreCellProps {
 }
 
 export function getScoreColor(score: number): string {
-  if (score >= 3.5) return "bg-green-700 text-white";
-  if (score >= 3.0) return "bg-green-200 text-green-900";
-  if (score >= 2.0) return "bg-yellow-100 text-yellow-900";
-  return "bg-red-200 text-red-900";
+  if (score >= 0.7) return "bg-green-600 text-white";
+  if (score >= 0.5) return "bg-yellow-300 text-yellow-900";
+  return "bg-red-300 text-red-900";
 }
 
-export function getScoreColorExact(score: 1 | 2 | 3 | 4): string {
-  switch (score) {
-    case 4: return "bg-green-700 text-white";
-    case 3: return "bg-green-200 text-green-900";
-    case 2: return "bg-yellow-100 text-yellow-900";
-    case 1: return "bg-red-200 text-red-900";
-  }
+export function getScoreColorExact(score: number): string {
+  if (score >= 1)   return "bg-green-600 text-white";
+  if (score >= 0.5) return "bg-yellow-300 text-yellow-900";
+  return "bg-red-300 text-red-900";
 }
 
 export function ScoreCell({ score, className = "", style, onClick }: ScoreCellProps) {
   const clickable = !!onClick;
 
-  if (score === null || score === 0) {
+  if (score === null) {
     return (
       <td
         className={`text-center text-slate-300 ${className} ${clickable ? "cursor-pointer" : ""}`}
-        style={{ width: 68, minWidth: 68, ...style }}
+        style={{ width: 60, minWidth: 60, ...style }}
         onClick={onClick}
         title={clickable ? "Click to view score history" : undefined}
       >
@@ -39,23 +35,21 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
     );
   }
 
-  const isExact    = Number.isInteger(score);
-  const colorClass = isExact
-    ? getScoreColorExact(score as 1 | 2 | 3 | 4)
-    : getScoreColor(score);
+  const colorClass = getScoreColor(score);
+  const display = score === 0 ? "0" : score === 1 ? "1" : score.toFixed(1);
 
   return (
     <td
-      className={`text-center text-xl font-bold ${colorClass} ${className} ${
+      className={`text-center text-base font-bold ${colorClass} ${className} ${
         clickable
           ? "cursor-pointer relative transition-all duration-100 hover:ring-2 hover:ring-inset hover:ring-white/60 hover:brightness-90"
           : ""
       }`}
-      style={{ width: 68, minWidth: 68, ...style }}
+      style={{ width: 60, minWidth: 60, ...style }}
       onClick={onClick}
       title={clickable ? "Click to view score history" : undefined}
     >
-      {score.toFixed(isExact ? 0 : 1)}
+      {display}
     </td>
   );
 }
