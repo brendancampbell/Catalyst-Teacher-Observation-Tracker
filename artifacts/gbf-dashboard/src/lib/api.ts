@@ -225,11 +225,12 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
 /* ── Rubric Sets (admin) ───────────────────────────────────────── */
 
 export interface RubricSetRow {
-  id:        number;
-  slug:      string;
-  name:      string;
-  isActive:  boolean;
-  gradeSpan: string | null;
+  id:          number;
+  slug:        string;
+  name:        string;
+  isActive:    boolean;
+  gradeSpan:   string | null;
+  description: string | null;
 }
 
 /** @deprecated Use RubricSetRow */
@@ -241,6 +242,13 @@ export async function fetchRubricSets(): Promise<RubricSetRow[]> {
 
 /** @deprecated Use fetchRubricSets */
 export const fetchQuarters = fetchRubricSets;
+
+export async function updateRubricSet(slug: string, fields: { name?: string; description?: string }): Promise<RubricSetRow> {
+  return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
 
 export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>("/rubric/sets", {

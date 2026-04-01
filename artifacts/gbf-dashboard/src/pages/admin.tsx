@@ -5,6 +5,7 @@ import {
   fetchRubric,
   fetchRubricSets,
   createRubricSet,
+  updateRubricSet,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -57,6 +58,14 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [addingDomForCat,   setAddingDomForCat]   = useState<number | null>(null);
   const [newDomName,        setNewDomName]        = useState("");
   const [newDomSlug,        setNewDomSlug]        = useState("");
+
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descValue,   setDescValue]   = useState("");
+
+  const updDescMut = useMutation({
+    mutationFn: (description: string) => updateRubricSet(setSlug, { description }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditingDesc(false); },
+  });
 
   function slugify(s: string) {
     return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -115,14 +124,50 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <span
-          className="px-4 py-1.5 rounded-full font-bold uppercase text-white"
+          className="px-4 py-1.5 rounded-full font-bold uppercase text-white shrink-0"
           style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
         >
           {data.rubricSet.name}
         </span>
-        <span className="text-slate-400 text-sm">Managing categories and domains for this rubric set</span>
+
+        {editingDesc ? (
+          <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+            <input
+              className="flex-1 px-3 py-1 rounded border border-slate-300 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              value={descValue}
+              onChange={(e) => setDescValue(e.target.value)}
+              placeholder="Add a description for this rubric set…"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") updDescMut.mutate(descValue);
+                if (e.key === "Escape") setEditingDesc(false);
+              }}
+            />
+            <button
+              className="text-green-600 hover:text-green-800 p-1"
+              onClick={() => updDescMut.mutate(descValue)}
+              disabled={updDescMut.isPending}
+            >
+              <Check size={16} />
+            </button>
+            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingDesc(false)}>
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="flex items-center gap-1.5 group text-left"
+            onClick={() => { setDescValue(data.rubricSet.description ?? ""); setEditingDesc(true); }}
+            title="Click to edit description"
+          >
+            <span className="text-slate-400 text-sm group-hover:text-slate-600 transition-colors">
+              {data.rubricSet.description || "Add a description…"}
+            </span>
+            <Pencil size={12} className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+          </button>
+        )}
       </div>
 
       {data.categories.map((cat) => (

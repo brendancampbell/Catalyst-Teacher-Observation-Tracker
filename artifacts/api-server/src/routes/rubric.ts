@@ -68,6 +68,29 @@ router.post("/sets", async (req, res) => {
   }
 });
 
+/* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
+router.patch("/sets/:slug", async (req, res) => {
+  try {
+    const { name, description } = req.body as { name?: string; description?: string };
+    const updates: Record<string, unknown> = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (description !== undefined) updates.description = description;
+    if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
+
+    const [updated] = await db
+      .update(rubricSets)
+      .set(updates)
+      .where(eq(rubricSets.slug, req.params.slug))
+      .returning();
+
+    if (!updated) { res.status(404).json({ error: "Rubric set not found" }); return; }
+    res.json(updated);
+  } catch (err) {
+    console.error("PATCH /rubric/sets/:slug error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── GET /api/rubric/:setSlug ───────────────────────────────────── */
 router.get("/:setSlug", async (req, res) => {
   try {
