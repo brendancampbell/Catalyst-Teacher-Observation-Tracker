@@ -23,30 +23,6 @@ import DistrictDashboard from "@/components/DistrictDashboard";
 type ViewMode = "recent" | "periodAvg" | "walkthroughs";
 type ViewBy   = "teacher" | "subject" | "grade";
 
-/* ── Domain helper text (shown on hover in column headers) ──────── */
-const DOMAIN_DESCRIPTIONS: Record<string, string> = {
-  confident_presence:
-    "Teacher projects calm authority and warm confidence — voice carries, posture is deliberate, and students feel safe and expected to succeed.",
-  wtd_cycle:
-    "What To Do directions are specific, behavioral, and followed with a positive narration. Teacher holds the line and narrates compliance.",
-  ratio_engagement:
-    "Students do the cognitive heavy lifting — responding, thinking, writing, and discussing at a high rate with minimal teacher talk.",
-  joy:
-    "Class energy is warm and celebratory. Teacher names and prizes effort; joy is woven into routines and interactions.",
-  f15_entry:
-    "Students enter on task and the Do Now runs silently and efficiently. Entry routines execute without teacher prompting.",
-  f15_fluency:
-    "Oral drill is crisp — fast pacing, maximum participation, and errors corrected swiftly via choral response or whiteboards.",
-  f15_launch:
-    "Lesson objective is introduced clearly and compellingly. Students know what they're learning, why it matters, and what success looks like.",
-  lp_mks:
-    "Lesson plan drives instruction. Teacher uses marks (✓+, ✓, ✓−) to track mastery in real time and adjusts accordingly.",
-  annotations:
-    "Students annotate primary sources and maintain organized notebooks; annotations reflect active thinking, not passive copying.",
-  academic_mon:
-    "Teacher uses check-for-understanding data to identify who is lost, then reteaches or adjusts pacing within the lesson.",
-};
-
 /* ── Per-teacher domain helpers ────────────────────── */
 
 function avg(nums: number[]): number {
@@ -821,7 +797,7 @@ export default function Dashboard() {
                   {categories.map((cat) => (
                     <Fragment key={cat.id}>
                       {cat.domains.map((domain, di) => {
-                        const domainDesc = domain.description || DOMAIN_DESCRIPTIONS[domain.id] || "";
+                        const domainDesc = domain.description || "";
                         const hasDesc = !!domainDesc;
                         return (
                           <th
