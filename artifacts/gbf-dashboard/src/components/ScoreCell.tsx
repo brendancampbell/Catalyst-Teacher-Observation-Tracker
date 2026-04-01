@@ -36,7 +36,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
   }
 
   const colorClass = getScoreColor(score);
-  const display = score === 0 ? "0" : score === 1 ? "1" : score.toFixed(1);
+  const display = score.toFixed(1);
 
   return (
     <td

@@ -801,12 +801,12 @@ export default function Dashboard() {
                         key={`subt-${cat.id}`}
                         style={{
                           width: 58, minWidth: 58, height: 88,
-                          color: YELLOW,
-                          borderLeft: "1px solid rgba(255,181,0,0.35)",
+                          color: NAVY,
+                          borderLeft: `3px solid ${YELLOW}`,
                           textAlign: "center",
                           verticalAlign: "top",
                           paddingTop: 8,
-                          backgroundColor: "#0a2070",
+                          backgroundColor: YELLOW,
                           overflow: "visible",
                         }}
                       >
@@ -819,7 +819,7 @@ export default function Dashboard() {
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
-                            fontSize: "10px",
+                            fontSize: "14px",
                             fontWeight: 800,
                             lineHeight: 1.3,
                             textTransform: "uppercase",
@@ -898,10 +898,10 @@ export default function Dashboard() {
                                 })}
                                 {/* Sub-avg cell */}
                                 <td
-                                  className={`text-center text-sm font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", backgroundColor: catAvg !== null ? undefined : "#f7f9fd", opacity: 0.92 }}
+                                  className={`text-center text-lg font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd" }}
                                 >
-                                  {catAvg !== null ? catAvg.toFixed(2) : "—"}
+                                  {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
                               </Fragment>
                             );
@@ -912,7 +912,7 @@ export default function Dashboard() {
                             className={`text-center text-base font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {avg !== null ? avg.toFixed(2) : "—"}
+                            {avg !== null ? avg.toFixed(1) : "—"}
                           </td>
 
                           {/* Proficient badge */}
@@ -984,7 +984,7 @@ export default function Dashboard() {
                                       className={`text-center text-base font-bold py-2 ${getScoreColor(score)}`}
                                       style={borderStyle}
                                     >
-                                      {score.toFixed(2)}
+                                      {score.toFixed(1)}
                                     </td>
                                   ) : (
                                     <td key={domain.id} className="text-center text-slate-300" style={borderStyle}>—</td>
@@ -992,10 +992,10 @@ export default function Dashboard() {
                                 })}
                                 {/* Group category sub-avg */}
                                 <td
-                                  className={`text-center text-sm font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", opacity: 0.92 }}
+                                  className={`text-center text-lg font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: `3px solid ${YELLOW}` }}
                                 >
-                                  {catAvg !== null ? catAvg.toFixed(2) : "—"}
+                                  {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
                               </Fragment>
                             );
@@ -1006,7 +1006,7 @@ export default function Dashboard() {
                             className={`text-center text-base font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}` }}
                           >
-                            {groupAvg !== null ? groupAvg.toFixed(2) : "—"}
+                            {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
                           </td>
 
                           {/* Proficient badge */}
@@ -1089,16 +1089,16 @@ export default function Dashboard() {
                                 className={`text-center text-base font-bold py-1.5 ${domAvg !== null ? getScoreColor(domAvg) : "text-slate-400"}`}
                                 style={di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
                               >
-                                {domAvg !== null ? domAvg.toFixed(2) : "—"}
+                                {domAvg !== null ? domAvg.toFixed(1) : "—"}
                               </td>
                             );
                           })}
                           {/* Category sub-avg footer cell */}
                           <td
-                            className={`text-center text-sm font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
-                            style={{ borderLeft: "1px solid rgba(255,181,0,0.35)", opacity: 0.92 }}
+                            className={`text-center text-lg font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
+                            style={{ borderLeft: `3px solid ${YELLOW}` }}
                           >
-                            {catFooterAvg !== null ? catFooterAvg.toFixed(2) : "—"}
+                            {catFooterAvg !== null ? catFooterAvg.toFixed(1) : "—"}
                           </td>
                         </Fragment>
                       );
@@ -1107,7 +1107,7 @@ export default function Dashboard() {
                       className={`text-center text-base font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
                       style={{ borderLeft: `2px solid ${YELLOW}` }}
                     >
-                      {statAvg ? statAvg.toFixed(2) : "—"}
+                      {statAvg ? statAvg.toFixed(1) : "—"}
                     </td>
                     {/* Blank proficient cell in footer */}
                     <td style={{ borderLeft: `2px solid ${YELLOW}` }} />
