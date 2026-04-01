@@ -23,6 +23,30 @@ import DistrictDashboard from "@/components/DistrictDashboard";
 type ViewMode = "recent" | "periodAvg" | "walkthroughs";
 type ViewBy   = "teacher" | "subject" | "grade";
 
+/* ── Domain helper text (shown on hover in column headers) ──────── */
+const DOMAIN_DESCRIPTIONS: Record<string, string> = {
+  confident_presence:
+    "Teacher projects calm authority and warm confidence — voice carries, posture is deliberate, and students feel safe and expected to succeed.",
+  wtd_cycle:
+    "What To Do directions are specific, behavioral, and followed with a positive narration. Teacher holds the line and narrates compliance.",
+  ratio_engagement:
+    "Students do the cognitive heavy lifting — responding, thinking, writing, and discussing at a high rate with minimal teacher talk.",
+  joy:
+    "Class energy is warm and celebratory. Teacher names and prizes effort; joy is woven into routines and interactions.",
+  f15_entry:
+    "Students enter on task and the Do Now runs silently and efficiently. Entry routines execute without teacher prompting.",
+  f15_fluency:
+    "Oral drill is crisp — fast pacing, maximum participation, and errors corrected swiftly via choral response or whiteboards.",
+  f15_launch:
+    "Lesson objective is introduced clearly and compellingly. Students know what they're learning, why it matters, and what success looks like.",
+  lp_mks:
+    "Lesson plan drives instruction. Teacher uses marks (✓+, ✓, ✓−) to track mastery in real time and adjusts accordingly.",
+  annotations:
+    "Students annotate primary sources and maintain organized notebooks; annotations reflect active thinking, not passive copying.",
+  academic_mon:
+    "Teacher uses check-for-understanding data to identify who is lost, then reteaches or adjusts pacing within the lesson.",
+};
+
 /* ── Per-teacher domain helpers ────────────────────── */
 
 function avg(nums: number[]): number {
@@ -201,6 +225,9 @@ export default function Dashboard() {
   const categories: CategoryEntry[] = data?.categories ?? [];
   const allDomains: DomainEntry[] = categories.flatMap((c) => c.domains);
   const rubricSetId: number       = data?.rubricSet.id ?? 0;
+
+  /* ── Domain tooltip state ──────────────────────────── */
+  const [domainTooltip, setDomainTooltip] = useState<{ slug: string; x: number; y: number } | null>(null);
 
   /* ── Filter state ──────────────────────────────────── */
   const [subject, setSubject]       = useState<string[]>([]);
@@ -793,37 +820,46 @@ export default function Dashboard() {
                 <tr style={{ backgroundColor: "#0d2990" }}>
                   {categories.map((cat) => (
                     <Fragment key={cat.id}>
-                      {cat.domains.map((domain, di) => (
-                        <th
-                          key={domain.id}
-                          style={{
-                            width: 60, minWidth: 60, height: 88,
-                            color: "#c8d4f5",
-                            borderLeft: di === 0 ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
-                            textAlign: "center",
-                            verticalAlign: "top",
-                            paddingTop: 8,
-                            overflow: "visible",
-                          }}
-                        >
-                          <div
+                      {cat.domains.map((domain, di) => {
+                        const hasDesc = !!DOMAIN_DESCRIPTIONS[domain.id];
+                        return (
+                          <th
+                            key={domain.id}
                             style={{
-                              writingMode: "vertical-rl",
-                              transform: "rotate(180deg)",
-                              display: "inline-block",
-                              height: "80px",
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
+                              width: 60, minWidth: 60, height: 88,
+                              color: "#c8d4f5",
+                              borderLeft: di === 0 ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                              textAlign: "center",
+                              verticalAlign: "top",
+                              paddingTop: 8,
                               overflow: "visible",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              lineHeight: 1.3,
+                              cursor: hasDesc ? "help" : undefined,
                             }}
+                            onMouseEnter={hasDesc ? (e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6 });
+                            } : undefined}
+                            onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                           >
-                            {domain.label}
-                          </div>
-                        </th>
-                      ))}
+                            <div
+                              style={{
+                                writingMode: "vertical-rl",
+                                transform: "rotate(180deg)",
+                                display: "inline-block",
+                                height: "80px",
+                                whiteSpace: "normal",
+                                wordBreak: "break-word",
+                                overflow: "visible",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {domain.label}
+                            </div>
+                          </th>
+                        );
+                      })}
                       {/* Category sub-avg column header */}
                       <th
                         key={`subt-${cat.id}`}
@@ -1185,6 +1221,43 @@ export default function Dashboard() {
           }
         }}
       />
+
+      {/* ── Domain tooltip overlay ───────────────────────── */}
+      {domainTooltip && DOMAIN_DESCRIPTIONS[domainTooltip.slug] && (
+        <div
+          style={{
+            position: "fixed",
+            top: domainTooltip.y,
+            left: domainTooltip.x,
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            pointerEvents: "none",
+            maxWidth: 280,
+          }}
+        >
+          {/* Arrow */}
+          <div style={{
+            width: 0, height: 0,
+            borderLeft: "7px solid transparent",
+            borderRight: "7px solid transparent",
+            borderBottom: `7px solid ${NAVY}`,
+            margin: "0 auto",
+          }} />
+          <div style={{
+            backgroundColor: NAVY,
+            color: "white",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            lineHeight: 1.5,
+            fontFamily: "'Libre Franklin', sans-serif",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            textAlign: "left",
+          }}>
+            {DOMAIN_DESCRIPTIONS[domainTooltip.slug]}
+          </div>
+        </div>
+      )}
     </>
   );
 }
