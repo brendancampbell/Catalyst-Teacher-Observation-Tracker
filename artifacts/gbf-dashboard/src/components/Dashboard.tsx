@@ -14,7 +14,7 @@ import {
 import { fetchDashboard, fetchRubricSets, createObservation, updateObservation } from "@/lib/api";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
-import { ScoreCell, getScoreColor } from "@/components/ScoreCell";
+import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
@@ -1009,13 +1009,13 @@ export default function Dashboard() {
                                   return score !== null ? (
                                     <td
                                       key={domain.id}
-                                      className={`text-center text-base font-bold py-2 ${getScoreColor(score)}`}
-                                      style={borderStyle}
+                                      className="text-center text-base font-bold py-2"
+                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score) }}
                                     >
                                       {score.toFixed(1)}
                                     </td>
                                   ) : (
-                                    <td key={domain.id} className="text-center text-slate-300" style={borderStyle}>—</td>
+                                    <td key={domain.id} className="text-center text-slate-300" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
                                   );
                                 })}
                                 {/* Group category sub-avg */}
@@ -1114,8 +1114,12 @@ export default function Dashboard() {
                             return (
                               <td
                                 key={domain.id}
-                                className={`text-center text-base font-bold py-1.5 ${domAvg !== null ? getScoreColor(domAvg) : "text-slate-400"}`}
-                                style={di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }}
+                                className="text-center text-base font-bold py-1.5"
+                                style={{
+                                  ...(di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
+                                  backgroundColor: "white",
+                                  color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
+                                }}
                               >
                                 {domAvg !== null ? domAvg.toFixed(1) : "—"}
                               </td>

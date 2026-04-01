@@ -7,6 +7,7 @@ interface ScoreCellProps {
   onClick?: () => void;
 }
 
+/* Used by sub-avg and other summary cells that keep a colored background */
 export function getScoreColor(score: number): string {
   if (score >= 0.7) return "bg-green-600 text-white";
   if (score >= 0.5) return "bg-yellow-300 text-yellow-900";
@@ -19,6 +20,13 @@ export function getScoreColorExact(score: number): string {
   return "bg-red-300 text-red-900";
 }
 
+/* Returns a hex color for text-only coloring (white-background domain cells) */
+export function getScoreTextColor(score: number): string {
+  if (score >= 0.7) return "#16a34a"; // green-600
+  if (score >= 0.5) return "#d97706"; // amber-600
+  return "#dc2626";                   // red-600
+}
+
 export function ScoreCell({ score, className = "", style, onClick }: ScoreCellProps) {
   const clickable = !!onClick;
 
@@ -26,7 +34,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
     return (
       <td
         className={`text-center text-slate-300 ${className} ${clickable ? "cursor-pointer" : ""}`}
-        style={{ width: 60, minWidth: 60, ...style }}
+        style={{ width: 60, minWidth: 60, backgroundColor: "white", ...style }}
         onClick={onClick}
         title={clickable ? "Click to view score history" : undefined}
       >
@@ -35,17 +43,17 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
     );
   }
 
-  const colorClass = getScoreColor(score);
+  const textColor = getScoreTextColor(score);
   const display = score.toFixed(1);
 
   return (
     <td
-      className={`text-center text-base font-bold ${colorClass} ${className} ${
+      className={`text-center text-base font-bold ${className} ${
         clickable
-          ? "cursor-pointer relative transition-all duration-100 hover:ring-2 hover:ring-inset hover:ring-white/60 hover:brightness-90"
+          ? "cursor-pointer relative transition-all duration-100 hover:bg-slate-50"
           : ""
       }`}
-      style={{ width: 60, minWidth: 60, ...style }}
+      style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, ...style }}
       onClick={onClick}
       title={clickable ? "Click to view score history" : undefined}
     >
