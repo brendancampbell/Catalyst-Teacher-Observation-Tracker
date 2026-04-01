@@ -203,8 +203,9 @@ export default function Dashboard() {
   const rubricSetId: number       = data?.rubricSet.id ?? 0;
 
   /* ── Filter state ──────────────────────────────────── */
-  const [subject, setSubject]     = useState<string[]>([]);
-  const [grade, setGrade]   = useState<string[]>([]);
+  const [subject, setSubject]       = useState<string[]>([]);
+  const [grade, setGrade]           = useState<string[]>([]);
+  const [proficiency, setProficiency] = useState<string[]>([]);
 
   /* ── Teacher profile ───────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
@@ -235,6 +236,28 @@ export default function Dashboard() {
     [groupRows, categories, viewMode],
   );
 
+  /* ── Proficiency filter (applied after subject/grade) ── */
+  const profActive = proficiency.length === 1 ? proficiency[0] : null;
+
+  const profFiltered = useMemo(() => {
+    if (!profActive) return filtered;
+    return filtered.filter((t) => {
+      const a = teacherAvgFn(t);
+      if (a === null) return false;
+      return profActive === "Proficient" ? a >= 0.7 : a < 0.7;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, profActive, categories, viewMode]);
+
+  const profGroupRows = useMemo(() => {
+    if (!profActive) return groupRows;
+    return groupRows.filter((g) => {
+      const a = getGroupOverallAvg(g.teachers, categories, viewMode);
+      if (a === null) return false;
+      return profActive === "Proficient" ? a >= 0.7 : a < 0.7;
+    });
+  }, [groupRows, profActive, categories, viewMode]);
+
   /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
   if (isDistrictHome) {
     return (
@@ -249,26 +272,28 @@ export default function Dashboard() {
 
   /* ── Stats — teacher view ──────────────────────────── */
 
-  const statCount        = viewBy === "teacher" ? filtered.length : groupRows.length;
+  const profGroupAvgs = profGroupRows.map((g) => getGroupOverallAvg(g.teachers, categories, viewMode));
+
+  const statCount        = viewBy === "teacher" ? profFiltered.length : profGroupRows.length;
   const filteredAvgs     = viewBy === "teacher"
-    ? filtered.map((t) => teacherAvgFn(t)).filter((a): a is number => a !== null)
-    : groupAvgs;
+    ? profFiltered.map((t) => teacherAvgFn(t)).filter((a): a is number => a !== null)
+    : profGroupAvgs;
   /* Always compute school-wide average from individual teacher scores,
      never from group subtotals, so it stays consistent across all view modes. */
-  const teacherAvgsForStat = filtered
+  const teacherAvgsForStat = profFiltered
     .map((t) => teacherAvgFn(t))
     .filter((a): a is number => a !== null);
   const statAvg = teacherAvgsForStat.length
     ? teacherAvgsForStat.reduce((a, b) => a + b, 0) / teacherAvgsForStat.length
     : 0;
   const statProficient   = viewBy === "teacher"
-    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 0.7; }).length
-    : groupAvgs.filter((a): a is number => a !== null && a >= 0.7).length;
+    ? profFiltered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 0.7; }).length
+    : profGroupAvgs.filter((a): a is number => a !== null && a >= 0.7).length;
   const statNeedsSupport = viewBy === "teacher"
-    ? filtered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 0.7; }).length
-    : groupAvgs.filter((a): a is number => a !== null && a < 0.7).length;
+    ? profFiltered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 0.7; }).length
+    : profGroupAvgs.filter((a): a is number => a !== null && a < 0.7).length;
 
-  const hasFilters = !!(subject.length || grade.length);
+  const hasFilters = !!(subject.length || grade.length || proficiency.length);
 
   /* ── Handlers ──────────────────────────────────────── */
   async function handleNewObservation(
@@ -644,9 +669,12 @@ export default function Dashboard() {
             <FilterMultiSelect label="Grade"      values={grade} onChange={setGrade} options={[...GRADE_LEVELS]} />
           )}
 
+          {/* Proficiency filter */}
+          <FilterMultiSelect label="Proficiency" values={proficiency} onChange={setProficiency} options={["Proficient", "Not Yet"]} />
+
           {hasFilters && (
             <button
-              onClick={() => { setSubject([]); setGrade([]); }}
+              onClick={() => { setSubject([]); setGrade([]); setProficiency([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
@@ -843,14 +871,14 @@ export default function Dashboard() {
 
                 {/* ── TEACHER VIEW ─────────────────────────── */}
                 {viewBy === "teacher" && (
-                  filtered.length === 0 ? (
+                  profFiltered.length === 0 ? (
                     <tr>
                       <td colSpan={allDomains.length + categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
                         No teachers match the current filters.
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((teacher, rowIdx) => {
+                    profFiltered.map((teacher, rowIdx) => {
                       const avg    = teacherAvgFn(teacher);
                       const isEven = rowIdx % 2 === 0;
                       return (
@@ -939,14 +967,14 @@ export default function Dashboard() {
 
                 {/* ── DEPARTMENT / GRADE ROLLUP VIEW ───────── */}
                 {viewBy !== "teacher" && (
-                  groupRows.length === 0 ? (
+                  profGroupRows.length === 0 ? (
                     <tr>
                       <td colSpan={allDomains.length + categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
                         No {viewBy === "subject" ? "subjects" : "grade levels"} match the current filters.
                       </td>
                     </tr>
                   ) : (
-                    groupRows.map((group, rowIdx) => {
+                    profGroupRows.map((group, rowIdx) => {
                       const groupAvg = getGroupOverallAvg(group.teachers, categories, viewMode);
                       const isEven   = rowIdx % 2 === 0;
                       return (
@@ -1032,7 +1060,7 @@ export default function Dashboard() {
                 )}
 
                 {/* ── DOMAIN AVERAGE FOOTER ─────────────────── */}
-                {((viewBy === "teacher" && filtered.length > 0) || (viewBy !== "teacher" && groupRows.length > 0)) && (
+                {((viewBy === "teacher" && profFiltered.length > 0) || (viewBy !== "teacher" && profGroupRows.length > 0)) && (
                   <tr
                     className="sticky bottom-0 z-20 font-semibold"
                     style={{ backgroundColor: NAVY, borderTop: `3px solid ${YELLOW}` }}
@@ -1054,13 +1082,13 @@ export default function Dashboard() {
                     {categories.map((cat) => {
                       const catFooterAvg: number | null = viewBy === "teacher"
                         ? (() => {
-                            const vals = filtered
+                            const vals = profFiltered
                               .map((t) => getCategoryAvg(t, cat.domains, viewMode))
                               .filter((s): s is number => s !== null);
                             return vals.length ? avg(vals) : null;
                           })()
                         : (() => {
-                            const vals = groupRows
+                            const vals = profGroupRows
                               .map((g) => getGroupCategoryAvg(g.teachers, cat.domains, viewMode))
                               .filter((s): s is number => s !== null);
                             return vals.length ? avg(vals) : null;
@@ -1070,15 +1098,15 @@ export default function Dashboard() {
                           {cat.domains.map((domain, di) => {
                             const domAvg: number | null = viewBy === "teacher"
                               ? (viewMode === "periodAvg"
-                                  ? getQuarterDomainAvg(domain.id, filtered)
+                                  ? getQuarterDomainAvg(domain.id, profFiltered)
                                   : (() => {
-                                      const vals = filtered
+                                      const vals = profFiltered
                                         .map((t) => getMostRecentDomainScore(t, domain.id))
                                         .filter((s): s is number => s !== null);
                                       return vals.length ? avg(vals) : null;
                                     })())
                               : (() => {
-                                  const vals = groupRows
+                                  const vals = profGroupRows
                                     .map((g) => getGroupDomainScore(g.teachers, domain.id, viewMode))
                                     .filter((s): s is number => s !== null);
                                   return vals.length ? avg(vals) : null;
