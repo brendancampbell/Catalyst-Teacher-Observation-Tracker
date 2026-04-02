@@ -204,8 +204,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             {categories.map((cat) => (
               <div key={cat.id}>
                 <div
-                  className="px-3 py-1.5 rounded-t font-bold uppercase tracking-wider text-white text-xs"
-                  style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+                  className="px-3 py-2 rounded-t font-bold uppercase tracking-wider text-white"
+                  style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}
                 >
                   {cat.label}
                 </div>
@@ -292,7 +292,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
-                {saving ? "Saving…" : isWalkthrough ? "Submit Walkthrough / Rescore" : "Submit Observation"}
+                {saving ? "Saving…" : "Submit"}
               </button>
             </div>
           </div>
