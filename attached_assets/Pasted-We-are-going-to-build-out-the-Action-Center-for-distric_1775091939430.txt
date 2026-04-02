@@ -1,0 +1,23 @@
+We are going to build out the “Action Center" for district users (or Network Overview) for our GBF tracker. This page is specifically for Network Admins to view aggregated data across all schools.
+
+1. LAYOUT & NAVIGATION:
+Build this using the same Sub-page / Tab navigation structure as the school action center (using shadcn/ui `Tabs` or a left-hand Sidebar layout) to match the styling of our school-level action center. The navigation should have three specific sections: “Network-Wide Summary", “Network Interventions", and “Network Data Assistant".
+
+2. SUB-PAGE 1: NETWORK-WIDE SUMMARY
+This page provides a high-level pulse on the entire network’s performance. For this, just build UI placeholders/shells with dummy data - this will not contain the actual AI features yet (please add a subtle UI disclaimer that explains these are AI placeholders coming soon). 
+- Build a top row of summary stat cards: "Current Network Average", "Top Network Strength" (e.g., Confident Presence), and "Highest Priority Growth Area" (e.g., Academic Monitoring 101).
+- Build a “Network-Wide Trends" list/card: Display fake, aggregated insights (e.g., "Across 4 schools, 42% of recent observations resulted in action steps related to 'Sequential Directions'").
+- Build a "School Calibration Flags" warning card: Display dummy discrepancies comparing internal school grading vs. district walkthroughs (e.g., "Washington High: Internal coach scores are averaging 0.8 points higher than Network Walkthroughs").
+
+3. SUB-PAGE 2: INTERVENTION
+This page contains the urgent, operational tasks for the district team across all campuses.
+- Build a “Network Walkthrough Rescore Queue": A data table showing the list of schools and the number of teachers who need rescores (and number that are overdue). 
+- Build a "School Support Alerts" (Growth Plateaus) section: Cards highlighting systemic stagnation (e.g., "Lincoln Middle - 65% of staff stuck below 2.5 in 'WTD Cycle' for 4 weeks" or "12 Teachers at Washington High on Growth Plateaus").
+
+4. SUB-PAGE 3: DATA ASSISTANT (CHAT)
+This page is a mockup for an AI chatbot interface where Network Admins can ask cross-school comparative questions.
+- Build a chat UI layout taking up the main screen area.
+- Include a scrollable message history area displaying a dummy conversation. (e.g., User: "How does Washington High compare to Lincoln Middle in Classroom Culture?", AI: "Based on this quarter's walkthroughs, Washington High is outperforming Lincoln Middle by 0.6 points in Classroom Culture, largely driven by higher scores in 'Joy' and 'Confident Presence'...")
+- Include a text input field at the bottom with a "Send" button icon.
+
+Make the layout look like a premium, modern SaaS application using Tailwind CSS. Use subtle background colors for the cards, professional typography, and shadcn/ui components (Cards, Badges, Tables, Inputs, Buttons, ScrollArea).

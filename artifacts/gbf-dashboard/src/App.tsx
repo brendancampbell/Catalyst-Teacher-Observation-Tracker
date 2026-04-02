@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/components/Dashboard";
 import AdminPage from "@/pages/admin";
 import ActionCenterPage from "@/pages/action-center";
+import DistrictActionCenterPage from "@/pages/district-action-center";
 import { UserProvider } from "@/context/UserContext";
 
 const queryClient = new QueryClient();
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/admin" component={AdminPage} />
       <Route path="/action-center" component={ActionCenterPage} />
+      <Route path="/district-action-center" component={DistrictActionCenterPage} />
       <Route component={NotFound} />
     </Switch>
   );

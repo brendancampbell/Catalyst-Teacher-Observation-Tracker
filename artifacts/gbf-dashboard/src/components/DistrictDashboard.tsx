@@ -259,8 +259,22 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             </div>
           </div>
 
-          {/* Right: Admin + user switcher */}
+          {/* Right: Network Action Center + Admin + user switcher */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <a
+              href={`${baseUrl}/district-action-center`}
+              className="hidden sm:flex items-center gap-2 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+              style={{
+                backgroundColor: YELLOW,
+                color: NAVY,
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 14,
+                letterSpacing: "0.02em",
+              }}
+            >
+              <span style={{ fontSize: 13 }}>⚡</span>
+              Network Action Center
+            </a>
             <a
               href={`${baseUrl}/admin`}
               className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
