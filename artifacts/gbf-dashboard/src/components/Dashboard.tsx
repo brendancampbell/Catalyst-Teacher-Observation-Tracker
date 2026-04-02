@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { Plus, ChevronDown, ArrowLeft } from "lucide-react";
 import { useSearch } from "wouter";
