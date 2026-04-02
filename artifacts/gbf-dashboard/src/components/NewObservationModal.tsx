@@ -211,18 +211,17 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 </div>
                 <div className="border border-t-0 border-slate-200 rounded-b divide-y divide-slate-100">
                   {cat.domains.map((domain) => {
-                    const isUnscored = scores[domain.id] === undefined;
                     return (
                       <div
                         key={domain.id}
-                        className="flex items-center justify-between px-3 py-2.5 transition-colors"
+                        className="flex items-start justify-between px-3 py-2.5 transition-colors gap-4"
                       >
-                        <span className="text-sm font-medium flex-1 pr-4 text-slate-700">
-                          {domain.label}
-                          {isUnscored && (
-                            <span className="ml-2 text-xs font-normal text-slate-400 italic">— not scored</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-700">{domain.label}</p>
+                          {domain.description && (
+                            <p className="text-xs text-slate-400 mt-0.5 leading-snug">{domain.description}</p>
                           )}
-                        </span>
+                        </div>
                         <div className="flex gap-2 shrink-0">
                           {SCORE_OPTIONS.map(({ value, label }) => (
                             <button
