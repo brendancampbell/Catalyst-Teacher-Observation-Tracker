@@ -2,7 +2,7 @@ import { Fragment, useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
-import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow } from "@/lib/api";
+import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
@@ -17,35 +17,66 @@ type DistrictViewBy = "school" | "region" | "gradeSpan";
 type ScoreType      = "recent" | "average" | "walkthroughs";
 
 interface DisplayRow {
-  key:           string;
-  label:         string;
-  subLabel:      string;
-  isClickable:   boolean;
-  schoolId?:     number;
+  key:            string;
+  label:          string;
+  subLabel:       string;
+  isClickable:    boolean;
+  schoolId?:      number;
   domainAverages: Record<string, number | null>;
-  overall:       number | null;
-  teacherCount:  number;
-  observedCount: number;
+  catSubAvgs:     Record<string, number | null>;
+  overall:        number | null;
+  teacherCount:   number;
+  observedCount:  number;
+}
+
+/* Compute category sub-averages from flat domain averages */
+function computeCatSubAvgs(
+  domainAverages: Record<string, number | null>,
+  categories: CategoryEntry[],
+): Record<string, number | null> {
+  const result: Record<string, number | null> = {};
+  for (const cat of categories) {
+    const vals = cat.domains
+      .map((d) => domainAverages[d.id] ?? null)
+      .filter((v): v is number => v !== null);
+    result[cat.id] = vals.length
+      ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      : null;
+  }
+  return result;
+}
+
+/* Overall = avg of category sub-averages */
+function computeOverall(catSubAvgs: Record<string, number | null>): number | null {
+  const vals = Object.values(catSubAvgs).filter((v): v is number => v !== null);
+  return vals.length
+    ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+    : null;
 }
 
 /* Build the rows to display based on the current view-by setting */
 function buildDisplayRows(
-  schools:  DistrictSchoolRow[],
-  viewBy:   DistrictViewBy,
-  allSlugs: string[],
+  schools:    DistrictSchoolRow[],
+  viewBy:     DistrictViewBy,
+  allSlugs:   string[],
+  categories: CategoryEntry[],
 ): DisplayRow[] {
   if (viewBy === "school") {
-    return schools.map((s) => ({
-      key:           String(s.id),
-      label:         s.name,
-      subLabel:      `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`,
-      isClickable:   true,
-      schoolId:      s.id,
-      domainAverages: s.domainAverages,
-      overall:       s.overall,
-      teacherCount:  s.teacherCount,
-      observedCount: s.observedCount,
-    }));
+    return schools.map((s) => {
+      const catSubAvgs = computeCatSubAvgs(s.domainAverages, categories);
+      return {
+        key:           String(s.id),
+        label:         s.name,
+        subLabel:      `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`,
+        isClickable:   true,
+        schoolId:      s.id,
+        domainAverages: s.domainAverages,
+        catSubAvgs,
+        overall:       computeOverall(catSubAvgs),
+        teacherCount:  s.teacherCount,
+        observedCount: s.observedCount,
+      };
+    });
   }
 
   const groupKey = viewBy === "region" ? "region" : "gradeSpan";
@@ -76,20 +107,13 @@ function buildDisplayRows(
     }
 
     const domainAverages: Record<string, number | null> = {};
-    let totalSum = 0, totalCount = 0;
     for (const slug of allSlugs) {
       const cnt = domainCounts[slug] ?? 0;
-      if (cnt > 0) {
-        const avg = domainSums[slug] / cnt;
-        domainAverages[slug] = Math.round(avg * 10) / 10;
-        totalSum += avg;
-        totalCount += 1;
-      } else {
-        domainAverages[slug] = null;
-      }
+      domainAverages[slug] = cnt > 0 ? Math.round((domainSums[slug] / cnt) * 10) / 10 : null;
     }
 
-    const overall      = totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null;
+    const catSubAvgs    = computeCatSubAvgs(domainAverages, categories);
+    const overall       = computeOverall(catSubAvgs);
     const teacherCount  = grp.reduce((s, r) => s + r.teacherCount,  0);
     const observedCount = grp.reduce((s, r) => s + r.observedCount, 0);
 
@@ -103,6 +127,7 @@ function buildDisplayRows(
       subLabel:      `${grp.length} school${grp.length !== 1 ? "s" : ""} · ${teacherCount} teachers`,
       isClickable:   false,
       domainAverages,
+      catSubAvgs,
       overall,
       teacherCount,
       observedCount,
@@ -160,20 +185,36 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     return rows;
   }, [data, filterRegion, filterGradeSpan]);
 
+  const allCategories = useMemo(() => data?.categories ?? [], [data]);
+
   const displayRows = useMemo(
-    () => buildDisplayRows(filteredSchools, viewBy, allSlugs),
-    [filteredSchools, viewBy, allSlugs],
+    () => buildDisplayRows(filteredSchools, viewBy, allSlugs, allCategories),
+    [filteredSchools, viewBy, allSlugs, allCategories],
   );
 
-  /* ── Derived stats (always from filtered school rows) ────── */
+  /* ── Derived stats — use computed overall (avg of cat sub-avgs) ── */
   const schoolCount    = filteredSchools.length;
-  const districtAvgRaw = (() => {
-    const rows = filteredSchools.filter((r) => r.overall != null);
+  const districtAvgRaw = useMemo(() => {
+    if (viewBy === "school") {
+      /* displayRows already has correct computed overall */
+      const rows = displayRows.filter((r) => r.overall != null);
+      if (!rows.length) return null;
+      return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
+    }
+    /* For grouped view, use the group rows themselves */
+    const rows = displayRows.filter((r) => r.overall != null);
     if (!rows.length) return null;
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
-  })();
-  const proficient   = filteredSchools.filter((s) => s.overall != null && s.overall >= 0.7).length;
-  const needsSupport = filteredSchools.filter((s) => s.overall != null && s.overall <  0.7).length;
+  }, [displayRows, viewBy]);
+
+  const proficient   = useMemo(
+    () => displayRows.filter((r) => r.overall != null && r.overall >= 0.7).length,
+    [displayRows],
+  );
+  const needsSupport = useMemo(
+    () => displayRows.filter((r) => r.overall != null && r.overall <  0.7).length,
+    [displayRows],
+  );
 
   /* First column label */
   const firstColLabel =
@@ -504,7 +545,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                     {data.categories.map((cat) => (
                       <th
                         key={cat.id}
-                        colSpan={cat.domains.length}
+                        colSpan={cat.domains.length + 1}
                         className="text-center font-bold uppercase tracking-wider text-white"
                         style={{
                           fontFamily: "'Bebas Neue', sans-serif",
@@ -523,7 +564,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                       rowSpan={2}
                       className="text-center text-white uppercase"
                       style={{
-                        width: 54, minWidth: 54,
+                        width: 64, minWidth: 64,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
                         fontSize: 18,
@@ -535,56 +576,107 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                     >
                       AVG
                     </th>
+
+                    <th
+                      rowSpan={2}
+                      className="text-center text-white uppercase"
+                      style={{
+                        width: 90, minWidth: 90,
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontWeight: 700,
+                        fontSize: 18,
+                        letterSpacing: "0.02em",
+                        borderLeft: `2px solid ${YELLOW}`,
+                        backgroundColor: NAVY,
+                        paddingTop: 8, paddingBottom: 8,
+                      }}
+                    >
+                      Proficient
+                    </th>
                   </tr>
 
                   {/* Domain headers — vertical text */}
                   <tr style={{ backgroundColor: "#0d2990" }}>
-                    {allDomains.map((domain) => {
-                      const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
-                      const hasDesc = !!domain.description;
-                      return (
+                    {data.categories.flatMap((cat) => {
+                      const isFirstCatDomain = (domain: { id: string }) =>
+                        cat.domains[0]?.id === domain.id;
+                      return [
+                        ...cat.domains.map((domain) => {
+                          const hasDesc = !!domain.description;
+                          return (
+                            <th
+                              key={domain.id}
+                              style={{
+                                width: 68, minWidth: 68, height: 88,
+                                color: "#c8d4f5",
+                                borderLeft: isFirstCatDomain(domain) ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                                textAlign: "center",
+                                verticalAlign: "top",
+                                paddingTop: 8,
+                                overflow: "visible",
+                                cursor: hasDesc ? "help" : undefined,
+                              }}
+                              onMouseEnter={hasDesc ? (e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6, description: domain.description! });
+                              } : undefined}
+                              onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
+                            >
+                              <div
+                                style={{
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                  display: "inline-block",
+                                  height: "80px",
+                                  whiteSpace: "normal",
+                                  wordBreak: "break-word",
+                                  overflow: "visible",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  lineHeight: 1.3,
+                                }}
+                              >
+                                {domain.label}
+                              </div>
+                            </th>
+                          );
+                        }),
+                        /* SUB AVG header for this category */
                         <th
-                          key={domain.id}
+                          key={`subavg-${cat.id}`}
                           style={{
-                            width: 68, minWidth: 68, height: 88,
-                            color: "#c8d4f5",
-                            borderLeft: isFirstInCat ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                            width: 62, minWidth: 62, height: 88,
+                            backgroundColor: YELLOW,
+                            color: NAVY,
+                            borderLeft: "1px solid rgba(255,255,255,0.15)",
                             textAlign: "center",
                             verticalAlign: "top",
                             paddingTop: 8,
-                            overflow: "visible",
-                            cursor: hasDesc ? "help" : undefined,
                           }}
-                          onMouseEnter={hasDesc ? (e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6, description: domain.description! });
-                          } : undefined}
-                          onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                         >
                           <div
                             style={{
                               writingMode: "vertical-rl",
                               transform: "rotate(180deg)",
                               display: "inline-block",
-                              height: "80px",
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
-                              overflow: "visible",
-                              fontSize: "11px",
-                              fontWeight: 700,
+                              height: "70px",
+                              fontSize: "10px",
+                              fontWeight: 800,
                               lineHeight: 1.3,
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              letterSpacing: "0.04em",
                             }}
                           >
-                            {domain.label}
+                            SUB AVG
                           </div>
-                        </th>
-                      );
+                        </th>,
+                      ];
                     })}
                   </tr>
 
                   {/* Yellow separator */}
                   <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                    <td colSpan={allDomains.length + 2} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
+                    <td colSpan={allDomains.length + allCategories.length} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
                   </tr>
 
                 </thead>
@@ -625,23 +717,54 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           </p>
                         </td>
 
-                        {/* Domain average cells — white bg, colored text */}
-                        {allDomains.map((domain) => {
-                          const val = row.domainAverages[domain.id] ?? null;
-                          const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
-                          const borderStyle  = isFirstInCat ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
-                          return val != null ? (
-                            <td
-                              key={domain.id}
-                              className="text-center py-2 text-xl font-bold tabular-nums"
-                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "white", color: getScoreTextColor(val) }}
-                            >
-                              {val.toFixed(1)}
-                            </td>
-                          ) : (
-                            <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
-                          );
-                        })}
+                        {/* Per-category: domain cells + SUB AVG cell */}
+                        {data.categories.flatMap((cat) => [
+                          ...cat.domains.map((domain, dIdx) => {
+                            const val = row.domainAverages[domain.id] ?? null;
+                            const isFirst = dIdx === 0;
+                            const borderStyle = isFirst
+                              ? { borderLeft: `2px solid ${YELLOW}` }
+                              : { borderLeft: "1px solid #e8edf8" };
+                            return val != null ? (
+                              <td
+                                key={domain.id}
+                                className="text-center py-2 text-xl font-bold tabular-nums"
+                                style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "white", color: getScoreTextColor(val) }}
+                              >
+                                {val.toFixed(1)}
+                              </td>
+                            ) : (
+                              <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
+                            );
+                          }),
+                          /* SUB AVG cell */
+                          (() => {
+                            const sub = row.catSubAvgs[cat.id] ?? null;
+                            return sub != null ? (
+                              <td
+                                key={`subavg-${cat.id}`}
+                                className="text-center py-2 text-base font-bold tabular-nums"
+                                style={{
+                                  borderLeft: "1px solid #e8edf8",
+                                  fontFamily: "'Bebas Neue', sans-serif",
+                                  backgroundColor: "#fffbea",
+                                  color: getScoreTextColor(sub),
+                                  fontSize: 17,
+                                }}
+                              >
+                                {sub.toFixed(1)}
+                              </td>
+                            ) : (
+                              <td
+                                key={`subavg-${cat.id}`}
+                                className="text-center text-slate-300 py-2"
+                                style={{ borderLeft: "1px solid #e8edf8", backgroundColor: "#fffbea" }}
+                              >
+                                —
+                              </td>
+                            );
+                          })(),
+                        ])}
 
                         {/* AVG column — full-cell coloring */}
                         {row.overall != null ? (
@@ -654,13 +777,36 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         ) : (
                           <td className="text-center text-slate-300 py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>—</td>
                         )}
+
+                        {/* PROFICIENT column */}
+                        <td className="text-center py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                          {row.overall != null ? (
+                            row.overall >= 0.7 ? (
+                              <span
+                                className="inline-block font-bold rounded px-2 py-0.5"
+                                style={{ backgroundColor: "#dcfce7", color: "#15803d", fontSize: 11, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                              >
+                                Proficient
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-block font-bold rounded px-2 py-0.5"
+                                style={{ backgroundColor: "#fee2e2", color: "#b91c1c", fontSize: 11, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                              >
+                                Not Yet
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
 
                   {displayRows.length === 0 && (
                     <tr>
-                      <td colSpan={allDomains.length + 2} className="text-center py-12 text-slate-400 text-sm">
+                      <td colSpan={allDomains.length + data.categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
                         No data available for this quarter.
                       </td>
                     </tr>
