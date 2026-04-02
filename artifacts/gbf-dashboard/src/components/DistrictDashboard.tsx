@@ -659,15 +659,18 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               writingMode: "vertical-rl",
                               transform: "rotate(180deg)",
                               display: "inline-block",
-                              height: "70px",
-                              fontSize: "10px",
+                              height: "80px",
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                              overflow: "visible",
+                              fontSize: "14px",
                               fontWeight: 800,
                               lineHeight: 1.3,
-                              fontFamily: "'Bebas Neue', sans-serif",
+                              textTransform: "uppercase",
                               letterSpacing: "0.04em",
                             }}
                           >
-                            SUB AVG
+                            Sub Avg
                           </div>
                         </th>,
                       ];
@@ -737,28 +740,22 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
                             );
                           }),
-                          /* SUB AVG cell */
+                          /* SUB AVG cell — full-cell background coloring */
                           (() => {
                             const sub = row.catSubAvgs[cat.id] ?? null;
                             return sub != null ? (
                               <td
                                 key={`subavg-${cat.id}`}
-                                className="text-center py-2 text-base font-bold tabular-nums"
-                                style={{
-                                  borderLeft: "1px solid #e8edf8",
-                                  fontFamily: "'Bebas Neue', sans-serif",
-                                  backgroundColor: "#fffbea",
-                                  color: getScoreTextColor(sub),
-                                  fontSize: 17,
-                                }}
+                                className={`text-center text-lg font-bold py-1.5 ${getScoreColor(sub)}`}
+                                style={{ borderLeft: `3px solid ${YELLOW}` }}
                               >
                                 {sub.toFixed(1)}
                               </td>
                             ) : (
                               <td
                                 key={`subavg-${cat.id}`}
-                                className="text-center text-slate-300 py-2"
-                                style={{ borderLeft: "1px solid #e8edf8", backgroundColor: "#fffbea" }}
+                                className="text-center text-slate-300 py-1.5"
+                                style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: "#f7f9fd" }}
                               >
                                 —
                               </td>
@@ -779,25 +776,19 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         )}
 
                         {/* PROFICIENT column */}
-                        <td className="text-center py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                        <td className="text-center py-1.5 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
                           {row.overall != null ? (
-                            row.overall >= 0.7 ? (
-                              <span
-                                className="inline-block font-bold rounded px-2 py-0.5"
-                                style={{ backgroundColor: "#dcfce7", color: "#15803d", fontSize: 11, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                              >
-                                Proficient
-                              </span>
-                            ) : (
-                              <span
-                                className="inline-block font-bold rounded px-2 py-0.5"
-                                style={{ backgroundColor: "#fee2e2", color: "#b91c1c", fontSize: 11, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                              >
-                                Not Yet
-                              </span>
-                            )
+                            <span
+                              className="inline-block px-2 py-0.5 rounded text-xs font-bold"
+                              style={{
+                                backgroundColor: row.overall >= 0.7 ? "#dcfce7" : "#fee2e2",
+                                color: row.overall >= 0.7 ? "#15803d" : "#b91c1c",
+                              }}
+                            >
+                              {row.overall >= 0.7 ? "Proficient" : "Not Yet"}
+                            </span>
                           ) : (
-                            <span className="text-slate-300">—</span>
+                            <span className="text-slate-300 text-xs">—</span>
                           )}
                         </td>
                       </tr>
