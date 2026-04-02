@@ -157,17 +157,19 @@ export default function Dashboard() {
 
   /* ── URL params: schoolId for district drill-down ─── */
   const search = useSearch();
+  const searchParams = useMemo(() => new URLSearchParams(search), [search]);
   const schoolId = useMemo(() => {
-    const v = new URLSearchParams(search).get("schoolId");
+    const v = searchParams.get("schoolId");
     return v ? Number(v) : null;
-  }, [search]);
+  }, [searchParams]);
 
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   /* ── School name from URL param (for drill-down label) */
-  const schoolName = useMemo(() => {
-    return new URLSearchParams(search).get("schoolName") ?? null;
-  }, [search]);
+  const schoolName = useMemo(() => searchParams.get("schoolName") ?? null, [searchParams]);
+
+  /* ── ?teacher=<id> — auto-open teacher profile on load */
+  const urlTeacherId = useMemo(() => searchParams.get("teacher"), [searchParams]);
 
   /* ── Rubric set selection ──────────────────────────── */
   const [activeRubricSet, setActiveRubricSet] = useState<string>("Q1");
@@ -212,6 +214,13 @@ export default function Dashboard() {
 
   /* ── Teacher profile ───────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
+
+  /* Auto-open profile when ?teacher=<id> is present and data has loaded */
+  useEffect(() => {
+    if (urlTeacherId && teachers.length > 0) {
+      setTeacherProfileId(urlTeacherId);
+    }
+  }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen] = useState(false);

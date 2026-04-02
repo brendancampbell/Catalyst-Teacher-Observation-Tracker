@@ -226,8 +226,14 @@ export default function ActionCenterPage() {
                     const status = getDueStatus(item.rescoreDueDate);
                     return (
                       <tr key={item.teacherId} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>
-                          {item.teacherName}
+                        <td className="px-4 py-3 font-semibold">
+                          <a
+                            href={`${baseUrl}/?teacher=${item.teacherId}`}
+                            className="hover:underline underline-offset-2"
+                            style={{ color: NAVY }}
+                          >
+                            {item.teacherName}
+                          </a>
                         </td>
                         <td className="px-4 py-3 text-slate-600">
                           {item.schoolName ?? "—"}
