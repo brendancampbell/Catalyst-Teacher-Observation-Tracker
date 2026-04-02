@@ -153,7 +153,7 @@ router.get("/summary", async (req, res) => {
       categories: categories.map((cat) => ({
         id:      `cat_${cat.id}`,
         label:   cat.name,
-        domains: (cat.domains ?? []).map((d) => ({ id: d.slug, label: d.name })),
+        domains: (cat.domains ?? []).map((d) => ({ id: d.slug, label: d.name, description: d.description ?? undefined })),
       })),
       schools: schoolRows,
     });

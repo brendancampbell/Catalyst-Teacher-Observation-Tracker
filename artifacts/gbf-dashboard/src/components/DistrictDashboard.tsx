@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow } from "@/lib/api";
-import { getScoreColor } from "@/components/ScoreCell";
+import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
 
@@ -127,6 +127,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
   const [filterRegion,    setFilterRegion]    = useState<string[]>([]);
   const [filterGradeSpan, setFilterGradeSpan] = useState<string[]>([]);
+  const [domainTooltip,   setDomainTooltip]   = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
 
   function handleViewByChange(mode: DistrictViewBy) {
     setViewBy(mode);
@@ -182,6 +183,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   /* ── Render ────────────────────────────────────────────── */
   return (
+    <Fragment>
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
@@ -539,6 +541,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   <tr style={{ backgroundColor: "#0d2990" }}>
                     {allDomains.map((domain) => {
                       const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
+                      const hasDesc = !!domain.description;
                       return (
                         <th
                           key={domain.id}
@@ -550,7 +553,13 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             verticalAlign: "top",
                             paddingTop: 8,
                             overflow: "visible",
+                            cursor: hasDesc ? "help" : undefined,
                           }}
+                          onMouseEnter={hasDesc ? (e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6, description: domain.description! });
+                          } : undefined}
+                          onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                         >
                           <div
                             style={{
@@ -616,7 +625,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           </p>
                         </td>
 
-                        {/* Domain average cells — full-cell coloring */}
+                        {/* Domain average cells — white bg, colored text */}
                         {allDomains.map((domain) => {
                           const val = row.domainAverages[domain.id] ?? null;
                           const isFirstInCat = (data?.categories ?? []).some((c) => c.domains[0]?.id === domain.id);
@@ -624,13 +633,13 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           return val != null ? (
                             <td
                               key={domain.id}
-                              className={`text-center py-2 text-xl font-bold tabular-nums ${getScoreColor(val)}`}
-                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif" }}
+                              className="text-center py-2 text-xl font-bold tabular-nums"
+                              style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "white", color: getScoreTextColor(val) }}
                             >
                               {val.toFixed(1)}
                             </td>
                           ) : (
-                            <td key={domain.id} className="text-center text-slate-300 py-2" style={borderStyle}>—</td>
+                            <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
                           );
                         })}
 
@@ -663,5 +672,36 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         )}
       </main>
     </div>
+
+    {/* ── Domain tooltip overlay ─────────────────────────────── */}
+    {domainTooltip && domainTooltip.description && (
+      <div
+        style={{
+          position: "fixed",
+          top: domainTooltip.y,
+          left: domainTooltip.x,
+          transform: "translateX(-50%)",
+          zIndex: 9999,
+          pointerEvents: "none",
+          maxWidth: 280,
+        }}
+      >
+        <div style={{ width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderBottom: `7px solid ${NAVY}`, margin: "0 auto" }} />
+        <div style={{
+          backgroundColor: NAVY,
+          color: "white",
+          borderRadius: 8,
+          padding: "10px 14px",
+          fontSize: 13,
+          lineHeight: 1.5,
+          fontFamily: "'Libre Franklin', sans-serif",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+          textAlign: "left",
+        }}>
+          {domainTooltip.description}
+        </div>
+      </div>
+    )}
+    </Fragment>
   );
 }
