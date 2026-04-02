@@ -244,60 +244,62 @@ export default function ActionCenterPage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
-      {/* Yellow accent bar */}
-      <div style={{ height: 5, backgroundColor: YELLOW }} />
+      {/* Tabs wraps everything so TabsList can live inside the sticky bar */}
+      <Tabs defaultValue="summary" className="flex-1 flex flex-col">
 
-      {/* Header */}
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <img
-              src="/uncommon-logo.png"
-              alt="Uncommon Schools"
-              className="h-8 sm:h-12 w-auto object-contain shrink-0"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
-            <div className="hidden sm:block min-w-0">
-              <a
-                href={`${baseUrl}/`}
-                className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
-                style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-              >
-                <ArrowLeft size={12} />
-                Back to Dashboard
-              </a>
-              <p
-                className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
-              >
-                Action Center
-              </p>
-            </div>
-          </div>
+        {/* ── Frozen top bar (yellow accent + header + tab nav) ── */}
+        <div className="sticky top-0 z-30 flex flex-col shadow-md">
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}>
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ backgroundColor: YELLOW, color: NAVY }}
-              >
-                {currentUser?.name.split(" ").map((w) => w[0]).slice(0, 2).join("") ?? "…"}
+          {/* Yellow accent bar */}
+          <div style={{ height: 5, backgroundColor: YELLOW, flexShrink: 0 }} />
+
+          {/* Header */}
+          <header style={{ backgroundColor: NAVY }} className="shrink-0">
+            <div className="px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+                <img
+                  src="/uncommon-logo.png"
+                  alt="Uncommon Schools"
+                  className="h-8 sm:h-12 w-auto object-contain shrink-0"
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+                <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
+                <div className="hidden sm:block min-w-0">
+                  <a
+                    href={`${baseUrl}/`}
+                    className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
+                    style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                  >
+                    <ArrowLeft size={12} />
+                    Back to Dashboard
+                  </a>
+                  <p
+                    className="text-white uppercase tracking-widest leading-tight"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
+                  >
+                    Action Center
+                  </p>
+                </div>
               </div>
-              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
-                {currentUser?.name ?? "Loading…"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Tabs navigation + content */}
-      <main className="flex-1 flex flex-col min-h-0">
-        <Tabs defaultValue="summary" className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ backgroundColor: YELLOW, color: NAVY }}
+                  >
+                    {currentUser?.name.split(" ").map((w) => w[0]).slice(0, 2).join("") ?? "…"}
+                  </div>
+                  <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
+                    {currentUser?.name ?? "Loading…"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
 
           {/* Tab bar */}
-          <div className="bg-white border-b border-slate-200 px-4 sm:px-6 shadow-sm">
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-6">
             <TabsList className="h-auto bg-transparent gap-0 p-0 rounded-none">
               {[
                 { value: "summary",      label: "School-Wide Summary", icon: <BarChart2 size={15} /> },
@@ -318,6 +320,7 @@ export default function ActionCenterPage() {
               ))}
             </TabsList>
           </div>
+        </div>{/* end sticky top bar */}
 
           {/* ═══════════════════════════════════════════════════
               TAB 1 — SCHOOL-WIDE SUMMARY
@@ -766,7 +769,6 @@ export default function ActionCenterPage() {
           </TabsContent>
 
         </Tabs>
-      </main>
 
       <footer className="text-center py-4 shrink-0" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
         &copy; 2026 Uncommon Schools, Inc. All rights reserved.
