@@ -1,0 +1,23 @@
+We are going to build out and significantly improve “Action Center" for our GBF tracker. 
+
+1. LAYOUT & NAVIGATION:
+Instead of one long page, build this using a Sub-page / Tab navigation structure (using shadcn/ui `Tabs` or a left-hand Sidebar layout). The navigation should have three specific sections: "School-Wide Summary", "Intervention", and "Data Assistant (Chat)".
+
+2. SUB-PAGE 1: SCHOOL-WIDE SUMMARY
+This page provides a high-level pulse on the school's performance. For this, just build UI placeholders/shells - this will not contain the actual AI features yet (and there should be a disclaimer that explains that). We eventually will connect this to an AI model to synthesize data. 
+- Build a top row of summary stat cards: "Current School Average", "Top Domain Strength" (e.g., Joy), and "Top Domain for Growth" (e.g., Academic Monitoring 101).
+- Build a "Trending Action Steps" list/card: Display fake, aggregated insights (e.g., "35% of recent observations resulted in action steps related to 'Sequential Directions'").
+- Build a "Calibration Flags" warning card: Display dummy discrepancies between School Coach scores and District Walkthrough scores.
+
+3. SUB-PAGE 2: INTERVENTION WORKFLOWS
+This page contains the urgent, operational tasks.
+- Move the existing "Walkthrough Rescore Queue" here
+- Build a "Growth Plateau Alerts" section: Cards listing teachers who have shown no growth in specific domains over their last 3 observations (e.g., "Jane Doe - Stuck at 2.0 in WTD Cycle for 4 weeks").
+
+4. SUB-PAGE 3: DATA ASSISTANT (CHAT)
+This page is a mockup for an AI chatbot interface where leaders can ask questions about the observation data.
+- Build a chat UI layout taking up the main screen area.
+- Include a scrollable message history area displaying a dummy conversation. (e.g., User: "What are the biggest trends in the Math department this month?", AI: "Based on the last 15 observations, the Math department is excelling in 'Ratio & Engagement' but struggling with 'Annotations'...")
+- Include a text input field at the bottom with a "Send" button icon.
+
+Make the layout look like a premium, modern SaaS application using Tailwind CSS. Use subtle background colors for the cards, professional typography, and shadcn/ui components (Cards, Badges, Tables, Inputs, Buttons, ScrollArea). 
