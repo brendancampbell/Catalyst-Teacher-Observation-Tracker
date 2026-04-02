@@ -1189,6 +1189,7 @@ export default function Dashboard() {
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
         canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "PRINCIPAL"}
+        observerName={currentUser?.name}
         onSubmit={handleNewObservation}
         saving={saving}
       />

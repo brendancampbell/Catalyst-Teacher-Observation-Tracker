@@ -16,6 +16,7 @@ interface Props {
   canMarkWalkthrough?: boolean;
   defaultTeacherId?: string;
   defaultIsWalkthrough?: boolean;
+  observerName?: string;
   onSubmit: (
     teacherId: string,
     date: string,
@@ -40,7 +41,14 @@ function scorePillClass(s: Score, selected: boolean): string {
   return "bg-red-300 text-red-900 border-2 border-red-400 shadow-sm";
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, onSubmit, saving }: Props) {
+const SCORE_LABEL: Record<string, string> = { "0": "Not Yet", "0.5": "Developing", "1": "Proficient" };
+
+function formatDateLong(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
@@ -49,6 +57,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -58,6 +67,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setStrengths("");
       setGrowthAreas("");
       setIsWalkthrough(!!defaultIsWalkthrough);
+      setEmailFeedback(false);
     }
   }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,11 +80,85 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setStrengths("");
     setGrowthAreas("");
     setIsWalkthrough(false);
+    setEmailFeedback(false);
+  }
+
+  function buildMailtoHref(): string {
+    const teacher = teachers.find((t) => t.id === teacherId);
+    if (!teacher) return "mailto:";
+
+    const firstName = teacher.name.split(" ")[0];
+    const dateLabel = formatDateLong(date);
+    const observer = observerName ?? "Your Observer";
+
+    const nl = "\n";
+    const divider = "─".repeat(48);
+
+    // Score rows per category
+    let scoreBlock = "";
+    for (const cat of categories) {
+      scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
+      let catTotal = 0, catCount = 0;
+      for (const domain of cat.domains) {
+        const raw = scores[domain.id];
+        const scoreStr = raw !== undefined ? String(raw) : undefined;
+        const label = scoreStr !== undefined ? `${scoreStr}  (${SCORE_LABEL[scoreStr] ?? scoreStr})` : "—";
+        scoreBlock += `  ${domain.label.padEnd(32)} ${label}${nl}`;
+        if (raw !== undefined) { catTotal += raw; catCount++; }
+      }
+      if (catCount > 0) {
+        scoreBlock += `  ${"Sub-average".padEnd(32)} ${(catTotal / catCount).toFixed(1)}${nl}`;
+      }
+    }
+
+    // Overall avg
+    const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
+    const overallAvg = scoredVals.length ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(1) : "—";
+
+    const body = [
+      `Dear ${firstName},`,
+      nl,
+      `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`,
+      nl,
+      `Warm regards,`,
+      observer,
+      nl,
+      divider,
+      `OBSERVATION DETAILS`,
+      divider,
+      `Date:      ${dateLabel}`,
+      `Observer:  ${observer}`,
+      `Teacher:   ${teacher.name}`,
+      `Subject:   ${teacher.subject}  ·  Grade${teacher.gradeLevel.length !== 1 ? "s" : ""} ${teacher.gradeLevel.join(", ")}`,
+      nl,
+      divider,
+      `RUBRIC SCORES`,
+      divider,
+      scoreBlock.trimEnd(),
+      nl,
+      `${"Overall Average".padEnd(32)} ${overallAvg}`,
+      nl,
+      divider,
+      `GLOWS (Teacher Strengths)`,
+      divider,
+      strengths.trim() || "(none entered)",
+      nl,
+      divider,
+      `GROWS (Growth Areas)`,
+      divider,
+      growthAreas.trim() || "(none entered)",
+    ].join(nl);
+
+    const subject = encodeURIComponent(`Classroom Observation Feedback - ${dateLabel}`);
+    return `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
   }
 
   function handleSubmit() {
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
+    if (emailFeedback) {
+      window.open(buildMailtoHref(), "_self");
+    }
     reset();
     onOpenChange(false);
   }
@@ -268,6 +352,32 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   rows={4}
                 />
               </div>
+            </div>
+
+            {/* Email Teacher Feedback toggle */}
+            <div
+              className="flex items-center justify-between px-4 py-3 rounded-lg"
+              style={{ backgroundColor: emailFeedback ? "#f0fdf4" : "#f8fafc", border: `1.5px solid ${emailFeedback ? "#16a34a" : "#dde3f0"}` }}
+            >
+              <div>
+                <p className="font-bold text-sm" style={{ color: emailFeedback ? "#15803d" : "#374151" }}>✉ Email Teacher Feedback</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  After submitting, open a draft email with rubric scores, glows, and grows pre-filled.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={emailFeedback}
+                onClick={() => setEmailFeedback((v) => !v)}
+                className="relative shrink-0 ml-4 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-300"
+                style={{ backgroundColor: emailFeedback ? "#16a34a" : "#cbd5e1" }}
+              >
+                <span
+                  className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                  style={{ transform: emailFeedback ? "translateX(20px)" : "translateX(0)" }}
+                />
+              </button>
             </div>
           </div>
 
