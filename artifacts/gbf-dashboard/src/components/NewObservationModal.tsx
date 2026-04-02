@@ -157,7 +157,22 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
     if (emailFeedback) {
-      window.open(buildMailtoHref(), "_self");
+      const href = buildMailtoHref();
+      try {
+        // Try top-level navigation first — escapes iframe sandbox restrictions
+        if (window.top && window.top !== window) {
+          window.top.location.href = href;
+        } else {
+          window.location.href = href;
+        }
+      } catch {
+        // Fallback: programmatic anchor click
+        const a = document.createElement("a");
+        a.href = href;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
     reset();
     onOpenChange(false);
