@@ -1179,7 +1179,7 @@ export default function Dashboard() {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
-        isDistrictAdmin={currentUser?.role === "DISTRICT_ADMIN"}
+        canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "PRINCIPAL"}
         onSubmit={handleNewObservation}
         saving={saving}
       />

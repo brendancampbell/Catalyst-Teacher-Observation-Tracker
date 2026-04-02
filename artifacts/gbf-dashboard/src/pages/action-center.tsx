@@ -63,12 +63,14 @@ export default function ActionCenterPage() {
   const allDomains:  DomainEntry[]   = categories.flatMap((c) => c.domains);
 
   /* ── Add-Observation modal state ────────────────────── */
-  const [addObsTeacherId, setAddObsTeacherId] = useState<string | null>(null);
-  const [newObsOpen, setNewObsOpen]           = useState(false);
-  const [saving, setSaving]                   = useState(false);
+  const [addObsTeacherId,    setAddObsTeacherId]    = useState<string | null>(null);
+  const [newObsOpen,         setNewObsOpen]          = useState(false);
+  const [newObsIsWalkthrough, setNewObsIsWalkthrough] = useState(false);
+  const [saving, setSaving]                          = useState(false);
 
-  function handleAddObsClick(teacherId: number) {
+  function handleAddObsClick(teacherId: number, asWalkthrough = false) {
     setAddObsTeacherId(String(teacherId));
+    setNewObsIsWalkthrough(asWalkthrough);
     setNewObsOpen(true);
   }
 
@@ -169,7 +171,7 @@ export default function ActionCenterPage() {
               Rescore Queue
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Teachers who received a district walkthrough score below 3.0 and require a follow-up observation.
+              Teachers who received a walkthrough score below 0.7 and require a rescore observation within 14 days.
             </p>
           </div>
           {!isLoading && (
@@ -252,7 +254,7 @@ export default function ActionCenterPage() {
                         </td>
                         <td className="px-4 py-3">
                           <button
-                            onClick={() => handleAddObsClick(item.teacherId)}
+                            onClick={() => handleAddObsClick(item.teacherId, true)}
                             className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90"
                             style={{
                               backgroundColor: NAVY,
@@ -263,7 +265,7 @@ export default function ActionCenterPage() {
                             }}
                           >
                             <Plus size={13} />
-                            Add Observation
+                            Score Rescore
                           </button>
                         </td>
                       </tr>
@@ -292,8 +294,9 @@ export default function ActionCenterPage() {
             setNewObsOpen(o);
             if (!o) setAddObsTeacherId(null);
           }}
-          isDistrictAdmin={currentUser?.role === "DISTRICT_ADMIN"}
+          canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "PRINCIPAL"}
           defaultTeacherId={addObsTeacherId ?? undefined}
+          defaultIsWalkthrough={newObsIsWalkthrough}
           onSubmit={handleSubmitObs}
           saving={saving}
         />

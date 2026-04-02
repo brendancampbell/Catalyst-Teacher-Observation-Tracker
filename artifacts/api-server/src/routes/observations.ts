@@ -44,18 +44,21 @@ router.post("/", async (req, res) => {
       await db.insert(observationScores).values(scoreRows);
     }
 
-    /* ── Walkthrough rescore logic ────────────────────────────────
-       Only applies when isWalkthrough === true AND the submitter
-       is a DISTRICT_ADMIN (looked up via observerId).              */
+    /* ── Walkthrough / Rescore queue logic ───────────────────────
+       Applies when isWalkthrough === true AND the submitter is a
+       PRINCIPAL or DISTRICT_ADMIN. Proficiency threshold: 0.7.    */
     if (obs.isWalkthrough && obs.observerId) {
       const submitter = await db.query.users.findFirst({
         where: eq(users.id, obs.observerId),
       });
 
-      if (submitter?.role === "DISTRICT_ADMIN" && scoreRows.length > 0) {
+      const canTriggerRescore =
+        submitter?.role === "DISTRICT_ADMIN" || submitter?.role === "PRINCIPAL";
+
+      if (canTriggerRescore && scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
 
-        if (avg < 3.0) {
+        if (avg < 0.7) {
           const due = new Date(date);
           due.setDate(due.getDate() + 14);
           const dueDateStr = due.toISOString().split("T")[0];

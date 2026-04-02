@@ -13,8 +13,9 @@ interface Props {
   allDomains: DomainEntry[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isDistrictAdmin?: boolean;
+  canMarkWalkthrough?: boolean;
   defaultTeacherId?: string;
+  defaultIsWalkthrough?: boolean;
   onSubmit: (
     teacherId: string,
     date: string,
@@ -39,7 +40,7 @@ function scorePillClass(s: Score, selected: boolean): string {
   return "bg-red-300 text-red-900 border-2 border-red-400 shadow-sm";
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, isDistrictAdmin, defaultTeacherId, onSubmit, saving }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
@@ -56,9 +57,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setScores({});
       setStrengths("");
       setGrowthAreas("");
-      setIsWalkthrough(false);
+      setIsWalkthrough(!!defaultIsWalkthrough);
     }
-  }, [open, defaultTeacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
@@ -145,16 +146,16 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               </div>
             </div>
 
-            {/* District Walkthrough toggle */}
-            {isDistrictAdmin && (
+            {/* Walkthrough / Rescore toggle */}
+            {canMarkWalkthrough && (
               <div
                 className="flex items-center justify-between px-4 py-3 rounded-lg"
                 style={{ backgroundColor: isWalkthrough ? "#EEF1FB" : "#f8fafc", border: `1.5px solid ${isWalkthrough ? NAVY : "#dde3f0"}` }}
               >
                 <div>
-                  <p className="font-bold text-sm" style={{ color: NAVY }}>District Walkthrough</p>
+                  <p className="font-bold text-sm" style={{ color: NAVY }}>Walkthrough / Rescore</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Mark this as an official district walkthrough. Teachers averaging below 0.7 will be added to the rescore queue.
+                    Count this as an official walkthrough or rescore. Teachers averaging below 0.7 will be added to the rescore queue.
                   </p>
                 </div>
                 <button
@@ -291,7 +292,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
-                {saving ? "Saving…" : isWalkthrough ? "Submit Walkthrough" : "Submit Observation"}
+                {saving ? "Saving…" : isWalkthrough ? "Submit Walkthrough / Rescore" : "Submit Observation"}
               </button>
             </div>
           </div>
