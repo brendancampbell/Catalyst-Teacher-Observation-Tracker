@@ -150,8 +150,9 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
-  const [filterRegion,    setFilterRegion]    = useState<string[]>([]);
-  const [filterGradeSpan, setFilterGradeSpan] = useState<string[]>([]);
+  const [filterRegion,      setFilterRegion]      = useState<string[]>([]);
+  const [filterGradeSpan,   setFilterGradeSpan]   = useState<string[]>([]);
+  const [filterProficiency, setFilterProficiency] = useState<string[]>([]);
   const [domainTooltip,   setDomainTooltip]   = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
 
   function handleViewByChange(mode: DistrictViewBy) {
@@ -192,28 +193,31 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     [filteredSchools, viewBy, allSlugs, allCategories],
   );
 
-  /* ── Derived stats — use computed overall (avg of cat sub-avgs) ── */
-  const schoolCount    = filteredSchools.length;
+  /* ── Proficiency filter (applied on top of region/gradeSpan) ── */
+  const profActive = filterProficiency.length === 1 ? filterProficiency[0] : null;
+  const profDisplayRows = useMemo(() => {
+    if (!profActive) return displayRows;
+    return displayRows.filter((r) => {
+      if (r.overall == null) return false;
+      return profActive === "Proficient" ? r.overall >= 0.7 : r.overall < 0.7;
+    });
+  }, [displayRows, profActive]);
+
+  /* ── Derived stats — use proficiency-filtered rows ── */
+  const schoolCount    = profDisplayRows.length;
   const districtAvgRaw = useMemo(() => {
-    if (viewBy === "school") {
-      /* displayRows already has correct computed overall */
-      const rows = displayRows.filter((r) => r.overall != null);
-      if (!rows.length) return null;
-      return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
-    }
-    /* For grouped view, use the group rows themselves */
-    const rows = displayRows.filter((r) => r.overall != null);
+    const rows = profDisplayRows.filter((r) => r.overall != null);
     if (!rows.length) return null;
     return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
-  }, [displayRows, viewBy]);
+  }, [profDisplayRows]);
 
   const proficient   = useMemo(
-    () => displayRows.filter((r) => r.overall != null && r.overall >= 0.7).length,
-    [displayRows],
+    () => profDisplayRows.filter((r) => r.overall != null && r.overall >= 0.7).length,
+    [profDisplayRows],
   );
   const needsSupport = useMemo(
-    () => displayRows.filter((r) => r.overall != null && r.overall <  0.7).length,
-    [displayRows],
+    () => profDisplayRows.filter((r) => r.overall != null && r.overall <  0.7).length,
+    [profDisplayRows],
   );
 
   /* First column label */
@@ -466,10 +470,18 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             />
           )}
 
+          {/* Proficiency filter */}
+          <FilterMultiSelect
+            label="Proficiency"
+            values={filterProficiency}
+            onChange={setFilterProficiency}
+            options={["Proficient", "Not Yet"]}
+          />
+
           {/* Clear all */}
-          {(filterRegion.length > 0 || filterGradeSpan.length > 0) && (
+          {(filterRegion.length > 0 || filterGradeSpan.length > 0 || filterProficiency.length > 0) && (
             <button
-              onClick={() => { setFilterRegion([]); setFilterGradeSpan([]); }}
+              onClick={() => { setFilterRegion([]); setFilterGradeSpan([]); setFilterProficiency([]); }}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
@@ -684,7 +696,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
                 </thead>
                 <tbody>
-                  {displayRows.map((row, rowIdx) => {
+                  {profDisplayRows.map((row, rowIdx) => {
                     const isEven = rowIdx % 2 === 0;
                     return (
                       <tr
@@ -795,10 +807,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                     );
                   })}
 
-                  {displayRows.length === 0 && (
+                  {profDisplayRows.length === 0 && (
                     <tr>
                       <td colSpan={allDomains.length + data.categories.length + 3} className="text-center py-12 text-slate-400 text-sm">
-                        No data available for this quarter.
+                        {profActive
+                          ? `No schools match the "${profActive}" filter.`
+                          : "No data available for this quarter."}
                       </td>
                     </tr>
                   )}
