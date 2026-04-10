@@ -437,7 +437,7 @@ export default function Dashboard() {
               )}
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
               >
                 Get Better Faster Tracker
               </p>
@@ -636,7 +636,7 @@ export default function Dashboard() {
           {/* "View By" label + pill buttons */}
           <span
             className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" }}
           >
             View By
           </span>
@@ -651,7 +651,7 @@ export default function Dashboard() {
                   backgroundColor: viewBy === mode ? NAVY : "transparent",
                   color: viewBy === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
-                  fontSize: 13,
+                  fontSize: 15,
                   borderRight: mode !== "grade" ? `1px solid ${NAVY}` : undefined,
                 }}
               >
@@ -666,7 +666,7 @@ export default function Dashboard() {
           {/* Filters label */}
           <span
             className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" }}
           >
             Filters
           </span>
@@ -709,7 +709,7 @@ export default function Dashboard() {
                   backgroundColor: viewMode === mode ? NAVY : "transparent",
                   color: viewMode === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
-                  fontSize: 13,
+                  fontSize: 15,
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
@@ -949,7 +949,7 @@ export default function Dashboard() {
                                 {/* Sub-avg cell */}
                                 <td
                                   className={`text-center text-lg font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd" }}
+                                  style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd", fontFamily: "'Bebas Neue', sans-serif" }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
@@ -960,7 +960,7 @@ export default function Dashboard() {
                           {/* Overall avg */}
                           <td
                             className={`text-center text-base font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
-                            style={{ borderLeft: `2px solid ${YELLOW}` }}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                           >
                             {avg !== null ? avg.toFixed(1) : "—"}
                           </td>
@@ -1032,7 +1032,7 @@ export default function Dashboard() {
                                     <td
                                       key={domain.id}
                                       className="text-center text-base font-bold py-2"
-                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score) }}
+                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif" }}
                                     >
                                       {score.toFixed(1)}
                                     </td>
@@ -1043,7 +1043,7 @@ export default function Dashboard() {
                                 {/* Group category sub-avg */}
                                 <td
                                   className={`text-center text-lg font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: `3px solid ${YELLOW}` }}
+                                  style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
@@ -1054,7 +1054,7 @@ export default function Dashboard() {
                           {/* Group overall avg */}
                           <td
                             className={`text-center text-base font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
-                            style={{ borderLeft: `2px solid ${YELLOW}` }}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                           >
                             {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
                           </td>

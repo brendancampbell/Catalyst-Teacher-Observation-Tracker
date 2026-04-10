@@ -249,7 +249,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             <div className="hidden sm:block min-w-0">
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
               >
                 Get Better Faster Tracker
               </p>
@@ -429,7 +429,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           {/* View By label + pills */}
           <span
             className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" }}
           >
             View By
           </span>
@@ -444,7 +444,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   backgroundColor: viewBy === mode ? NAVY : "transparent",
                   color: viewBy === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
-                  fontSize: 13,
+                  fontSize: 15,
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
@@ -459,7 +459,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           {/* Filters label */}
           <span
             className="font-bold uppercase tracking-widest shrink-0"
-            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}
+            style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" }}
           >
             Filters
           </span>
@@ -518,7 +518,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   backgroundColor: scoreType === mode ? NAVY : "transparent",
                   color: scoreType === mode ? "white" : NAVY,
                   letterSpacing: "0.02em",
-                  fontSize: 13,
+                  fontSize: 15,
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
@@ -773,7 +773,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td
                                 key={`subavg-${cat.id}`}
                                 className={`text-center text-lg font-bold py-1.5 ${getScoreColor(sub)}`}
-                                style={{ borderLeft: `3px solid ${YELLOW}` }}
+                                style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                               >
                                 {sub.toFixed(1)}
                               </td>

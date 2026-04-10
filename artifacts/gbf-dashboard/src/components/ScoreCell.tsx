@@ -53,7 +53,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
           ? "cursor-pointer relative transition-all duration-100 hover:bg-slate-50"
           : ""
       }`}
-      style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, ...style }}
+      style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, fontFamily: "'Bebas Neue', sans-serif", ...style }}
       onClick={onClick}
       title={clickable ? "Click to view score history" : undefined}
     >

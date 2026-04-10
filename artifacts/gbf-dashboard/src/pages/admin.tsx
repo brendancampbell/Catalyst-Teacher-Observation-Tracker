@@ -56,9 +56,11 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomDesc, setEditingDomDesc] = useState("");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
+  const [newCatOrder,       setNewCatOrder]       = useState(1);
   const [addingDomForCat,   setAddingDomForCat]   = useState<number | null>(null);
   const [newDomName,        setNewDomName]        = useState("");
   const [newDomSlug,        setNewDomSlug]        = useState("");
+  const [newDomOrder,       setNewDomOrder]       = useState(1);
 
   const [editingDesc, setEditingDesc] = useState(false);
   const [descValue,   setDescValue]   = useState("");
@@ -74,7 +76,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
   const addCatMut = useMutation({
     mutationFn: ({ name, order }: { name: string; order: number }) => createCategory(setSlug, name, order),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingCat(false); setNewCatName(""); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingCat(false); setNewCatName(""); setNewCatOrder(1); },
   });
 
   const updCatMut = useMutation({
@@ -90,7 +92,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const addDomMut = useMutation({
     mutationFn: ({ catId, name, slug, order }: { catId: number; name: string; slug: string; order: number }) =>
       createDomain(catId, name, slug, order),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); },
   });
 
   const updDomMut = useMutation({
@@ -241,14 +243,24 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             ))}
 
             {addingDomForCat === cat.id ? (
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50">
-                <input className={`${inputCls} flex-1`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); }} placeholder="Domain name" autoFocus />
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 flex-wrap">
+                <input className={`${inputCls} flex-1 min-w-32`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); }} placeholder="Domain name" autoFocus />
                 <input className={`${inputCls} w-36`} value={newDomSlug} onChange={(e) => setNewDomSlug(e.target.value)} placeholder="slug" />
-                <button className="px-3 py-1.5 rounded text-sm font-bold text-white" style={{ backgroundColor: NAVY }} onClick={() => addDomMut.mutate({ catId: cat.id, name: newDomName, slug: newDomSlug || slugify(newDomName), order: cat.domains.length })}>Add</button>
-                <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); }}><X size={16} /></button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Position</label>
+                  <input
+                    className={`${inputCls} w-16 text-center`}
+                    type="number"
+                    min={1}
+                    value={newDomOrder}
+                    onChange={(e) => setNewDomOrder(Math.max(1, Number(e.target.value)))}
+                  />
+                </div>
+                <button className="px-3 py-1.5 rounded text-sm font-bold text-white shrink-0" style={{ backgroundColor: NAVY }} onClick={() => addDomMut.mutate({ catId: cat.id, name: newDomName, slug: newDomSlug || slugify(newDomName), order: newDomOrder - 1 })}>Add</button>
+                <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); }}><X size={16} /></button>
               </div>
             ) : (
-              <button className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold hover:bg-slate-50" style={{ color: NAVY }} onClick={() => { setAddingDomForCat(cat.id); setNewDomName(""); setNewDomSlug(""); }}>
+              <button className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold hover:bg-slate-50" style={{ color: NAVY }} onClick={() => { setAddingDomForCat(cat.id); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(cat.domains.length + 1); }}>
                 <Plus size={13} />Add domain
               </button>
             )}
@@ -257,13 +269,30 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
       ))}
 
       {addingCat ? (
-        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center gap-3" style={{ border: `2px solid ${NAVY}` }}>
-          <input className={`${inputCls} flex-1 font-semibold`} value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="New category name" autoFocus onKeyDown={(e) => { if (e.key === "Enter") addCatMut.mutate({ name: newCatName, order: data.categories.length }); if (e.key === "Escape") setAddingCat(false); }} />
-          <button className="px-4 py-1.5 rounded font-bold text-white text-sm" style={{ backgroundColor: NAVY }} onClick={() => addCatMut.mutate({ name: newCatName, order: data.categories.length })}>Add Category</button>
-          <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setAddingCat(false)}><X size={18} /></button>
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center gap-3 flex-wrap" style={{ border: `2px solid ${NAVY}` }}>
+          <input
+            className={`${inputCls} flex-1 min-w-48 font-semibold`}
+            value={newCatName}
+            onChange={(e) => setNewCatName(e.target.value)}
+            placeholder="New category name"
+            autoFocus
+            onKeyDown={(e) => { if (e.key === "Enter") addCatMut.mutate({ name: newCatName, order: newCatOrder - 1 }); if (e.key === "Escape") setAddingCat(false); }}
+          />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Position</label>
+            <input
+              className={`${inputCls} w-16 text-center`}
+              type="number"
+              min={1}
+              value={newCatOrder}
+              onChange={(e) => setNewCatOrder(Math.max(1, Number(e.target.value)))}
+            />
+          </div>
+          <button className="px-4 py-1.5 rounded font-bold text-white text-sm shrink-0" style={{ backgroundColor: NAVY }} onClick={() => addCatMut.mutate({ name: newCatName, order: newCatOrder - 1 })}>Add Category</button>
+          <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingCat(false); setNewCatOrder(1); }}><X size={18} /></button>
         </div>
       ) : (
-        <button className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-bold text-sm border-2 border-dashed hover:border-solid" style={{ borderColor: NAVY, color: NAVY }} onClick={() => setAddingCat(true)}>
+        <button className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-bold text-sm border-2 border-dashed hover:border-solid" style={{ borderColor: NAVY, color: NAVY }} onClick={() => { setAddingCat(true); setNewCatOrder(data.categories.length + 1); }}>
           <Plus size={16} />Add Category
         </button>
       )}
