@@ -48,11 +48,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
 
   return (
     <td
-      className={`text-center text-base font-bold ${className} ${
-        clickable
-          ? "cursor-pointer relative transition-all duration-100 hover:bg-slate-50"
-          : ""
-      }`}
+      className="text-center font-bold py-1.5 cursor-pointer relative transition-all duration-100 hover:bg-slate-50 text-[18px]"
       style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, fontFamily: "'Bebas Neue', sans-serif", ...style }}
       onClick={onClick}
       title={clickable ? "Click to view score history" : undefined}

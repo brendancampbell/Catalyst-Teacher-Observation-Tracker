@@ -1141,6 +1141,7 @@ export default function Dashboard() {
                                   ...(di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
                                   backgroundColor: "white",
                                   color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
+                                  fontFamily: "'Bebas Neue', sans-serif",
                                 }}
                               >
                                 {domAvg !== null ? domAvg.toFixed(1) : "—"}
@@ -1150,7 +1151,7 @@ export default function Dashboard() {
                           {/* Category sub-avg footer cell */}
                           <td
                             className={`text-center text-lg font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
-                            style={{ borderLeft: `3px solid ${YELLOW}` }}
+                            style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                           >
                             {catFooterAvg !== null ? catFooterAvg.toFixed(1) : "—"}
                           </td>
@@ -1159,7 +1160,7 @@ export default function Dashboard() {
                     })}
                     <td
                       className={`text-center text-base font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
-                      style={{ borderLeft: `2px solid ${YELLOW}` }}
+                      style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                     >
                       {statAvg ? statAvg.toFixed(1) : "—"}
                     </td>
