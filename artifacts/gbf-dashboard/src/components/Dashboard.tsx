@@ -1136,12 +1136,13 @@ export default function Dashboard() {
                             return (
                               <td
                                 key={domain.id}
-                                className="text-center text-base font-bold py-1.5"
+                                className="text-center font-bold py-1.5"
                                 style={{
                                   ...(di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
                                   backgroundColor: "white",
                                   color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
                                   fontFamily: "'Bebas Neue', sans-serif",
+                                  fontSize: 18,
                                 }}
                               >
                                 {domAvg !== null ? domAvg.toFixed(1) : "—"}
