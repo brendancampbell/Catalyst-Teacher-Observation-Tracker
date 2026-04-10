@@ -959,8 +959,8 @@ export default function Dashboard() {
 
                           {/* Overall avg */}
                           <td
-                            className={`text-center text-base font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
-                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                            className={`text-center font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                           >
                             {avg !== null ? avg.toFixed(1) : "—"}
                           </td>
@@ -1053,8 +1053,8 @@ export default function Dashboard() {
 
                           {/* Group overall avg */}
                           <td
-                            className={`text-center text-base font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
-                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                            className={`text-center font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                           >
                             {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
                           </td>
