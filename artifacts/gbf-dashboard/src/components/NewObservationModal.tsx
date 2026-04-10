@@ -158,21 +158,14 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
     if (emailFeedback) {
       const href = buildMailtoHref();
-      try {
-        // Try top-level navigation first — escapes iframe sandbox restrictions
-        if (window.top && window.top !== window) {
-          window.top.location.href = href;
-        } else {
-          window.location.href = href;
-        }
-      } catch {
-        // Fallback: programmatic anchor click
-        const a = document.createElement("a");
-        a.href = href;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      // Always use a hidden anchor click — avoids navigating the current page
+      // away (which leaves a blank window) while still triggering the OS mail client.
+      const a = document.createElement("a");
+      a.href = href;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
     reset();
     onOpenChange(false);
