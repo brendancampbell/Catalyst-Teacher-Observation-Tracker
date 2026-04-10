@@ -830,6 +830,91 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                       </td>
                     </tr>
                   )}
+
+                  {/* ── DOMAIN AVERAGE FOOTER ─────────────────── */}
+                  {profDisplayRows.length > 0 && (
+                    <tr
+                      className="sticky bottom-0 z-20 font-semibold"
+                      style={{ backgroundColor: NAVY, borderTop: `3px solid ${YELLOW}` }}
+                    >
+                      <td
+                        className="pl-3 pr-2 py-2 sticky left-0 z-30 uppercase tracking-wide"
+                        style={{
+                          color: YELLOW,
+                          backgroundColor: NAVY,
+                          borderRight: `2px solid ${YELLOW}`,
+                          fontFamily: "'Bebas Neue', sans-serif",
+                          fontWeight: 700,
+                          fontSize: 20,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        Domain Avg
+                      </td>
+
+                      {allCategories.flatMap((cat) => [
+                        ...cat.domains.map((domain, dIdx) => {
+                          const vals = profDisplayRows
+                            .map((r) => r.domainAverages[domain.id] ?? null)
+                            .filter((v): v is number => v !== null);
+                          const domAvg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+                          return (
+                            <td
+                              key={domain.id}
+                              className="text-center font-bold py-1.5"
+                              style={{
+                                ...(dIdx === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
+                                backgroundColor: "white",
+                                color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontSize: 20,
+                              }}
+                            >
+                              {domAvg !== null ? domAvg.toFixed(1) : "—"}
+                            </td>
+                          );
+                        }),
+                        (() => {
+                          const catVals = profDisplayRows
+                            .map((r) => r.catSubAvgs[cat.id] ?? null)
+                            .filter((v): v is number => v !== null);
+                          const catAvg = catVals.length ? catVals.reduce((s, v) => s + v, 0) / catVals.length : null;
+                          return (
+                            <td
+                              key={`subavg-${cat.id}`}
+                              className={`text-center text-lg font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-400"}`}
+                              style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                            >
+                              {catAvg !== null ? catAvg.toFixed(1) : "—"}
+                            </td>
+                          );
+                        })(),
+                      ])}
+
+                      {/* Overall avg */}
+                      {(() => {
+                        const overallVals = profDisplayRows
+                          .map((r) => r.overall)
+                          .filter((v): v is number => v !== null);
+                        const overallAvg = overallVals.length
+                          ? overallVals.reduce((s, v) => s + v, 0) / overallVals.length
+                          : null;
+                        return overallAvg !== null ? (
+                          <td
+                            className={`text-center text-xl font-bold py-2 ${getScoreColor(overallAvg)}`}
+                            style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                          >
+                            {overallAvg.toFixed(1)}
+                          </td>
+                        ) : (
+                          <td className="text-center text-slate-400 py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>—</td>
+                        );
+                      })()}
+
+                      {/* Blank proficient cell */}
+                      <td style={{ borderLeft: `2px solid ${YELLOW}` }} />
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

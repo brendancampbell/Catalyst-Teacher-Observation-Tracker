@@ -1095,7 +1095,7 @@ export default function Dashboard() {
                         borderRight: `2px solid ${YELLOW}`,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
-                        fontSize: 16,
+                        fontSize: 20,
                         letterSpacing: "0.02em",
                       }}
                     >
@@ -1142,7 +1142,7 @@ export default function Dashboard() {
                                   backgroundColor: "white",
                                   color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
                                   fontFamily: "'Bebas Neue', sans-serif",
-                                  fontSize: 18,
+                                  fontSize: 20,
                                 }}
                               >
                                 {domAvg !== null ? domAvg.toFixed(1) : "—"}
