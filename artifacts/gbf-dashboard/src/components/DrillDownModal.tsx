@@ -17,26 +17,27 @@ import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
-const SCORE_LABELS: Record<number, string> = {
-  1: "Needs Improvement",
-  2: "Approaching",
-  3: "Proficient",
-  4: "Exemplary",
-};
+/* ── 0 / 0.5 / 1.0 helpers ──────────────────────────────── */
+function getScoreLabel(score: number): string {
+  if (score >= 1)   return "Proficient";
+  if (score >= 0.5) return "Approaching";
+  return "Not Yet";
+}
 
-const DOT_COLORS: Record<number, string> = {
-  4: "#15803d",
-  3: "#22c55e",
-  2: "#eab308",
-  1: "#ef4444",
-};
+function getDotColor(score: number): string {
+  if (score >= 0.7) return "#15803d";  // green-700
+  if (score >= 0.5) return "#d97706";  // amber-600
+  return "#ef4444";                    // red-500
+}
 
 /* ── Custom tooltip shown on hover ──────────────── */
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartPoint }> }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   const score = d.score;
-  if (!score) return null;
+  if (score === null || score === undefined) return null;
+
+  const color = getDotColor(score);
 
   return (
     <div
@@ -47,11 +48,11 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
       <div className="flex items-center gap-2 mt-2">
         <span
           className="font-bold text-base px-2.5 py-0.5 rounded"
-          style={{ backgroundColor: DOT_COLORS[score] + "22", color: DOT_COLORS[score], border: `1.5px solid ${DOT_COLORS[score]}` }}
+          style={{ backgroundColor: color + "22", color, border: `1.5px solid ${color}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18 }}
         >
-          {score}
+          {score.toFixed(1)}
         </span>
-        <span className="text-slate-600">{SCORE_LABELS[score]}</span>
+        <span className="text-slate-600">{getScoreLabel(score)}</span>
       </div>
       <p className="text-slate-500 text-xs mt-2">
         Observed by <span className="font-semibold text-slate-700">{d.observer}</span>
@@ -66,8 +67,8 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 /* ── Custom dot rendered on line ─────────────────── */
 function CustomDot(props: { cx?: number; cy?: number; payload?: ChartPoint }) {
   const { cx, cy, payload } = props;
-  if (!cx || !cy || !payload?.score) return null;
-  const color = DOT_COLORS[payload.score] ?? "#94a3b8";
+  if (!cx || !cy || payload?.score === null || payload?.score === undefined) return null;
+  const color = getDotColor(payload.score);
 
   return (
     <g style={{ pointerEvents: "none" }}>
@@ -222,7 +223,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                       style={{ color: trendDelta > 0 ? "#4ade80" : trendDelta < 0 ? "#f87171" : "#94a3b8" }}
                     >
                       {trendDelta > 0 ? <TrendingUp size={20} /> : trendDelta < 0 ? <TrendingDown size={20} /> : <Minus size={20} />}
-                      {trendDelta > 0 ? `+${trendDelta}` : trendDelta === 0 ? "Flat" : trendDelta}
+                      {trendDelta > 0 ? `+${trendDelta.toFixed(1)}` : trendDelta === 0 ? "Flat" : trendDelta.toFixed(1)}
                     </span>
                   </StatCard>
                 )}
@@ -230,12 +231,12 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                 <StatCard label="Current Score">
                   <span
                     style={{
-                      color: lastScore
-                        ? lastScore >= 0.7 ? "#4ade80" : lastScore >= 0.5 ? YELLOW : "#f87171"
+                      color: lastScore !== undefined
+                        ? getDotColor(lastScore)
                         : "#94a3b8",
                     }}
                   >
-                    {lastScore ?? "—"}
+                    {lastScore !== undefined ? lastScore.toFixed(1) : "—"}
                   </span>
                 </StatCard>
               </div>
@@ -268,25 +269,25 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                     tickCount={Math.min(chartData.length + 2, 8)}
                   />
                   <YAxis
-                    domain={[0.5, 4.5]}
-                    ticks={[1, 2, 3, 4]}
+                    domain={[-0.1, 1.15]}
+                    ticks={[0, 0.5, 1]}
                     tick={{ fontSize: 11, fill: "#64748b", fontFamily: "'Libre Franklin', sans-serif" }}
-                    tickFormatter={(v) => `${v}`}
+                    tickFormatter={(v) => v.toFixed(1)}
                     axisLine={false}
                     tickLine={false}
-                    width={24}
+                    width={30}
                   />
                   <Tooltip
                     content={<ChartTooltip />}
                     cursor={{ stroke: "#dde3f0", strokeWidth: 1.5, strokeDasharray: "4 2" }}
                   />
                   <ReferenceLine
-                    y={3}
+                    y={0.7}
                     stroke="#16a34a"
                     strokeDasharray="5 3"
                     strokeWidth={1.5}
-                    opacity={0.5}
-                    label={{ value: "Proficient", position: "insideTopRight", fontSize: 10, fill: "#16a34a", dy: -6 }}
+                    opacity={0.6}
+                    label={{ value: "Proficient (0.7)", position: "insideTopRight", fontSize: 10, fill: "#16a34a", dy: -6 }}
                   />
                   <Line
                     type="monotone"
@@ -301,11 +302,14 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
               </ResponsiveContainer>
 
               {/* Score level legend */}
-              <div className="flex justify-center flex-wrap gap-2 sm:gap-4 mt-2">
-                {([4, 3, 2, 1] as const).map((s) => (
-                  <div key={s} className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: DOT_COLORS[s] }} />
-                    <span className="text-xs text-slate-500">{s}<span className="hidden sm:inline"> · {SCORE_LABELS[s]}</span></span>
+              <div className="flex justify-center flex-wrap gap-4 mt-2">
+                {([1, 0.5, 0] as const).map((s) => (
+                  <div key={s} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: getDotColor(s) }} />
+                    <span className="text-xs text-slate-500">
+                      {s.toFixed(1)}
+                      <span className="hidden sm:inline"> · {getScoreLabel(s)}</span>
+                    </span>
                   </div>
                 ))}
               </div>
