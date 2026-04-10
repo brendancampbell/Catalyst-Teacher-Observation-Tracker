@@ -59,10 +59,15 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 - Overall AVG = average of category sub-averages
 - Proficient column (≥0.7 = Proficient, <0.7 = Not Yet)
 - Admin rubric manager for managing categories and domains
-- **User Permissions / RBAC**: Roles: COACH, PRINCIPAL, DISTRICT_ADMIN
+- **User Permissions / RBAC**: Roles: COACH, PRINCIPAL, NETWORK_LEADER, DISTRICT_ADMIN
+  - COACH: school-based, can view school data + create observations; no admin access
+  - PRINCIPAL (School Leader): school-based, can view school data + create observations + edit school settings (roster)
+  - NETWORK_LEADER: network-based (no schoolId), sees district view + can create obs + edit school settings (roster); NO network settings (rubric/schools)
+  - DISTRICT_ADMIN (Super Admin): network-based, full access to all views and all settings
   - User switcher dropdown in header (persists to localStorage)
   - Admin button hidden from COACH role
   - Admin page blocked for COACH (shows Access Restricted screen)
+  - Walkthrough toggle shown to PRINCIPAL | NETWORK_LEADER | DISTRICT_ADMIN
 - **Teacher Roster** (Admin > Teacher Roster tab): Add, Edit, Deactivate teachers; show/hide inactive
 
 ### Design
@@ -74,7 +79,7 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 ### Database Schema (lib/db/src/schema/)
 
-- `users` — id, email, name, role (COACH | PRINCIPAL | DISTRICT_ADMIN)
+- `users` — id, email, name, role (COACH | PRINCIPAL | NETWORK_LEADER | DISTRICT_ADMIN)
 - `teachers` — id, name, subject, gradeLevel (text[]), isActive (bool)
 - `rubric_sets` — id, slug (Q1), name, isActive, gradeSpan (nullable)
 - `rubric_categories` — id, rubricSetId, name, displayOrder

@@ -181,7 +181,8 @@ export default function Dashboard() {
   });
 
   /* ── API data ──────────────────────────────────────── */
-  const isDistrictHome = currentUser?.role === "DISTRICT_ADMIN" && schoolId == null;
+  const isNetworkRole = currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER";
+  const isDistrictHome = isNetworkRole && schoolId == null;
 
   // Use URL schoolId for district drill-down; otherwise fall back to user's own school
   const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
@@ -425,7 +426,7 @@ export default function Dashboard() {
             <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
               {/* District breadcrumb when drilling into a school */}
-              {schoolId != null && currentUser?.role === "DISTRICT_ADMIN" && (
+              {schoolId != null && isNetworkRole && (
                 <a
                   href={`${baseUrl}/`}
                   className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
@@ -1190,7 +1191,7 @@ export default function Dashboard() {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
-        canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "PRINCIPAL"}
+        canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "PRINCIPAL"}
         observerName={currentUser?.name}
         onSubmit={handleNewObservation}
         saving={saving}

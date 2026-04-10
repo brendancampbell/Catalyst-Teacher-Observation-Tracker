@@ -40,12 +40,13 @@ async function seed() {
 
   // ── Users ────────────────────────────────────────────────────────
   await db.insert(users).values([
-    { name: "Principal Rivera",  email: "principal.rivera@uncommon.org",  role: "PRINCIPAL",      schoolId: lincoln.id },
-    { name: "Coach Mills",       email: "coach.mills@uncommon.org",       role: "COACH",          schoolId: lincoln.id },
-    { name: "VP Okafor",         email: "vp.okafor@uncommon.org",         role: "PRINCIPAL",      schoolId: washington.id },
-    { name: "District Admin",    email: "district.admin@uncommon.org",    role: "DISTRICT_ADMIN", schoolId: null },
+    { name: "Principal Rivera",  email: "principal.rivera@uncommon.org",  role: "PRINCIPAL",       schoolId: lincoln.id },
+    { name: "Coach Mills",       email: "coach.mills@uncommon.org",       role: "COACH",           schoolId: lincoln.id },
+    { name: "VP Okafor",         email: "vp.okafor@uncommon.org",         role: "PRINCIPAL",       schoolId: washington.id },
+    { name: "Network Leader",    email: "network.leader@uncommon.org",    role: "NETWORK_LEADER",  schoolId: null },
+    { name: "District Admin",    email: "district.admin@uncommon.org",    role: "DISTRICT_ADMIN",  schoolId: null },
   ]);
-  console.log("  ✓ Created 4 users");
+  console.log("  ✓ Created 5 users");
 
   // ── Q1 Rubric ────────────────────────────────────────────────────
   const [q1] = await db.insert(rubricQuarters).values({ slug: "Q1", name: "Quarter 1", isActive: true }).returning();

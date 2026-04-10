@@ -30,8 +30,9 @@ async function seed() {
 
   await db.insert(users).values([
     { email: "principal.rivera@uncommon.org", name: "Principal Rivera", role: "PRINCIPAL",      schoolId: lincoln    },
-    { email: "coach.mills@uncommon.org",      name: "Coach Mills",      role: "COACH",           schoolId: lincoln    },
+    { email: "coach.mills@uncommon.org",      name: "Coach Mills",      role: "COACH",          schoolId: lincoln    },
     { email: "vp.okafor@uncommon.org",        name: "VP Okafor",        role: "PRINCIPAL",      schoolId: washington },
+    { email: "network.leader@uncommon.org",   name: "Network Leader",   role: "NETWORK_LEADER", schoolId: null       },
     { email: "district.admin@uncommon.org",   name: "District Admin",   role: "DISTRICT_ADMIN", schoolId: null       },
   ]).onConflictDoNothing();
 

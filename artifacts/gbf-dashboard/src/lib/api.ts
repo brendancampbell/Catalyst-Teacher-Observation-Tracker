@@ -2,7 +2,7 @@ import type { Score, Teacher, Observation } from "../data/dummy";
 
 /* ── Users ─────────────────────────────────────────────────────── */
 
-export type UserRole = "COACH" | "PRINCIPAL" | "DISTRICT_ADMIN";
+export type UserRole = "COACH" | "PRINCIPAL" | "NETWORK_LEADER" | "DISTRICT_ADMIN";
 
 export interface UserRow {
   id:         number;

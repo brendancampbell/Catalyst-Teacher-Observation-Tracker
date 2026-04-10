@@ -53,7 +53,9 @@ router.post("/", async (req, res) => {
       });
 
       const canTriggerRescore =
-        submitter?.role === "DISTRICT_ADMIN" || submitter?.role === "PRINCIPAL";
+        submitter?.role === "DISTRICT_ADMIN" ||
+        submitter?.role === "NETWORK_LEADER" ||
+        submitter?.role === "PRINCIPAL";
 
       if (canTriggerRescore && scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;

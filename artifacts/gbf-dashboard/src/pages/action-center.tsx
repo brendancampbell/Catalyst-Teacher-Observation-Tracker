@@ -785,7 +785,7 @@ export default function ActionCenterPage() {
             setNewObsOpen(o);
             if (!o) setAddObsTeacherId(null);
           }}
-          canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "PRINCIPAL"}
+          canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "PRINCIPAL"}
           defaultTeacherId={addObsTeacherId ?? undefined}
           defaultIsWalkthrough={newObsIsWalkthrough}
           observerName={currentUser?.name}

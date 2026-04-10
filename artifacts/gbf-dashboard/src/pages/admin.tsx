@@ -892,7 +892,7 @@ export default function AdminPage() {
             Access Restricted
           </h2>
           <p className="text-slate-500 max-w-sm">
-            Coaches do not have access to the Admin panel. Switch to a Principal or District Admin account to manage settings.
+            Coaches do not have access to the Admin panel. Switch to a School Leader, Network Leader, or Super Admin account to manage settings.
           </p>
           <a
             href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/`}
