@@ -58,7 +58,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState(false);
-  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; gmailUrl: string } | null>(null);
+  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -150,8 +150,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     ].join(nl);
 
     const subject = `Classroom Observation Feedback - ${dateLabel}`;
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    return { subject, body, gmailUrl };
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const outlookWebUrl = `https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
   function handleSubmit() {
@@ -213,7 +214,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   <span className="text-2xl">✉</span>
                   <div>
                     <p className="font-bold text-slate-700">Observation saved!</p>
-                    <p className="text-sm text-slate-500">Your email draft is ready. Copy it or open directly in Gmail.</p>
+                    <p className="text-sm text-slate-500">Your email draft is ready — open in Outlook or copy and paste.</p>
                   </div>
                 </div>
                 <div>
@@ -240,13 +241,21 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   {copied ? "✓ Copied!" : "Copy to Clipboard"}
                 </button>
                 <a
-                  href={emailPreview.gmailUrl}
+                  href={emailPreview.outlookWebUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "#EA4335", textDecoration: "none" }}
+                  style={{ backgroundColor: "#0078D4", textDecoration: "none" }}
                 >
-                  Open in Gmail
+                  Outlook Web
+                </a>
+                <a
+                  href={emailPreview.mailtoUrl}
+                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
+                  onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
+                >
+                  Open in Outlook
                 </a>
                 <button
                   type="button"
