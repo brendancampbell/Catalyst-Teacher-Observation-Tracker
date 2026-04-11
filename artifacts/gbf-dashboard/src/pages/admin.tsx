@@ -73,12 +73,12 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [newDomSlug,        setNewDomSlug]        = useState("");
   const [newDomOrder,       setNewDomOrder]       = useState(1);
 
-  const [editingDesc, setEditingDesc] = useState(false);
-  const [descValue,   setDescValue]   = useState("");
-
-  const updDescMut = useMutation({
-    mutationFn: (description: string) => updateRubricSet(setSlug, { description }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditingDesc(false); },
+  const archiveSetMut = useMutation({
+    mutationFn: (archive: boolean) => archiveRubricSet(setSlug, archive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+    },
   });
 
   function slugify(s: string) {
@@ -148,42 +148,35 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
           {data.rubricSet.name}
         </span>
 
-        {editingDesc ? (
-          <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-            <input
-              className="flex-1 px-3 py-1 rounded border border-slate-300 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-              value={descValue}
-              onChange={(e) => setDescValue(e.target.value)}
-              placeholder="Add a description for this rubric set…"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") updDescMut.mutate(descValue);
-                if (e.key === "Escape") setEditingDesc(false);
-              }}
-            />
-            <button
-              className="text-green-600 hover:text-green-800 p-1"
-              onClick={() => updDescMut.mutate(descValue)}
-              disabled={updDescMut.isPending}
-            >
-              <Check size={16} />
-            </button>
-            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingDesc(false)}>
-              <X size={16} />
-            </button>
-          </div>
-        ) : (
-          <button
-            className="flex items-center gap-1.5 group text-left"
-            onClick={() => { setDescValue(data.rubricSet.description ?? ""); setEditingDesc(true); }}
-            title="Click to edit description"
-          >
-            <span className="text-slate-400 text-sm group-hover:text-slate-600 transition-colors">
-              {data.rubricSet.description || "Add a description…"}
-            </span>
-            <Pencil size={12} className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-          </button>
+        {data.rubricSet.isArchived && (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 uppercase tracking-wide">
+            Archived
+          </span>
         )}
+
+        <div className="ml-auto">
+          {data.rubricSet.isArchived ? (
+            <button
+              disabled={archiveSetMut.isPending}
+              onClick={() => archiveSetMut.mutate(false)}
+              className="flex items-center gap-1.5 font-semibold rounded-md px-3 py-1.5 text-sm border transition-colors hover:bg-green-50 disabled:opacity-50"
+              style={{ borderColor: "#16a34a", color: "#16a34a" }}
+            >
+              <ArchiveRestore size={14} />
+              Restore to Active
+            </button>
+          ) : (
+            <button
+              disabled={archiveSetMut.isPending}
+              onClick={() => { if (confirm(`Archive "${data.rubricSet.name}"? It will be hidden from the dashboard until restored.`)) archiveSetMut.mutate(true); }}
+              className="flex items-center gap-1.5 font-semibold rounded-md px-3 py-1.5 text-sm border transition-colors hover:bg-amber-50 disabled:opacity-50"
+              style={{ borderColor: "#d97706", color: "#d97706" }}
+            >
+              <Archive size={14} />
+              Archive
+            </button>
+          )}
+        </div>
       </div>
 
       {data.categories.map((cat) => (
@@ -1450,9 +1443,9 @@ export default function AdminPage() {
   const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
   const [showArchivedSets, setShowArchivedSets]           = useState(false);
 
-  /* Sync selected rubric set to the first available active one once loaded */
+  /* Sync selected slug to first active set only if the current slug doesn't exist at all */
   useEffect(() => {
-    if (activeSets.length > 0 && !activeSets.find((q) => q.slug === selectedRubricSetSlug)) {
+    if (activeSets.length > 0 && !rubricSets.find((q) => q.slug === selectedRubricSetSlug)) {
       setSelectedRubricSetSlug(activeSets[0].slug);
     }
   }, [rubricSets]);
@@ -1486,13 +1479,6 @@ export default function AdminPage() {
 
   const reorderMut = useMutation({
     mutationFn: (items: { slug: string; displayOrder: number }[]) => reorderRubricSets(items),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-    },
-  });
-
-  const archiveMut = useMutation({
-    mutationFn: ({ slug, archive }: { slug: string; archive: boolean }) => archiveRubricSet(slug, archive),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
     },
@@ -1678,16 +1664,6 @@ export default function AdminPage() {
                       >
                         <ChevronRight size={13} />
                       </button>
-                      <button
-                        type="button"
-                        title="Archive this rubric set"
-                        disabled={archiveMut.isPending}
-                        onClick={() => { if (confirm(`Archive "${q.name}"? It will be hidden from the dashboard until unarchived.`)) archiveMut.mutate({ slug: q.slug, archive: true }); }}
-                        className="rounded p-0.5 ml-0.5 transition-opacity disabled:opacity-30 hover:text-amber-600"
-                        style={{ color: "#94a3b8" }}
-                      >
-                        <Archive size={12} />
-                      </button>
                     </div>
                   );
                 })}
@@ -1733,25 +1709,26 @@ export default function AdminPage() {
             </button>
             {showArchivedSets && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {archivedSets.map((q) => (
-                  <div key={q.slug} className="flex items-center gap-1.5 px-3 py-1.5 rounded border" style={{ borderColor: "#cbd5e1", backgroundColor: "#f8fafc" }}>
-                    <span className="font-bold uppercase text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}>
-                      {q.name}
-                      {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan})</span>}
-                    </span>
-                    <button
-                      type="button"
-                      title={atLimit ? "Archive another set first before unarchiving this one (max 6)" : "Unarchive — restore to dashboard"}
-                      disabled={archiveMut.isPending || atLimit}
-                      onClick={() => archiveMut.mutate({ slug: q.slug, archive: false })}
-                      className="flex items-center gap-1 text-xs font-semibold rounded px-2 py-0.5 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
-                      style={{ backgroundColor: "#e2e8f0", color: "#475569" }}
+                {archivedSets.map((q) => {
+                  const isSelected = q.slug === selectedRubricSetSlug;
+                  return (
+                    <div
+                      key={q.slug}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded border cursor-pointer transition-colors"
+                      style={{
+                        borderColor: isSelected ? "#94a3b8" : "#cbd5e1",
+                        backgroundColor: isSelected ? "#f1f5f9" : "#f8fafc",
+                        outline: isSelected ? "2px solid #94a3b8" : "none",
+                      }}
+                      onClick={() => setSelectedRubricSetSlug(q.slug)}
                     >
-                      <ArchiveRestore size={11} />
-                      Restore
-                    </button>
-                  </div>
-                ))}
+                      <span className="font-bold uppercase text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}>
+                        {q.name}
+                        {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan})</span>}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
