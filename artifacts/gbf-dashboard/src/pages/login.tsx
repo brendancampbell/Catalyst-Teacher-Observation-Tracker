@@ -98,9 +98,7 @@ export default function LoginPage() {
             Sign in with Google
           </a>
 
-          <p className="text-xs text-slate-400 text-center">
-            Only pre-approved Uncommon Schools staff can sign in.
-          </p>
+
         </div>
       </div>
     </div>
