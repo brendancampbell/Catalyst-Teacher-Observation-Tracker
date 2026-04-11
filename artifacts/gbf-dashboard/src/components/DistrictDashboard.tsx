@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -233,24 +233,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     viewBy === "region"    ? "Region" :
     "Grade Span";
 
-  /* ── Filter bar ref for sticky thead offset ─── */
-  const filterBarRef = useRef<HTMLDivElement>(null);
-  const [filterBarHeight, setFilterBarHeight] = useState(0);
-  useEffect(() => {
-    if (!filterBarRef.current) return;
-    const obs = new ResizeObserver(() => {
-      if (filterBarRef.current) {
-        setFilterBarHeight(filterBarRef.current.getBoundingClientRect().height);
-      }
-    });
-    obs.observe(filterBarRef.current);
-    return () => obs.disconnect();
-  }, []);
-
   /* ── Render ────────────────────────────────────────────── */
   return (
     <Fragment>
-    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
@@ -268,10 +254,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
-      <main className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-
-        {/* ── Non-sticky scrollable content above filter bar ── */}
-        <div className="px-3 sm:px-5 pt-3 sm:pt-4 flex flex-col gap-3 min-w-fit">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
         {/* ── Rubric Set Switcher ──────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -354,12 +337,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           ))}
         </div>
 
-        </div>{/* end non-sticky scrollable content */}
-
         {/* ── View By + Score Type toggles ─────────────────── */}
-        <div className="sticky top-0 z-20 px-3 sm:px-5" style={{ backgroundColor: "#F4F6FB" }}>
         <div
-          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
           style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
         >
@@ -464,11 +443,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             ))}
           </div>
         </div>
-        </div>{/* end sticky filter bar wrapper */}
 
         {/* ── Loading / Error ──────────────────────────────── */}
         {isLoading && (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex-1 flex items-center justify-center py-20">
             <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
           </div>
         )}
@@ -477,17 +455,14 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         )}
 
         {/* ── Grid ─────────────────────────────────────────── */}
-        {/* overflow-y:clip prevents this container from becoming a y-axis scroll
-            container (which would capture sticky), while overflow-x:auto provides
-            horizontal scrolling scoped to the table area. */}
         {data && !isLoading && (
-          <div className="px-3 sm:px-5 pb-3 sm:pb-4" style={{ overflowX: "auto", overflowY: "clip" }}>
           <div
-            className="bg-white rounded-md shadow-sm"
+            className="bg-white rounded-md overflow-hidden flex-1 min-h-0 shadow-sm"
             style={{ border: "1px solid #dde3f0" }}
           >
+            <div className="overflow-auto h-full">
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-                <thead className="sticky z-20" style={{ top: filterBarHeight }}>
+                <thead className="sticky top-0 z-20">
 
                   {/* Category row */}
                   <tr style={{ backgroundColor: NAVY }}>
