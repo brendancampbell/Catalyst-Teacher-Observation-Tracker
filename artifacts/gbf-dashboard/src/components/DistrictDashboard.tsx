@@ -270,7 +270,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-auto">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0" style={{ overflowY: "auto", overflowX: "clip" }}>
 
         {/* ── Rubric Set Switcher ──────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -475,7 +475,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {data && !isLoading && (
           <div
             className="bg-white rounded-md shadow-sm"
-            style={{ border: "1px solid #dde3f0" }}
+            style={{ border: "1px solid #dde3f0", overflowX: "auto", overflowY: "clip" }}
           >
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
                 <thead className="sticky z-20" style={{ top: filterBarHeight }}>
