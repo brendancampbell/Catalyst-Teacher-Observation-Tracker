@@ -451,7 +451,7 @@ export default function Dashboard() {
       )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0" style={{ overflowY: "auto", overflowX: "clip" }}>
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
 
         {/* ── Rubric Set Switcher ────────────────────────────── */}
         {rubricSets.length > 0 && (
