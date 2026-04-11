@@ -94,6 +94,16 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+/* ── Smart redirect: /api/app → mobile or desktop based on User-Agent ──
+   Must be registered BEFORE the /api router so auth middleware doesn't intercept it. */
+const MOBILE_UA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+
+app.get("/api/app", (req, res) => {
+  const ua = req.headers["user-agent"] ?? "";
+  const dest = MOBILE_UA.test(ua) ? "/gbf-mobile/" : "/";
+  res.redirect(302, dest);
+});
+
 app.use("/api", router);
 
 export default app;
