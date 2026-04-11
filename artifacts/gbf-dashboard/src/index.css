@@ -3,6 +3,16 @@
 
 html {
   zoom: 1.25;
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  height: 100%;
+  overflow: hidden;
+}
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";

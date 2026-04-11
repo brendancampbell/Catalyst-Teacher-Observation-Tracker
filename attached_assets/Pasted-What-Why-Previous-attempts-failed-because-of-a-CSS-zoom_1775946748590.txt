@@ -1,0 +1,69 @@
+What & Why
+Previous attempts failed because of a CSS zoom: 1.25 rule on html in index.css. This distorts 100vh calculations and means h-screen alone does not constrain the layout. The fix requires both a global CSS change AND the component layout changes. Both Dashboard.tsx (school) and DistrictDashboard.tsx (network) must receive identical changes.
+
+The Root Cause
+index.css contains html { zoom: 1.25; }. With CSS zoom applied to html, 100vh no longer reliably fills the visible viewport. Additionally, without overflow: hidden on html and body, the browser page scroll is never disabled — the outer div can have h-screen set but children that overflow it will still cause a page scrollbar. The solution is to add height and overflow constraints directly on html, body, and #root, then use h-full in the components (relative units cascade correctly through zoom, absolute viewport units do not).
+
+Done looks like
+The 4-card analysis grid is gone on both pages
+Scrolling happens only within the table body — the app header, rubric row, filter row, and table column-header row are all frozen and never move
+The domain average row is frozen at the bottom of the table scroll area; when there are too few rows to fill the space it sits naturally below the last row
+The page footer is always visible at the very bottom of the viewport
+Both pages look and behave identically
+Out of scope
+Any changes to cell data, column structure, or visual styling
+Changes to the mobile app
+Exact changes required
+Change 1 — index.css: add height + overflow constraints on html/body/#root
+In artifacts/gbf-dashboard/src/index.css, the current rule is:
+
+html {
+  zoom: 1.25;
+}
+
+Change it to:
+
+html {
+  zoom: 1.25;
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  height: 100%;
+  overflow: hidden;
+}
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+This cascades a real pixel height from the viewport down through the DOM tree to the React root, and prevents any page-level scrolling. position: fixed elements (like the Toaster notifications) are NOT affected by overflow: hidden on ancestors — they remain visible. Absolute-positioned elements inside the page (like FilterMultiSelect dropdowns) open within the viewport and will not be clipped.
+
+Change 2 — Dashboard.tsx + DistrictDashboard.tsx: min-h-screen → h-full
+In both files, find the outermost page div (the one with backgroundColor: "#F4F6FB"). Change its class from min-h-screen flex flex-col to h-full flex flex-col.
+
+With the CSS from Change 1, h-full now cascades: html(100%) → body(100%) → #root(100%) → outer div(100%), giving the outer div exactly the visible viewport height. The flex column then distributes this correctly:
+
+Header div: natural height (stays sticky at top)
+<main> with flex-1 min-h-0: fills remaining height
+<footer>: natural height at bottom
+Inside <main>, the table wrapper already has flex-1 min-h-0 overflow-hidden, and the inner scroll div already has overflow-auto h-full. These will now work correctly because the chain of heights is defined all the way down.
+
+Change 3 — Remove the stats cards JSX from both files
+Delete the entire stats card grid section from both files. It begins with a comment like {/* ── Stats */} and renders a <div className="grid grid-cols-2 md:grid-cols-4 ..."> containing 4 white cards. Delete the entire block including its wrapping div.
+
+In Dashboard.tsx: after deleting, check if statCount, statProficient, statNeedsSupport, rowCountLabel are referenced anywhere else. If not, remove them. Do NOT remove statAvg — it is used in the domain average footer row.
+
+In DistrictDashboard.tsx: after deleting, check if schoolCount, districtAvgRaw, proficient, needsSupport are referenced anywhere else. If not, remove them.
+
+Change 4 — Remove filter bar sticky positioning from both files
+The filter bar in both files currently has position: "sticky" and top: headerHeight + 8 in its inline style. Since the page no longer scrolls, these are no longer needed. Remove position: "sticky" and top: headerHeight + 8 from the filter bar's style prop in both files. Keep all other styling on the filter bar unchanged.
+
+Also remove the filterBarRef ref, the filterBarHeight state, and the useLayoutEffect that measured the filter bar height, from both files — they are no longer used. The ref={filterBarRef} prop on the filter bar div should also be removed.
+
+The headerRef and headerHeight can stay.
+
+Relevant files
+artifacts/gbf-dashboard/src/index.css
+artifacts/gbf-dashboard/src/components/Dashboard.tsx
+artifacts/gbf-dashboard/src/components/DistrictDashboard.tsx
