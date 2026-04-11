@@ -475,7 +475,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {data && !isLoading && (
           <div
             className="bg-white rounded-md shadow-sm"
-            style={{ border: "1px solid #dde3f0", overflowX: "auto", overflowY: "clip" }}
+            style={{ border: "1px solid #dde3f0", overflowX: "auto", overflowY: "clip", height: "max-content" }}
           >
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
                 <thead className="sticky z-20" style={{ top: filterBarHeight }}>
