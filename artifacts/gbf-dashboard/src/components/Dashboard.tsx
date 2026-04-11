@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import { useViewportHeight } from "@/hooks/use-viewport-height";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
@@ -230,6 +231,8 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const viewportHeight = useViewportHeight();
+
   /* ── Header height measurement for sticky filter bar ── */
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -441,7 +444,7 @@ export default function Dashboard() {
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (
-    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="flex flex-col" style={{ height: viewportHeight, overflow: "clip", backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
@@ -642,10 +645,9 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md shadow-sm flex-1 min-h-0 overflow-hidden"
+          className="bg-white rounded-md shadow-sm flex-1 min-h-0 overflow-auto"
           style={{ border: "1px solid #dde3f0" }}
         >
-          <div className="overflow-auto h-full">
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
               <thead className="sticky top-0 z-20">
 
@@ -1096,7 +1098,6 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
 
       </main>
