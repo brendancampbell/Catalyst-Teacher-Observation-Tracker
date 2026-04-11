@@ -432,7 +432,7 @@ export default function Dashboard() {
                   style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
                 >
                   <ArrowLeft size={12} />
-                  District Overview
+                  Network Overview
                 </a>
               )}
               <p

@@ -669,7 +669,7 @@ function SchoolSettings() {
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500">Manage the schools in your district. Region and grade span are required for every school.</p>
+        <p className="text-sm text-slate-500">Manage the schools in your network. Region and grade span are required for every school.</p>
         <button
           onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
           className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"

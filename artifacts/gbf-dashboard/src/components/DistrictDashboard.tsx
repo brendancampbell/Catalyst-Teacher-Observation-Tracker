@@ -252,7 +252,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                 Get Better Faster Tracker
               </p>
               <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
-                District Overview
+                Network Overview
               </p>
             </div>
           </div>
@@ -517,7 +517,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           </div>
         )}
         {isError && (
-          <div className="py-10 text-center text-red-600 font-semibold">Failed to load district summary.</div>
+          <div className="py-10 text-center text-red-600 font-semibold">Failed to load network summary.</div>
         )}
 
         {/* ── Grid ─────────────────────────────────────────── */}

@@ -115,7 +115,7 @@ const SEED_CHAT: ChatMsg[] = [
   { role: "user", text: "Are there any calibration concerns I should know about?" },
   {
     role: "ai",
-    text: "Yes — I've flagged 3 potential calibration discrepancies where School Coach scores differ from District Walkthrough scores by ≥ 0.5 points. The largest gap is in Rachel Kim's Ratio & Engagement scores. I'd recommend a calibration session before the next round of walkthroughs.",
+    text: "Yes — I've flagged 3 potential calibration discrepancies where School Coach scores differ from Network Walkthrough scores by ≥ 0.5 points. The largest gap is in Rachel Kim's Ratio & Engagement scores. I'd recommend a calibration session before the next round of walkthroughs.",
   },
 ];
 
@@ -431,7 +431,7 @@ export default function ActionCenterPage() {
                     Calibration Flags
                   </CardTitle>
                   <p className="text-xs text-amber-600 mt-0.5">
-                    Score discrepancies (≥ 0.5 pts) between School Coach and District Walkthrough · placeholder data
+                    Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough · placeholder data
                   </p>
                 </CardHeader>
                 <CardContent className="px-5 pb-5 space-y-3">
@@ -448,7 +448,7 @@ export default function ActionCenterPage() {
                         </div>
                         <div className="text-slate-300 font-light">vs</div>
                         <div className="text-center">
-                          <p className="text-xs text-slate-400">District</p>
+                          <p className="text-xs text-slate-400">Network</p>
                           <p className="text-sm font-bold text-amber-700">{flag.districtScore.toFixed(1)}</p>
                         </div>
                         <Badge

@@ -147,7 +147,7 @@ export default function DistrictActionCenterPage() {
                     style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
                   >
                     <ArrowLeft size={12} />
-                    Back to District Overview
+                    Back to Network Overview
                   </a>
                   <p
                     className="text-white uppercase tracking-widest leading-tight"
