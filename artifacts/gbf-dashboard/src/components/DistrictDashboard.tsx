@@ -5,7 +5,7 @@ import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntr
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
-import UserMenuDropdown from "@/components/UserMenuDropdown";
+import AppHeader from "@/components/AppHeader";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -231,61 +231,20 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
-      <div style={{ height: 5, backgroundColor: YELLOW }} />
-
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
-
-          {/* Left: logo + title */}
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <img
-              src="/uncommon-logo.png"
-              alt="Uncommon Schools"
-              className="h-8 sm:h-12 w-auto object-contain shrink-0"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
-            <div className="hidden sm:block min-w-0">
-              <p
-                className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
-              >
-                Get Better Faster Tracker
-              </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
-                Network Overview
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Network Action Center + Admin + user switcher */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <a
-              href={`${baseUrl}/district-action-center`}
-              className="hidden sm:flex items-center gap-2 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: YELLOW,
-                color: NAVY,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "0.02em",
-              }}
-            >
-              <span style={{ fontSize: 13 }}>⚡</span>
-              Network Action Center
-            </a>
-            {currentUser && (
-              <UserMenuDropdown
-                name={currentUser.name}
-                role={currentUser.role}
-                basePath={baseUrl}
-                canAdmin={currentUser.role !== "COACH"}
-              />
-            )}
-          </div>
+      {currentUser && (
+        <div className="sticky top-0 z-30 shadow-md">
+          <AppHeader
+            subtitle="Network Overview"
+            basePath={baseUrl}
+            onAddObservation={() => { window.location.href = `${baseUrl}/`; }}
+            actionCenterHref={`${baseUrl}/district-action-center`}
+            actionCenterLabel="Action Center"
+            userName={currentUser.name}
+            userRole={currentUser.role}
+            canAdmin={currentUser.role !== "COACH"}
+          />
         </div>
-        <div style={{ height: 3, backgroundColor: YELLOW }} />
-      </header>
+      )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">

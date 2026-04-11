@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School, Users } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import {
   fetchRubric,
   fetchRubricSets,
@@ -1133,33 +1134,28 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
-      <div style={{ height: 5, backgroundColor: YELLOW }} />
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shadow-md">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4">
-          <a
-            href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/`}
-            className="flex items-center gap-2 font-semibold hover:opacity-80 transition-opacity"
-            style={{ color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.02em" }}
-          >
-            <ArrowLeft size={18} />
-            Dashboard
-          </a>
-          <div style={{ width: 1, height: 28, backgroundColor: "rgba(255,181,0,0.4)" }} />
-          <p className="text-white uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
-            Admin Settings
-          </p>
-          <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-blue-200 text-sm hidden sm:block">{currentUser?.name}</span>
-            <span className="text-xs font-bold rounded-full px-2.5 py-0.5" style={{ backgroundColor: YELLOW, color: NAVY }}>
-              {currentUser?.role?.replace("_", " ")}
-            </span>
-          </div>
-        </div>
-        <div style={{ height: 3, backgroundColor: YELLOW }} />
-      </header>
 
-      {/* Tab bar */}
-      <div className="sticky top-[61px] z-20 bg-white shadow-sm border-b border-slate-200">
+      {/* ── Sticky header + tab bar ── */}
+      <div className="sticky top-0 z-30 shadow-md">
+        <AppHeader
+          subtitle="Settings"
+          basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
+          onAddObservation={() => {
+            const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+            window.location.href = `${base}/`;
+          }}
+          actionCenterHref={
+            (currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER")
+              ? `${import.meta.env.BASE_URL.replace(/\/$/, "")}/district-action-center`
+              : `${import.meta.env.BASE_URL.replace(/\/$/, "")}/action-center`
+          }
+          userName={currentUser.name}
+          userRole={currentUser.role}
+          canAdmin={true}
+        />
+
+        {/* Tab bar */}
+        <div className="bg-white border-b border-slate-200">
         <div className="px-4 sm:px-6 flex gap-1">
           {tabs.map((tab) => (
             <button
@@ -1174,6 +1170,7 @@ export default function AdminPage() {
               {tab.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 

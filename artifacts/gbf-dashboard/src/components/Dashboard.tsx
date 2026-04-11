@@ -1,7 +1,6 @@
 import { Fragment, useState, useMemo, useEffect } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
-import { Plus, ArrowLeft } from "lucide-react";
-import UserMenuDropdown from "@/components/UserMenuDropdown";
+import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -411,85 +410,19 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
-      <div style={{ height: 5, backgroundColor: YELLOW }} />
-
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
-
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <img
-              src="/uncommon-logo.png"
-              alt="Uncommon Schools"
-              className="h-8 sm:h-12 w-auto object-contain shrink-0"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
-            <div className="hidden sm:block min-w-0">
-              {/* District breadcrumb when drilling into a school */}
-              {schoolId != null && isNetworkRole && (
-                <a
-                  href={`${BASE_PATH}/`}
-                  className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
-                  style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                >
-                  <ArrowLeft size={12} />
-                  Network Overview
-                </a>
-              )}
-              <p
-                className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
-              >
-                Get Better Faster Tracker
-              </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
-                {schoolName ?? currentUser?.schoolName ?? ""}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={() => setNewObsOpen(true)}
-              className="flex items-center gap-1.5 font-bold rounded-md px-3 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
-              style={{
-                backgroundColor: YELLOW,
-                color: NAVY,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 15,
-                letterSpacing: "0.02em",
-              }}
-            >
-              <Plus size={16} strokeWidth={3} />
-              <span className="hidden sm:inline">Add Observation</span>
-            </button>
-
-            <a
-              href={`${BASE_PATH}/action-center`}
-              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
-              style={{
-                border: `1.5px solid rgba(255,181,0,0.5)`,
-                color: YELLOW,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "0.02em",
-              }}
-            >
-              Action Center
-            </a>
-
-            {currentUser && (
-              <UserMenuDropdown
-                name={currentUser.name}
-                role={currentUser.role}
-                basePath={BASE_PATH}
-                canAdmin={currentUser.role !== "COACH"}
-              />
-            )}
-          </div>
+      {currentUser && (
+        <div className="sticky top-0 z-30 shadow-md">
+          <AppHeader
+            subtitle={schoolName ?? currentUser.schoolName ?? ""}
+            basePath={BASE_PATH}
+            onAddObservation={() => setNewObsOpen(true)}
+            actionCenterHref={`${BASE_PATH}/action-center`}
+            userName={currentUser.name}
+            userRole={currentUser.role}
+            canAdmin={currentUser.role !== "COACH"}
+          />
         </div>
-        <div style={{ height: 3, backgroundColor: YELLOW }} />
-      </header>
+      )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
       <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
