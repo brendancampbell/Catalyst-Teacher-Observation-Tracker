@@ -119,6 +119,28 @@ export async function toggleTeacherActive(id: number): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>(`/admin/teachers/${id}/toggle-active`, { method: "PATCH" });
 }
 
+export interface BulkImportTeacherPayload {
+  name:       string;
+  subject:    string;
+  gradeLevel: string;
+  school:     string;
+}
+
+export interface BulkImportTeacherRowResult {
+  row:     number;
+  status:  "created" | "skipped" | "error";
+  name?:   string;
+  reason?: string;
+}
+
+export interface BulkImportTeacherResult {
+  results: BulkImportTeacherRowResult[];
+}
+
+export async function bulkImportTeachers(teachers: BulkImportTeacherPayload[]): Promise<BulkImportTeacherResult> {
+  return apiFetch<BulkImportTeacherResult>("/admin/teachers/bulk", { method: "POST", body: JSON.stringify(teachers) });
+}
+
 export interface DomainEntry {
   id:          string;
   label:       string;

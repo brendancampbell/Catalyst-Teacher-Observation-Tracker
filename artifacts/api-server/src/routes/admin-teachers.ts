@@ -129,6 +129,115 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
   }
 });
 
+/* POST /api/admin/teachers/bulk — bulk create teachers from array */
+router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const isNetworkAdmin = user.role === "NETWORK_ADMIN";
+
+    const rows = req.body as Array<{
+      name?: unknown;
+      subject?: unknown;
+      gradeLevel?: unknown;
+      school?: unknown;
+    }>;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      res.status(400).json({ error: "Body must be a non-empty array of teacher objects" });
+      return;
+    }
+
+    const allSchools = await db.select({ id: schools.id, name: schools.name }).from(schools);
+    const schoolNameMap = new Map<string, number>(
+      allSchools.map((s) => [s.name.toLowerCase().trim(), s.id]),
+    );
+
+    type RowResult = {
+      row: number;
+      status: "created" | "skipped" | "error";
+      name?: string;
+      reason?: string;
+    };
+
+    const results: RowResult[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      const rowNum = i + 1;
+
+      const name    = typeof raw.name    === "string" ? raw.name.trim()    : null;
+      const subject = typeof raw.subject === "string" ? raw.subject.trim() : null;
+      const school  = typeof raw.school  === "string" ? raw.school.trim()  : null;
+
+      // Parse gradeLevel — accept string (comma-separated) or array
+      let gradeLevel: string[] = [];
+      if (Array.isArray(raw.gradeLevel)) {
+        gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
+      } else if (typeof raw.gradeLevel === "string" && raw.gradeLevel.trim()) {
+        gradeLevel = raw.gradeLevel.split(",").map((g) => g.trim()).filter(Boolean);
+      }
+
+      if (!name) {
+        results.push({ row: rowNum, status: "error", reason: "Missing name" });
+        continue;
+      }
+      if (!subject) {
+        results.push({ row: rowNum, status: "error", name, reason: "Missing subject" });
+        continue;
+      }
+      if (gradeLevel.length === 0) {
+        results.push({ row: rowNum, status: "error", name, reason: "Missing gradeLevel" });
+        continue;
+      }
+
+      // Resolve school to schoolId
+      let schoolId: number | null = null;
+      if (isNetworkAdmin) {
+        if (!school) {
+          results.push({ row: rowNum, status: "error", name, reason: "Missing school (required for Network Admin imports)" });
+          continue;
+        }
+        const found = schoolNameMap.get(school.toLowerCase());
+        if (found === undefined) {
+          results.push({ row: rowNum, status: "error", name, reason: `School "${school}" not found` });
+          continue;
+        }
+        schoolId = found;
+      } else {
+        // SCHOOL_LEADER: always assign to their own school, school column in CSV is ignored
+        schoolId = user.schoolId ?? null;
+      }
+
+      // Check for duplicate: same name + schoolId
+      const existing = await db.query.teachers.findFirst({
+        where: and(eq(teachers.name, name), schoolId !== null ? eq(teachers.schoolId, schoolId) : undefined),
+      });
+      if (existing) {
+        results.push({ row: rowNum, status: "skipped", name, reason: "Duplicate teacher name at this school" });
+        continue;
+      }
+
+      try {
+        await db.insert(teachers).values({
+          name,
+          subject,
+          gradeLevel,
+          isActive: true,
+          schoolId,
+        });
+        results.push({ row: rowNum, status: "created", name });
+      } catch {
+        results.push({ row: rowNum, status: "error", name, reason: "Database error" });
+      }
+    }
+
+    res.json({ results });
+  } catch (err) {
+    console.error("POST /admin/teachers/bulk error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* PATCH /api/admin/teachers/:id/toggle-active — flip isActive */
 router.patch("/:id/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {

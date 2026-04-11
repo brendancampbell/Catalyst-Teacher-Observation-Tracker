@@ -28,6 +28,7 @@ import {
   createUser,
   updateUser,
   bulkImportUsers,
+  bulkImportTeachers,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -40,6 +41,8 @@ import {
   type UserRole,
   type BulkImportRowResult,
   type BulkImportUserPayload,
+  type BulkImportTeacherPayload,
+  type BulkImportTeacherRowResult,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -370,9 +373,10 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
    TEACHER ROSTER TAB
    ════════════════════════════════════════════════════════════════ */
 
-function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
+function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: boolean; canBulkImport: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "teachers"] as const;
+  const [rosterView, setRosterView] = useState<"list" | "bulk">("list");
 
   const { data: teachers = [], isLoading } = useQuery<AdminTeacher[]>({
     queryKey: qKey,
@@ -460,8 +464,53 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
     </div>
   );
 
+  if (rosterView === "bulk" && canBulkImport) {
+    return (
+      <div className="flex flex-col gap-4">
+        {/* Sub-tab bar */}
+        <div className="flex gap-1 border-b border-slate-200 pb-0">
+          <button
+            onClick={() => setRosterView("list")}
+            className="px-4 py-2 text-sm font-semibold transition-colors"
+            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
+          >
+            Roster
+          </button>
+          <button
+            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
+            style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
+          >
+            <Upload size={13} />
+            Bulk Import
+          </button>
+        </div>
+        <BulkImportTeachers isDistrictAdmin={isDistrictAdmin} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Sub-tab bar */}
+      <div className="flex gap-1 border-b border-slate-200 pb-0">
+        <button
+          className="px-4 py-2 text-sm font-semibold transition-colors"
+          style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
+        >
+          Roster
+        </button>
+        {canBulkImport && (
+          <button
+            onClick={() => setRosterView("bulk")}
+            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
+            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
+          >
+            <Upload size={13} />
+            Bulk Import
+          </button>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* Search */}
@@ -707,6 +756,351 @@ function TeacherForm({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TEACHER BULK IMPORT
+   ════════════════════════════════════════════════════════════════ */
+
+const TEACHER_CSV_TEMPLATE = `name,subject,gradeLevel,school
+Jane Smith,Math,"K,1,2",Lincoln Elementary
+John Doe,ELA,"3,4",Lincoln Elementary
+`;
+
+function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
+  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+  const results: BulkImportTeacherPayload[] = [];
+  if (lines.length < 2) return results;
+
+  const headers    = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const nameIdx    = headers.indexOf("name");
+  const subjectIdx = headers.indexOf("subject");
+  const gradeIdx   = headers.indexOf("gradelevel");
+  const schoolIdx  = headers.indexOf("school");
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVLine(line);
+    results.push({
+      name:       nameIdx    >= 0 ? (cols[nameIdx]    ?? "") : "",
+      subject:    subjectIdx >= 0 ? (cols[subjectIdx] ?? "") : "",
+      gradeLevel: gradeIdx   >= 0 ? (cols[gradeIdx]   ?? "") : "",
+      school:     schoolIdx  >= 0 ? (cols[schoolIdx]  ?? "") : "",
+    });
+  }
+  return results;
+}
+
+function downloadTeacherTemplate() {
+  const blob = new Blob([TEACHER_CSV_TEMPLATE], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "teacher_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview]           = useState<BulkImportTeacherPayload[] | null>(null);
+  const [fileName, setFileName]         = useState<string>("");
+  const [importResult, setImportResult] = useState<BulkImportTeacherRowResult[] | null>(null);
+  const [submitting, setSubmitting]     = useState(false);
+  const [submitError, setSubmitError]   = useState<string | null>(null);
+
+  function handleFile(file: File) {
+    if (!file.name.endsWith(".csv")) { alert("Please upload a .csv file."); return; }
+    setFileName(file.name);
+    setImportResult(null);
+    setSubmitError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setPreview(parseTeacherCSV(text));
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleSubmit() {
+    if (!preview || preview.length === 0) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const result = await bulkImportTeachers(preview);
+      setImportResult(result.results);
+      setPreview(null);
+      setFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      queryClient.invalidateQueries({ queryKey: ["admin", "teachers"] });
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function resetAll() {
+    setPreview(null);
+    setFileName("");
+    setImportResult(null);
+    setSubmitError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const created = importResult?.filter((r) => r.status === "created") ?? [];
+  const skipped = importResult?.filter((r) => r.status === "skipped") ?? [];
+  const errors  = importResult?.filter((r) => r.status === "error")   ?? [];
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* Format guide */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+          <FileText size={15} className="text-yellow-300" />
+          <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+            CSV Format Guide
+          </span>
+        </div>
+        <div className="px-4 py-4 flex flex-col gap-3">
+          <p className="text-sm text-slate-600">
+            Upload a <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">.csv</code> file with the following columns.
+            The first row must be the header row. Column names are case-insensitive.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Column</th>
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Required</th>
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  { col: "name",       req: true,          desc: "Full name of the teacher" },
+                  { col: "subject",    req: true,          desc: "Subject area (e.g. Math, ELA, Science)" },
+                  { col: "gradeLevel", req: true,          desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
+                  { col: "school",     req: isDistrictAdmin, desc: isDistrictAdmin ? "Exact school name (required for Network Admin)" : "School name (ignored — your school is used automatically)" },
+                ].map(({ col, req, desc }) => (
+                  <tr key={col}>
+                    <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
+                    <td className="px-3 py-2">
+                      {req
+                        ? <span className="text-xs font-bold text-red-600">Required</span>
+                        : <span className="text-xs text-slate-400">Optional</span>
+                      }
+                    </td>
+                    <td className="px-3 py-2 text-slate-600 text-xs">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button
+            onClick={downloadTeacherTemplate}
+            className="self-start flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"
+            style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+          >
+            <Download size={14} />
+            Download Template
+          </button>
+        </div>
+      </div>
+
+      {/* File picker */}
+      {!importResult && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+            <Upload size={15} className="text-yellow-300" />
+            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+              Upload CSV
+            </span>
+          </div>
+          <div className="px-4 py-4 flex flex-col gap-3">
+            <div
+              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50"
+              style={{ borderColor: "#c7d2e8" }}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
+            >
+              <Upload size={28} className="text-slate-300" />
+              <p className="text-sm text-slate-500 text-center">
+                <span className="font-semibold" style={{ color: NAVY }}>Click to browse</span> or drag and drop a CSV file here
+              </p>
+              {fileName && (
+                <span className="text-xs text-green-700 font-semibold bg-green-100 px-2.5 py-1 rounded-full">{fileName}</span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Preview table */}
+      {preview && preview.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+              Preview — {preview.length} row{preview.length !== 1 ? "s" : ""}
+            </span>
+            <button onClick={resetAll} className="text-blue-300 hover:text-white p-1"><X size={16} /></button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Subject</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade Level</th>
+                  {isDistrictAdmin && (
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">School</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {preview.map((row, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row.name || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2 text-slate-600">{row.subject || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2 text-slate-500 text-xs">{row.gradeLevel || <span className="text-red-400 italic">missing</span>}</td>
+                    {isDistrictAdmin && (
+                      <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-red-400 italic">missing</span>}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {submitError && (
+            <div className="px-4 py-3 bg-red-50 border-t border-red-200 flex items-start gap-2 text-sm text-red-700">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              {submitError}
+            </div>
+          )}
+          <div className="px-4 py-3 border-t border-slate-100 flex gap-3">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+            >
+              {submitting ? "Importing…" : `Import ${preview.length} Teacher${preview.length !== 1 ? "s" : ""}`}
+            </button>
+            <button
+              onClick={resetAll}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Results summary */}
+      {importResult && (
+        <div className="flex flex-col gap-3">
+          <div className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-4" style={{ border: "1px solid #dde3f0" }}>
+            <span className="font-bold text-slate-700 text-sm">Import complete:</span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-green-700">
+              <CheckCircle2 size={15} />{created.length} created
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
+              <SkipForward size={15} />{skipped.length} skipped
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600">
+              <AlertCircle size={15} />{errors.length} error{errors.length !== 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={resetAll}
+              className="ml-auto px-4 py-1.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+            >
+              Import Another File
+            </button>
+          </div>
+
+          {created.length > 0 && (
+            <TeacherResultSection
+              title={`Created (${created.length})`}
+              rows={created}
+              headerStyle={{ backgroundColor: "#16a34a" }}
+              statusBadge={() => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">Created</span>}
+            />
+          )}
+          {skipped.length > 0 && (
+            <TeacherResultSection
+              title={`Skipped — Duplicate (${skipped.length})`}
+              rows={skipped}
+              headerStyle={{ backgroundColor: "#d97706" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "Skipped"}</span>}
+            />
+          )}
+          {errors.length > 0 && (
+            <TeacherResultSection
+              title={`Errors (${errors.length})`}
+              rows={errors}
+              headerStyle={{ backgroundColor: "#dc2626" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5">{r.reason ?? "Error"}</span>}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeacherResultSection({
+  title,
+  rows,
+  headerStyle,
+  statusBadge,
+}: {
+  title: string;
+  rows: BulkImportTeacherRowResult[];
+  headerStyle: React.CSSProperties;
+  statusBadge: (r: BulkImportTeacherRowResult) => React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+      <div className="px-4 py-2.5" style={{ ...headerStyle, borderBottom: `2px solid ${YELLOW}` }}>
+        <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}>
+          {title}
+        </span>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((r) => (
+            <tr key={r.row}>
+              <td className="px-3 py-2 text-slate-400 text-xs">{r.row}</td>
+              <td className="px-3 py-2 font-medium text-slate-800">{r.name ?? "—"}</td>
+              <td className="px-3 py-2">{statusBadge(r)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -1775,8 +2169,9 @@ export default function AdminPage() {
     );
   }
 
-  const isDistrictAdmin = currentUser?.role === "NETWORK_ADMIN";
-  const canManageUsers  = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
+  const isDistrictAdmin  = currentUser?.role === "NETWORK_ADMIN";
+  const canManageUsers   = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
+  const canBulkImport    = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
 
   const tabs: { id: AdminTab; label: string }[] = [
     ...(isDistrictAdmin ? [{ id: "rubric" as AdminTab, label: "Rubric Settings" }] : []),
@@ -1971,7 +2366,7 @@ export default function AdminPage() {
         )}
 
         {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings setSlug={selectedRubricSetSlug} />}
-        {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} />}
+        {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} canBulkImport={canBulkImport} />}
         {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} />}
         {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
         {visibleTab === "bulk" && isDistrictAdmin && <BulkImport />}
