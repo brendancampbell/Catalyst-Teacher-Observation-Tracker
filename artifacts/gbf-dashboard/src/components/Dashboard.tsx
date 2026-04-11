@@ -173,11 +173,19 @@ export default function Dashboard() {
   /* ── Rubric set selection ──────────────────────────── */
   const [activeRubricSet, setActiveRubricSet] = useState<string>("Q1");
 
-  const { data: rubricSets = [] } = useQuery<RubricSetRow[]>({
+  const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
     queryKey: ["rubricSets"],
     queryFn: fetchRubricSets,
     staleTime: 60_000,
   });
+  const rubricSets = allRubricSets.filter((q) => !q.isArchived);
+
+  useEffect(() => {
+    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === activeRubricSet)) {
+      setActiveRubricSet(rubricSets[0].slug);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rubricSets]);
 
   /* ── API data ──────────────────────────────────────── */
   const isNetworkRole = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER";

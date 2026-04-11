@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -162,11 +162,19 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  const { data: rubricSets = [] } = useQuery<RubricSetRow[]>({
+  const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
     queryKey: ["rubricSets"],
     queryFn: fetchRubricSets,
     staleTime: 60_000,
   });
+  const rubricSets = allRubricSets.filter((q) => !q.isArchived);
+
+  useEffect(() => {
+    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === activeRubricSet)) {
+      setActiveRubricSet(rubricSets[0].slug);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rubricSets]);
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
     queryKey: ["district", activeRubricSet, scoreType],
