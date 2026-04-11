@@ -65,6 +65,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomName, setEditingDomName] = useState("");
   const [editingDomSlug, setEditingDomSlug] = useState("");
   const [editingDomDesc, setEditingDomDesc] = useState("");
+  const [editingSetName, setEditingSetName] = useState(false);
+  const [pendingSetName, setPendingSetName] = useState("");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
   const [newCatOrder,       setNewCatOrder]       = useState(1);
@@ -78,6 +80,17 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+
+  const renameSetMut = useMutation({
+    mutationFn: (name: string) => updateRubricSet(setSlug, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditingSetName(false);
     },
   });
 
@@ -92,7 +105,11 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
   const updCatMut = useMutation({
     mutationFn: ({ id, name }: { id: number; name: string }) => updateCategory(id, name),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditingCatId(null); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditingCatId(null);
+    },
   });
 
   const delCatMut = useMutation({
@@ -109,7 +126,11 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const updDomMut = useMutation({
     mutationFn: ({ id, name, slug, description }: { id: number; name: string; slug: string; description: string }) =>
       updateDomain(id, name, slug, description),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditingDomId(null); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditingDomId(null);
+    },
   });
 
   const delDomMut = useMutation({
@@ -141,12 +162,47 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3 flex-wrap">
-        <span
-          className="px-4 py-1.5 rounded-full font-bold uppercase text-white shrink-0"
-          style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
-        >
-          {data.rubricSet.name}
-        </span>
+        {editingSetName ? (
+          <div className="flex items-center gap-2">
+            <input
+              className="px-3 py-1.5 rounded border border-blue-300 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em", minWidth: 140 }}
+              value={pendingSetName}
+              onChange={(e) => setPendingSetName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && pendingSetName.trim()) renameSetMut.mutate(pendingSetName.trim());
+                if (e.key === "Escape") setEditingSetName(false);
+              }}
+            />
+            <button
+              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
+              disabled={!pendingSetName.trim() || renameSetMut.isPending}
+              onClick={() => renameSetMut.mutate(pendingSetName.trim())}
+            >
+              <Check size={16} />
+            </button>
+            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingSetName(false)}>
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 group">
+            <span
+              className="px-4 py-1.5 rounded-full font-bold uppercase text-white shrink-0"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
+            >
+              {data.rubricSet.name}
+            </span>
+            <button
+              className="p-1 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Rename rubric set"
+              onClick={() => { setPendingSetName(data.rubricSet.name); setEditingSetName(true); }}
+            >
+              <Pencil size={13} />
+            </button>
+          </div>
+        )}
 
         {data.rubricSet.isArchived && (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 uppercase tracking-wide">
@@ -185,7 +241,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             {editingCatId === cat.id ? (
               <div className="flex items-center gap-2 flex-1">
                 <input
-                  className="flex-1 px-3 py-1 rounded text-sm font-semibold focus:outline-none"
+                  className="flex-1 px-3 py-1 rounded text-sm font-semibold focus:outline-none bg-white"
                   value={editingCatName}
                   onChange={(e) => setEditingCatName(e.target.value)}
                   style={{ color: NAVY }}
