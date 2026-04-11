@@ -230,15 +230,25 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Header height measurement for sticky filter bar ── */
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  /* ── Header + filter bar height measurement for sticky rows ── */
+  const headerRef    = useRef<HTMLDivElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [headerHeight,    setHeaderHeight]    = useState(0);
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
     ro.observe(el);
     setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
+    ro.observe(el);
+    setFilterBarHeight(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
 
@@ -448,7 +458,7 @@ export default function Dashboard() {
       )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1">
 
         {/* ── Rubric Set Switcher ────────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -536,6 +546,7 @@ export default function Dashboard() {
 
         {/* ── Filters + View toggles ─────────────────────────── */}
         <div
+          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
           style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
@@ -627,12 +638,11 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md overflow-hidden flex-1 min-h-0 shadow-sm"
+          className="bg-white rounded-md overflow-x-auto shadow-sm"
           style={{ border: "1px solid #dde3f0" }}
         >
-          <div className="overflow-auto h-full">
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-              <thead className="sticky top-0 z-20">
+              <thead style={{ position: "sticky", top: headerHeight + filterBarHeight + 8, zIndex: 20 }}>
 
                 {/* Category row */}
                 <tr style={{ backgroundColor: NAVY }}>
@@ -1081,7 +1091,6 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
 
       </main>
