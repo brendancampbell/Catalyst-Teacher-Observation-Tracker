@@ -9,7 +9,7 @@ interface AppHeaderProps {
   backHref?: string;
   backLabel?: string;
   basePath: string;
-  onAddObservation: () => void;
+  onAddObservation?: () => void;
   actionCenterHref: string;
   actionCenterLabel?: string;
   userName: string;
@@ -69,20 +69,22 @@ export default function AppHeader({
 
           {/* ── Right: Actions ── */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={onAddObservation}
-              className="flex items-center gap-1.5 font-bold rounded-md px-3 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
-              style={{
-                backgroundColor: YELLOW,
-                color: NAVY,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 15,
-                letterSpacing: "0.02em",
-              }}
-            >
-              <Plus size={16} strokeWidth={3} />
-              <span className="hidden sm:inline">Add Observation</span>
-            </button>
+            {onAddObservation && (
+              <button
+                onClick={onAddObservation}
+                className="flex items-center gap-1.5 font-bold rounded-md px-3 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+                style={{
+                  backgroundColor: YELLOW,
+                  color: NAVY,
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 15,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                <Plus size={16} strokeWidth={3} />
+                <span className="hidden sm:inline">Add Observation</span>
+              </button>
+            )}
 
             <a
               href={actionCenterHref}
