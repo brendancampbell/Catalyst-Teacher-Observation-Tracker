@@ -29,7 +29,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
+      className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-center px-4"
       style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}
     >
       <div style={{ height: 5, backgroundColor: YELLOW, position: "fixed", top: 0, left: 0, right: 0 }} />
