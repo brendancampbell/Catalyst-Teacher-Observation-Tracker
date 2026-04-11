@@ -1394,9 +1394,10 @@ const ALL_ROLES_MAP: Record<UserRole, string> = {
   NETWORK_ADMIN: "Network Admin",
 };
 
-function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmin: boolean; currentUserSchoolId: number | null }) {
+function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: { isNetworkAdmin: boolean; currentUserSchoolId: number | null; canBulkImport: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "users"] as const;
+  const [userView, setUserView] = useState<"list" | "bulk">("list");
 
   const { data: userList = [], isLoading } = useQuery<UserRow[]>({
     queryKey: qKey,
@@ -1485,8 +1486,52 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
     </div>
   );
 
+  if (userView === "bulk" && canBulkImport) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-1 border-b border-slate-200 pb-0">
+          <button
+            onClick={() => setUserView("list")}
+            className="px-4 py-2 text-sm font-semibold transition-colors"
+            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
+          >
+            Users
+          </button>
+          <button
+            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
+            style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
+          >
+            <Upload size={13} />
+            Bulk Import
+          </button>
+        </div>
+        <BulkImport />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Sub-tab bar */}
+      <div className="flex gap-1 border-b border-slate-200 pb-0">
+        <button
+          className="px-4 py-2 text-sm font-semibold transition-colors"
+          style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
+        >
+          Users
+        </button>
+        {canBulkImport && (
+          <button
+            onClick={() => setUserView("bulk")}
+            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
+            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
+          >
+            <Upload size={13} />
+            Bulk Import
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center gap-3 flex-wrap">
         {/* Search */}
         <div className="relative">
@@ -2052,7 +2097,7 @@ function ResultSection({
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "roster" | "schools" | "users" | "bulk";
+type AdminTab = "rubric" | "roster" | "schools" | "users";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -2178,13 +2223,11 @@ export default function AdminPage() {
     { id: "roster", label: "Teacher Roster" },
     ...(canManageUsers ? [{ id: "users" as AdminTab, label: "Users" }] : []),
     ...(isDistrictAdmin ? [{ id: "schools" as AdminTab, label: "Schools" }] : []),
-    ...(isDistrictAdmin ? [{ id: "bulk" as AdminTab, label: "Bulk Import" }] : []),
   ];
 
   const visibleTab: AdminTab =
-    (activeTab === "rubric" && !isDistrictAdmin)  ? "roster" :
-    (activeTab === "users"  && !canManageUsers)    ? "roster" :
-    (activeTab === "bulk"   && !isDistrictAdmin)   ? "roster" :
+    (activeTab === "rubric" && !isDistrictAdmin) ? "roster" :
+    (activeTab === "users"  && !canManageUsers)  ? "roster" :
     activeTab;
 
   return (
@@ -2367,9 +2410,8 @@ export default function AdminPage() {
 
         {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings setSlug={selectedRubricSetSlug} />}
         {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} canBulkImport={canBulkImport} />}
-        {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} />}
+        {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} canBulkImport={canBulkImport} />}
         {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
-        {visibleTab === "bulk" && isDistrictAdmin && <BulkImport />}
       </main>
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
