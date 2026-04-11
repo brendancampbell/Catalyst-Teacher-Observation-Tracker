@@ -15,6 +15,8 @@ configurePassport();
 
 const app: Express = express();
 
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
@@ -46,6 +48,12 @@ const buildAllowedOrigins = (): string[] => {
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
   if (devDomain) {
     origins.push(`https://${devDomain}`);
+  }
+  const productionOrigin = process.env.GOOGLE_CALLBACK_URL
+    ? new URL(process.env.GOOGLE_CALLBACK_URL).origin
+    : null;
+  if (productionOrigin) {
+    origins.push(productionOrigin);
   }
   return origins;
 };
