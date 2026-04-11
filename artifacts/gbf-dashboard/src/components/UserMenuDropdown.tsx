@@ -38,35 +38,30 @@ export default function UserMenuDropdown({ name, role, basePath, canAdmin }: Pro
       {/* ── Trigger ── */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors"
+        className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5 transition-colors"
         style={{
-          backgroundColor: "rgba(186,230,253,0.12)",
-          border: "1.5px solid rgba(147,197,253,0.45)",
+          backgroundColor: "rgba(255,255,255,0.1)",
+          border: "1px solid rgba(255,255,255,0.15)",
           color: "white",
           outline: "none",
         }}
       >
         {/* Avatar */}
         <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-          style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13 }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+          style={{ backgroundColor: YELLOW, color: NAVY }}
         >
           {initials}
         </div>
 
-        {/* Name + role */}
-        <div className="hidden sm:flex flex-col items-start leading-tight">
-          <span className="font-semibold" style={{ fontSize: 13 }}>{name}</span>
-          <span className="font-medium" style={{ fontSize: 10, color: "rgba(186,230,253,0.85)", letterSpacing: "0.02em" }}>
-            {roleLabel}
-          </span>
-        </div>
+        {/* Name */}
+        <span className="font-medium hidden sm:block" style={{ fontSize: 15 }}>{name}</span>
 
         <ChevronDown
           size={14}
           strokeWidth={2.5}
           className="shrink-0 transition-transform"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(186,230,253,0.8)" }}
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.6)" }}
         />
       </button>
 
