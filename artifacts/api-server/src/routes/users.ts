@@ -102,6 +102,120 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
   }
 });
 
+/* ── POST /api/users/bulk ─────────────────────────────────────────
+   NETWORK_ADMIN only: create many users from a JSON array.
+   Returns per-row results: created | skipped | error.              */
+router.post("/bulk", requireRole("NETWORK_ADMIN"), async (req, res) => {
+  try {
+    const rows = req.body as Array<{
+      name?: unknown;
+      email?: unknown;
+      role?: unknown;
+      school?: unknown;
+    }>;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      res.status(400).json({ error: "Body must be a non-empty array of user objects" });
+      return;
+    }
+
+    // Pre-fetch all schools once so we can do name→id resolution.
+    const allSchools = await db
+      .select({ id: schools.id, name: schools.name })
+      .from(schools);
+
+    const schoolNameMap = new Map<string, number>(
+      allSchools.map((s) => [s.name.toLowerCase().trim(), s.id]),
+    );
+    const schoolIdSet = new Set<number>(allSchools.map((s) => s.id));
+
+    const VALID_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER"];
+
+    const results: Array<{
+      row: number;
+      status: "created" | "skipped" | "error";
+      email?: string;
+      name?: string;
+      reason?: string;
+    }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      const rowNum = i + 1;
+
+      const email  = typeof raw.email === "string" ? raw.email.trim().toLowerCase() : null;
+      const name   = typeof raw.name  === "string" ? raw.name.trim()               : null;
+      const role   = typeof raw.role  === "string" ? raw.role.trim().toUpperCase() : null;
+      const school = typeof raw.school === "string" ? raw.school.trim()            : null;
+
+      if (!email) {
+        results.push({ row: rowNum, status: "error", reason: "Missing or invalid email" });
+        continue;
+      }
+      if (!name) {
+        results.push({ row: rowNum, status: "error", email, reason: "Missing name" });
+        continue;
+      }
+      if (!role || !VALID_ROLES.includes(role as UserRole)) {
+        results.push({ row: rowNum, status: "error", email, name, reason: `Invalid role "${raw.role}". Must be COACH, SCHOOL_LEADER, or NETWORK_LEADER` });
+        continue;
+      }
+
+      // School is required for school-scoped roles (COACH, SCHOOL_LEADER)
+      const SCHOOL_SCOPED_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER"];
+      const needsSchool = SCHOOL_SCOPED_ROLES.includes(role as UserRole);
+
+      // Resolve school → schoolId
+      let schoolId: number | null = null;
+      if (school) {
+        const byName = schoolNameMap.get(school.toLowerCase());
+        if (byName !== undefined) {
+          schoolId = byName;
+        } else {
+          const asNum = Number(school);
+          if (!isNaN(asNum) && schoolIdSet.has(asNum)) {
+            schoolId = asNum;
+          } else {
+            results.push({ row: rowNum, status: "error", email, name, reason: `School "${school}" not found` });
+            continue;
+          }
+        }
+      } else if (needsSchool) {
+        results.push({ row: rowNum, status: "error", email, name, reason: `School is required for role "${role}"` });
+        continue;
+      }
+
+      try {
+        await db.insert(users).values({
+          email,
+          name,
+          role: role as UserRole,
+          schoolId,
+        });
+        results.push({ row: rowNum, status: "created", email, name });
+      } catch (err: unknown) {
+        const isDuplicate = (e: unknown): boolean => {
+          if (typeof e !== "object" || e === null) return false;
+          const obj = e as Record<string, unknown>;
+          if (obj["code"] === "23505") return true;
+          if (obj["cause"] && isDuplicate(obj["cause"])) return true;
+          return false;
+        };
+        if (isDuplicate(err)) {
+          results.push({ row: rowNum, status: "skipped", email, name, reason: "Duplicate email" });
+        } else {
+          results.push({ row: rowNum, status: "error", email, name, reason: "Database error" });
+        }
+      }
+    }
+
+    res.json({ results });
+  } catch (err) {
+    console.error("POST /users/bulk error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── PATCH /api/users/:id ─────────────────────────────────────────
    SCHOOL_LEADER: update Coach or School Leader in own school
    NETWORK_ADMIN: update any user with any role                     */

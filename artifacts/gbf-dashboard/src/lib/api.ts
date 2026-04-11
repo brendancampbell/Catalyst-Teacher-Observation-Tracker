@@ -25,6 +25,29 @@ export async function updateUser(id: number, payload: Partial<{ email: string; n
   return apiFetch<UserRow>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+export interface BulkImportRowResult {
+  row:    number;
+  status: "created" | "skipped" | "error";
+  email?: string;
+  name?:  string;
+  reason?: string;
+}
+
+export interface BulkImportResult {
+  results: BulkImportRowResult[];
+}
+
+export interface BulkImportUserPayload {
+  name:   string;
+  email:  string;
+  role:   string;
+  school: string;
+}
+
+export async function bulkImportUsers(users: BulkImportUserPayload[]): Promise<BulkImportResult> {
+  return apiFetch<BulkImportResult>("/users/bulk", { method: "POST", body: JSON.stringify(users) });
+}
+
 /* ── Admin: Schools ─────────────────────────────────────────────── */
 
 export const REGIONS = ["Boston", "Camden", "NYC", "Newark", "Rochester"] as const;

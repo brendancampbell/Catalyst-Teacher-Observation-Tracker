@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import {
   fetchRubric,
@@ -24,6 +24,7 @@ import {
   fetchUsers,
   createUser,
   updateUser,
+  bulkImportUsers,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -34,6 +35,8 @@ import {
   type AdminSchool,
   type UserRow,
   type UserRole,
+  type BulkImportRowResult,
+  type BulkImportUserPayload,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -1024,10 +1027,407 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
 }
 
 /* ════════════════════════════════════════════════════════════════
+   BULK IMPORT TAB (Network Admin only)
+   ════════════════════════════════════════════════════════════════ */
+
+const CSV_TEMPLATE_ROWS = [
+  "name,email,role,school",
+  "Jane Smith,jane.smith@example.org,COACH,Lincoln Middle School",
+  "Carlos Rivera,c.rivera@example.org,SCHOOL_LEADER,Jefferson High School",
+].join("\n");
+
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (line[i] === '"') {
+      let field = "";
+      i++;
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else if (line[i] === '"') {
+          i++;
+          break;
+        } else {
+          field += line[i++];
+        }
+      }
+      fields.push(field.trim());
+      if (line[i] === ",") i++;
+    } else {
+      const end = line.indexOf(",", i);
+      if (end === -1) {
+        fields.push(line.slice(i).trim());
+        break;
+      }
+      fields.push(line.slice(i, end).trim());
+      i = end + 1;
+    }
+  }
+  return fields;
+}
+
+function parseCSV(text: string): BulkImportUserPayload[] {
+  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+  const results: BulkImportUserPayload[] = [];
+  if (lines.length < 2) return results;
+
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
+  const nameIdx   = headers.indexOf("name");
+  const emailIdx  = headers.indexOf("email");
+  const roleIdx   = headers.indexOf("role");
+  const schoolIdx = headers.indexOf("school");
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVLine(line);
+    results.push({
+      name:   nameIdx   >= 0 ? (cols[nameIdx]   ?? "") : "",
+      email:  emailIdx  >= 0 ? (cols[emailIdx]  ?? "") : "",
+      role:   roleIdx   >= 0 ? (cols[roleIdx]   ?? "") : "",
+      school: schoolIdx >= 0 ? (cols[schoolIdx] ?? "") : "",
+    });
+  }
+  return results;
+}
+
+function downloadTemplate() {
+  const blob = new Blob([CSV_TEMPLATE_ROWS], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "user_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function BulkImport() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<BulkImportUserPayload[] | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const [importResult, setImportResult] = useState<BulkImportRowResult[] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function handleFile(file: File) {
+    if (!file.name.endsWith(".csv")) {
+      alert("Please upload a .csv file.");
+      return;
+    }
+    setFileName(file.name);
+    setImportResult(null);
+    setSubmitError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      setPreview(parseCSV(text));
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleSubmit() {
+    if (!preview || preview.length === 0) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const result = await bulkImportUsers(preview);
+      setImportResult(result.results);
+      setPreview(null);
+      setFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function resetAll() {
+    setPreview(null);
+    setFileName("");
+    setImportResult(null);
+    setSubmitError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const created = importResult?.filter((r) => r.status === "created")  ?? [];
+  const skipped = importResult?.filter((r) => r.status === "skipped")  ?? [];
+  const errors  = importResult?.filter((r) => r.status === "error")    ?? [];
+
+  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* Format guide */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+          <FileText size={15} className="text-yellow-300" />
+          <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+            CSV Format Guide
+          </span>
+        </div>
+        <div className="px-4 py-4 flex flex-col gap-3">
+          <p className="text-sm text-slate-600">
+            Upload a <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">.csv</code> file with the following columns.
+            The first row must be the header row. Column names are case-insensitive.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Column</th>
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Required</th>
+                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  { col: "name",   req: true,  desc: "Full name of the user" },
+                  { col: "email",  req: true,  desc: "Email address (must be unique)" },
+                  { col: "role",   req: true,  desc: "COACH, SCHOOL_LEADER, or NETWORK_LEADER" },
+                  { col: "school", req: false, desc: "Exact school name — required for COACH and SCHOOL_LEADER; leave blank for NETWORK_LEADER" },
+                ].map(({ col, req, desc }) => (
+                  <tr key={col}>
+                    <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
+                    <td className="px-3 py-2">
+                      {req
+                        ? <span className="text-xs font-bold text-red-600">Required</span>
+                        : <span className="text-xs text-slate-400">Optional</span>
+                      }
+                    </td>
+                    <td className="px-3 py-2 text-slate-600 text-xs">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button
+            onClick={downloadTemplate}
+            className="self-start flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"
+            style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+          >
+            <Download size={14} />
+            Download Template
+          </button>
+        </div>
+      </div>
+
+      {/* File picker */}
+      {!importResult && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+            <Upload size={15} className="text-yellow-300" />
+            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+              Upload CSV
+            </span>
+          </div>
+          <div className="px-4 py-4 flex flex-col gap-3">
+            <div
+              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50"
+              style={{ borderColor: "#c7d2e8" }}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
+            >
+              <Upload size={28} className="text-slate-300" />
+              <p className="text-sm text-slate-500 text-center">
+                <span className="font-semibold" style={{ color: NAVY }}>Click to browse</span> or drag and drop a CSV file here
+              </p>
+              {fileName && (
+                <span className="text-xs text-green-700 font-semibold bg-green-100 px-2.5 py-1 rounded-full">{fileName}</span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Preview table */}
+      {preview && preview.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+          <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
+            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+              Preview — {preview.length} row{preview.length !== 1 ? "s" : ""}
+            </span>
+            <button onClick={resetAll} className="text-blue-300 hover:text-white p-1"><X size={16} /></button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">School</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {preview.map((row, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row.name || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2 text-slate-600">{row.email || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="text-xs font-bold rounded-full px-2 py-0.5"
+                        style={
+                          ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER"].includes(row.role.toUpperCase())
+                            ? { backgroundColor: "#e0e7ff", color: NAVY }
+                            : { backgroundColor: "#fee2e2", color: "#dc2626" }
+                        }
+                      >
+                        {row.role || <em>missing</em>}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-slate-300">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {submitError && (
+            <div className="px-4 py-3 bg-red-50 border-t border-red-200 flex items-start gap-2 text-sm text-red-700">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              {submitError}
+            </div>
+          )}
+          <div className="px-4 py-3 border-t border-slate-100 flex gap-3">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+            >
+              {submitting ? "Importing…" : `Import ${preview.length} User${preview.length !== 1 ? "s" : ""}`}
+            </button>
+            <button
+              onClick={resetAll}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Results summary */}
+      {importResult && (
+        <div className="flex flex-col gap-3">
+          {/* Summary header */}
+          <div className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-4" style={{ border: "1px solid #dde3f0" }}>
+            <span className="font-bold text-slate-700 text-sm">Import complete:</span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-green-700">
+              <CheckCircle2 size={15} />{created.length} created
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
+              <SkipForward size={15} />{skipped.length} skipped
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600">
+              <AlertCircle size={15} />{errors.length} error{errors.length !== 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={resetAll}
+              className="ml-auto px-4 py-1.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+            >
+              Import Another File
+            </button>
+          </div>
+
+          {/* Created */}
+          {created.length > 0 && (
+            <ResultSection
+              title={`Created (${created.length})`}
+              rows={created}
+              headerStyle={{ backgroundColor: "#16a34a" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">Created</span>}
+            />
+          )}
+
+          {/* Skipped */}
+          {skipped.length > 0 && (
+            <ResultSection
+              title={`Skipped — Duplicate Email (${skipped.length})`}
+              rows={skipped}
+              headerStyle={{ backgroundColor: "#d97706" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "Skipped"}</span>}
+            />
+          )}
+
+          {/* Errors */}
+          {errors.length > 0 && (
+            <ResultSection
+              title={`Errors (${errors.length})`}
+              rows={errors}
+              headerStyle={{ backgroundColor: "#dc2626" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5">{r.reason ?? "Error"}</span>}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultSection({
+  title,
+  rows,
+  headerStyle,
+  statusBadge,
+}: {
+  title: string;
+  rows: BulkImportRowResult[];
+  headerStyle: React.CSSProperties;
+  statusBadge: (r: BulkImportRowResult) => React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+      <div className="px-4 py-2.5" style={{ ...headerStyle, borderBottom: `2px solid ${YELLOW}` }}>
+        <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}>
+          {title}
+        </span>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((r) => (
+            <tr key={r.row}>
+              <td className="px-3 py-2 text-slate-400 text-xs">{r.row}</td>
+              <td className="px-3 py-2 font-medium text-slate-800">{r.name ?? "—"}</td>
+              <td className="px-3 py-2 text-slate-600">{r.email ?? "—"}</td>
+              <td className="px-3 py-2">{statusBadge(r)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "roster" | "schools" | "users";
+type AdminTab = "rubric" | "roster" | "schools" | "users" | "bulk";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -1125,11 +1525,13 @@ export default function AdminPage() {
     { id: "roster", label: "Teacher Roster" },
     ...(canManageUsers ? [{ id: "users" as AdminTab, label: "Users" }] : []),
     ...(isDistrictAdmin ? [{ id: "schools" as AdminTab, label: "Schools" }] : []),
+    ...(isDistrictAdmin ? [{ id: "bulk" as AdminTab, label: "Bulk Import" }] : []),
   ];
 
   const visibleTab: AdminTab =
     (activeTab === "rubric" && !isDistrictAdmin)  ? "roster" :
     (activeTab === "users"  && !canManageUsers)    ? "roster" :
+    (activeTab === "bulk"   && !isDistrictAdmin)   ? "roster" :
     activeTab;
 
   return (
@@ -1236,6 +1638,7 @@ export default function AdminPage() {
         {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} />}
         {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} />}
         {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
+        {visibleTab === "bulk" && isDistrictAdmin && <BulkImport />}
       </main>
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
