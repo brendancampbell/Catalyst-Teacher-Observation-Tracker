@@ -90,6 +90,9 @@ export function configurePassport() {
 }
 
 function buildCallbackURL(): string {
+  if (process.env.GOOGLE_CALLBACK_URL) {
+    return process.env.GOOGLE_CALLBACK_URL;
+  }
   const domain = process.env.REPLIT_DEV_DOMAIN;
   if (domain) {
     return `https://${domain}/api/auth/google/callback`;
