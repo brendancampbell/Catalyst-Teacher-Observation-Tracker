@@ -730,7 +730,7 @@ export default function Dashboard() {
                                 whiteSpace: "normal",
                                 wordBreak: "break-word",
                                 overflow: "visible",
-                                fontSize: "11px",
+                                fontSize: "12px",
                                 fontWeight: 700,
                                 lineHeight: 1.3,
                               }}

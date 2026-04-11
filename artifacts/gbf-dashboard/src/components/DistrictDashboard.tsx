@@ -573,7 +573,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                                   whiteSpace: "normal",
                                   wordBreak: "break-word",
                                   overflow: "visible",
-                                  fontSize: "11px",
+                                  fontSize: "12px",
                                   fontWeight: 700,
                                   lineHeight: 1.3,
                                 }}
