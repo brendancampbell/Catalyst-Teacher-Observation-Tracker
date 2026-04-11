@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import dashboardRouter from "./dashboard";
 import districtRouter from "./district";
 import teachersRouter from "./teachers";
@@ -9,18 +10,21 @@ import usersRouter from "./users";
 import adminTeachersRouter from "./admin-teachers";
 import adminSchoolsRouter from "./admin-schools";
 import actionCenterRouter from "./action-center";
+import { requireAuth, requireNetworkScope, requireNetworkAdmin, enforceSchoolScope } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-router.use(healthRouter);
-router.use("/dashboard", dashboardRouter);
-router.use("/district", districtRouter);
-router.use("/teachers", teachersRouter);
-router.use("/observations", observationsRouter);
-router.use("/rubric", rubricRouter);
-router.use("/users", usersRouter);
-router.use("/admin/teachers", adminTeachersRouter);
-router.use("/admin/schools", adminSchoolsRouter);
-router.use("/action-center", actionCenterRouter);
+router.use("/auth", authRouter);
+router.use(requireAuth, healthRouter);
+
+router.use("/dashboard",      requireAuth, enforceSchoolScope, dashboardRouter);
+router.use("/district",       requireAuth, requireNetworkScope, districtRouter);
+router.use("/teachers",       requireAuth, teachersRouter);
+router.use("/observations",   requireAuth, observationsRouter);
+router.use("/rubric",         requireAuth, rubricRouter);
+router.use("/users",          requireAuth, usersRouter);
+router.use("/admin/teachers", requireAuth, adminTeachersRouter);
+router.use("/admin/schools",  requireAuth, requireNetworkScope, adminSchoolsRouter);
+router.use("/action-center",  requireAuth, actionCenterRouter);
 
 export default router;

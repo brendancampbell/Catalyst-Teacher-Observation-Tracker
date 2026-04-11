@@ -19,13 +19,21 @@ router.get("/:id", async (req, res) => {
     });
     if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
 
+    /* School-scope check: COACH and SCHOOL_LEADER may only access their own school */
+    const currentUser = req.user as Express.User;
+    const isNetworkScope = currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER";
+    if (!isNetworkScope && teacher.schoolId !== currentUser.schoolId) {
+      res.status(403).json({ error: "Cannot access teachers from another school" });
+      return;
+    }
+
     const quarter = await db.query.rubricQuarters.findFirst({
       where: eq(rubricQuarters.slug, quarterSlug),
     });
     if (!quarter) { res.status(404).json({ error: "Quarter not found" }); return; }
 
     const obsRows = await db.select().from(observations)
-      .where(and(eq(observations.teacherId, teacherId), eq(observations.quarterId, quarter.id)));
+      .where(and(eq(observations.teacherId, teacherId), eq(observations.rubricSetId, quarter.id)));
 
     const obsIds = obsRows.map((o) => o.id);
     const scores = obsIds.length > 0

@@ -1,8 +1,9 @@
 import { pool } from "@workspace/db";
+import type { PoolClient } from "pg";
 
 /** Add a unique constraint to a table if it doesn't already exist. */
 async function ensureUnique(
-  client: Awaited<ReturnType<typeof pool.connect>>,
+  client: PoolClient,
   constraintName: string,
   tableName: string,
   columnName: string,
@@ -56,23 +57,78 @@ async function migrate() {
       console.log("  rubric table: no rename needed.");
     }
 
-    /* ── 2. Add NETWORK_LEADER enum value if it doesn't exist yet ── */
-    const { rows: enumRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM pg_enum e
-        JOIN pg_type t ON t.oid = e.enumtypid
-        WHERE t.typname = 'user_role' AND e.enumlabel = 'NETWORK_LEADER'
-      ) AS exists
-    `);
-    if (!enumRows[0].exists) {
-      console.log("  Adding NETWORK_LEADER to user_role enum…");
-      await client.query(`ALTER TYPE user_role ADD VALUE 'NETWORK_LEADER' BEFORE 'DISTRICT_ADMIN'`);
-      console.log("  Done.");
-    } else {
-      console.log("  user_role enum: NETWORK_LEADER already present.");
+    /* ── 2. Rename legacy enum labels where safe, add where needed ──
+       Strategy: rename old→new if old exists AND new doesn't exist yet;
+       this avoids the Postgres error of renaming to an already-existing
+       label. For any new values not covered by renames, ADD them.     */
+    type RolePair = { old: string; new: string };
+    const legacyRenames: RolePair[] = [
+      { old: "PRINCIPAL",     new: "SCHOOL_LEADER" },
+      { old: "DISTRICT_ADMIN", new: "NETWORK_ADMIN"  },
+    ];
+    const requireValues = ["NETWORK_LEADER", "SCHOOL_LEADER", "NETWORK_ADMIN"];
+
+    for (const { old: oldVal, new: newVal } of legacyRenames) {
+      const { rows } = await client.query<{ old_exists: boolean; new_exists: boolean }>(
+        `SELECT
+           EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                  WHERE t.typname = 'user_role' AND e.enumlabel = $1) AS old_exists,
+           EXISTS(SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                  WHERE t.typname = 'user_role' AND e.enumlabel = $2) AS new_exists`,
+        [oldVal, newVal],
+      );
+      const { old_exists, new_exists } = rows[0];
+      if (old_exists && !new_exists) {
+        console.log(`  Renaming enum label '${oldVal}' → '${newVal}'…`);
+        await client.query(`ALTER TYPE user_role RENAME VALUE '${oldVal}' TO '${newVal}'`);
+        console.log(`  Done.`);
+      } else if (old_exists && new_exists) {
+        console.log(`  Both '${oldVal}' and '${newVal}' exist — will migrate rows, old label stays dormant.`);
+      } else {
+        console.log(`  Enum label '${oldVal}': already absent, no rename needed.`);
+      }
     }
 
-    /* ── 3. Pre-apply all unique constraints drizzle-kit would
+    /* Now ensure all required new values are present (covers cases where
+       the rename was skipped because old label was already absent).     */
+    for (const val of requireValues) {
+      const { rows } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+           WHERE t.typname = 'user_role' AND e.enumlabel = $1
+         ) AS exists`,
+        [val],
+      );
+      if (!rows[0].exists) {
+        console.log(`  Adding '${val}' to user_role enum…`);
+        await client.query(`ALTER TYPE user_role ADD VALUE '${val}'`);
+      }
+    }
+
+    /* ── 3. Data migration: move any remaining rows off legacy labels ── */
+    const { rowCount: principalCount } = await client.query(
+      `UPDATE users SET role = 'SCHOOL_LEADER' WHERE role::text = 'PRINCIPAL'`,
+    );
+    if ((principalCount ?? 0) > 0) console.log(`  Migrated ${principalCount} PRINCIPAL → SCHOOL_LEADER`);
+
+    const { rowCount: districtCount } = await client.query(
+      `UPDATE users SET role = 'NETWORK_ADMIN' WHERE role::text = 'DISTRICT_ADMIN'`,
+    );
+    if ((districtCount ?? 0) > 0) console.log(`  Migrated ${districtCount} DISTRICT_ADMIN → NETWORK_ADMIN`);
+
+    /* ── 4. Add google_id column to users if missing ── */
+    const { rows: colRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'users' AND column_name = 'google_id'
+       ) AS exists`,
+    );
+    if (!colRows[0].exists) {
+      console.log("  Adding google_id column to users…");
+      await client.query(`ALTER TABLE users ADD COLUMN google_id text`);
+    }
+
+    /* ── 5. Pre-apply all unique constraints drizzle-kit would
             prompt about when adding them to existing tables. ── */
     await ensureUnique(client, "users_email_unique",    "users",       "email");
     await ensureUnique(client, "rubric_sets_slug_unique", "rubric_sets", "slug");

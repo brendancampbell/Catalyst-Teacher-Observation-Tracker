@@ -1,19 +1,21 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, teachers, users } from "@workspace/db/schema";
+import { observations, observationScores, teachers } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
 
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,
-           observer?, observerId?, scores, isWalkthrough? }
-   Also accepts legacy field `quarterId` as fallback.                 */
+           observer?, scores, isWalkthrough? }
+   Also accepts legacy field `quarterId` as fallback for rubricSetId.
+   observerId is ALWAYS derived from the authenticated session —
+   client-supplied observerId is intentionally ignored.               */
 router.post("/", async (req, res) => {
   try {
     const {
       teacherId, rubricSetId, quarterId, date, strengths, growthAreas,
-      observer, observerId, scores, isWalkthrough,
+      observer, scores, isWalkthrough,
     } = req.body;
 
     const resolvedRubricSetId = rubricSetId ?? quarterId;
@@ -23,14 +25,29 @@ router.post("/", async (req, res) => {
       return;
     }
 
+    /* ── Identity: always use the authenticated session user ─────── */
+    const creator = req.user as Express.User;
+
+    /* ── School-scope enforcement on create ─────────────────────────
+       COACH and SCHOOL_LEADER may only observe teachers at their
+       own school. NETWORK_LEADER / NETWORK_ADMIN have no restriction. */
+    const isSchoolScoped = creator.role === "COACH" || creator.role === "SCHOOL_LEADER";
+    if (isSchoolScoped) {
+      const target = await db.query.teachers.findFirst({ where: eq(teachers.id, Number(teacherId)) });
+      if (!target || target.schoolId !== creator.schoolId) {
+        res.status(403).json({ error: "Cannot create an observation for a teacher outside your school" });
+        return;
+      }
+    }
+
     const [obs] = await db.insert(observations).values({
       teacherId:     Number(teacherId),
       rubricSetId:   Number(resolvedRubricSetId),
       date,
       strengths:     strengths || null,
       growthAreas:   growthAreas || null,
-      observer:      observer || "Principal Rivera",
-      observerId:    observerId ? Number(observerId) : null,
+      observer:      observer || creator.name,
+      observerId:    creator.id,
       isWalkthrough: !!isWalkthrough,
     }).returning();
 
@@ -44,18 +61,14 @@ router.post("/", async (req, res) => {
       await db.insert(observationScores).values(scoreRows);
     }
 
-    /* ── Walkthrough / Rescore queue logic ───────────────────────
-       Applies when isWalkthrough === true AND the submitter is a
-       PRINCIPAL or DISTRICT_ADMIN. Proficiency threshold: 0.7.    */
-    if (obs.isWalkthrough && obs.observerId) {
-      const submitter = await db.query.users.findFirst({
-        where: eq(users.id, obs.observerId),
-      });
-
+    /* ── Walkthrough / Rescore queue logic ───────────────────────────
+       Applies when isWalkthrough === true. Uses creator.role from the
+       authenticated session — never from client-supplied body data.   */
+    if (obs.isWalkthrough) {
       const canTriggerRescore =
-        submitter?.role === "DISTRICT_ADMIN" ||
-        submitter?.role === "NETWORK_LEADER" ||
-        submitter?.role === "PRINCIPAL";
+        creator.role === "NETWORK_ADMIN" ||
+        creator.role === "NETWORK_LEADER" ||
+        creator.role === "SCHOOL_LEADER";
 
       if (canTriggerRescore && scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
@@ -94,9 +107,13 @@ router.post("/", async (req, res) => {
 });
 
 /* ── PUT /api/observations/:id ──────────────────────────────────────
-   Body: { date?, strengths?, growthAreas?, observer?, scores? }      */
+   COACH: can only edit their own observations
+   SCHOOL_LEADER: can edit any observation in their school
+   NETWORK_LEADER: forbidden
+   NETWORK_ADMIN: can edit any observation                             */
 router.put("/:id", async (req, res) => {
   try {
+    const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
     const { date, strengths, growthAreas, observer, scores } = req.body;
 
@@ -104,6 +121,26 @@ router.put("/:id", async (req, res) => {
       where: eq(observations.id, obsId),
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
+
+    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
+    const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
+    const isCoach         = currentUser.role === "COACH";
+
+    if (isCoach) {
+      if (existing.observerId !== currentUser.id) {
+        res.status(403).json({ error: "Coaches may only edit their own observations" });
+        return;
+      }
+    } else if (isSchoolLeader) {
+      const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
+      if (!teacher || teacher.schoolId !== currentUser.schoolId) {
+        res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
+        return;
+      }
+    } else if (!isNetworkAdmin) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
     const [updated] = await db.update(observations)
       .set({

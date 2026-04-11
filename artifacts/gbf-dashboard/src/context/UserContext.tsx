@@ -1,44 +1,54 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { fetchUsers, type UserRow } from "@/lib/api";
+
+export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
+
+export interface UserRow {
+  id:         number;
+  email:      string;
+  name:       string;
+  role:       UserRole;
+  schoolId:   number | null;
+  schoolName: string | null;
+}
 
 interface UserContextValue {
   currentUser: UserRow | null;
-  users: UserRow[];
-  setCurrentUser: (u: UserRow) => void;
   isLoading: boolean;
+  refetch: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue>({
   currentUser: null,
-  users: [],
-  setCurrentUser: () => {},
   isLoading: true,
+  refetch: async () => {},
 });
 
-const STORAGE_KEY = "gbf_current_user_id";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers]           = useState<UserRow[]>([]);
-  const [currentUser, _setCurrent]  = useState<UserRow | null>(null);
-  const [isLoading, setIsLoading]   = useState(true);
+  const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
+  const [isLoading, setIsLoading]     = useState(true);
 
-  useEffect(() => {
-    fetchUsers().then((rows) => {
-      setUsers(rows);
-      const savedId = Number(localStorage.getItem(STORAGE_KEY));
-      const saved   = rows.find((u) => u.id === savedId);
-      _setCurrent(saved ?? rows[0] ?? null);
+  async function fetchMe() {
+    try {
+      const res = await fetch(`${BASE}/api/auth/me`, { credentials: "include" });
+      if (res.ok) {
+        const user = await res.json() as UserRow;
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      setCurrentUser(null);
+    } finally {
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
-  }, []);
-
-  function setCurrentUser(u: UserRow) {
-    _setCurrent(u);
-    localStorage.setItem(STORAGE_KEY, String(u.id));
+    }
   }
 
+  useEffect(() => { fetchMe(); }, []);
+
   return (
-    <UserContext.Provider value={{ currentUser, users, setCurrentUser, isLoading }}>
+    <UserContext.Provider value={{ currentUser, isLoading, refetch: fetchMe }}>
       {children}
     </UserContext.Provider>
   );

@@ -2,10 +2,11 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { schools, teachers } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { requireNetworkAdmin } from "../middleware/auth";
 
 const router = Router();
 
-/* GET /api/admin/schools — list all schools */
+/* GET /api/admin/schools — list all schools (any network-scope user) */
 router.get("/", async (_req, res) => {
   try {
     const rows = await db.select().from(schools).orderBy(schools.name);
@@ -16,8 +17,8 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/* POST /api/admin/schools — create school */
-router.post("/", async (req, res) => {
+/* POST /api/admin/schools — create school (NETWORK_ADMIN only) */
+router.post("/", requireNetworkAdmin, async (req, res) => {
   try {
     const { name, region, gradeSpan } = req.body as { name: string; region: string; gradeSpan: string };
     if (!name?.trim()) {
@@ -43,8 +44,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-/* PATCH /api/admin/schools/:id — update school */
-router.patch("/:id", async (req, res) => {
+/* PATCH /api/admin/schools/:id — update school (NETWORK_ADMIN only) */
+router.patch("/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { name, region, gradeSpan } = req.body as Partial<{ name: string; region: string; gradeSpan: string }>;
@@ -78,8 +79,8 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-/* DELETE /api/admin/schools/:id — delete school */
-router.delete("/:id", async (req, res) => {
+/* DELETE /api/admin/schools/:id — delete school (NETWORK_ADMIN only) */
+router.delete("/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const teacherCount = (await db.select().from(teachers).where(eq(teachers.schoolId, id))).length;

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { requireNetworkAdmin } from "../middleware/auth";
 
 const router = Router();
 
@@ -17,7 +18,7 @@ router.get("/sets", async (_req, res) => {
 });
 
 /* ── POST /api/rubric/sets ──────────────────────────────────────── */
-router.post("/sets", async (req, res) => {
+router.post("/sets", requireNetworkAdmin, async (req, res) => {
   try {
     const { slug, name, gradeSpan, copyFromSlug } = req.body as {
       slug: string;
@@ -69,7 +70,7 @@ router.post("/sets", async (req, res) => {
 });
 
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
-router.patch("/sets/:slug", async (req, res) => {
+router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
     const { name, description } = req.body as { name?: string; description?: string };
     const updates: Record<string, unknown> = {};
@@ -80,7 +81,7 @@ router.patch("/sets/:slug", async (req, res) => {
     const [updated] = await db
       .update(rubricSets)
       .set(updates)
-      .where(eq(rubricSets.slug, req.params.slug))
+      .where(eq(rubricSets.slug, req.params.slug as string))
       .returning();
 
     if (!updated) { res.status(404).json({ error: "Rubric set not found" }); return; }
@@ -95,7 +96,7 @@ router.patch("/sets/:slug", async (req, res) => {
 router.get("/:setSlug", async (req, res) => {
   try {
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, req.params.setSlug),
+      where: eq(rubricSets.slug, req.params.setSlug as string),
     });
     if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
@@ -113,10 +114,10 @@ router.get("/:setSlug", async (req, res) => {
 });
 
 /* ── POST /api/rubric/:setSlug/categories ───────────────────────── */
-router.post("/:setSlug/categories", async (req, res) => {
+router.post("/:setSlug/categories", requireNetworkAdmin, async (req, res) => {
   try {
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, req.params.setSlug),
+      where: eq(rubricSets.slug, req.params.setSlug as string),
     });
     if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
@@ -134,7 +135,7 @@ router.post("/:setSlug/categories", async (req, res) => {
 });
 
 /* ── PUT /api/rubric/categories/:id ────────────────────────────── */
-router.put("/categories/:id", async (req, res) => {
+router.put("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const { name, displayOrder } = req.body;
     const [updated] = await db.update(rubricCategories)
@@ -150,7 +151,7 @@ router.put("/categories/:id", async (req, res) => {
 });
 
 /* ── DELETE /api/rubric/categories/:id ─────────────────────────── */
-router.delete("/categories/:id", async (req, res) => {
+router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
     await db.delete(rubricCategories).where(eq(rubricCategories.id, Number(req.params.id)));
     res.status(204).send();
@@ -161,7 +162,7 @@ router.delete("/categories/:id", async (req, res) => {
 });
 
 /* ── POST /api/rubric/categories/:id/domains ───────────────────── */
-router.post("/categories/:id/domains", async (req, res) => {
+router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => {
   try {
     const { name, slug, displayOrder } = req.body;
     if (!name || !slug) { res.status(400).json({ error: "name and slug required" }); return; }
@@ -176,7 +177,7 @@ router.post("/categories/:id/domains", async (req, res) => {
 });
 
 /* ── PUT /api/rubric/domains/:id ────────────────────────────────── */
-router.put("/domains/:id", async (req, res) => {
+router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const { name, slug, displayOrder, description } = req.body;
     const [updated] = await db.update(rubricDomains)
@@ -197,7 +198,7 @@ router.put("/domains/:id", async (req, res) => {
 });
 
 /* ── DELETE /api/rubric/domains/:id ─────────────────────────────── */
-router.delete("/domains/:id", async (req, res) => {
+router.delete("/domains/:id", requireNetworkAdmin, async (req, res) => {
   try {
     await db.delete(rubricDomains).where(eq(rubricDomains.id, Number(req.params.id)));
     res.status(204).send();

@@ -59,15 +59,15 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 - Overall AVG = average of category sub-averages
 - Proficient column (≥0.7 = Proficient, <0.7 = Not Yet)
 - Admin rubric manager for managing categories and domains
-- **User Permissions / RBAC**: Roles: COACH, PRINCIPAL, NETWORK_LEADER, DISTRICT_ADMIN
+- **User Permissions / RBAC**: Roles: COACH, SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
   - COACH: school-based, can view school data + create observations; no admin access
-  - PRINCIPAL (School Leader): school-based, can view school data + create observations + edit school settings (roster)
+  - SCHOOL_LEADER: school-based, can view school data + create observations + edit school settings (roster)
   - NETWORK_LEADER: network-based (no schoolId), sees district view + can create obs + edit school settings (roster); NO network settings (rubric/schools)
-  - DISTRICT_ADMIN (Super Admin): network-based, full access to all views and all settings
-  - User switcher dropdown in header (persists to localStorage)
+  - NETWORK_ADMIN (Super Admin): network-based, full access to all views and all settings
+  - Authentication: Google OAuth 2.0 (passport.js) — only pre-provisioned emails can sign in
   - Admin button hidden from COACH role
   - Admin page blocked for COACH (shows Access Restricted screen)
-  - Walkthrough toggle shown to PRINCIPAL | NETWORK_LEADER | DISTRICT_ADMIN
+  - Walkthrough toggle shown to SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN
 - **Teacher Roster** (Admin > Teacher Roster tab): Add, Edit, Deactivate teachers; show/hide inactive
 
 ### Design
@@ -79,7 +79,7 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 ### Database Schema (lib/db/src/schema/)
 
-- `users` — id, email, name, role (COACH | PRINCIPAL | NETWORK_LEADER | DISTRICT_ADMIN)
+- `users` — id, email, name, role (COACH | SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN), schoolId (FK), googleId (text, set on first Google login)
 - `teachers` — id, name, subject, gradeLevel (text[]), isActive (bool)
 - `rubric_sets` — id, slug (Q1), name, isActive, gradeSpan (nullable)
 - `rubric_categories` — id, rubricSetId, name, displayOrder
@@ -103,7 +103,13 @@ All routes mounted at `/api`:
 - `POST /api/rubric/categories/:id/domains` — Create domain
 - `PUT /api/rubric/domains/:id` — Update domain
 - `DELETE /api/rubric/domains/:id` — Delete domain
-- `GET /api/users` — List all users with schoolId + schoolName (for role switcher)
+- `GET /api/auth/google` — Start Google OAuth flow (redirect to Google)
+- `GET /api/auth/google/callback` — OAuth callback (handled by passport)
+- `GET /api/auth/me` — Returns current user JSON or 401
+- `POST /api/auth/logout` — Destroys session, redirects to `/`
+- `GET /api/users` — List users (SCHOOL_LEADER: own school only; NETWORK_ADMIN: all)
+- `POST /api/users` — Provision new user
+- `PATCH /api/users/:id` — Update user
 - `GET /api/district/summary?rubricSet=Q1` — Per-school aggregated domain averages (DISTRICT_ADMIN)
 - `GET /api/admin/teachers` — All teachers incl. inactive (admin roster)
 - `POST /api/admin/teachers` — Create teacher
@@ -157,3 +163,34 @@ Express 5 API server on port 8080. Routes in `src/routes/`:
 - `src/seed.ts` — Seeds 20 teachers + Q1 rubric + 60 observations
 - Run: `pnpm --filter @workspace/db run push` (push schema)
 - Run: `cd lib/db && pnpm exec tsx src/seed.ts` (reseed)
+
+## Authentication — Google OAuth 2.0 Setup
+
+### Required Secrets
+
+Set these in the Replit Secrets panel before login will work:
+
+| Secret | Description |
+|---|---|
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 Client ID from Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | OAuth 2.0 Client Secret |
+| `SESSION_SECRET` | Random string for signing express-session cookies (required in production) |
+
+### Google Cloud Console Setup
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials
+2. Create a new **OAuth 2.0 Client ID** (Application type: Web application)
+3. Add to **Authorised JavaScript origins**: `https://<your-replit-dev-domain>`
+4. Add to **Authorised redirect URIs**: `https://<your-replit-dev-domain>/api/auth/google/callback`
+5. Copy the Client ID and Client Secret into Replit Secrets
+
+The Replit dev domain is available in the environment as `$REPLIT_DEV_DOMAIN`.
+
+### User Provisioning
+
+Only users pre-provisioned in the `users` table can sign in. To add a user:
+- Via Admin UI: Sign in as NETWORK_ADMIN → Admin → Users tab → Add User
+- Via SQL: `INSERT INTO users (email, name, role) VALUES ('user@uncommonschools.org', 'Full Name', 'SCHOOL_LEADER')`
+- Via seed: add to `artifacts/api-server/src/seed.ts` and re-run
+
+On first login, the user's `google_id` is populated automatically.

@@ -194,7 +194,7 @@ export default function ActionCenterPage() {
     try {
       await createObservation({
         teacherId,
-        quarterId:   activeQuarterId,
+        rubricSetId: activeQuarterId,
         date,
         scores,
         strengths:   strengths   || undefined,
@@ -785,7 +785,7 @@ export default function ActionCenterPage() {
             setNewObsOpen(o);
             if (!o) setAddObsTeacherId(null);
           }}
-          canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "PRINCIPAL"}
+          canMarkWalkthrough={currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "SCHOOL_LEADER"}
           defaultTeacherId={addObsTeacherId ?? undefined}
           defaultIsWalkthrough={newObsIsWalkthrough}
           observerName={currentUser?.name}

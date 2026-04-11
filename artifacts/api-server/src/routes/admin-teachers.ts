@@ -1,13 +1,17 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { teachers, schools } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { requireRole } from "../middleware/auth";
 
 const router = Router();
 
-/* GET /api/admin/teachers — all teachers (including inactive), with school name */
-router.get("/", async (_req, res) => {
+/* GET /api/admin/teachers — teachers in scope, with school name */
+router.get("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
+    const user = req.user as Express.User;
+    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+
     const rows = await db
       .select({
         id:         teachers.id,
@@ -20,6 +24,7 @@ router.get("/", async (_req, res) => {
       })
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
+      .where(isNetworkScope ? undefined : eq(teachers.schoolId, user.schoolId!))
       .orderBy(teachers.name);
     res.json(rows);
   } catch (err) {
@@ -28,9 +33,11 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/* POST /api/admin/teachers — create teacher */
-router.post("/", async (req, res) => {
+/* POST /api/admin/teachers — create teacher (SCHOOL_LEADER: own school only) */
+router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
+    const user = req.user as Express.User;
+    const isNetworkAdmin = user.role === "NETWORK_ADMIN";
     const { name, subject, gradeLevel, schoolId } = req.body as {
       name: string;
       subject: string;
@@ -41,6 +48,9 @@ router.post("/", async (req, res) => {
       res.status(400).json({ error: "name and subject are required" });
       return;
     }
+
+    const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : user.schoolId;
+
     const [row] = await db
       .insert(teachers)
       .values({
@@ -48,7 +58,7 @@ router.post("/", async (req, res) => {
         subject: subject.trim(),
         gradeLevel: gradeLevel ?? [],
         isActive: true,
-        schoolId: schoolId ?? null,
+        schoolId: assignedSchoolId,
       })
       .returning();
 
@@ -70,9 +80,20 @@ router.post("/", async (req, res) => {
 });
 
 /* PATCH /api/admin/teachers/:id — update name/subject/gradeLevel/schoolId */
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
+    const user = req.user as Express.User;
+    const isNetworkAdmin = user.role === "NETWORK_ADMIN";
     const id = Number(req.params.id);
+
+    const existing = await db.query.teachers.findFirst({ where: eq(teachers.id, id) });
+    if (!existing) { res.status(404).json({ error: "Teacher not found" }); return; }
+
+    if (!isNetworkAdmin && existing.schoolId !== user.schoolId) {
+      res.status(403).json({ error: "Cannot edit teachers from another school" });
+      return;
+    }
+
     const { name, subject, gradeLevel, schoolId } = req.body as Partial<{
       name: string;
       subject: string;
@@ -83,7 +104,7 @@ router.patch("/:id", async (req, res) => {
     if (name !== undefined)       updates.name       = name.trim();
     if (subject !== undefined)    updates.subject    = subject.trim();
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
-    if (schoolId !== undefined)   updates.schoolId   = schoolId;
+    if (schoolId !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "Nothing to update" });
       return;
@@ -109,11 +130,19 @@ router.patch("/:id", async (req, res) => {
 });
 
 /* PATCH /api/admin/teachers/:id/toggle-active — flip isActive */
-router.patch("/:id/toggle-active", async (req, res) => {
+router.patch("/:id/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
+    const user = req.user as Express.User;
+    const isNetworkAdmin = user.role === "NETWORK_ADMIN";
     const id = Number(req.params.id);
     const existing = await db.query.teachers.findFirst({ where: eq(teachers.id, id) });
     if (!existing) { res.status(404).json({ error: "Teacher not found" }); return; }
+
+    if (!isNetworkAdmin && existing.schoolId !== user.schoolId) {
+      res.status(403).json({ error: "Cannot edit teachers from another school" });
+      return;
+    }
+
     const [row] = await db
       .update(teachers)
       .set({ isActive: !existing.isActive })

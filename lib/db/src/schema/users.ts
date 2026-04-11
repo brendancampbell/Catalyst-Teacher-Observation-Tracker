@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schools } from "./schools";
 
-export const roleEnum = pgEnum("user_role", ["COACH", "PRINCIPAL", "NETWORK_LEADER", "DISTRICT_ADMIN"]);
+export const roleEnum = pgEnum("user_role", ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"]);
 
 export const users = pgTable("users", {
   id:       serial("id").primaryKey(),
@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   name:     text("name").notNull(),
   role:     roleEnum("role").notNull().default("COACH"),
   schoolId: integer("school_id").references(() => schools.id, { onDelete: "set null" }),
+  googleId: text("google_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });

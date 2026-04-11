@@ -29,11 +29,11 @@ async function seed() {
   const roosevelt  = sid["Roosevelt Elementary"];
 
   await db.insert(users).values([
-    { email: "principal.rivera@uncommon.org", name: "Principal Rivera", role: "PRINCIPAL",      schoolId: lincoln    },
+    { email: "principal.rivera@uncommon.org", name: "Principal Rivera", role: "SCHOOL_LEADER",  schoolId: lincoln    },
     { email: "coach.mills@uncommon.org",      name: "Coach Mills",      role: "COACH",          schoolId: lincoln    },
-    { email: "vp.okafor@uncommon.org",        name: "VP Okafor",        role: "PRINCIPAL",      schoolId: washington },
+    { email: "vp.okafor@uncommon.org",        name: "VP Okafor",        role: "SCHOOL_LEADER",  schoolId: washington },
     { email: "network.leader@uncommon.org",   name: "Network Leader",   role: "NETWORK_LEADER", schoolId: null       },
-    { email: "district.admin@uncommon.org",   name: "District Admin",   role: "DISTRICT_ADMIN", schoolId: null       },
+    { email: "network.admin@uncommon.org",    name: "Network Admin",    role: "NETWORK_ADMIN",  schoolId: null       },
   ]).onConflictDoNothing();
 
   await db.insert(teachers).values([
@@ -64,9 +64,9 @@ async function seed() {
   ]).returning();
 
   const insertedCats = await db.insert(rubricCategories).values([
-    { quarterId: quarter.id, name: "Classroom Culture",  displayOrder: 0 },
-    { quarterId: quarter.id, name: "The First 15",       displayOrder: 1 },
-    { quarterId: quarter.id, name: "Academic Monitoring", displayOrder: 2 },
+    { rubricSetId: quarter.id, name: "Classroom Culture",  displayOrder: 0 },
+    { rubricSetId: quarter.id, name: "The First 15",       displayOrder: 1 },
+    { rubricSetId: quarter.id, name: "Academic Monitoring", displayOrder: 2 },
   ]).returning();
 
   const catId = Object.fromEntries(insertedCats.map((c) => [c.name, c.id]));

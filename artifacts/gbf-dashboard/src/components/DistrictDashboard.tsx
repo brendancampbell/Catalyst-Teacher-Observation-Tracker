@@ -1,5 +1,4 @@
 import { Fragment, useState, useMemo } from "react";
-import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -145,8 +144,7 @@ interface Props {
 }
 
 export default function DistrictDashboard({ onDrillDown }: Props) {
-  const { currentUser, users, setCurrentUser } = useUser();
-  const [userMenuOpen,  setUserMenuOpen]  = useState(false);
+  const { currentUser } = useUser();
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
@@ -289,48 +287,32 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
               Admin
             </a>
 
-            {/* User switcher */}
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen((p) => !p)}
-                className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+            {/* User info + sign out */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ backgroundColor: YELLOW, color: NAVY }}
               >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
+              </div>
+              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
+                {currentUser?.name ?? "Loading…"}
+              </span>
+              <span
+                className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
+                style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
+              >
+                {currentUser?.role?.replace(/_/g, " ") ?? ""}
+              </span>
+              <form method="post" action={`${baseUrl}/api/auth/logout`}>
+                <button
+                  type="submit"
+                  className="ml-1 px-3 py-1 rounded text-xs font-semibold transition-colors hover:bg-white/20"
+                  style={{ color: "white", border: "1px solid rgba(255,255,255,0.3)" }}
                 >
-                  {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
-                </div>
-                <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
-                  {currentUser?.name ?? "Loading…"}
-                </span>
-                <span
-                  className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
-                >
-                  {currentUser?.role?.replace("_", " ") ?? ""}
-                </span>
-                <ChevronDown size={14} className="text-white/70 hidden sm:block" />
-              </button>
-
-              {userMenuOpen && (
-                <div
-                  className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 min-w-[200px] overflow-hidden"
-                  style={{ backgroundColor: NAVY, border: `1.5px solid ${YELLOW}` }}
-                >
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => { setCurrentUser(u); setUserMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 flex flex-col gap-0.5 hover:bg-white/10 transition-colors"
-                    >
-                      <span className="text-white font-medium" style={{ fontSize: 14 }}>{u.name}</span>
-                      <span style={{ fontSize: 11, color: YELLOW }}>{u.role.replace("_", " ")}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                  Sign out
+                </button>
+              </form>
             </div>
           </div>
         </div>

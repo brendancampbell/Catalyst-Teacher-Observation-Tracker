@@ -6,6 +6,7 @@
     "types": ["node"]
   },
   "include": ["src"],
+  "exclude": ["src/seed.ts", "src/migrate.ts"],
   "references": [
     {
       "path": "../../lib/db"

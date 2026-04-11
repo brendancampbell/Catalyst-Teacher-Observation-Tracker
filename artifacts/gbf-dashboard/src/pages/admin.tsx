@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School, Users } from "lucide-react";
 import {
   fetchRubric,
   fetchRubricSets,
@@ -20,6 +20,9 @@ import {
   createAdminSchool,
   updateAdminSchool,
   deleteAdminSchool,
+  fetchUsers,
+  createUser,
+  updateUser,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -28,6 +31,8 @@ import {
   type RubricSetRow,
   type AdminTeacher,
   type AdminSchool,
+  type UserRow,
+  type UserRole,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -813,10 +818,215 @@ function SchoolSettings() {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   USER MANAGEMENT TAB
+   ════════════════════════════════════════════════════════════════ */
+
+const ALL_ROLES_MAP: Record<UserRole, string> = {
+  COACH: "Coach",
+  SCHOOL_LEADER: "School Leader",
+  NETWORK_LEADER: "Network Leader",
+  NETWORK_ADMIN: "Network Admin",
+};
+
+function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmin: boolean; currentUserSchoolId: number | null }) {
+  const queryClient = useQueryClient();
+  const qKey = ["admin", "users"] as const;
+
+  const { data: userList = [], isLoading } = useQuery<UserRow[]>({
+    queryKey: qKey,
+    queryFn: fetchUsers,
+  });
+
+  const { data: schools = [] } = useQuery<AdminSchool[]>({
+    queryKey: ["admin", "schools"],
+    queryFn: fetchAdminSchools,
+    enabled: isNetworkAdmin,
+  });
+
+  const [adding, setAdding]     = useState(false);
+  const [editId, setEditId]     = useState<number | null>(null);
+
+  const [newEmail, setNewEmail] = useState("");
+  const [newName,  setNewName]  = useState("");
+  const [newRole,  setNewRole]  = useState<UserRole>("COACH");
+  const [newSchoolId, setNewSchoolId] = useState<number | null>(null);
+
+  const [editEmail, setEditEmail] = useState("");
+  const [editName,  setEditName]  = useState("");
+  const [editRole,  setEditRole]  = useState<UserRole>("COACH");
+  const [editSchoolId, setEditSchoolId] = useState<number | null>(null);
+
+  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+  const selCls   = `${inputCls} cursor-pointer`;
+
+  const availableRoles: UserRole[] = isNetworkAdmin
+    ? ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"]
+    : ["COACH", "SCHOOL_LEADER"];
+
+  const createMut = useMutation({
+    mutationFn: () => createUser({ email: newEmail.trim(), name: newName.trim(), role: newRole, schoolId: newSchoolId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      setAdding(false); setNewEmail(""); setNewName(""); setNewRole("COACH"); setNewSchoolId(null);
+    },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: () => updateUser(editId!, { email: editEmail.trim(), name: editName.trim(), role: editRole, schoolId: editSchoolId }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  function startEdit(u: UserRow) {
+    setEditId(u.id);
+    setEditEmail(u.email);
+    setEditName(u.name);
+    setEditRole(u.role);
+    setEditSchoolId(u.schoolId);
+    setAdding(false);
+  }
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-slate-500">
+          {isNetworkAdmin
+            ? "Manage all users across the network. Only pre-provisioned users can sign in."
+            : "Manage Coach and School Leader users in your school."}
+        </p>
+        <button
+          onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
+          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+        >
+          <Plus size={14} />
+          Add User
+        </button>
+      </div>
+
+      {adding && (
+        <div className="bg-white rounded-lg p-4 flex flex-col gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
+          <p className="font-bold text-slate-700 text-sm">Add New User</p>
+          <div className="flex flex-wrap gap-3">
+            <input
+              className={`${inputCls} flex-1 min-w-[200px]`}
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Email address"
+              type="email"
+              autoFocus
+            />
+            <input
+              className={`${inputCls} flex-1 min-w-[160px]`}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Full name"
+            />
+            <select className={`${selCls} min-w-[140px]`} value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)}>
+              {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
+            </select>
+            {isNetworkAdmin && (
+              <select className={`${selCls} min-w-[160px]`} value={newSchoolId ?? ""} onChange={(e) => setNewSchoolId(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">— School (optional) —</option>
+                {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
+              style={{ backgroundColor: NAVY }}
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending || !newEmail.trim() || !newName.trim()}
+            >
+              {createMut.isPending ? "Adding…" : "Add User"}
+            </button>
+            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => { setAdding(false); }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ backgroundColor: NAVY, color: "white" }}>
+              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Name</th>
+              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Email</th>
+              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Role</th>
+              {isNetworkAdmin && <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>}
+              <th className="px-4 py-2.5" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {userList.length === 0 && (
+              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No users found.</td></tr>
+            )}
+            {userList.map((u) => (
+              <tr key={u.id}>
+                {editId === u.id ? (
+                  <td colSpan={isNetworkAdmin ? 5 : 4} className="px-4 py-3 bg-blue-50">
+                    <div className="flex flex-wrap gap-3 items-start">
+                      <input className={`${inputCls} flex-1 min-w-[160px]`} value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name" autoFocus />
+                      <input className={`${inputCls} flex-1 min-w-[200px]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" type="email" />
+                      <select className={`${selCls} min-w-[140px]`} value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)}>
+                        {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
+                      </select>
+                      {isNetworkAdmin && (
+                        <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
+                          <option value="">— No school —</option>
+                          {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      )}
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending}>{updateMut.isPending ? "Saving…" : "Save"}</button>
+                        <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  </td>
+                ) : (
+                  <>
+                    <td className="px-4 py-2.5 font-medium text-slate-800">{u.name}</td>
+                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell">{u.email}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
+                        {ALL_ROLES_MAP[u.role] ?? u.role}
+                      </span>
+                    </td>
+                    {isNetworkAdmin && <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell">{u.schoolName ?? <span className="text-slate-300 italic">None</span>}</td>}
+                    <td className="px-4 py-2.5 text-right">
+                      <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" onClick={() => startEdit(u)} title="Edit">
+                        <Pencil size={13} />
+                      </button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-center text-slate-400 text-xs pb-2">
+        Only provisioned users can sign in. Add a user here before they attempt to log in.
+      </p>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "roster" | "schools";
+type AdminTab = "rubric" | "roster" | "schools" | "users";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -906,16 +1116,20 @@ export default function AdminPage() {
     );
   }
 
-  const isDistrictAdmin = currentUser?.role === "DISTRICT_ADMIN";
+  const isDistrictAdmin = currentUser?.role === "NETWORK_ADMIN";
+  const canManageUsers  = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
 
   const tabs: { id: AdminTab; label: string }[] = [
     ...(isDistrictAdmin ? [{ id: "rubric" as AdminTab, label: "Rubric Settings" }] : []),
     { id: "roster", label: "Teacher Roster" },
+    ...(canManageUsers ? [{ id: "users" as AdminTab, label: "Users" }] : []),
     ...(isDistrictAdmin ? [{ id: "schools" as AdminTab, label: "Schools" }] : []),
   ];
 
-  /* If a Principal lands on the rubric tab (e.g. bookmark), redirect to roster */
-  const visibleTab = activeTab === "rubric" && !isDistrictAdmin ? "roster" : activeTab;
+  const visibleTab: AdminTab =
+    (activeTab === "rubric" && !isDistrictAdmin)  ? "roster" :
+    (activeTab === "users"  && !canManageUsers)    ? "roster" :
+    activeTab;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
@@ -1023,6 +1237,7 @@ export default function AdminPage() {
 
         {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings setSlug={selectedRubricSetSlug} />}
         {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} />}
+        {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} />}
         {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
       </main>
 

@@ -1,6 +1,6 @@
 import { Fragment, useState, useMemo, useEffect } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
-import { Plus, ChevronDown, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft } from "lucide-react";
 import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -150,10 +150,11 @@ interface DrillDownTarget {
 
 /* ══ Dashboard component ════════════════════════════════════════════ */
 
+const BASE_PATH = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
 export default function Dashboard() {
-  const { currentUser, users, setCurrentUser } = useUser();
+  const { currentUser } = useUser();
   const queryClient = useQueryClient();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   /* ── URL params: schoolId for district drill-down ─── */
   const search = useSearch();
@@ -162,8 +163,6 @@ export default function Dashboard() {
     const v = searchParams.get("schoolId");
     return v ? Number(v) : null;
   }, [searchParams]);
-
-  const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   /* ── School name from URL param (for drill-down label) */
   const schoolName = useMemo(() => searchParams.get("schoolName") ?? null, [searchParams]);
@@ -181,7 +180,7 @@ export default function Dashboard() {
   });
 
   /* ── API data ──────────────────────────────────────── */
-  const isNetworkRole = currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER";
+  const isNetworkRole = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER";
   const isDistrictHome = isNetworkRole && schoolId == null;
 
   // Use URL schoolId for district drill-down; otherwise fall back to user's own school
@@ -277,7 +276,7 @@ export default function Dashboard() {
       <DistrictDashboard
         onDrillDown={(id, name) => {
           const params = new URLSearchParams({ schoolId: String(id), schoolName: name });
-          window.location.href = `${baseUrl}/?${params.toString()}`;
+          window.location.href = `${BASE_PATH}/?${params.toString()}`;
         }}
       />
     );
@@ -428,7 +427,7 @@ export default function Dashboard() {
               {/* District breadcrumb when drilling into a school */}
               {schoolId != null && isNetworkRole && (
                 <a
-                  href={`${baseUrl}/`}
+                  href={`${BASE_PATH}/`}
                   className="flex items-center gap-1 mb-0.5 text-blue-200 hover:text-yellow-300 transition-colors"
                   style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
                 >
@@ -465,7 +464,7 @@ export default function Dashboard() {
             </button>
 
             <a
-              href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/action-center`}
+              href={`${BASE_PATH}/action-center`}
               className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
               style={{
                 border: `1.5px solid rgba(255,181,0,0.5)`,
@@ -480,7 +479,7 @@ export default function Dashboard() {
 
             {currentUser && currentUser.role !== "COACH" && (
               <a
-                href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/admin`}
+                href={`${BASE_PATH}/admin`}
                 className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
                 style={{
                   border: `1.5px solid rgba(255,181,0,0.5)`,
@@ -494,10 +493,9 @@ export default function Dashboard() {
               </a>
             )}
 
-            {/* ── User switcher ────────── */}
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen((p) => !p)}
+            {/* ── User info + sign out ────────── */}
+            <div className="flex items-center gap-2">
+              <div
                 className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
                 style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
               >
@@ -508,34 +506,24 @@ export default function Dashboard() {
                   {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
                 </div>
                 <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
-                  {currentUser?.name ?? "Loading…"}
+                  {currentUser?.name ?? ""}
                 </span>
                 <span
                   className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
                   style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
                 >
-                  {currentUser?.role?.replace("_", " ") ?? ""}
+                  {currentUser?.role?.replace(/_/g, " ") ?? ""}
                 </span>
-                <ChevronDown size={14} className="text-white/70 hidden sm:block" />
-              </button>
-
-              {userMenuOpen && (
-                <div
-                  className="absolute right-0 top-full mt-1 rounded-lg shadow-xl z-50 min-w-[200px] overflow-hidden"
-                  style={{ backgroundColor: NAVY, border: `1.5px solid ${YELLOW}` }}
+              </div>
+              <form method="POST" action={`${BASE_PATH}/api/auth/logout`}>
+                <button
+                  type="submit"
+                  className="text-white/60 hover:text-white transition-colors px-2 py-1.5 text-xs font-semibold"
+                  title="Sign out"
                 >
-                  {users.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => { setCurrentUser(u); setUserMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 flex flex-col gap-0.5 hover:bg-white/10 transition-colors"
-                    >
-                      <span className="text-white font-medium" style={{ fontSize: 14 }}>{u.name}</span>
-                      <span style={{ fontSize: 11, color: YELLOW }}>{u.role.replace("_", " ")}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                  Sign out
+                </button>
+              </form>
             </div>
           </div>
         </div>
@@ -1191,7 +1179,7 @@ export default function Dashboard() {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
-        canMarkWalkthrough={currentUser?.role === "DISTRICT_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "PRINCIPAL"}
+        canMarkWalkthrough={currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "SCHOOL_LEADER"}
         observerName={currentUser?.name}
         onSubmit={handleNewObservation}
         saving={saving}

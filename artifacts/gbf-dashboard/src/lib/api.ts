@@ -2,7 +2,7 @@ import type { Score, Teacher, Observation } from "../data/dummy";
 
 /* ── Users ─────────────────────────────────────────────────────── */
 
-export type UserRole = "COACH" | "PRINCIPAL" | "NETWORK_LEADER" | "DISTRICT_ADMIN";
+export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
 
 export interface UserRow {
   id:         number;
@@ -15,6 +15,14 @@ export interface UserRow {
 
 export async function fetchUsers(): Promise<UserRow[]> {
   return apiFetch<UserRow[]>("/users");
+}
+
+export async function createUser(payload: { email: string; name: string; role: UserRole; schoolId?: number | null }): Promise<UserRow> {
+  return apiFetch<UserRow>("/users", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateUser(id: number, payload: Partial<{ email: string; name: string; role: UserRole; schoolId: number | null }>): Promise<UserRow> {
+  return apiFetch<UserRow>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 /* ── Admin: Schools ─────────────────────────────────────────────── */
@@ -149,6 +157,7 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/api${path}`, {
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     ...options,
   });
