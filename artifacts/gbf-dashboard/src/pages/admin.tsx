@@ -188,7 +188,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 group">
+          <div className="flex items-center gap-2">
             <span
               className="px-4 py-1.5 rounded-full font-bold uppercase text-white shrink-0"
               style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
@@ -196,11 +196,12 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
               {data.rubricSet.name}
             </span>
             <button
-              className="p-1 text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               title="Rename rubric set"
               onClick={() => { setPendingSetName(data.rubricSet.name); setEditingSetName(true); }}
             >
-              <Pencil size={13} />
+              <Pencil size={11} />
+              Rename
             </button>
           </div>
         )}
