@@ -300,7 +300,7 @@ export default function ObservationPage() {
                             className="px-2.5 h-9 rounded font-bold text-sm transition-all whitespace-nowrap min-w-[36px]"
                             style={scorePillStyle(value, scores[domain.slug] === value)}
                           >
-                            {value === 0 ? "0" : value === 1 ? "1" : "½"}
+                            {value === 0 ? "0" : value === 1 ? "1" : "0.5"}
                           </button>
                         ))}
                       </div>
