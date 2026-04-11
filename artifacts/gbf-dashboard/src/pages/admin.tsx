@@ -1565,6 +1565,8 @@ export default function AdminPage() {
         <AppHeader
           subtitle="Settings"
           basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
+          backHref={import.meta.env.BASE_URL.replace(/\/$/, "") + "/"}
+          backLabel="Dashboard"
           onAddObservation={() => {
             const base = import.meta.env.BASE_URL.replace(/\/$/, "");
             window.location.href = `${base}/`;
