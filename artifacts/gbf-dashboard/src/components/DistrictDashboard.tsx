@@ -409,8 +409,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
         {/* ── Grid ─────────────────────────────────────────── */}
         {data && !isLoading && (
-          <div className="flex-1 min-h-0 overflow-hidden rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
-          <div className="overflow-auto h-full bg-white rounded-md">
+          <div className="flex-1 min-h-0">
+          <div className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
                 <thead className="sticky top-0 z-20">
 
