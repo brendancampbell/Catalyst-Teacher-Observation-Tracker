@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
@@ -230,6 +230,18 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Header height measurement for sticky filter bar ── */
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen] = useState(false);
   const [drillDown, setDrillDown]   = useState<DrillDownTarget | null>(null);
@@ -419,7 +431,7 @@ export default function Dashboard() {
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
-        <div className="sticky top-0 z-30 shadow-md">
+        <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
           <AppHeader
             subtitle={schoolName ?? currentUser.schoolName ?? ""}
             basePath={BASE_PATH}
@@ -525,7 +537,7 @@ export default function Dashboard() {
         {/* ── Filters + View toggles ─────────────────────────── */}
         <div
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight, zIndex: 25 }}
         >
           {/* "View By" label + pill buttons */}
           <span
