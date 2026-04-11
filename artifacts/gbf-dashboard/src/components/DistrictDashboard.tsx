@@ -423,7 +423,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         width: 200, minWidth: 200,
                         backgroundColor: NAVY,
                         color: "white",
-                        borderRight: `2px solid ${YELLOW}`,
+                        boxShadow: `2px 0 0 0 ${YELLOW}`,
                         paddingTop: 8, paddingBottom: 8,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
@@ -593,7 +593,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         {/* First column (school / region / grade span) */}
                         <td
                           className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
-                          style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", borderRight: `2px solid ${YELLOW}` }}
+                          style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", boxShadow: `2px 0 0 0 ${YELLOW}` }}
                         >
                           {row.isClickable ? (
                             <button
@@ -712,7 +712,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         style={{
                           color: YELLOW,
                           backgroundColor: NAVY,
-                          borderRight: `2px solid ${YELLOW}`,
+                          boxShadow: `2px 0 0 0 ${YELLOW}`,
                           fontFamily: "'Bebas Neue', sans-serif",
                           fontWeight: 700,
                           fontSize: 20,

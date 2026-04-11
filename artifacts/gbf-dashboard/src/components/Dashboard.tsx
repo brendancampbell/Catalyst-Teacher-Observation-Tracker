@@ -575,7 +575,7 @@ export default function Dashboard() {
                       width: 180, minWidth: 180,
                       backgroundColor: NAVY,
                       color: "white",
-                      borderRight: `2px solid ${YELLOW}`,
+                      boxShadow: `2px 0 0 0 ${YELLOW}`,
                       paddingTop: 8, paddingBottom: 8,
                       fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
@@ -755,7 +755,7 @@ export default function Dashboard() {
                         >
                           <td
                             className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
-                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", borderRight: `2px solid ${YELLOW}` }}
+                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", boxShadow: `2px 0 0 0 ${YELLOW}` }}
                           >
                             <button
                               className="font-semibold leading-tight truncate text-left w-full hover:underline"
@@ -852,7 +852,7 @@ export default function Dashboard() {
                           {/* Group label cell */}
                           <td
                             className="pl-3 pr-2 py-2 sticky left-0 z-10"
-                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", borderRight: `2px solid ${YELLOW}` }}
+                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", boxShadow: `2px 0 0 0 ${YELLOW}` }}
                           >
                             <p className="font-bold leading-tight truncate" style={{ color: NAVY, fontSize: 15 }}>
                               {group.label}
@@ -934,7 +934,7 @@ export default function Dashboard() {
                       style={{
                         color: YELLOW,
                         backgroundColor: NAVY,
-                        borderRight: `2px solid ${YELLOW}`,
+                        boxShadow: `2px 0 0 0 ${YELLOW}`,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
                         fontSize: 20,
