@@ -258,12 +258,13 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
 /* ── Rubric Sets (admin) ───────────────────────────────────────── */
 
 export interface RubricSetRow {
-  id:          number;
-  slug:        string;
-  name:        string;
-  isActive:    boolean;
-  gradeSpan:   string | null;
-  description: string | null;
+  id:           number;
+  slug:         string;
+  name:         string;
+  isActive:     boolean;
+  gradeSpan:    string | null;
+  description:  string | null;
+  displayOrder: number;
 }
 
 /** @deprecated Use RubricSetRow */
@@ -280,6 +281,13 @@ export async function updateRubricSet(slug: string, fields: { name?: string; des
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
     method: "PATCH",
     body: JSON.stringify(fields),
+  });
+}
+
+export async function reorderRubricSets(items: { slug: string; displayOrder: number }[]): Promise<RubricSetRow[]> {
+  return apiFetch<RubricSetRow[]>("/rubric/sets/reorder", {
+    method: "PUT",
+    body: JSON.stringify(items),
   });
 }
 

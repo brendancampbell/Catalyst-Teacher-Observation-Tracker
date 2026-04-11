@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import {
   fetchRubric,
   fetchRubricSets,
   createRubricSet,
   updateRubricSet,
+  reorderRubricSets,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -1477,6 +1478,28 @@ export default function AdminPage() {
     },
   });
 
+  const reorderMut = useMutation({
+    mutationFn: (items: { slug: string; displayOrder: number }[]) => reorderRubricSets(items),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<typeof updated>(["rubricSets"], updated);
+    },
+  });
+
+  function moveRubricSet(slug: string, direction: "left" | "right") {
+    const idx = rubricSets.findIndex((q) => q.slug === slug);
+    if (idx < 0) return;
+    const swapIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= rubricSets.length) return;
+    const a = rubricSets[idx];
+    const b = rubricSets[swapIdx];
+    const newOrderA = b.displayOrder !== a.displayOrder ? b.displayOrder : (direction === "left" ? a.displayOrder - 1 : a.displayOrder + 1);
+    const newOrderB = a.displayOrder;
+    reorderMut.mutate([
+      { slug: a.slug, displayOrder: newOrderA },
+      { slug: b.slug, displayOrder: newOrderB },
+    ]);
+  }
+
   if (userLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F4F6FB" }}>
@@ -1595,29 +1618,52 @@ export default function AdminPage() {
             {rubricSetsLoading ? (
               <div className="inline-block w-5 h-5 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
             ) : (
-              <div className="flex gap-1.5 flex-wrap">
-                {rubricSets.map((q) => {
+              <div className="flex gap-1.5 flex-wrap items-center">
+                {rubricSets.map((q, idx) => {
                   const active = q.slug === selectedRubricSetSlug;
+                  const isFirst = idx === 0;
+                  const isLast = idx === rubricSets.length - 1;
                   return (
-                    <button
-                      key={q.slug}
-                      type="button"
-                      onClick={() => setSelectedRubricSetSlug(q.slug)}
-                      className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
-                      style={{
-                        fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: 14,
-                        letterSpacing: "0.04em",
-                        backgroundColor: active ? NAVY : "transparent",
-                        color: active ? "white" : NAVY,
-                        border: `1.5px solid ${NAVY}`,
-                      }}
-                    >
-                      {q.name}
-                      {q.gradeSpan && (
-                        <span className="ml-1 text-xs opacity-70">({q.gradeSpan})</span>
-                      )}
-                    </button>
+                    <div key={q.slug} className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        title="Move left"
+                        disabled={isFirst || reorderMut.isPending}
+                        onClick={() => moveRubricSet(q.slug, "left")}
+                        className="rounded p-0.5 transition-opacity disabled:opacity-20 hover:opacity-70"
+                        style={{ color: NAVY }}
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRubricSetSlug(q.slug)}
+                        className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
+                        style={{
+                          fontFamily: "'Bebas Neue', sans-serif",
+                          fontSize: 14,
+                          letterSpacing: "0.04em",
+                          backgroundColor: active ? NAVY : "transparent",
+                          color: active ? "white" : NAVY,
+                          border: `1.5px solid ${NAVY}`,
+                        }}
+                      >
+                        {q.name}
+                        {q.gradeSpan && (
+                          <span className="ml-1 text-xs opacity-70">({q.gradeSpan})</span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        title="Move right"
+                        disabled={isLast || reorderMut.isPending}
+                        onClick={() => moveRubricSet(q.slug, "right")}
+                        className="rounded p-0.5 transition-opacity disabled:opacity-20 hover:opacity-70"
+                        style={{ color: NAVY }}
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

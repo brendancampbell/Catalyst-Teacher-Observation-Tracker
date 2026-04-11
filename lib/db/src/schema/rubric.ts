@@ -3,12 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const rubricSets = pgTable("rubric_sets", {
-  id:          serial("id").primaryKey(),
-  slug:        text("slug").notNull().unique(),
-  name:        text("name").notNull(),
-  isActive:    boolean("is_active").notNull().default(false),
-  gradeSpan:   text("grade_span"),
-  description: text("description"),
+  id:           serial("id").primaryKey(),
+  slug:         text("slug").notNull().unique(),
+  name:         text("name").notNull(),
+  isActive:     boolean("is_active").notNull().default(false),
+  gradeSpan:    text("grade_span"),
+  description:  text("description"),
+  displayOrder: integer("display_order").notNull().default(0),
 });
 
 export const rubricCategories = pgTable("rubric_categories", {

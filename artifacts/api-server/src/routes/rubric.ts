@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { asc, eq, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 
 const router = Router();
@@ -9,10 +9,30 @@ const router = Router();
 /* ── GET /api/rubric/sets ───────────────────────────────────────── */
 router.get("/sets", async (_req, res) => {
   try {
-    const sets = await db.select().from(rubricSets).orderBy(rubricSets.id);
+    const sets = await db.select().from(rubricSets)
+      .orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     res.json(sets);
   } catch (err) {
     console.error("GET /rubric/sets error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── PUT /api/rubric/sets/reorder ───────────────────────────────── */
+router.put("/sets/reorder", requireNetworkAdmin, async (req, res) => {
+  try {
+    const items = req.body as { slug: string; displayOrder: number }[];
+    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    await Promise.all(
+      items.map(({ slug, displayOrder }) =>
+        db.update(rubricSets).set({ displayOrder }).where(eq(rubricSets.slug, slug))
+      )
+    );
+    const sets = await db.select().from(rubricSets)
+      .orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+    res.json(sets);
+  } catch (err) {
+    console.error("PUT /rubric/sets/reorder error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -28,9 +48,12 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
     };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
 
+    const [{ maxOrder }] = await db.select({ maxOrder: max(rubricSets.displayOrder) }).from(rubricSets);
+    const nextOrder = (maxOrder ?? 0) + 1;
+
     const [rubricSet] = await db
       .insert(rubricSets)
-      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null })
+      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null, displayOrder: nextOrder })
       .returning();
 
     /* Optional: copy categories + domains from an existing rubric set */
