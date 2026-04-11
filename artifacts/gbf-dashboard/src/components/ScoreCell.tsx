@@ -7,24 +7,32 @@ interface ScoreCellProps {
   onClick?: () => void;
 }
 
+/* Round to 1 decimal so displayed value and color always agree */
+function r1(score: number): number {
+  return Math.round(score * 10) / 10;
+}
+
 /* Used by sub-avg and other summary cells that keep a colored background */
 export function getScoreColor(score: number): string {
-  if (score >= 0.7) return "bg-green-600 text-white";
-  if (score >= 0.5) return "bg-yellow-300 text-yellow-900";
+  const s = r1(score);
+  if (s >= 0.7) return "bg-green-600 text-white";
+  if (s >= 0.5) return "bg-yellow-300 text-yellow-900";
   return "bg-red-300 text-red-900";
 }
 
 export function getScoreColorExact(score: number): string {
-  if (score >= 1)   return "bg-green-600 text-white";
-  if (score >= 0.5) return "bg-yellow-300 text-yellow-900";
+  const s = r1(score);
+  if (s >= 1)   return "bg-green-600 text-white";
+  if (s >= 0.5) return "bg-yellow-300 text-yellow-900";
   return "bg-red-300 text-red-900";
 }
 
 /* Returns a hex color for text-only coloring (white-background domain cells) */
 export function getScoreTextColor(score: number): string {
-  if (score >= 0.7) return "#16a34a"; // green-600
-  if (score >= 0.5) return "#d97706"; // amber-600
-  return "#dc2626";                   // red-600
+  const s = r1(score);
+  if (s >= 0.7) return "#16a34a"; // green-600
+  if (s >= 0.5) return "#d97706"; // amber-600
+  return "#dc2626";               // red-600
 }
 
 export function ScoreCell({ score, className = "", style, onClick }: ScoreCellProps) {
