@@ -2186,7 +2186,7 @@ export default function AdminPage() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#F4F6FB" }}>
+      <div className="h-full flex items-center justify-center" style={{ backgroundColor: "#F4F6FB" }}>
         <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
       </div>
     );
@@ -2194,7 +2194,7 @@ export default function AdminPage() {
 
   if (!currentUser || currentUser.role === "COACH") {
     return (
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+      <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
         <div style={{ height: 5, backgroundColor: YELLOW }} />
         <header style={{ backgroundColor: NAVY }} className="shadow-md">
           <div className="px-4 sm:px-6 py-3 flex items-center gap-4">
@@ -2241,7 +2241,7 @@ export default function AdminPage() {
     activeTab;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ── Sticky header + tab bar ── */}
       <div className="sticky top-0 z-30 shadow-md">

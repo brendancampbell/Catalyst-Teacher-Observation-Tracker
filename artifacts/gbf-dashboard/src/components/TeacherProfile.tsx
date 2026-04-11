@@ -160,7 +160,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ── Top bar ──────────────────────────────────────── */}
       <div style={{ height: 5, backgroundColor: YELLOW }} />

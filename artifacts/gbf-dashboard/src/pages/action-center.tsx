@@ -243,7 +243,7 @@ export default function ActionCenterPage() {
 
   /* ── Render ─────────────────────────────────────────── */
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* Tabs wraps everything so TabsList can live inside the sticky bar */}
       <Tabs defaultValue="summary" className="flex-1 flex flex-col">
