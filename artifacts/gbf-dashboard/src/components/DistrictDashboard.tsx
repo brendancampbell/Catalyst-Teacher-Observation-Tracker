@@ -621,7 +621,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
                   {/* Yellow separator */}
                   <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                    <td colSpan={allDomains.length + allCategories.length} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
+                    <td colSpan={allDomains.length + allCategories.length + 3} style={{ padding: 0, height: 3, backgroundColor: YELLOW }} />
                   </tr>
 
                 </thead>
