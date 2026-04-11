@@ -716,10 +716,12 @@ export default function Dashboard() {
                               cursor: hasDesc ? "help" : undefined,
                             }}
                             onMouseEnter={hasDesc ? (e) => {
-                              setDomainTooltip({ slug: domain.id, x: e.clientX, y: e.clientY + 16, description: domainDesc });
+                              const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                              setDomainTooltip({ slug: domain.id, x: e.clientX / z, y: e.clientY / z + 16, description: domainDesc });
                             } : undefined}
                             onMouseMove={hasDesc ? (e) => {
-                              setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY + 16 } : null);
+                              const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                              setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX / z, y: e.clientY / z + 16 } : null);
                             } : undefined}
                             onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                           >

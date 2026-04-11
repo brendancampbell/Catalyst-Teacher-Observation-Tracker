@@ -559,10 +559,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                                 cursor: hasDesc ? "help" : undefined,
                               }}
                               onMouseEnter={hasDesc ? (e) => {
-                                setDomainTooltip({ slug: domain.id, x: e.clientX, y: e.clientY + 16, description: domain.description! });
+                                const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                                setDomainTooltip({ slug: domain.id, x: e.clientX / z, y: e.clientY / z + 16, description: domain.description! });
                               } : undefined}
                               onMouseMove={hasDesc ? (e) => {
-                                setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY + 16 } : null);
+                                const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                                setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX / z, y: e.clientY / z + 16 } : null);
                               } : undefined}
                               onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                             >
