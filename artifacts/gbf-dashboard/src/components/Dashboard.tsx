@@ -684,7 +684,7 @@ export default function Dashboard() {
                       width: 90, minWidth: 90,
                       fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
-                      fontSize: 14,
+                      fontSize: 18,
                       letterSpacing: "0.02em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
@@ -842,8 +842,8 @@ export default function Dashboard() {
                                 })}
                                 {/* Sub-avg cell */}
                                 <td
-                                  className={`text-center text-lg font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd", fontFamily: "'Bebas Neue', sans-serif" }}
+                                  className={`text-center font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd", fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
@@ -925,8 +925,8 @@ export default function Dashboard() {
                                   return score !== null ? (
                                     <td
                                       key={domain.id}
-                                      className="text-center text-base font-bold py-2"
-                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif" }}
+                                      className="text-center font-bold py-2"
+                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                     >
                                       {score.toFixed(1)}
                                     </td>
@@ -936,8 +936,8 @@ export default function Dashboard() {
                                 })}
                                 {/* Group category sub-avg */}
                                 <td
-                                  className={`text-center text-lg font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
-                                  style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                                  className={`text-center font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
                                 </td>
@@ -1045,8 +1045,8 @@ export default function Dashboard() {
                           })}
                           {/* Category sub-avg footer cell */}
                           <td
-                            className={`text-center text-lg font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
-                            style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                            className={`text-center font-bold py-1.5 ${catFooterAvg !== null ? getScoreColor(catFooterAvg) : "text-slate-400"}`}
+                            style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                           >
                             {catFooterAvg !== null ? catFooterAvg.toFixed(1) : "—"}
                           </td>
@@ -1054,8 +1054,8 @@ export default function Dashboard() {
                       );
                     })}
                     <td
-                      className={`text-center text-base font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
-                      style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                      className={`text-center font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
+                      style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                     >
                       {statAvg ? statAvg.toFixed(1) : "—"}
                     </td>

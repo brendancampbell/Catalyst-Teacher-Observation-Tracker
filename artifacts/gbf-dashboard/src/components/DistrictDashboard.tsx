@@ -688,8 +688,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             return sub != null ? (
                               <td
                                 key={`subavg-${cat.id}`}
-                                className={`text-center text-lg font-bold py-1.5 ${getScoreColor(sub)}`}
-                                style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                                className={`text-center font-bold py-1.5 ${getScoreColor(sub)}`}
+                                style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                               >
                                 {sub.toFixed(1)}
                               </td>
@@ -798,8 +798,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           return (
                             <td
                               key={`subavg-${cat.id}`}
-                              className={`text-center text-lg font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-400"}`}
-                              style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
+                              className={`text-center font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-400"}`}
+                              style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                             >
                               {catAvg !== null ? catAvg.toFixed(1) : "—"}
                             </td>

@@ -34,7 +34,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
     return (
       <td
         className={`text-center text-slate-300 ${className} ${clickable ? "cursor-pointer" : ""}`}
-        style={{ width: 60, minWidth: 60, backgroundColor: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, ...style }}
+        style={{ width: 60, minWidth: 60, backgroundColor: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, ...style }}
         onClick={onClick}
         title={clickable ? "Click to view score history" : undefined}
       >
@@ -53,7 +53,7 @@ export function ScoreCell({ score, className = "", style, onClick }: ScoreCellPr
           ? "cursor-pointer relative transition-all duration-100 hover:bg-slate-50"
           : ""
       }`}
-      style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, ...style }}
+      style={{ width: 60, minWidth: 60, backgroundColor: "white", color: textColor, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, ...style }}
       onClick={onClick}
       title={clickable ? "Click to view score history" : undefined}
     >
