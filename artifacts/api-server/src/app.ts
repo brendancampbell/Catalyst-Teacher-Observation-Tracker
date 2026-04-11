@@ -96,7 +96,7 @@ app.use(passport.session());
 
 /* ── Smart redirect: /api/app → mobile or desktop based on User-Agent ──
    Must be registered BEFORE the /api router so auth middleware doesn't intercept it. */
-const MOBILE_UA = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+const MOBILE_UA = /iPhone|iPod|BlackBerry|IEMobile|Opera Mini|(Android.*Mobile)/i;
 
 app.get("/api/app", (req, res) => {
   const ua = req.headers["user-agent"] ?? "";
