@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -152,7 +152,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [headerHeight,    setHeaderHeight]    = useState(0);
   const [filterBarHeight, setFilterBarHeight] = useState(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = headerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
@@ -160,7 +160,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     setHeaderHeight(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = filterBarRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
