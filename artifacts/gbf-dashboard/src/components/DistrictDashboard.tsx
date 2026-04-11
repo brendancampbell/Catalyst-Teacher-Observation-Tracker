@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -147,6 +147,27 @@ interface Props {
 export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser } = useUser();
 
+  /* ── Header + filter bar height measurement for sticky rows ── */
+  const headerRef    = useRef<HTMLDivElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [headerHeight,    setHeaderHeight]    = useState(0);
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
+    ro.observe(el);
+    setFilterBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
@@ -212,6 +233,22 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     });
   }, [displayRows, profActive]);
 
+  /* ── Derived stats — use proficiency-filtered rows ── */
+  const schoolCount    = profDisplayRows.length;
+  const districtAvgRaw = useMemo(() => {
+    const rows = profDisplayRows.filter((r) => r.overall != null);
+    if (!rows.length) return null;
+    return rows.reduce((s, r) => s + r.overall!, 0) / rows.length;
+  }, [profDisplayRows]);
+
+  const proficient   = useMemo(
+    () => profDisplayRows.filter((r) => r.overall != null && r.overall >= 0.7).length,
+    [profDisplayRows],
+  );
+  const needsSupport = useMemo(
+    () => profDisplayRows.filter((r) => r.overall != null && r.overall <  0.7).length,
+    [profDisplayRows],
+  );
 
   /* First column label */
   const firstColLabel =
@@ -222,11 +259,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   /* ── Render ────────────────────────────────────────────── */
   return (
     <Fragment>
-    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
-        <div className="z-30 shadow-md">
+        <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
           <AppHeader
             subtitle="Network Overview"
             basePath={baseUrl}
@@ -240,7 +277,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 overflow-hidden">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
         {/* ── Rubric Set Switcher ──────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -280,10 +317,54 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           </div>
         )}
 
+        {/* ── Stats ────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
+          {[
+            { label: "Schools",           value: schoolCount,                                                    colorScore: null as number | null, pct: null as number | null },
+            { label: "Average Score",     value: districtAvgRaw != null ? districtAvgRaw.toFixed(1) : "—",    colorScore: districtAvgRaw,        pct: null },
+            { label: "Proficient (≥ 0.7)", value: proficient,                                                  colorScore: null,                  pct: schoolCount ? Math.round(proficient   / schoolCount * 100) : null },
+            { label: "Not Proficient (< 0.7)", value: needsSupport,                                           colorScore: null,                  pct: schoolCount ? Math.round(needsSupport / schoolCount * 100) : null },
+          ].map(({ label, value, colorScore, pct }) => (
+            <div
+              key={label}
+              className="bg-white rounded-md shadow-sm overflow-hidden"
+              style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}
+            >
+              <div className="px-4 py-3">
+                <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>
+                  {label}
+                </p>
+                {pct !== null ? (
+                  <div className="flex items-center gap-0 mt-1">
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                      {value}
+                    </span>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                      {pct}%
+                    </span>
+                  </div>
+                ) : colorScore !== null ? (
+                  <span
+                    className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
+                  </span>
+                ) : (
+                  <p className="font-bold mt-1 leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                    {value}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* ── View By + Score Type toggles ─────────────────── */}
         <div
+          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
           {/* View By label + pills */}
           <span

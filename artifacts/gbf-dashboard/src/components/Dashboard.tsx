@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
@@ -230,6 +230,27 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Header + filter bar height measurement for sticky rows ── */
+  const headerRef    = useRef<HTMLDivElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [headerHeight,    setHeaderHeight]    = useState(0);
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
+    ro.observe(el);
+    setFilterBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen] = useState(false);
@@ -251,6 +272,11 @@ export default function Dashboard() {
   );
 
   const teacherAvgFn = (t: Teacher) => getTeacherOverallAvg(t, categories, viewMode);
+
+  const groupAvgs = useMemo(
+    () => groupRows.map((g) => getGroupOverallAvg(g.teachers, categories, viewMode)),
+    [groupRows, categories, viewMode],
+  );
 
   /* ── Proficiency filter (applied after subject/grade) ── */
   const profActive = proficiency.length === 1 ? proficiency[0] : null;
@@ -286,6 +312,14 @@ export default function Dashboard() {
     );
   }
 
+  /* ── Stats — teacher view ──────────────────────────── */
+
+  const profGroupAvgs = profGroupRows.map((g) => getGroupOverallAvg(g.teachers, categories, viewMode));
+
+  const statCount        = viewBy === "teacher" ? profFiltered.length : profGroupRows.length;
+  const filteredAvgs     = viewBy === "teacher"
+    ? profFiltered.map((t) => teacherAvgFn(t)).filter((a): a is number => a !== null)
+    : profGroupAvgs;
   /* Always compute school-wide average from individual teacher scores,
      never from group subtotals, so it stays consistent across all view modes. */
   const teacherAvgsForStat = profFiltered
@@ -294,6 +328,12 @@ export default function Dashboard() {
   const statAvg = teacherAvgsForStat.length
     ? teacherAvgsForStat.reduce((a, b) => a + b, 0) / teacherAvgsForStat.length
     : 0;
+  const statProficient   = viewBy === "teacher"
+    ? profFiltered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a >= 0.7; }).length
+    : profGroupAvgs.filter((a): a is number => a !== null && a >= 0.7).length;
+  const statNeedsSupport = viewBy === "teacher"
+    ? profFiltered.filter((t) => { const a = teacherAvgFn(t); return a !== null && a < 0.7; }).length
+    : profGroupAvgs.filter((a): a is number => a !== null && a < 0.7).length;
 
   const hasFilters = !!(subject.length || grade.length || proficiency.length);
 
@@ -359,6 +399,10 @@ export default function Dashboard() {
     : viewBy === "subject" ? "Subject"
     : "Grade Level";
 
+  const rowCountLabel = viewBy === "teacher" ? "Teachers Shown"
+    : viewBy === "subject" ? "Subjects"
+    : "Grade Levels";
+
   /* ── Loading / Error states ─────────────────────────── */
   if (isLoading) {
     return (
@@ -393,11 +437,11 @@ export default function Dashboard() {
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (
-    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
-        <div className="z-30 shadow-md">
+        <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
           <AppHeader
             subtitle={schoolName ?? currentUser.schoolName ?? ""}
             basePath={BASE_PATH}
@@ -414,7 +458,7 @@ export default function Dashboard() {
       )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 overflow-hidden">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
         {/* ── Rubric Set Switcher ────────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -454,10 +498,57 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── Stats ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
+          {[
+            { label: rowCountLabel,          value: statCount,                                       pct: null,                                                                      colorScore: null as number | null },
+            { label: "Average Score",         value: statCount ? statAvg.toFixed(1) : "—",           pct: null,                                                                      colorScore: statCount ? statAvg : null },
+            { label: "Proficient (≥ 0.7)",   value: statProficient,    pct: statCount ? Math.round(statProficient    / statCount * 100) : null, colorScore: null as number | null },
+            { label: "Not Proficient (< 0.7)", value: statNeedsSupport, pct: statCount ? Math.round(statNeedsSupport  / statCount * 100) : null, colorScore: null as number | null },
+          ].map(({ label, value, pct, colorScore }) => (
+            <div
+              key={label}
+              className="bg-white rounded-md shadow-sm overflow-hidden"
+              style={{ border: "1px solid #dde3f0", borderTop: `3px solid ${NAVY}` }}
+            >
+              <div className="px-4 py-3">
+                <p className="uppercase tracking-wide font-semibold" style={{ color: "#64748b", fontSize: 13 }}>
+                  {label}
+                </p>
+                {pct !== null ? (
+                  <div className="flex items-center gap-0 mt-1">
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
+                      {value}
+                    </span>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
+                      {pct}%
+                    </span>
+                  </div>
+                ) : colorScore !== null ? (
+                  <span
+                    className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
+                  </span>
+                ) : (
+                  <p
+                    className="font-bold mt-1 leading-none"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}
+                  >
+                    {value}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* ── Filters + View toggles ─────────────────────────── */}
         <div
+          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
           {/* "View By" label + pill buttons */}
           <span
