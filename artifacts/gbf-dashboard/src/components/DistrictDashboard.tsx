@@ -150,18 +150,6 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const viewportHeight = useViewportHeight();
 
-  /* ── Header height measurement for sticky filter bar ── */
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
-    ro.observe(el);
-    setHeaderHeight(el.offsetHeight);
-    return () => ro.disconnect();
-  }, []);
-
   /* ── Filter bar height measurement for sticky thead ── */
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [filterBarHeight, setFilterBarHeight] = useState(0);
@@ -268,7 +256,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
-        <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
+        <div className="sticky top-0 z-30 shadow-md">
           <AppHeader
             subtitle="Network Overview"
             basePath={baseUrl}
