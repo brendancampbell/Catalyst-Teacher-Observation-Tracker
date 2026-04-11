@@ -1,6 +1,7 @@
 import { Fragment, useState, useMemo, useEffect } from "react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { Plus, ArrowLeft } from "lucide-react";
+import UserMenuDropdown from "@/components/UserMenuDropdown";
 import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -477,54 +478,14 @@ export default function Dashboard() {
               Action Center
             </a>
 
-            {currentUser && currentUser.role !== "COACH" && (
-              <a
-                href={`${BASE_PATH}/admin`}
-                className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
-                style={{
-                  border: `1.5px solid rgba(255,181,0,0.5)`,
-                  color: YELLOW,
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 14,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                Admin
-              </a>
+            {currentUser && (
+              <UserMenuDropdown
+                name={currentUser.name}
+                role={currentUser.role}
+                basePath={BASE_PATH}
+                canAdmin={currentUser.role !== "COACH"}
+              />
             )}
-
-            {/* ── User info + sign out ────────── */}
-            <div className="flex items-center gap-2">
-              <div
-                className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-              >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY }}
-                >
-                  {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
-                </div>
-                <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
-                  {currentUser?.name ?? ""}
-                </span>
-                <span
-                  className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
-                >
-                  {currentUser?.role?.replace(/_/g, " ") ?? ""}
-                </span>
-              </div>
-              <form method="POST" action={`${BASE_PATH}/api/auth/logout`}>
-                <button
-                  type="submit"
-                  className="text-white/60 hover:text-white transition-colors px-2 py-1.5 text-xs font-semibold"
-                  title="Sign out"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
           </div>
         </div>
         <div style={{ height: 3, backgroundColor: YELLOW }} />

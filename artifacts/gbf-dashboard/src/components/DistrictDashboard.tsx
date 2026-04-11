@@ -5,6 +5,7 @@ import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntr
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
+import UserMenuDropdown from "@/components/UserMenuDropdown";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -273,47 +274,14 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
               <span style={{ fontSize: 13 }}>⚡</span>
               Network Action Center
             </a>
-            <a
-              href={`${baseUrl}/admin`}
-              className="hidden sm:flex items-center gap-1 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
-              style={{
-                border: `1.5px solid rgba(255,181,0,0.5)`,
-                color: YELLOW,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "0.02em",
-              }}
-            >
-              Admin
-            </a>
-
-            {/* User info + sign out */}
-            <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ backgroundColor: YELLOW, color: NAVY }}
-              >
-                {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
-              </div>
-              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>
-                {currentUser?.name ?? "Loading…"}
-              </span>
-              <span
-                className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block"
-                style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}
-              >
-                {currentUser?.role?.replace(/_/g, " ") ?? ""}
-              </span>
-              <form method="post" action={`${baseUrl}/api/auth/logout`}>
-                <button
-                  type="submit"
-                  className="ml-1 px-3 py-1 rounded text-xs font-semibold transition-colors hover:bg-white/20"
-                  style={{ color: "white", border: "1px solid rgba(255,255,255,0.3)" }}
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
+            {currentUser && (
+              <UserMenuDropdown
+                name={currentUser.name}
+                role={currentUser.role}
+                basePath={baseUrl}
+                canAdmin={currentUser.role !== "COACH"}
+              />
+            )}
           </div>
         </div>
         <div style={{ height: 3, backgroundColor: YELLOW }} />
