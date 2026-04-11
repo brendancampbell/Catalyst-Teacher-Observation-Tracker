@@ -607,7 +607,7 @@ export default function Dashboard() {
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : mode === "periodAvg" ? "Period Avg" : "Walkthroughs"}
+                {mode === "recent" ? "Most Recent" : mode === "periodAvg" ? "Rubric Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>

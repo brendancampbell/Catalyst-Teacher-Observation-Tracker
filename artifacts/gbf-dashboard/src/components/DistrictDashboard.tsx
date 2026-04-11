@@ -438,7 +438,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
                 }}
               >
-                {mode === "recent" ? "Most Recent" : mode === "average" ? "Period Avg" : "Walkthroughs"}
+                {mode === "recent" ? "Most Recent" : mode === "average" ? "Rubric Avg" : "Walkthroughs"}
               </button>
             ))}
           </div>
