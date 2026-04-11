@@ -864,7 +864,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             borderBottom: `7px solid ${NAVY}`,
           }} />
           <div style={{
-            marginTop: 7,
+            marginTop: 6,
             backgroundColor: NAVY, color: "white", borderRadius: 8,
             padding: "10px 14px", fontSize: 13, lineHeight: 1.5,
             fontFamily: "'Libre Franklin', sans-serif",
