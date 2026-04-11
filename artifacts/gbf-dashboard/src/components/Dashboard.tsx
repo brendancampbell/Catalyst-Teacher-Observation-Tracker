@@ -415,7 +415,7 @@ export default function Dashboard() {
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (
-    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
@@ -716,8 +716,10 @@ export default function Dashboard() {
                               cursor: hasDesc ? "help" : undefined,
                             }}
                             onMouseEnter={hasDesc ? (e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setDomainTooltip({ slug: domain.id, x: rect.left + rect.width / 2, y: rect.bottom + 6, description: domainDesc });
+                              setDomainTooltip({ slug: domain.id, x: e.clientX, y: e.clientY + 16, description: domainDesc });
+                            } : undefined}
+                            onMouseMove={hasDesc ? (e) => {
+                              setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY + 16 } : null);
                             } : undefined}
                             onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                           >
