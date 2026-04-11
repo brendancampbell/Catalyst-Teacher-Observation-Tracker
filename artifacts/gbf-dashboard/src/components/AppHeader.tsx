@@ -1,4 +1,4 @@
-import { Plus, Activity } from "lucide-react";
+import { Plus, Activity, ArrowLeft } from "lucide-react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
 const NAVY   = "#1034B4";
@@ -6,6 +6,8 @@ const YELLOW = "#FFB500";
 
 interface AppHeaderProps {
   subtitle: string;
+  backHref?: string;
+  backLabel?: string;
   basePath: string;
   onAddObservation: () => void;
   actionCenterHref: string;
@@ -17,6 +19,8 @@ interface AppHeaderProps {
 
 export default function AppHeader({
   subtitle,
+  backHref,
+  backLabel = "Dashboard",
   basePath,
   onAddObservation,
   actionCenterHref,
@@ -41,6 +45,16 @@ export default function AppHeader({
             />
             <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
+              {backHref && (
+                <a
+                  href={backHref}
+                  className="flex items-center gap-1 mb-0.5 transition-colors hover:text-yellow-300"
+                  style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", color: "rgba(147,197,253,0.9)", textDecoration: "none" }}
+                >
+                  <ArrowLeft size={12} />
+                  {backLabel}
+                </a>
+              )}
               <p
                 className="text-white uppercase tracking-widest leading-tight"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}

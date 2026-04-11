@@ -254,6 +254,8 @@ export default function ActionCenterPage() {
           {currentUser && (
             <AppHeader
               subtitle="Action Center"
+              backHref={`${baseUrl}/`}
+              backLabel="Back to Dashboard"
               basePath={baseUrl}
               onAddObservation={() => setNewObsOpen(true)}
               actionCenterHref={`${baseUrl}/action-center`}

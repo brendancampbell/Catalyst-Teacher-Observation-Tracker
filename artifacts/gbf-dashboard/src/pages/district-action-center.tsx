@@ -130,6 +130,8 @@ export default function DistrictActionCenterPage() {
           {currentUser && (
             <AppHeader
               subtitle="Network Action Center"
+              backHref={`${baseUrl}/`}
+              backLabel="Back to Network Overview"
               basePath={baseUrl}
               onAddObservation={() => { window.location.href = `${baseUrl}/`; }}
               actionCenterHref={`${baseUrl}/district-action-center`}
