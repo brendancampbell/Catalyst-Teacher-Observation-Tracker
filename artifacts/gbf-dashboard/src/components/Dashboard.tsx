@@ -1,5 +1,4 @@
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
-import { useViewportHeight } from "@/hooks/use-viewport-height";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
@@ -231,8 +230,6 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const viewportHeight = useViewportHeight();
-
   /* ── Header height measurement for sticky filter bar ── */
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -244,20 +241,6 @@ export default function Dashboard() {
     setHeaderHeight(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
-
-  /* ── Filter bar height measurement for sticky thead ── */
-  const filterBarRef = useRef<HTMLDivElement>(null);
-  const [filterBarHeight, setFilterBarHeight] = useState(0);
-  useEffect(() => {
-    const el = filterBarRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
-    ro.observe(el);
-    setFilterBarHeight(el.offsetHeight);
-    return () => ro.disconnect();
-  }, []);
-
-  const GAP = 12;
 
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen] = useState(false);
@@ -444,7 +427,7 @@ export default function Dashboard() {
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (
-    <div className="flex flex-col" style={{ height: viewportHeight, overflow: "clip", backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
@@ -553,9 +536,8 @@ export default function Dashboard() {
 
         {/* ── Filters + View toggles ─────────────────────────── */}
         <div
-          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + GAP, zIndex: 25 }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
           {/* "View By" label + pill buttons */}
           <span
@@ -645,9 +627,10 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md shadow-sm flex-1 min-h-0 overflow-auto"
+          className="bg-white rounded-md overflow-hidden flex-1 min-h-0 shadow-sm"
           style={{ border: "1px solid #dde3f0" }}
         >
+          <div className="overflow-auto h-full">
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
               <thead className="sticky top-0 z-20">
 
@@ -1098,6 +1081,7 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
+          </div>
         </div>
 
       </main>

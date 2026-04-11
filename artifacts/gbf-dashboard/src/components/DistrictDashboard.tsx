@@ -1,5 +1,4 @@
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
-import { useViewportHeight } from "@/hooks/use-viewport-height";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
@@ -148,8 +147,6 @@ interface Props {
 export default function DistrictDashboard({ onDrillDown }: Props) {
   const { currentUser } = useUser();
 
-  const viewportHeight = useViewportHeight();
-
   /* ── Header height measurement for sticky filter bar ── */
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -252,7 +249,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   /* ── Render ────────────────────────────────────────────── */
   return (
     <Fragment>
-    <div className="flex flex-col" style={{ height: viewportHeight, overflow: "clip", backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
@@ -473,9 +470,10 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── Grid ─────────────────────────────────────────── */}
         {data && !isLoading && (
           <div
-            className="bg-white rounded-md overflow-auto flex-1 min-h-0 shadow-sm"
+            className="bg-white rounded-md overflow-hidden flex-1 min-h-0 shadow-sm"
             style={{ border: "1px solid #dde3f0" }}
           >
+            <div className="overflow-auto h-full">
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
                 <thead className="sticky top-0 z-20">
 
@@ -852,6 +850,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   )}
                 </tbody>
               </table>
+            </div>
           </div>
         )}
       </main>
