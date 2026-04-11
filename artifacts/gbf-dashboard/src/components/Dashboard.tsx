@@ -441,7 +441,7 @@ export default function Dashboard() {
         onNewObs={() => setNewObsOpen(true)}
       />
     ) : (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═════════════════════════════════════════════ */}
       {currentUser && (
@@ -642,11 +642,12 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md shadow-sm overflow-x-auto"
+          className="bg-white rounded-md shadow-sm flex-1 min-h-0 overflow-hidden"
           style={{ border: "1px solid #dde3f0" }}
         >
+          <div className="overflow-auto h-full">
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-              <thead className="sticky z-20" style={{ top: headerHeight + GAP + filterBarHeight + GAP }}>
+              <thead className="sticky top-0 z-20">
 
                 {/* Category row */}
                 <tr style={{ backgroundColor: NAVY }}>
@@ -1095,6 +1096,7 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
+          </div>
         </div>
 
       </main>

@@ -249,7 +249,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   /* ── Render ────────────────────────────────────────────── */
   return (
     <Fragment>
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
