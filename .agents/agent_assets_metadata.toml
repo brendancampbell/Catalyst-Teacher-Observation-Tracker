@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "vYvv9AYcVadN5hpyrZAgO"
+uri = "file://artifacts/gbf-mobile/assets/images/icon.png"
+type = "image"
+title = "gbf observation app icon"

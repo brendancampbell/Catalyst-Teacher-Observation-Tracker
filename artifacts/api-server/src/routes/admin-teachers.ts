@@ -7,7 +7,7 @@ import { requireRole } from "../middleware/auth";
 const router = Router();
 
 /* GET /api/admin/teachers — teachers in scope, with school name */
-router.get("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const user = req.user as Express.User;
     const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
