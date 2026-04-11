@@ -4,9 +4,6 @@
 html {
   zoom: 1.25;
 }
-body {
-  overflow-x: hidden;
-}
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 

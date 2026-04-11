@@ -150,15 +150,15 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const viewportHeight = useViewportHeight();
 
-  /* ── Filter bar height measurement for sticky thead ── */
-  const filterBarRef = useRef<HTMLDivElement>(null);
-  const [filterBarHeight, setFilterBarHeight] = useState(0);
+  /* ── Header height measurement for sticky filter bar ── */
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
   useEffect(() => {
-    const el = filterBarRef.current;
+    const el = headerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
     ro.observe(el);
-    setFilterBarHeight(el.offsetHeight);
+    setHeaderHeight(el.offsetHeight);
     return () => ro.disconnect();
   }, []);
 
@@ -256,7 +256,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
       {/* ══ HEADER ═══════════════════════════════════════════ */}
       {currentUser && (
-        <div className="sticky top-0 z-30 shadow-md">
+        <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
           <AppHeader
             subtitle="Network Overview"
             basePath={baseUrl}
@@ -270,7 +270,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
         {/* ── Rubric Set Switcher ──────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -355,9 +355,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
         {/* ── View By + Score Type toggles ─────────────────── */}
         <div
-          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: 0, zIndex: 25 }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
           {/* View By label + pills */}
           <span
@@ -474,11 +473,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── Grid ─────────────────────────────────────────── */}
         {data && !isLoading && (
           <div
-            className="bg-white rounded-md shadow-sm"
-            style={{ border: "1px solid #dde3f0", overflowX: "auto", overflowY: "clip", height: "max-content" }}
+            className="bg-white rounded-md overflow-auto flex-1 min-h-0 shadow-sm"
+            style={{ border: "1px solid #dde3f0" }}
           >
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-                <thead className="sticky z-20" style={{ top: filterBarHeight }}>
+                <thead className="sticky top-0 z-20">
 
                   {/* Category row */}
                   <tr style={{ backgroundColor: NAVY }}>
