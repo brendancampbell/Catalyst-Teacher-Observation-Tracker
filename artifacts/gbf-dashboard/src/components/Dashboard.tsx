@@ -420,6 +420,9 @@ export default function Dashboard() {
             userName={currentUser.name}
             userRole={currentUser.role}
             canAdmin={currentUser.role !== "COACH"}
+            {...(isNetworkRole && schoolId != null
+              ? { backHref: BASE_PATH + "/", backLabel: "Network" }
+              : {})}
           />
         </div>
       )}
