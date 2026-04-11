@@ -18,7 +18,7 @@ const requireGoogleEnabled: RequestHandler = (_req, res, next) => {
 router.get(
   "/google",
   requireGoogleEnabled,
-  passport.authenticate("google", { scope: ["profile", "email"] }),
+  passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account" }),
 );
 
 /* ── GET /api/auth/google/callback ───────────────────────────────
