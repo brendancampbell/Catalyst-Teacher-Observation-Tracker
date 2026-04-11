@@ -353,7 +353,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── View By + Score Type toggles ─────────────────── */}
         <div
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight, zIndex: 25 }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
         >
           {/* View By label + pills */}
           <span
