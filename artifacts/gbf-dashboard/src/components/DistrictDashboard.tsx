@@ -855,17 +855,16 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       const caretX = Math.max(7, Math.min(TW - 7, mouseX - clampedLeft));
       return (
         <div style={{ position: "fixed", top: domainTooltip.y, left: clampedLeft, width: TW, zIndex: 9999, pointerEvents: "none" }}>
-          {/* Arrow pinned to mouse X */}
-          <div style={{ position: "relative", height: 7 }}>
-            <div style={{
-              position: "absolute", left: caretX, transform: "translateX(-50%)",
-              width: 0, height: 0,
-              borderLeft: "7px solid transparent",
-              borderRight: "7px solid transparent",
-              borderBottom: `7px solid ${NAVY}`,
-            }} />
-          </div>
+          {/* Arrow pinned to mouse X — absolutely positioned so box margin matches exactly */}
           <div style={{
+            position: "absolute", top: 0, left: caretX, transform: "translateX(-50%)",
+            width: 0, height: 0,
+            borderLeft: "7px solid transparent",
+            borderRight: "7px solid transparent",
+            borderBottom: `7px solid ${NAVY}`,
+          }} />
+          <div style={{
+            marginTop: 7,
             backgroundColor: NAVY, color: "white", borderRadius: 8,
             padding: "10px 14px", fontSize: 13, lineHeight: 1.5,
             fontFamily: "'Libre Franklin', sans-serif",
