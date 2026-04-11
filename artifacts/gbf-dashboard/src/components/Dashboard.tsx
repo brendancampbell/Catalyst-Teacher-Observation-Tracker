@@ -575,7 +575,6 @@ export default function Dashboard() {
                       width: 180, minWidth: 180,
                       backgroundColor: NAVY,
                       color: "white",
-                      boxShadow: `2px 0 0 0 ${YELLOW}`,
                       paddingTop: 8, paddingBottom: 8,
                       fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
@@ -583,6 +582,7 @@ export default function Dashboard() {
                       letterSpacing: "0.02em",
                     }}
                   >
+                    <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
                     {firstColLabel}
                   </th>
 
@@ -755,8 +755,9 @@ export default function Dashboard() {
                         >
                           <td
                             className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
-                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", boxShadow: `2px 0 0 0 ${YELLOW}` }}
+                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
+                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
                             <button
                               className="font-semibold leading-tight truncate text-left w-full hover:underline"
                               style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
@@ -852,8 +853,9 @@ export default function Dashboard() {
                           {/* Group label cell */}
                           <td
                             className="pl-3 pr-2 py-2 sticky left-0 z-10"
-                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd", boxShadow: `2px 0 0 0 ${YELLOW}` }}
+                            style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
+                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
                             <p className="font-bold leading-tight truncate" style={{ color: NAVY, fontSize: 15 }}>
                               {group.label}
                             </p>
@@ -934,13 +936,13 @@ export default function Dashboard() {
                       style={{
                         color: YELLOW,
                         backgroundColor: NAVY,
-                        boxShadow: `2px 0 0 0 ${YELLOW}`,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
                         fontSize: 20,
                         letterSpacing: "0.02em",
                       }}
                     >
+                      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
                       Domain Avg
                     </td>
                     {categories.map((cat) => {
