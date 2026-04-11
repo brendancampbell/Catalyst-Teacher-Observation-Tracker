@@ -6,6 +6,7 @@ import LoginPage from "@/pages/login";
 import SchoolPickerPage from "@/pages/school-picker";
 import RubricPickerPage from "@/pages/rubric-picker";
 import ObservationPage from "@/pages/observation";
+import AccessDeniedPage from "@/pages/access-denied";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -16,6 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={LoginPage} />
+      <Route path="/access-denied" component={AccessDeniedPage} />
       <Route path="/school-picker" component={SchoolPickerPage} />
       <Route path="/rubric-picker" component={RubricPickerPage} />
       <Route path="/observation" component={ObservationPage} />

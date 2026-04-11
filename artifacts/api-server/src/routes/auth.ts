@@ -36,15 +36,21 @@ router.get(
 router.get(
   "/google/callback",
   requireGoogleEnabled,
-  passport.authenticate("google", {
-    failureRedirect: "/login?auth_error=access_denied",
-    session: true,
-  }),
-  (req, res) => {
-    const returnTo = (req.session as Record<string, unknown>)["returnTo"];
-    delete (req.session as Record<string, unknown>)["returnTo"];
-    const dest = typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo) ? returnTo : "/";
-    res.redirect(dest);
+  (req, res, next) => {
+    passport.authenticate("google", { session: true }, (err: unknown, user: Express.User | false) => {
+      if (err) return next(err);
+      const returnTo = (req.session as Record<string, unknown>)["returnTo"];
+      const isMobile = typeof returnTo === "string" && returnTo.startsWith("/gbf-mobile");
+      if (!user) {
+        return res.redirect(isMobile ? "/gbf-mobile/access-denied" : "/access-denied");
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) return next(loginErr);
+        delete (req.session as Record<string, unknown>)["returnTo"];
+        const dest = typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo) ? returnTo : "/";
+        res.redirect(dest);
+      });
+    })(req, res, next);
   },
 );
 

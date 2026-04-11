@@ -8,6 +8,7 @@ import AdminPage from "@/pages/admin";
 import ActionCenterPage from "@/pages/action-center";
 import DistrictActionCenterPage from "@/pages/district-action-center";
 import LoginPage from "@/pages/login";
+import AccessDeniedPage from "@/pages/access-denied";
 import { UserProvider, useUser } from "@/context/UserContext";
 import { type ReactNode, useEffect } from "react";
 
@@ -76,6 +77,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
+      <Route path="/access-denied" component={AccessDeniedPage} />
       <Route path="/">
         <ProtectedRoute><Dashboard /></ProtectedRoute>
       </Route>
