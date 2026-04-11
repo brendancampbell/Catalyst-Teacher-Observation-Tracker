@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import {
   fetchRubric,
   fetchRubricSets,
@@ -397,10 +398,10 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
   const [editGrades, setEditGrades]       = useState<string[]>([]);
   const [editSchoolId, setEditSchoolId]   = useState<number | null>(null);
 
-  const [showInactive,    setShowInactive]    = useState(false);
-  const [teacherSearch,   setTeacherSearch]   = useState("");
-  const [filterSubject,   setFilterSubject]   = useState("");
-  const [filterSchoolFilter, setFilterSchoolFilter] = useState<string>("");
+  const [showInactive,   setShowInactive]   = useState(false);
+  const [teacherSearch,  setTeacherSearch]  = useState("");
+  const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
+  const [filterSchools,  setFilterSchools]  = useState<string[]>([]);
 
   const createMut = useMutation({
     mutationFn: () => createAdminTeacher({ name: newName.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
@@ -432,6 +433,7 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   const allSubjects = Array.from(new Set(teachers.map((t) => t.subject).filter(Boolean))).sort();
+  const allSchoolOptions = schools.map((s) => s.name);
 
   const shown = teachers.filter((t) => {
     if (!showInactive && !t.isActive) return false;
@@ -439,10 +441,15 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
       const q = teacherSearch.toLowerCase();
       if (!t.name.toLowerCase().includes(q) && !t.subject.toLowerCase().includes(q)) return false;
     }
-    if (filterSubject && t.subject !== filterSubject) return false;
-    if (filterSchoolFilter && String(t.schoolId ?? "") !== filterSchoolFilter) return false;
+    if (filterSubjects.length > 0 && !filterSubjects.includes(t.subject)) return false;
+    if (filterSchools.length > 0) {
+      const schoolName = schools.find((s) => s.id === t.schoolId)?.name ?? "";
+      if (!filterSchools.includes(schoolName)) return false;
+    }
     return true;
   });
+
+  const teacherFiltersActive = filterSubjects.length > 0 || filterSchools.length > 0;
 
   const colSpanTotal = isDistrictAdmin ? 6 : 5;
 
@@ -455,57 +462,60 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          {/* Search */}
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
-              placeholder="Search name or subject…"
-              value={teacherSearch}
-              onChange={(e) => setTeacherSearch(e.target.value)}
-            />
-            {teacherSearch && (
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setTeacherSearch("")}><X size={12} /></button>
-            )}
-          </div>
-          {/* Subject filter */}
-          {allSubjects.length > 0 && (
-            <select
-              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-              value={filterSubject}
-              onChange={(e) => setFilterSubject(e.target.value)}
-            >
-              <option value="">All subjects</option>
-              {allSubjects.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-52"
+            placeholder="Search name or subject…"
+            value={teacherSearch}
+            onChange={(e) => setTeacherSearch(e.target.value)}
+          />
+          {teacherSearch && (
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setTeacherSearch("")}><X size={12} /></button>
           )}
-          {/* School filter (network admin only) */}
-          {isDistrictAdmin && schools.length > 0 && (
-            <select
-              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-              value={filterSchoolFilter}
-              onChange={(e) => setFilterSchoolFilter(e.target.value)}
-            >
-              <option value="">All schools</option>
-              {schools.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
-            </select>
-          )}
-          {/* Show inactive */}
-          <label className="flex items-center gap-1.5 text-sm text-slate-500 cursor-pointer select-none ml-1">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
-            Show inactive
-          </label>
         </div>
-        <button
-          onClick={() => { setAdding(true); setEditId(null); }}
-          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
-          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
-        >
-          <Plus size={14} />
-          Add Teacher
-        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} />
+
+        {/* Filters label */}
+        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
+          Filters
+        </span>
+
+        {allSubjects.length > 0 && (
+          <FilterMultiSelect label="Subject" values={filterSubjects} onChange={setFilterSubjects} options={allSubjects} />
+        )}
+        {isDistrictAdmin && allSchoolOptions.length > 0 && (
+          <FilterMultiSelect label="School" values={filterSchools} onChange={setFilterSchools} options={allSchoolOptions} />
+        )}
+        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
+          Show inactive
+        </label>
+        {(teacherFiltersActive || teacherSearch) && (
+          <button
+            onClick={() => { setFilterSubjects([]); setFilterSchools([]); setTeacherSearch(""); }}
+            className="font-semibold underline underline-offset-2 text-sm"
+            style={{ color: NAVY }}
+          >
+            Clear all
+          </button>
+        )}
+
+        {/* Add button — pushed to far right */}
+        <div className="ml-auto">
+          <button
+            onClick={() => { setAdding(true); setEditId(null); }}
+            className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
+            style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+          >
+            <Plus size={14} />
+            Add Teacher
+          </button>
+        </div>
       </div>
 
       {/* Add teacher form */}
@@ -741,8 +751,8 @@ function SchoolSettings() {
 
   /* Filters */
   const [schoolSearch,    setSchoolSearch]    = useState("");
-  const [filterRegion,    setFilterRegion]    = useState("");
-  const [filterGradeSpan, setFilterGradeSpan] = useState("");
+  const [filterRegions,   setFilterRegions]   = useState<string[]>([]);
+  const [filterGradeSpans, setFilterGradeSpans] = useState<string[]>([]);
 
   function resetAdd() { setAdding(false); setNewName(""); setNewRegion(""); setNewSpan(""); }
   function resetEdit() { setEditId(null); }
@@ -772,10 +782,12 @@ function SchoolSettings() {
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
 
+  const schoolFiltersActive = filterRegions.length > 0 || filterGradeSpans.length > 0;
+
   const shownSchools = schools.filter((s) => {
     if (schoolSearch && !s.name.toLowerCase().includes(schoolSearch.toLowerCase())) return false;
-    if (filterRegion && s.region !== filterRegion) return false;
-    if (filterGradeSpan && s.gradeSpan !== filterGradeSpan) return false;
+    if (filterRegions.length > 0 && !filterRegions.includes(s.region ?? "")) return false;
+    if (filterGradeSpans.length > 0 && !filterGradeSpans.includes(s.gradeSpan ?? "")) return false;
     return true;
   });
 
@@ -788,48 +800,52 @@ function SchoolSettings() {
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          {/* Search */}
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
-              placeholder="Search schools…"
-              value={schoolSearch}
-              onChange={(e) => setSchoolSearch(e.target.value)}
-            />
-            {schoolSearch && (
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setSchoolSearch("")}><X size={12} /></button>
-            )}
-          </div>
-          {/* Region filter */}
-          <select
-            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-            value={filterRegion}
-            onChange={(e) => setFilterRegion(e.target.value)}
-          >
-            <option value="">All regions</option>
-            {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          {/* Grade span filter */}
-          <select
-            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-            value={filterGradeSpan}
-            onChange={(e) => setFilterGradeSpan(e.target.value)}
-          >
-            <option value="">All grade spans</option>
-            {GRADE_SPANS.map((g) => <option key={g} value={g}>{g === "ES" ? "ES (Elementary)" : g === "MS" ? "MS (Middle)" : "HS (High School)"}</option>)}
-          </select>
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-52"
+            placeholder="Search schools…"
+            value={schoolSearch}
+            onChange={(e) => setSchoolSearch(e.target.value)}
+          />
+          {schoolSearch && (
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setSchoolSearch("")}><X size={12} /></button>
+          )}
         </div>
-        <button
-          onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
-          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
-          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
-        >
-          <Plus size={14} />
-          Add School
-        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} />
+
+        {/* Filters label */}
+        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
+          Filters
+        </span>
+
+        <FilterMultiSelect label="Region" values={filterRegions} onChange={setFilterRegions} options={[...REGIONS]} />
+        <FilterMultiSelect label="Grade Span" values={filterGradeSpans} onChange={setFilterGradeSpans} options={[...GRADE_SPANS]} />
+
+        {(schoolFiltersActive || schoolSearch) && (
+          <button
+            onClick={() => { setFilterRegions([]); setFilterGradeSpans([]); setSchoolSearch(""); }}
+            className="font-semibold underline underline-offset-2 text-sm"
+            style={{ color: NAVY }}
+          >
+            Clear all
+          </button>
+        )}
+
+        <div className="ml-auto">
+          <button
+            onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
+            className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
+            style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+          >
+            <Plus size={14} />
+            Add School
+          </button>
+        </div>
       </div>
 
       {/* Add school form */}
@@ -1012,9 +1028,9 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
   const [editSchoolId, setEditSchoolId] = useState<number | null>(null);
 
   /* Filters */
-  const [userSearch,       setUserSearch]       = useState("");
-  const [filterRole,       setFilterRole]       = useState<string>("");
-  const [filterUserSchool, setFilterUserSchool] = useState<string>("");
+  const [userSearch,    setUserSearch]    = useState("");
+  const [filterRoles,   setFilterRoles]   = useState<string[]>([]);
+  const [filterUserSchools, setFilterUserSchools] = useState<string[]>([]);
 
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
@@ -1047,13 +1063,24 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
     setAdding(false);
   }
 
+  const userSchoolOptions = schools.map((s) => s.name);
+  const userFiltersActive = filterRoles.length > 0 || filterUserSchools.length > 0;
+
   const shownUsers = userList.filter((u) => {
     if (userSearch) {
       const q = userSearch.toLowerCase();
       if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
     }
-    if (filterRole && u.role !== filterRole) return false;
-    if (filterUserSchool && String(u.schoolId ?? "") !== filterUserSchool) return false;
+    if (filterRoles.length > 0) {
+      const matchedEnums = filterRoles.map((label) =>
+        (Object.entries(ALL_ROLES_MAP) as [string, string][]).find(([, v]) => v === label)?.[0] ?? ""
+      );
+      if (!matchedEnums.includes(u.role)) return false;
+    }
+    if (filterUserSchools.length > 0) {
+      const schoolName = schools.find((s) => s.id === u.schoolId)?.name ?? "";
+      if (!filterUserSchools.includes(schoolName)) return false;
+    }
     return true;
   });
 
@@ -1065,50 +1092,54 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          {/* Search */}
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
-              placeholder="Search name or email…"
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-            />
-            {userSearch && (
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setUserSearch("")}><X size={12} /></button>
-            )}
-          </div>
-          {/* Role filter */}
-          <select
-            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
-            <option value="">All roles</option>
-            {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
-          </select>
-          {/* School filter (network admin only) */}
-          {isNetworkAdmin && schools.length > 0 && (
-            <select
-              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
-              value={filterUserSchool}
-              onChange={(e) => setFilterUserSchool(e.target.value)}
-            >
-              <option value="">All schools</option>
-              {schools.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
-            </select>
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-52"
+            placeholder="Search name or email…"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+          />
+          {userSearch && (
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setUserSearch("")}><X size={12} /></button>
           )}
         </div>
-        <button
-          onClick={() => { setAdding(true); setEditId(null); }}
-          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
-          style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
-        >
-          <Plus size={14} />
-          Add User
-        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} />
+
+        {/* Filters label */}
+        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
+          Filters
+        </span>
+
+        <FilterMultiSelect label="Role" values={filterRoles} onChange={setFilterRoles} options={availableRoles.map((r) => ALL_ROLES_MAP[r])} />
+        {isNetworkAdmin && userSchoolOptions.length > 0 && (
+          <FilterMultiSelect label="School" values={filterUserSchools} onChange={setFilterUserSchools} options={userSchoolOptions} />
+        )}
+
+        {(userFiltersActive || userSearch) && (
+          <button
+            onClick={() => { setFilterRoles([]); setFilterUserSchools([]); setUserSearch(""); }}
+            className="font-semibold underline underline-offset-2 text-sm"
+            style={{ color: NAVY }}
+          >
+            Clear all
+          </button>
+        )}
+
+        <div className="ml-auto">
+          <button
+            onClick={() => { setAdding(true); setEditId(null); }}
+            className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
+            style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+          >
+            <Plus size={14} />
+            Add User
+          </button>
+        </div>
       </div>
 
       {adding && (
