@@ -198,10 +198,10 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/categories/:id/domains ───────────────────── */
 router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, slug, displayOrder } = req.body;
+    const { name, slug, displayOrder, description } = req.body;
     if (!name || !slug) { res.status(400).json({ error: "name and slug required" }); return; }
     const [dom] = await db.insert(rubricDomains)
-      .values({ categoryId: Number(req.params.id), name, slug, displayOrder: displayOrder ?? 0 })
+      .values({ categoryId: Number(req.params.id), name, slug, displayOrder: displayOrder ?? 0, ...(description ? { description } : {}) })
       .returning();
     res.status(201).json(dom);
   } catch (err) {

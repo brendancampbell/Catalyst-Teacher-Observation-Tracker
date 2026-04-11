@@ -374,10 +374,10 @@ export async function deleteCategory(id: number): Promise<void> {
   await apiFetch<void>(`/rubric/categories/${id}`, { method: "DELETE" });
 }
 
-export async function createDomain(categoryId: number, name: string, slug: string, displayOrder: number): Promise<RubricDomainRow> {
+export async function createDomain(categoryId: number, name: string, slug: string, displayOrder: number, description?: string): Promise<RubricDomainRow> {
   return apiFetch<RubricDomainRow>(`/rubric/categories/${categoryId}/domains`, {
     method: "POST",
-    body: JSON.stringify({ name, slug, displayOrder }),
+    body: JSON.stringify({ name, slug, displayOrder, ...(description ? { description } : {}) }),
   });
 }
 

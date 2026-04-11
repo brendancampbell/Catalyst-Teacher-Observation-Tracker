@@ -78,6 +78,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [newDomName,        setNewDomName]        = useState("");
   const [newDomSlug,        setNewDomSlug]        = useState("");
   const [newDomOrder,       setNewDomOrder]       = useState(1);
+  const [newDomDesc,        setNewDomDesc]        = useState("");
 
   const archiveSetMut = useMutation({
     mutationFn: (archive: boolean) => archiveRubricSet(setSlug, archive),
@@ -122,9 +123,9 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   });
 
   const addDomMut = useMutation({
-    mutationFn: ({ catId, name, slug, order }: { catId: number; name: string; slug: string; order: number }) =>
-      createDomain(catId, name, slug, order),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); },
+    mutationFn: ({ catId, name, slug, order, desc }: { catId: number; name: string; slug: string; order: number; desc: string }) =>
+      createDomain(catId, name, slug, order, desc || undefined),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); },
   });
 
   const updDomMut = useMutation({
@@ -308,21 +309,30 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             ))}
 
             {addingDomForCat === cat.id ? (
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 flex-wrap">
-                <input className={`${inputCls} flex-1 min-w-32`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); }} placeholder="Domain name" autoFocus />
-                <input className={`${inputCls} w-36`} value={newDomSlug} onChange={(e) => setNewDomSlug(e.target.value)} placeholder="slug" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Position</label>
-                  <input
-                    className={`${inputCls} w-16 text-center`}
-                    type="number"
-                    min={1}
-                    value={newDomOrder}
-                    onChange={(e) => setNewDomOrder(Math.max(1, Number(e.target.value)))}
-                  />
+              <div className="flex flex-col gap-2 px-4 py-2.5 bg-blue-50">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input className={`${inputCls} flex-1 min-w-32`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); }} placeholder="Domain name" autoFocus />
+                  <input className={`${inputCls} w-36`} value={newDomSlug} onChange={(e) => setNewDomSlug(e.target.value)} placeholder="slug" />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Position</label>
+                    <input
+                      className={`${inputCls} w-16 text-center`}
+                      type="number"
+                      min={1}
+                      value={newDomOrder}
+                      onChange={(e) => setNewDomOrder(Math.max(1, Number(e.target.value)))}
+                    />
+                  </div>
+                  <button className="px-3 py-1.5 rounded text-sm font-bold text-white shrink-0" style={{ backgroundColor: NAVY }} onClick={() => addDomMut.mutate({ catId: cat.id, name: newDomName, slug: newDomSlug || slugify(newDomName), order: newDomOrder - 1, desc: newDomDesc })} disabled={addDomMut.isPending}>Add</button>
+                  <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); }}><X size={16} /></button>
                 </div>
-                <button className="px-3 py-1.5 rounded text-sm font-bold text-white shrink-0" style={{ backgroundColor: NAVY }} onClick={() => addDomMut.mutate({ catId: cat.id, name: newDomName, slug: newDomSlug || slugify(newDomName), order: newDomOrder - 1 })}>Add</button>
-                <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); }}><X size={16} /></button>
+                <textarea
+                  className={`${inputCls} w-full text-xs resize-none`}
+                  rows={2}
+                  value={newDomDesc}
+                  onChange={(e) => setNewDomDesc(e.target.value)}
+                  placeholder="Hover tooltip text — describe what this domain measures… (optional)"
+                />
               </div>
             ) : (
               <button className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold hover:bg-slate-50" style={{ color: NAVY }} onClick={() => { setAddingDomForCat(cat.id); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(cat.domains.length + 1); }}>
