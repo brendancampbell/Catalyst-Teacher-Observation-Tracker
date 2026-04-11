@@ -162,6 +162,18 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  /* ── Filter bar height measurement for sticky thead ── */
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const [filterBarHeight, setFilterBarHeight] = useState(0);
+  useEffect(() => {
+    const el = filterBarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFilterBarHeight(el.offsetHeight));
+    ro.observe(el);
+    setFilterBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
@@ -270,7 +282,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       )}
 
       {/* ══ MAIN ═════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-auto">
 
         {/* ── Rubric Set Switcher ──────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -355,8 +367,9 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
         {/* ── View By + Score Type toggles ─────────────────── */}
         <div
+          ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + 8, zIndex: 25 }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: 0, zIndex: 25 }}
         >
           {/* View By label + pills */}
           <span
@@ -473,11 +486,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         {/* ── Grid ─────────────────────────────────────────── */}
         {data && !isLoading && (
           <div
-            className="bg-white rounded-md overflow-auto flex-1 min-h-0 shadow-sm"
+            className="bg-white rounded-md shadow-sm"
             style={{ border: "1px solid #dde3f0" }}
           >
               <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-                <thead className="sticky top-0 z-20">
+                <thead className="sticky z-20" style={{ top: filterBarHeight }}>
 
                   {/* Category row */}
                   <tr style={{ backgroundColor: NAVY }}>

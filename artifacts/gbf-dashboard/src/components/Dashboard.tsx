@@ -465,7 +465,7 @@ export default function Dashboard() {
       )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-auto">
 
         {/* ── Rubric Set Switcher ────────────────────────────── */}
         {rubricSets.length > 0 && (
@@ -555,7 +555,7 @@ export default function Dashboard() {
         <div
           ref={filterBarRef}
           className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
-          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: headerHeight + GAP, zIndex: 25 }}
+          style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}`, position: "sticky", top: 0, zIndex: 25 }}
         >
           {/* "View By" label + pill buttons */}
           <span
@@ -645,11 +645,11 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div
-          className="bg-white rounded-md shadow-sm flex-1 min-h-0 overflow-auto"
+          className="bg-white rounded-md shadow-sm"
           style={{ border: "1px solid #dde3f0" }}
         >
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
-              <thead className="sticky top-0 z-20">
+              <thead className="sticky z-20" style={{ top: filterBarHeight }}>
 
                 {/* Category row */}
                 <tr style={{ backgroundColor: NAVY }}>
