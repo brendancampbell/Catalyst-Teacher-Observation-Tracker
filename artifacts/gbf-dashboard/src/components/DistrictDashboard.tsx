@@ -706,7 +706,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   {profDisplayRows.length > 0 && (
                     <tr
                       className="sticky bottom-0 z-20 font-semibold"
-                      style={{ backgroundColor: NAVY, borderTop: `3px solid ${YELLOW}` }}
+                      style={{ backgroundColor: NAVY }}
                     >
                       <td
                         className="pl-3 pr-2 py-2 sticky left-0 z-30 uppercase tracking-wide"
@@ -719,6 +719,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           letterSpacing: "0.02em",
                         }}
                       >
+                        <div style={{ position: "absolute", top: 0, left: 0, height: 3, width: "200vw", backgroundColor: YELLOW }} />
                         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                         Domain Avg
                       </td>
