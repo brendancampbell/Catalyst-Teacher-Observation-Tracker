@@ -2106,7 +2106,7 @@ export default function AdminPage() {
   /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
   const { data: rubricSets = [], isLoading: rubricSetsLoading } = useQuery<RubricSetRow[]>({
-    queryKey: ["rubricSets"],
+    queryKey: ["rubricSets", "all"],
     queryFn: () => fetchRubricSets(true),
     staleTime: 60_000,
   });
