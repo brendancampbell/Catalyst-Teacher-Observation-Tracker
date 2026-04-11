@@ -7,6 +7,7 @@ export const rubricSets = pgTable("rubric_sets", {
   slug:         text("slug").notNull().unique(),
   name:         text("name").notNull(),
   isActive:     boolean("is_active").notNull().default(false),
+  isArchived:   boolean("is_archived").notNull().default(false),
   gradeSpan:    text("grade_span"),
   description:  text("description"),
   displayOrder: integer("display_order").notNull().default(0),

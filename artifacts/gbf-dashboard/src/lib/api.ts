@@ -262,6 +262,7 @@ export interface RubricSetRow {
   slug:         string;
   name:         string;
   isActive:     boolean;
+  isArchived:   boolean;
   gradeSpan:    string | null;
   description:  string | null;
   displayOrder: number;
@@ -270,18 +271,23 @@ export interface RubricSetRow {
 /** @deprecated Use RubricSetRow */
 export type RubricQuarterRow = RubricSetRow;
 
-export async function fetchRubricSets(): Promise<RubricSetRow[]> {
-  return apiFetch<RubricSetRow[]>("/rubric/sets");
+export async function fetchRubricSets(includeArchived = false): Promise<RubricSetRow[]> {
+  const qs = includeArchived ? "?includeArchived=true" : "";
+  return apiFetch<RubricSetRow[]>(`/rubric/sets${qs}`);
 }
 
 /** @deprecated Use fetchRubricSets */
 export const fetchQuarters = fetchRubricSets;
 
-export async function updateRubricSet(slug: string, fields: { name?: string; description?: string }): Promise<RubricSetRow> {
+export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean }): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
     method: "PATCH",
     body: JSON.stringify(fields),
   });
+}
+
+export async function archiveRubricSet(slug: string, archive: boolean): Promise<RubricSetRow> {
+  return updateRubricSet(slug, { isArchived: archive });
 }
 
 export async function reorderRubricSets(items: { slug: string; displayOrder: number }[]): Promise<RubricSetRow[]> {

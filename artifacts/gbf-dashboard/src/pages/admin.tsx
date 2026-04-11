@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import {
   fetchRubric,
   fetchRubricSets,
   createRubricSet,
   updateRubricSet,
+  archiveRubricSet,
   reorderRubricSets,
   createCategory,
   updateCategory,
@@ -1438,16 +1439,21 @@ export default function AdminPage() {
   const queryClient = useQueryClient();
   const { data: rubricSets = [], isLoading: rubricSetsLoading } = useQuery<RubricSetRow[]>({
     queryKey: ["rubricSets"],
-    queryFn: fetchRubricSets,
+    queryFn: () => fetchRubricSets(true),
     staleTime: 60_000,
   });
 
-  const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
+  const activeSets   = rubricSets.filter((q) => !q.isArchived);
+  const archivedSets = rubricSets.filter((q) => q.isArchived);
+  const atLimit      = activeSets.length >= 6;
 
-  /* Sync selected rubric set to the first available one once loaded */
+  const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
+  const [showArchivedSets, setShowArchivedSets]           = useState(false);
+
+  /* Sync selected rubric set to the first available active one once loaded */
   useEffect(() => {
-    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === selectedRubricSetSlug)) {
-      setSelectedRubricSetSlug(rubricSets[0].slug);
+    if (activeSets.length > 0 && !activeSets.find((q) => q.slug === selectedRubricSetSlug)) {
+      setSelectedRubricSetSlug(activeSets[0].slug);
     }
   }, [rubricSets]);
 
@@ -1463,7 +1469,7 @@ export default function AdminPage() {
 
   const createQMut = useMutation({
     mutationFn: () => createRubricSet(
-      slugify(newQName) || `RS${rubricSets.length + 1}`,
+      slugify(newQName) || `RS${activeSets.length + 1}`,
       newQName.trim(),
       newQGradeSpan || undefined,
       copyFromSlug || undefined,
@@ -1480,18 +1486,25 @@ export default function AdminPage() {
 
   const reorderMut = useMutation({
     mutationFn: (items: { slug: string; displayOrder: number }[]) => reorderRubricSets(items),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<typeof updated>(["rubricSets"], updated);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+    },
+  });
+
+  const archiveMut = useMutation({
+    mutationFn: ({ slug, archive }: { slug: string; archive: boolean }) => archiveRubricSet(slug, archive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
     },
   });
 
   function moveRubricSet(slug: string, direction: "left" | "right") {
-    const idx = rubricSets.findIndex((q) => q.slug === slug);
+    const idx = activeSets.findIndex((q) => q.slug === slug);
     if (idx < 0) return;
     const swapIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= rubricSets.length) return;
-    const a = rubricSets[idx];
-    const b = rubricSets[swapIdx];
+    if (swapIdx < 0 || swapIdx >= activeSets.length) return;
+    const a = activeSets[idx];
+    const b = activeSets[swapIdx];
     const newOrderA = b.displayOrder !== a.displayOrder ? b.displayOrder : (direction === "left" ? a.displayOrder - 1 : a.displayOrder + 1);
     const newOrderB = a.displayOrder;
     reorderMut.mutate([
@@ -1621,10 +1634,10 @@ export default function AdminPage() {
               <div className="inline-block w-5 h-5 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
             ) : (
               <div className="flex gap-1.5 flex-wrap items-center">
-                {rubricSets.map((q, idx) => {
-                  const active = q.slug === selectedRubricSetSlug;
+                {activeSets.map((q, idx) => {
+                  const selected = q.slug === selectedRubricSetSlug;
                   const isFirst = idx === 0;
-                  const isLast = idx === rubricSets.length - 1;
+                  const isLast = idx === activeSets.length - 1;
                   return (
                     <div key={q.slug} className="flex items-center gap-0.5">
                       <button
@@ -1645,8 +1658,8 @@ export default function AdminPage() {
                           fontFamily: "'Bebas Neue', sans-serif",
                           fontSize: 14,
                           letterSpacing: "0.04em",
-                          backgroundColor: active ? NAVY : "transparent",
-                          color: active ? "white" : NAVY,
+                          backgroundColor: selected ? NAVY : "transparent",
+                          color: selected ? "white" : NAVY,
                           border: `1.5px solid ${NAVY}`,
                         }}
                       >
@@ -1665,20 +1678,82 @@ export default function AdminPage() {
                       >
                         <ChevronRight size={13} />
                       </button>
+                      <button
+                        type="button"
+                        title="Archive this rubric set"
+                        disabled={archiveMut.isPending}
+                        onClick={() => { if (confirm(`Archive "${q.name}"? It will be hidden from the dashboard until unarchived.`)) archiveMut.mutate({ slug: q.slug, archive: true }); }}
+                        className="rounded p-0.5 ml-0.5 transition-opacity disabled:opacity-30 hover:text-amber-600"
+                        style={{ color: "#94a3b8" }}
+                      >
+                        <Archive size={12} />
+                      </button>
                     </div>
                   );
                 })}
               </div>
             )}
 
+            <div className="ml-auto flex items-center gap-2">
+              {atLimit && !rubricSetsLoading && (
+                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                  6/6 max — archive a set to add more
+                </span>
+              )}
+              <button
+                onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpan(""); setCopyFromSlug(""); } }}
+                disabled={atLimit}
+                title={atLimit ? "Archive a set before creating a new one (max 6)" : undefined}
+                className="flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 text-sm transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+                style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+              >
+                <Plus size={14} />
+                New Rubric Set
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Archived rubric sets ─────────────────────────────── */}
+        {visibleTab === "rubric" && isDistrictAdmin && archivedSets.length > 0 && (
+          <div
+            className="bg-white rounded-lg shadow-sm px-4 py-3"
+            style={{ border: "1px solid #dde3f0", borderLeft: "4px solid #94a3b8" }}
+          >
             <button
-              onClick={() => { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpan(""); setCopyFromSlug(""); }}
-              className="ml-auto flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 text-sm hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+              type="button"
+              onClick={() => setShowArchivedSets((v) => !v)}
+              className="flex items-center gap-2 w-full text-left"
             >
-              <Plus size={14} />
-              New Rubric Set
+              <Archive size={13} style={{ color: "#64748b" }} />
+              <span className="font-bold uppercase tracking-widest text-slate-500" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.03em" }}>
+                Archived Rubric Sets ({archivedSets.length})
+              </span>
+              <ChevronDown size={14} className="ml-auto text-slate-400 transition-transform" style={{ transform: showArchivedSets ? "rotate(180deg)" : "none" }} />
             </button>
+            {showArchivedSets && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {archivedSets.map((q) => (
+                  <div key={q.slug} className="flex items-center gap-1.5 px-3 py-1.5 rounded border" style={{ borderColor: "#cbd5e1", backgroundColor: "#f8fafc" }}>
+                    <span className="font-bold uppercase text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}>
+                      {q.name}
+                      {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan})</span>}
+                    </span>
+                    <button
+                      type="button"
+                      title={atLimit ? "Archive another set first before unarchiving this one (max 6)" : "Unarchive — restore to dashboard"}
+                      disabled={archiveMut.isPending || atLimit}
+                      onClick={() => archiveMut.mutate({ slug: q.slug, archive: false })}
+                      className="flex items-center gap-1 text-xs font-semibold rounded px-2 py-0.5 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+                      style={{ backgroundColor: "#e2e8f0", color: "#475569" }}
+                    >
+                      <ArchiveRestore size={11} />
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -1,16 +1,19 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
-import { asc, eq, max } from "drizzle-orm";
+import { asc, count, eq, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 
 const router = Router();
 
 /* ── GET /api/rubric/sets ───────────────────────────────────────── */
-router.get("/sets", async (_req, res) => {
+router.get("/sets", async (req, res) => {
   try {
-    const sets = await db.select().from(rubricSets)
-      .orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+    const includeArchived = req.query.includeArchived === "true";
+    const query = db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+    const sets = includeArchived
+      ? await query
+      : await db.select().from(rubricSets).where(eq(rubricSets.isArchived, false)).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     res.json(sets);
   } catch (err) {
     console.error("GET /rubric/sets error:", err);
@@ -47,6 +50,13 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
       copyFromSlug?: string;
     };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
+
+    const MAX_ACTIVE_SETS = 6;
+    const [{ activeCount }] = await db.select({ activeCount: count() }).from(rubricSets).where(eq(rubricSets.isArchived, false));
+    if (activeCount >= MAX_ACTIVE_SETS) {
+      res.status(400).json({ error: `Maximum of ${MAX_ACTIVE_SETS} active rubric sets reached. Archive a set before creating a new one.` });
+      return;
+    }
 
     const [{ maxOrder }] = await db.select({ maxOrder: max(rubricSets.displayOrder) }).from(rubricSets);
     const nextOrder = (maxOrder ?? 0) + 1;
@@ -95,10 +105,11 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, description } = req.body as { name?: string; description?: string };
+    const { name, description, isArchived } = req.body as { name?: string; description?: string; isArchived?: boolean };
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (description !== undefined) updates.description = description;
+    if (isArchived !== undefined) updates.isArchived = isArchived;
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
 
     const [updated] = await db
