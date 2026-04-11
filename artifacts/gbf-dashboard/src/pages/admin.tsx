@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import {
   fetchRubric,
@@ -341,7 +341,10 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
   const [editGrades, setEditGrades]       = useState<string[]>([]);
   const [editSchoolId, setEditSchoolId]   = useState<number | null>(null);
 
-  const [showInactive, setShowInactive] = useState(false);
+  const [showInactive,    setShowInactive]    = useState(false);
+  const [teacherSearch,   setTeacherSearch]   = useState("");
+  const [filterSubject,   setFilterSubject]   = useState("");
+  const [filterSchoolFilter, setFilterSchoolFilter] = useState<string>("");
 
   const createMut = useMutation({
     mutationFn: () => createAdminTeacher({ name: newName.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
@@ -372,7 +375,19 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
 
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
-  const shown = showInactive ? teachers : teachers.filter((t) => t.isActive);
+  const allSubjects = Array.from(new Set(teachers.map((t) => t.subject).filter(Boolean))).sort();
+
+  const shown = teachers.filter((t) => {
+    if (!showInactive && !t.isActive) return false;
+    if (teacherSearch) {
+      const q = teacherSearch.toLowerCase();
+      if (!t.name.toLowerCase().includes(q) && !t.subject.toLowerCase().includes(q)) return false;
+    }
+    if (filterSubject && t.subject !== filterSubject) return false;
+    if (filterSchoolFilter && String(t.schoolId ?? "") !== filterSchoolFilter) return false;
+    return true;
+  });
+
   const colSpanTotal = isDistrictAdmin ? 6 : 5;
 
   if (isLoading) return (
@@ -385,13 +400,51 @@ function TeacherRoster({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
-          Show inactive teachers
-        </label>
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          {/* Search */}
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
+              placeholder="Search name or subject…"
+              value={teacherSearch}
+              onChange={(e) => setTeacherSearch(e.target.value)}
+            />
+            {teacherSearch && (
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setTeacherSearch("")}><X size={12} /></button>
+            )}
+          </div>
+          {/* Subject filter */}
+          {allSubjects.length > 0 && (
+            <select
+              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+              value={filterSubject}
+              onChange={(e) => setFilterSubject(e.target.value)}
+            >
+              <option value="">All subjects</option>
+              {allSubjects.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+          {/* School filter (network admin only) */}
+          {isDistrictAdmin && schools.length > 0 && (
+            <select
+              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+              value={filterSchoolFilter}
+              onChange={(e) => setFilterSchoolFilter(e.target.value)}
+            >
+              <option value="">All schools</option>
+              {schools.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            </select>
+          )}
+          {/* Show inactive */}
+          <label className="flex items-center gap-1.5 text-sm text-slate-500 cursor-pointer select-none ml-1">
+            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
+            Show inactive
+          </label>
+        </div>
         <button
           onClick={() => { setAdding(true); setEditId(null); }}
-          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
           style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
         >
           <Plus size={14} />
@@ -630,6 +683,11 @@ function SchoolSettings() {
   const [editRegion, setEditRegion]   = useState("");
   const [editSpan, setEditSpan]       = useState("");
 
+  /* Filters */
+  const [schoolSearch,    setSchoolSearch]    = useState("");
+  const [filterRegion,    setFilterRegion]    = useState("");
+  const [filterGradeSpan, setFilterGradeSpan] = useState("");
+
   function resetAdd() { setAdding(false); setNewName(""); setNewRegion(""); setNewSpan(""); }
   function resetEdit() { setEditId(null); }
 
@@ -658,6 +716,13 @@ function SchoolSettings() {
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
 
+  const shownSchools = schools.filter((s) => {
+    if (schoolSearch && !s.name.toLowerCase().includes(schoolSearch.toLowerCase())) return false;
+    if (filterRegion && s.region !== filterRegion) return false;
+    if (filterGradeSpan && s.gradeSpan !== filterGradeSpan) return false;
+    return true;
+  });
+
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
       <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
@@ -668,7 +733,39 @@ function SchoolSettings() {
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500">Manage the schools in your network. Region and grade span are required for every school.</p>
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          {/* Search */}
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
+              placeholder="Search schools…"
+              value={schoolSearch}
+              onChange={(e) => setSchoolSearch(e.target.value)}
+            />
+            {schoolSearch && (
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setSchoolSearch("")}><X size={12} /></button>
+            )}
+          </div>
+          {/* Region filter */}
+          <select
+            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+            value={filterRegion}
+            onChange={(e) => setFilterRegion(e.target.value)}
+          >
+            <option value="">All regions</option>
+            {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          {/* Grade span filter */}
+          <select
+            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+            value={filterGradeSpan}
+            onChange={(e) => setFilterGradeSpan(e.target.value)}
+          >
+            <option value="">All grade spans</option>
+            {GRADE_SPANS.map((g) => <option key={g} value={g}>{g === "ES" ? "ES (Elementary)" : g === "MS" ? "MS (Middle)" : "HS (High School)"}</option>)}
+          </select>
+        </div>
         <button
           onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
           className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
@@ -721,8 +818,11 @@ function SchoolSettings() {
         {schools.length === 0 && !adding && (
           <div className="text-center py-10 text-slate-400 text-sm">No schools yet. Add your first school above.</div>
         )}
+        {schools.length > 0 && shownSchools.length === 0 && (
+          <div className="text-center py-10 text-slate-400 text-sm">No schools match your filters.</div>
+        )}
         <ul className="divide-y divide-slate-100">
-          {schools.map((school) => (
+          {shownSchools.map((school) => (
             <li key={school.id}>
               {editId === school.id ? (
                 /* ── Inline edit form ── */
@@ -855,6 +955,11 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
   const [editRole,  setEditRole]  = useState<UserRole>("COACH");
   const [editSchoolId, setEditSchoolId] = useState<number | null>(null);
 
+  /* Filters */
+  const [userSearch,       setUserSearch]       = useState("");
+  const [filterRole,       setFilterRole]       = useState<string>("");
+  const [filterUserSchool, setFilterUserSchool] = useState<string>("");
+
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
 
@@ -886,6 +991,16 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
     setAdding(false);
   }
 
+  const shownUsers = userList.filter((u) => {
+    if (userSearch) {
+      const q = userSearch.toLowerCase();
+      if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+    }
+    if (filterRole && u.role !== filterRole) return false;
+    if (filterUserSchool && String(u.schoolId ?? "") !== filterUserSchool) return false;
+    return true;
+  });
+
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
       <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
@@ -895,11 +1010,41 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-500">
-          {isNetworkAdmin
-            ? "Manage all users across the network. Only pre-provisioned users can sign in."
-            : "Manage Coach and School Leader users in your school."}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          {/* Search */}
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-48"
+              placeholder="Search name or email…"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+            />
+            {userSearch && (
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setUserSearch("")}><X size={12} /></button>
+            )}
+          </div>
+          {/* Role filter */}
+          <select
+            className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="">All roles</option>
+            {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
+          </select>
+          {/* School filter (network admin only) */}
+          {isNetworkAdmin && schools.length > 0 && (
+            <select
+              className="px-2.5 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white cursor-pointer"
+              value={filterUserSchool}
+              onChange={(e) => setFilterUserSchool(e.target.value)}
+            >
+              <option value="">All schools</option>
+              {schools.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            </select>
+          )}
+        </div>
         <button
           onClick={() => { setAdding(true); setEditId(null); }}
           className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
@@ -969,7 +1114,10 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId }: { isNetworkAdmi
             {userList.length === 0 && (
               <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No users found.</td></tr>
             )}
-            {userList.map((u) => (
+            {userList.length > 0 && shownUsers.length === 0 && (
+              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No users match your filters.</td></tr>
+            )}
+            {shownUsers.map((u) => (
               <tr key={u.id}>
                 {editId === u.id ? (
                   <td colSpan={isNetworkAdmin ? 5 : 4} className="px-4 py-3 bg-blue-50">
