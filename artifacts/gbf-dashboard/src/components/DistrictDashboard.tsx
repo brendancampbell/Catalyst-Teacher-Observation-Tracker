@@ -844,34 +844,38 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     </div>
 
     {/* ── Domain tooltip overlay ─────────────────────────────── */}
-    {domainTooltip && domainTooltip.description && (
-      <div
-        style={{
-          position: "fixed",
-          top: domainTooltip.y,
-          left: domainTooltip.x,
-          transform: "translateX(-50%)",
-          zIndex: 9999,
-          pointerEvents: "none",
-          maxWidth: 280,
-        }}
-      >
-        <div style={{ width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderBottom: `7px solid ${NAVY}`, margin: "0 auto" }} />
-        <div style={{
-          backgroundColor: NAVY,
-          color: "white",
-          borderRadius: 8,
-          padding: "10px 14px",
-          fontSize: 13,
-          lineHeight: 1.5,
-          fontFamily: "'Libre Franklin', sans-serif",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-          textAlign: "left",
-        }}>
-          {domainTooltip.description}
+    {domainTooltip && domainTooltip.description && (() => {
+      const TW = 280;
+      const PAD = 10;
+      const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      const vpW = window.innerWidth / z;
+      const mouseX = domainTooltip.x;
+      const idealLeft = mouseX - TW / 2;
+      const clampedLeft = Math.max(PAD, Math.min(vpW - TW - PAD, idealLeft));
+      const caretX = Math.max(7, Math.min(TW - 7, mouseX - clampedLeft));
+      return (
+        <div style={{ position: "fixed", top: domainTooltip.y, left: clampedLeft, width: TW, zIndex: 9999, pointerEvents: "none" }}>
+          {/* Arrow pinned to mouse X */}
+          <div style={{ position: "relative", height: 7 }}>
+            <div style={{
+              position: "absolute", left: caretX, transform: "translateX(-50%)",
+              width: 0, height: 0,
+              borderLeft: "7px solid transparent",
+              borderRight: "7px solid transparent",
+              borderBottom: `7px solid ${NAVY}`,
+            }} />
+          </div>
+          <div style={{
+            backgroundColor: NAVY, color: "white", borderRadius: 8,
+            padding: "10px 14px", fontSize: 13, lineHeight: 1.5,
+            fontFamily: "'Libre Franklin', sans-serif",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)", textAlign: "left",
+          }}>
+            {domainTooltip.description}
+          </div>
         </div>
-      </div>
-    )}
+      );
+    })()}
     </Fragment>
   );
 }
