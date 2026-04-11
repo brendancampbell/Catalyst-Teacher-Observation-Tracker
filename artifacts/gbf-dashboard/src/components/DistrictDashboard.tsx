@@ -313,22 +313,22 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                 </p>
                 {pct !== null ? (
                   <div className="flex items-center gap-0 mt-1">
-                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 18, borderRight: `2px solid #dde3f0` }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36, borderRight: `2px solid #dde3f0` }}>
                       {value}
                     </span>
-                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 18 }}>
+                    <span className="flex-1 text-center font-bold leading-none py-1" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
                       {pct}%
                     </span>
                   </div>
                 ) : colorScore !== null ? (
                   <span
                     className={`inline-block font-bold mt-1 leading-none px-3 py-1 rounded-md ${getScoreColor(colorScore)}`}
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 18 }}
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 36 }}
                   >
                     {value}
                   </span>
                 ) : (
-                  <p className="font-bold mt-1 leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 18 }}>
+                  <p className="font-bold mt-1 leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontWeight: 800, fontSize: 36 }}>
                     {value}
                   </p>
                 )}
