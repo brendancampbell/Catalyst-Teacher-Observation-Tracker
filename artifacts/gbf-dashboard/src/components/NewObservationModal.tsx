@@ -58,6 +58,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState(false);
+  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; gmailUrl: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -81,20 +83,19 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setGrowthAreas("");
     setIsWalkthrough(false);
     setEmailFeedback(false);
+    setEmailPreview(null);
+    setCopied(false);
   }
 
-  function buildMailtoHref(): string {
+  function buildEmailDraft(): { subject: string; body: string; gmailUrl: string } {
     const teacher = teachers.find((t) => t.id === teacherId);
-    if (!teacher) return "mailto:";
-
-    const firstName = teacher.name.split(" ")[0];
+    const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
 
     const nl = "\n";
     const divider = "─".repeat(48);
 
-    // Score rows per category
     let scoreBlock = "";
     for (const cat of categories) {
       scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
@@ -111,7 +112,6 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       }
     }
 
-    // Overall avg
     const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
     const overallAvg = scoredVals.length ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(1) : "—";
 
@@ -128,8 +128,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       divider,
       `Date:      ${dateLabel}`,
       `Observer:  ${observer}`,
-      `Teacher:   ${teacher.name}`,
-      `Subject:   ${teacher.subject}  ·  Grade${teacher.gradeLevel.length !== 1 ? "s" : ""} ${teacher.gradeLevel.join(", ")}`,
+      `Teacher:   ${teacher?.name ?? ""}`,
+      `Subject:   ${teacher?.subject ?? ""}  ·  Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`,
       nl,
       divider,
       `RUBRIC SCORES`,
@@ -149,19 +149,27 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       growthAreas.trim() || "(none entered)",
     ].join(nl);
 
-    const subject = encodeURIComponent(`Classroom Observation Feedback - ${dateLabel}`);
-    return `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+    const subject = `Classroom Observation Feedback - ${dateLabel}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return { subject, body, gmailUrl };
   }
 
   function handleSubmit() {
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
     if (emailFeedback) {
-      const href = buildMailtoHref();
-      window.location.href = href;
+      setEmailPreview(buildEmailDraft());
+    } else {
+      reset();
+      onOpenChange(false);
     }
-    reset();
-    onOpenChange(false);
+  }
+
+  function handleCopy(body: string) {
+    navigator.clipboard.writeText(body).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
   }
 
   const inputBase =
@@ -197,8 +205,63 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             </div>
           </div>
 
-          {/* ── Scrollable Body ───────────────────────────── */}
-          <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+          {/* ── Email Preview Screen ──────────────────────── */}
+          {emailPreview && (
+            <>
+              <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-4" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">✉</span>
+                  <div>
+                    <p className="font-bold text-slate-700">Observation saved!</p>
+                    <p className="text-sm text-slate-500">Your email draft is ready. Copy it or open directly in Gmail.</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Subject</p>
+                  <div className="px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700">{emailPreview.subject}</div>
+                </div>
+                <div className="flex-1 flex flex-col min-h-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Body</p>
+                  <textarea
+                    readOnly
+                    value={emailPreview.body}
+                    className="flex-1 w-full px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700 resize-none focus:outline-none font-mono"
+                    style={{ minHeight: 180 }}
+                  />
+                </div>
+              </div>
+              <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(emailPreview.body)}
+                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
+                  style={{ borderColor: NAVY, color: copied ? "#15803d" : NAVY, backgroundColor: copied ? "#f0fdf4" : "white" }}
+                >
+                  {copied ? "✓ Copied!" : "Copy to Clipboard"}
+                </button>
+                <a
+                  href={emailPreview.gmailUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "#EA4335", textDecoration: "none" }}
+                >
+                  Open in Gmail
+                </a>
+                <button
+                  type="button"
+                  onClick={() => { reset(); onOpenChange(false); }}
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                  style={{ backgroundColor: NAVY }}
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ── Form (hidden when showing email preview) ───── */}
+          {!emailPreview && (<><div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
 
             {/* Teacher + Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -406,6 +469,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               </button>
             </div>
           </div>
+          </>)}
 
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
