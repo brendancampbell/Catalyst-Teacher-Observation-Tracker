@@ -430,11 +430,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         letterSpacing: "0.02em",
                       }}
                     >
-                      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                       {firstColLabel}
                     </th>
 
-                    {data.categories.map((cat) => (
+                    {data.categories.map((cat, catIdx) => (
                       <th
                         key={cat.id}
                         colSpan={cat.domains.length + 1}
@@ -443,7 +443,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           fontFamily: "'Bebas Neue', sans-serif",
                           fontSize: 18,
                           letterSpacing: "0.02em",
-                          borderLeft: `2px solid ${YELLOW}`,
+                          borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}`,
                           paddingTop: 8, paddingBottom: 8,
                           backgroundColor: NAVY,
                         }}
@@ -489,7 +489,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
                   {/* Domain headers — vertical text */}
                   <tr style={{ backgroundColor: "#0d2990" }}>
-                    {data.categories.flatMap((cat) => {
+                    {data.categories.flatMap((cat, catIdx) => {
                       const isFirstCatDomain = (domain: { id: string }) =>
                         cat.domains[0]?.id === domain.id;
                       return [
@@ -501,7 +501,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               style={{
                                 width: 68, minWidth: 68, height: 88,
                                 color: "#c8d4f5",
-                                borderLeft: isFirstCatDomain(domain) ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                                borderLeft: isFirstCatDomain(domain) ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid rgba(255,255,255,0.08)",
                                 textAlign: "center",
                                 verticalAlign: "top",
                                 paddingTop: 8,
@@ -595,7 +595,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
                           style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                         >
-                          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                           {row.isClickable ? (
                             <button
                               className="font-semibold leading-tight truncate text-left w-full hover:underline"
@@ -618,12 +618,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         </td>
 
                         {/* Per-category: domain cells + SUB AVG cell */}
-                        {data.categories.flatMap((cat) => [
+                        {data.categories.flatMap((cat, catIdx) => [
                           ...cat.domains.map((domain, dIdx) => {
                             const val = row.domainAverages[domain.id] ?? null;
                             const isFirst = dIdx === 0;
                             const borderStyle = isFirst
-                              ? { borderLeft: `2px solid ${YELLOW}` }
+                              ? { borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}` }
                               : { borderLeft: "1px solid #e8edf8" };
                             return val != null ? (
                               <td
@@ -719,11 +719,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           letterSpacing: "0.02em",
                         }}
                       >
-                        <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                        <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                         Domain Avg
                       </td>
 
-                      {allCategories.flatMap((cat) => [
+                      {allCategories.flatMap((cat, catIdx) => [
                         ...cat.domains.map((domain, dIdx) => {
                           const vals = profDisplayRows
                             .map((r) => r.domainAverages[domain.id] ?? null)
@@ -734,7 +734,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               key={domain.id}
                               className="text-center font-bold py-1.5"
                               style={{
-                                ...(dIdx === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
+                                ...(dIdx === 0 ? { borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
                                 backgroundColor: "white",
                                 color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
                                 fontFamily: "'Bebas Neue', sans-serif",

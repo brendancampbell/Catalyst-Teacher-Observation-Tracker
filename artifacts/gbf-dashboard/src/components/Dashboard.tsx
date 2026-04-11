@@ -582,11 +582,11 @@ export default function Dashboard() {
                       letterSpacing: "0.02em",
                     }}
                   >
-                    <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                    <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                     {firstColLabel}
                   </th>
 
-                  {categories.map((cat) => (
+                  {categories.map((cat, catIdx) => (
                     <th
                       key={cat.id}
                       colSpan={cat.domains.length + 1}
@@ -595,7 +595,7 @@ export default function Dashboard() {
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontSize: 18,
                         letterSpacing: "0.02em",
-                        borderLeft: `2px solid ${YELLOW}`,
+                        borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}`,
                         paddingTop: 8, paddingBottom: 8,
                         backgroundColor: NAVY,
                       }}
@@ -641,7 +641,7 @@ export default function Dashboard() {
 
                 {/* Domain headers — vertical text, with sub-avg after each category */}
                 <tr style={{ backgroundColor: "#0d2990" }}>
-                  {categories.map((cat) => (
+                  {categories.map((cat, catIdx) => (
                     <Fragment key={cat.id}>
                       {cat.domains.map((domain, di) => {
                         const domainDesc = domain.description || "";
@@ -652,7 +652,7 @@ export default function Dashboard() {
                             style={{
                               width: 60, minWidth: 60, height: 88,
                               color: "#c8d4f5",
-                              borderLeft: di === 0 ? `2px solid ${YELLOW}` : "1px solid rgba(255,255,255,0.08)",
+                              borderLeft: di === 0 ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid rgba(255,255,255,0.08)",
                               textAlign: "center",
                               verticalAlign: "top",
                               paddingTop: 8,
@@ -757,7 +757,7 @@ export default function Dashboard() {
                             className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
                             style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
-                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                             <button
                               className="font-semibold leading-tight truncate text-left w-full hover:underline"
                               style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
@@ -770,7 +770,7 @@ export default function Dashboard() {
                             </p>
                           </td>
 
-                          {categories.map((cat) => {
+                          {categories.map((cat, catIdx) => {
                             const catAvg = getCategoryAvg(teacher, cat.domains, viewMode);
                             return (
                               <Fragment key={cat.id}>
@@ -778,7 +778,7 @@ export default function Dashboard() {
                                   const score = viewMode === "periodAvg"
                                     ? getQuarterDomainScore(teacher, domain.id)
                                     : getMostRecentDomainScore(teacher, domain.id);
-                                  const borderStyle = di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                                  const borderStyle = di === 0 ? { borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
                                   return (
                                     <ScoreCell
                                       key={domain.id}
@@ -855,7 +855,7 @@ export default function Dashboard() {
                             className="pl-3 pr-2 py-2 sticky left-0 z-10"
                             style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
-                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                             <p className="font-bold leading-tight truncate" style={{ color: NAVY, fontSize: 15 }}>
                               {group.label}
                             </p>
@@ -865,13 +865,13 @@ export default function Dashboard() {
                           </td>
 
                           {/* Averaged domain score cells + category sub-avg */}
-                          {categories.map((cat) => {
+                          {categories.map((cat, catIdx) => {
                             const catAvg = getGroupCategoryAvg(group.teachers, cat.domains, viewMode);
                             return (
                               <Fragment key={cat.id}>
                                 {cat.domains.map((domain, di) => {
                                   const score = getGroupDomainScore(group.teachers, domain.id, viewMode);
-                                  const borderStyle = di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
+                                  const borderStyle = di === 0 ? { borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}` } : { borderLeft: "1px solid #e8edf8" };
                                   return score !== null ? (
                                     <td
                                       key={domain.id}
@@ -942,10 +942,10 @@ export default function Dashboard() {
                         letterSpacing: "0.02em",
                       }}
                     >
-                      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 3, backgroundColor: YELLOW }} />
+                      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                       Domain Avg
                     </td>
-                    {categories.map((cat) => {
+                    {categories.map((cat, catIdx) => {
                       const catFooterAvg: number | null = viewBy === "teacher"
                         ? (() => {
                             const vals = profFiltered
@@ -982,7 +982,7 @@ export default function Dashboard() {
                                 key={domain.id}
                                 className="text-center font-bold py-1.5"
                                 style={{
-                                  ...(di === 0 ? { borderLeft: `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
+                                  ...(di === 0 ? { borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}` } : { borderLeft: "1px solid rgba(255,181,0,0.25)" }),
                                   backgroundColor: "white",
                                   color: domAvg !== null ? getScoreTextColor(domAvg) : "#94a3b8",
                                   fontFamily: "'Bebas Neue', sans-serif",
