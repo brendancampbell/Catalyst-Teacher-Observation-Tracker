@@ -894,12 +894,12 @@ export default function Dashboard() {
                                     <td
                                       key={domain.id}
                                       className="text-center font-bold py-2"
-                                      style={{ ...borderStyle, backgroundColor: "white", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
+                                      style={{ ...borderStyle, backgroundColor: "transparent", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                     >
                                       {score.toFixed(1)}
                                     </td>
                                   ) : (
-                                    <td key={domain.id} className="text-center text-slate-300" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
+                                    <td key={domain.id} className="text-center text-slate-300" style={{ ...borderStyle, backgroundColor: "transparent" }}>—</td>
                                   );
                                 })}
                                 {/* Group category sub-avg */}

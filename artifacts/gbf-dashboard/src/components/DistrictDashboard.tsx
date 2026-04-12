@@ -643,12 +643,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td
                                 key={domain.id}
                                 className="text-center py-2 text-xl font-bold tabular-nums"
-                                style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "white", color: getScoreTextColor(val) }}
+                                style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "transparent", color: getScoreTextColor(val) }}
                               >
                                 {val.toFixed(1)}
                               </td>
                             ) : (
-                              <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "white" }}>—</td>
+                              <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "transparent" }}>—</td>
                             );
                           }),
                           /* SUB AVG cell — full-cell background coloring */
