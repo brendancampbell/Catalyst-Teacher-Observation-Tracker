@@ -1057,6 +1057,12 @@ export default function Dashboard() {
             setDrillDown(null);
           }
         }}
+        categories={categories}
+        canEdit={
+          currentUser?.role === "SCHOOL_LEADER" ||
+          currentUser?.role === "NETWORK_LEADER" ||
+          currentUser?.role === "NETWORK_ADMIN"
+        }
       />
 
       {/* ── Domain tooltip overlay ───────────────────────── */}

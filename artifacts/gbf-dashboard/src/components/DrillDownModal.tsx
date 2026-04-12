@@ -12,6 +12,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { type Teacher, type Observation } from "@/data/dummy";
+import { updateObservation, type CategoryEntry } from "@/lib/api";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 
 const NAVY = "#1034B4";
@@ -117,9 +118,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onUpdateObs: (teacherId: string, updated: Observation) => void;
   onTeacherClick?: () => void;
+  categories: CategoryEntry[];
+  canEdit: boolean;
 }
 
-export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onTeacherClick }: Props) {
+export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onTeacherClick, categories, canEdit }: Props) {
   const [detailObsId, setDetailObsId] = useState<string | null>(null);
 
   const chartData = useMemo<ChartPoint[]>(() => {
@@ -163,8 +166,13 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
     }
   }
 
-  function handleSave(updated: Observation) {
-    onUpdateObs(teacher!.id, updated);
+  async function handleSave(updated: Observation) {
+    const saved = await updateObservation(updated.id, {
+      strengths:   updated.strengths,
+      growthAreas: updated.growthAreas,
+      scores:      updated.scores,
+    });
+    onUpdateObs(teacher!.id, saved);
   }
 
   return (
@@ -324,6 +332,8 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
         <ObservationDetailModal
           teacher={teacher}
           observation={detailObs}
+          categories={categories}
+          canEdit={canEdit}
           open={detailObsId !== null}
           onOpenChange={(o) => { if (!o) setDetailObsId(null); }}
           onSave={handleSave}
