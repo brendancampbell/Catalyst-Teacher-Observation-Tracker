@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { stopImpersonation } from "@/lib/api";
 
-const BANNER_BG  = "#7c3aed";
-const BANNER_TXT = "#ffffff";
+const NAVY   = "#1034B4";
+const YELLOW = "#FFB500";
 
 const ALL_ROLES_MAP: Record<string, string> = {
   COACH:          "Coach",
@@ -35,9 +35,10 @@ export default function ImpersonationBanner() {
   return (
     <div
       style={{
-        backgroundColor: BANNER_BG,
-        color:           BANNER_TXT,
-        padding:         "6px 16px",
+        backgroundColor: NAVY,
+        borderBottom:    `3px solid ${YELLOW}`,
+        color:           "#ffffff",
+        padding:         "5px 16px",
         display:         "flex",
         alignItems:      "center",
         justifyContent:  "center",
@@ -48,32 +49,54 @@ export default function ImpersonationBanner() {
         top:             0,
         zIndex:          9999,
         flexShrink:      0,
+        fontFamily:      "'Libre Franklin', sans-serif",
       }}
     >
-      <span style={{ opacity: 0.85 }}>👤</span>
-      <span>
-        Viewing as <strong>{currentUser.name}</strong>
-        <span style={{ fontWeight: 400, opacity: 0.85 }}>
-          {" "}({roleLabel}{school})
-        </span>
-        <span style={{ opacity: 0.7, fontWeight: 400 }}> — impersonated by {realUser.name}</span>
+      <span
+        style={{
+          fontFamily:    "'Bebas Neue', sans-serif",
+          fontSize:      14,
+          letterSpacing: "0.06em",
+          color:         YELLOW,
+          whiteSpace:    "nowrap",
+        }}
+      >
+        VIEWING AS
       </span>
+
+      <span style={{ color: YELLOW, fontWeight: 700 }}>{currentUser.name}</span>
+
+      <span style={{ color: "rgba(255,255,255,0.65)", fontWeight: 400, whiteSpace: "nowrap" }}>
+        {roleLabel}{school}
+      </span>
+
+      <span style={{ color: "rgba(255,181,0,0.4)" }}>|</span>
+
+      <span style={{ color: "rgba(255,255,255,0.55)", fontWeight: 400, fontSize: 12, whiteSpace: "nowrap" }}>
+        Impersonated by {realUser.name}
+      </span>
+
       <button
         onClick={handleStop}
         disabled={stopping}
         style={{
-          marginLeft:      8,
-          padding:         "2px 12px",
+          marginLeft:      4,
+          padding:         "3px 14px",
           borderRadius:    4,
-          border:          "1.5px solid rgba(255,255,255,0.5)",
+          border:          `1.5px solid ${YELLOW}`,
           backgroundColor: "transparent",
-          color:           BANNER_TXT,
+          color:           YELLOW,
+          fontFamily:      "'Bebas Neue', sans-serif",
           fontWeight:      700,
-          fontSize:        12,
+          fontSize:        13,
+          letterSpacing:   "0.04em",
           cursor:          stopping ? "not-allowed" : "pointer",
           opacity:         stopping ? 0.6 : 1,
           whiteSpace:      "nowrap",
+          transition:      "background-color 0.15s",
         }}
+        onMouseEnter={(e) => { if (!stopping) e.currentTarget.style.backgroundColor = "rgba(255,181,0,0.15)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
       >
         {stopping ? "Stopping…" : "Stop Impersonating"}
       </button>

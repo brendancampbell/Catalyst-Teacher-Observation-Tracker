@@ -1696,7 +1696,7 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
                     <td className="px-4 py-2.5 font-medium text-slate-800">{u.name}</td>
                     <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell">{u.email}</td>
                     <td className="px-4 py-2.5">
-                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
+                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
                         {ALL_ROLES_MAP[u.role] ?? u.role}
                       </span>
                     </td>
