@@ -17,6 +17,17 @@ export async function fetchUsers(): Promise<UserRow[]> {
   return apiFetch<UserRow[]>("/users");
 }
 
+export async function startImpersonation(userId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>("/auth/impersonate", {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function stopImpersonation(): Promise<void> {
+  await apiFetch<{ ok: boolean }>("/auth/stop-impersonating", { method: "POST" });
+}
+
 export async function createUser(payload: { email: string; name: string; role: UserRole; schoolId?: number | null }): Promise<UserRow> {
   return apiFetch<UserRow>("/users", { method: "POST", body: JSON.stringify(payload) });
 }

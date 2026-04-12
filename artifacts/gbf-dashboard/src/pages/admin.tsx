@@ -27,6 +27,7 @@ import {
   fetchUsers,
   createUser,
   updateUser,
+  startImpersonation,
   bulkImportUsers,
   bulkImportTeachers,
   REGIONS,
@@ -1408,6 +1409,8 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
   const queryClient = useQueryClient();
   const qKey = ["admin", "users"] as const;
   const [userView, setUserView] = useState<"list" | "bulk">("list");
+  const { isImpersonating, refetch: refetchUser } = useUser();
+  const [impersonatingId, setImpersonatingId] = useState<number | null>(null);
 
   const { data: userList = [], isLoading } = useQuery<UserRow[]>({
     queryKey: qKey,
@@ -1467,6 +1470,18 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
     setEditRole(u.role);
     setEditSchoolId(u.schoolId);
     setAdding(false);
+  }
+
+  async function handleImpersonate(u: UserRow) {
+    setImpersonatingId(u.id);
+    try {
+      await startImpersonation(u.id);
+      await refetchUser();
+      window.location.href = "/";
+    } catch (err) {
+      alert((err as Error).message ?? "Failed to start impersonation");
+      setImpersonatingId(null);
+    }
   }
 
   const userSchoolOptions = schools.map((s) => s.name);
@@ -1687,9 +1702,23 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
                     </td>
                     {isNetworkAdmin && <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell">{u.schoolName ?? <span className="text-slate-300 italic">None</span>}</td>}
                     <td className="px-4 py-2.5 text-right">
-                      <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" onClick={() => startEdit(u)} title="Edit">
-                        <Pencil size={13} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {isNetworkAdmin && !isImpersonating && u.role !== "NETWORK_ADMIN" && (
+                          <button
+                            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-colors hover:bg-purple-50 hover:text-purple-700 disabled:opacity-40"
+                            style={{ color: "#7c3aed", border: "1px solid #ede9fe" }}
+                            onClick={() => handleImpersonate(u)}
+                            disabled={impersonatingId === u.id}
+                            title={`View app as ${u.name}`}
+                          >
+                            <UserCheck size={12} />
+                            {impersonatingId === u.id ? "Starting…" : "View As"}
+                          </button>
+                        )}
+                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" onClick={() => startEdit(u)} title="Edit">
+                          <Pencil size={13} />
+                        </button>
+                      </div>
                     </td>
                   </>
                 )}

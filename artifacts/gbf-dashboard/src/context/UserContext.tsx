@@ -11,35 +11,53 @@ export interface UserRow {
   schoolName: string | null;
 }
 
+interface RealUser {
+  id:   number;
+  name: string;
+}
+
 interface UserContextValue {
-  currentUser: UserRow | null;
-  isLoading: boolean;
-  refetch: () => Promise<void>;
+  currentUser:      UserRow | null;
+  isLoading:        boolean;
+  refetch:          () => Promise<void>;
+  isImpersonating:  boolean;
+  realUser:         RealUser | null;
 }
 
 const UserContext = createContext<UserContextValue>({
-  currentUser: null,
-  isLoading: true,
-  refetch: async () => {},
+  currentUser:     null,
+  isLoading:       true,
+  refetch:         async () => {},
+  isImpersonating: false,
+  realUser:        null,
 });
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<UserRow | null>(null);
-  const [isLoading, setIsLoading]     = useState(true);
+  const [currentUser,     setCurrentUser]     = useState<UserRow | null>(null);
+  const [isLoading,       setIsLoading]       = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [realUser,        setRealUser]        = useState<RealUser | null>(null);
 
   async function fetchMe() {
     try {
       const res = await fetch(`${BASE}/api/auth/me`, { credentials: "include" });
       if (res.ok) {
-        const user = await res.json() as UserRow;
+        const data = await res.json() as UserRow & { _isImpersonating?: boolean; _realUser?: RealUser | null };
+        const { _isImpersonating, _realUser, ...user } = data;
         setCurrentUser(user);
+        setIsImpersonating(!!_isImpersonating);
+        setRealUser(_realUser ?? null);
       } else {
         setCurrentUser(null);
+        setIsImpersonating(false);
+        setRealUser(null);
       }
     } catch {
       setCurrentUser(null);
+      setIsImpersonating(false);
+      setRealUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +66,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchMe(); }, []);
 
   return (
-    <UserContext.Provider value={{ currentUser, isLoading, refetch: fetchMe }}>
+    <UserContext.Provider value={{ currentUser, isLoading, refetch: fetchMe, isImpersonating, realUser }}>
       {children}
     </UserContext.Provider>
   );

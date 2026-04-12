@@ -8,6 +8,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { configurePassport } from "./lib/passport";
 import { pool } from "@workspace/db";
+import { applyImpersonation } from "./middleware/impersonation";
 
 const PgStore = connectPgSimple(session);
 
@@ -93,6 +94,7 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(applyImpersonation);
 
 /* ── Smart redirect: /api/app → mobile or desktop based on User-Agent ──
    Must be registered BEFORE the /api router so auth middleware doesn't intercept it. */

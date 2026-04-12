@@ -10,6 +10,7 @@ import DistrictActionCenterPage from "@/pages/district-action-center";
 import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import { UserProvider, useUser } from "@/context/UserContext";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { type ReactNode, useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <TooltipProvider>
+          <ImpersonationBanner />
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>
