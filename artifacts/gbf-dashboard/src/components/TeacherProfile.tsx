@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
-import { fetchDashboard, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { fetchDashboard, updateObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
+import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -30,7 +31,7 @@ function ScoreChip({ score }: { score: Score }) {
   );
 }
 
-function ObservationCard({ obs, index, categories }: { obs: Observation; index: number; categories: CategoryEntry[] }) {
+function ObservationCard({ obs, index, categories, onClick }: { obs: Observation; index: number; categories: CategoryEntry[]; onClick: () => void }) {
   const domains = categories.flatMap((c) => c.domains);
   const scores = domains
     .map((d) => obs.scores[d.id] as Score | undefined)
@@ -38,8 +39,13 @@ function ObservationCard({ obs, index, categories }: { obs: Observation; index: 
   const avg = scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
   return (
     <div
-      className="rounded-xl border overflow-hidden"
+      className="rounded-xl border overflow-hidden cursor-pointer group transition-shadow hover:shadow-md"
       style={{ borderColor: index === 0 ? YELLOW : "#e2e8f0", boxShadow: index === 0 ? `0 0 0 1.5px ${YELLOW}` : undefined }}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      aria-label={`View observation from ${obs.date}`}
     >
       <div
         className="flex items-center justify-between px-4 py-3"
@@ -134,6 +140,16 @@ interface Props {
 export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
   const { currentUser } = useUser();
 
+  /* ── Role-based edit permission ───────────────────────────────── */
+  const canEdit =
+    currentUser?.role === "SCHOOL_LEADER" ||
+    currentUser?.role === "NETWORK_LEADER" ||
+    currentUser?.role === "NETWORK_ADMIN";
+
+  /* ── Observation modal state ──────────────────────────────────── */
+  const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
+  const [localObsOverrides, setLocalObsOverrides] = useState<Record<string, Observation>>({});
+
   /* ── Rubric switching ─────────────────────────────────────────── */
   const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
 
@@ -155,8 +171,11 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
     : (altData?.teachers.find((t) => t.id === teacher.id) ?? teacher);
 
   const sortedObs = useMemo(
-    () => [...activeTeacher.observations].sort((a, b) => b.date.localeCompare(a.date)),
-    [activeTeacher],
+    () =>
+      [...activeTeacher.observations]
+        .map((o) => localObsOverrides[o.id] ?? o)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [activeTeacher, localObsOverrides],
   );
 
   const recent = sortedObs[0];
@@ -490,12 +509,39 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
           </h2>
           <div className="space-y-4">
             {sortedObs.map((obs, i) => (
-              <ObservationCard key={obs.id} obs={obs} index={i} categories={activeCategories} />
+              <ObservationCard
+                key={obs.id}
+                obs={obs}
+                index={i}
+                categories={activeCategories}
+                onClick={() => setSelectedObservation(obs)}
+              />
             ))}
           </div>
         </div>
 
       </main>
+
+      {/* ── Observation detail modal ──────────────────────── */}
+      {selectedObservation && (
+        <ObservationDetailModal
+          teacher={activeTeacher}
+          observation={localObsOverrides[selectedObservation.id] ?? selectedObservation}
+          categories={activeCategories}
+          canEdit={canEdit}
+          open={!!selectedObservation}
+          onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}
+          onSave={async (updated) => {
+            const saved = await updateObservation(updated.id, {
+              strengths:   updated.strengths,
+              growthAreas: updated.growthAreas,
+              scores:      updated.scores,
+            });
+            setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
+            setSelectedObservation(saved);
+          }}
+        />
+      )}
     </div>
   );
 }

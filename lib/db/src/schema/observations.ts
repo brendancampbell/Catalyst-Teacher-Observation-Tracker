@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean, real, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachers } from "./teachers";
@@ -15,6 +15,8 @@ export const observations = pgTable("observations", {
   growthAreas:    text("growth_areas"),
   observer:       text("observer").notNull().default("Principal Rivera"),
   isWalkthrough:  boolean("is_walkthrough").notNull().default(false),
+  editedById:     integer("edited_by_id").references(() => users.id, { onDelete: "set null" }),
+  editedAt:       timestamp("edited_at", { withTimezone: true }),
 });
 
 export const observationScores = pgTable("observation_scores", {

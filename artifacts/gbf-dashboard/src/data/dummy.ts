@@ -8,6 +8,8 @@ export interface Observation {
   growthAreas?: string;
   observer: string;
   isWalkthrough?: boolean;
+  editedBy?: string;
+  editedAt?: string;
 }
 
 export interface Teacher {

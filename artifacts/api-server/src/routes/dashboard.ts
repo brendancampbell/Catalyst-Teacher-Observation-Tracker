@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   teachers, rubricSets, rubricCategories,
-  observations, observationScores,
+  observations, observationScores, users,
 } from "@workspace/db/schema";
 import { eq, inArray, and } from "drizzle-orm";
 
@@ -47,6 +47,14 @@ router.get("/", async (req, res) => {
 
     const allObs = await db.select().from(observations).where(obsWhere);
 
+    /* ── Fetch editor names for audit trail ───────────────────────── */
+    const editorIds = [...new Set(allObs.map((o) => o.editedById).filter((id): id is number => id != null))];
+    const editorMap = new Map<number, string>();
+    if (editorIds.length > 0) {
+      const editors = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, editorIds));
+      for (const e of editors) editorMap.set(e.id, e.name);
+    }
+
     const obsIds = allObs.map((o) => o.id);
     const allScores = obsIds.length > 0
       ? await db.select().from(observationScores).where(inArray(observationScores.observationId, obsIds))
@@ -81,6 +89,8 @@ router.get("/", async (req, res) => {
           strengths:     o.strengths ?? undefined,
           growthAreas:   o.growthAreas ?? undefined,
           observer:      o.observer,
+          editedBy:      o.editedById ? (editorMap.get(o.editedById) ?? undefined) : undefined,
+          editedAt:      o.editedAt?.toISOString() ?? undefined,
           scores:        scoresByObs.get(o.id) ?? {},
         })),
     }));

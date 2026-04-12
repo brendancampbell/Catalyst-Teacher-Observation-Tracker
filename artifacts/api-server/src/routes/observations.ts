@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, teachers } from "@workspace/db/schema";
+import { observations, observationScores, teachers, users } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -107,47 +107,46 @@ router.post("/", async (req, res) => {
 });
 
 /* ── PUT /api/observations/:id ──────────────────────────────────────
-   COACH: can only edit their own observations
-   SCHOOL_LEADER: can edit any observation in their school
-   NETWORK_LEADER: forbidden
-   NETWORK_ADMIN: can edit any observation                             */
+   Permitted roles: SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
+   COACHes may NOT edit observations.
+   Stores editedById + editedAt for the audit trail.                  */
 router.put("/:id", async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { date, strengths, growthAreas, observer, scores } = req.body;
+    const { strengths, growthAreas, observer, scores } = req.body;
+
+    /* ── Role gate ──────────────────────────────────────────────── */
+    const isSchoolLeader   = currentUser.role === "SCHOOL_LEADER";
+    const isNetworkLeader  = currentUser.role === "NETWORK_LEADER";
+    const isNetworkAdmin   = currentUser.role === "NETWORK_ADMIN";
+
+    if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
+      res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may edit observations" });
+      return;
+    }
 
     const existing = await db.query.observations.findFirst({
       where: eq(observations.id, obsId),
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
-    const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
-    const isCoach         = currentUser.role === "COACH";
-
-    if (isCoach) {
-      if (existing.observerId !== currentUser.id) {
-        res.status(403).json({ error: "Coaches may only edit their own observations" });
-        return;
-      }
-    } else if (isSchoolLeader) {
+    /* ── School-scope for School Leaders ────────────────────────── */
+    if (isSchoolLeader) {
       const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
       if (!teacher || teacher.schoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
         return;
       }
-    } else if (!isNetworkAdmin) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
     }
 
     const [updated] = await db.update(observations)
       .set({
-        ...(date && { date }),
-        strengths:  strengths ?? existing.strengths,
+        strengths:   strengths  ?? existing.strengths,
         growthAreas: growthAreas ?? existing.growthAreas,
-        observer:   observer ?? existing.observer,
+        observer:    observer   ?? existing.observer,
+        editedById:  currentUser.id,
+        editedAt:    new Date(),
       })
       .where(eq(observations.id, obsId))
       .returning();
@@ -165,14 +164,23 @@ router.put("/:id", async (req, res) => {
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obsId));
 
+    /* ── Look up editor's name for the response ─────────────────── */
+    let editedByName: string | undefined;
+    if (updated.editedById) {
+      const editor = await db.query.users.findFirst({ where: eq(users.id, updated.editedById) });
+      editedByName = editor?.name ?? undefined;
+    }
+
     res.json({
-      id:           String(updated.id),
-      date:         updated.date,
+      id:            String(updated.id),
+      date:          updated.date,
       isWalkthrough: updated.isWalkthrough,
-      strengths:    updated.strengths ?? undefined,
-      growthAreas:  updated.growthAreas ?? undefined,
-      observer:     updated.observer,
-      scores:       Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      strengths:     updated.strengths  ?? undefined,
+      growthAreas:   updated.growthAreas ?? undefined,
+      observer:      updated.observer,
+      editedBy:      editedByName,
+      editedAt:      updated.editedAt?.toISOString() ?? undefined,
+      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("PUT /observations/:id error:", err);
