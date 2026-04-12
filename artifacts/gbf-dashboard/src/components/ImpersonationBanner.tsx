@@ -52,19 +52,7 @@ export default function ImpersonationBanner() {
         fontFamily:      "'Libre Franklin', sans-serif",
       }}
     >
-      <span
-        style={{
-          fontFamily:    "'Bebas Neue', sans-serif",
-          fontSize:      14,
-          letterSpacing: "0.06em",
-          color:         YELLOW,
-          whiteSpace:    "nowrap",
-        }}
-      >
-        VIEWING AS
-      </span>
-
-      <span style={{ color: YELLOW, fontWeight: 700 }}>{currentUser.name}</span>
+      <span style={{ color: YELLOW, fontWeight: 700 }}>Viewing as {currentUser.name}</span>
 
       <span style={{ color: "rgba(255,255,255,0.65)", fontWeight: 400, whiteSpace: "nowrap" }}>
         {roleLabel}{school}
