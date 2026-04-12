@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
-import { CATEGORIES, getMostRecentObservation, type Teacher, type Observation, type Score } from "@/data/dummy";
+import { type Teacher, type Observation, type Score } from "@/data/dummy";
+import { fetchDashboard, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 
@@ -28,8 +30,8 @@ function ScoreChip({ score }: { score: Score }) {
   );
 }
 
-function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
-  const domains = CATEGORIES.flatMap((c) => c.domains);
+function ObservationCard({ obs, index, categories }: { obs: Observation; index: number; categories: CategoryEntry[] }) {
+  const domains = categories.flatMap((c) => c.domains);
   const scores = domains
     .map((d) => obs.scores[d.id] as Score | undefined)
     .filter((s): s is Score => s !== undefined);
@@ -73,7 +75,7 @@ function ObservationCard({ obs, index }: { obs: Observation; index: number }) {
       </div>
 
       <div className="px-4 py-3 space-y-3">
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <div key={cat.id}>
             <p
               className="text-xs font-bold uppercase tracking-wider mb-1.5"
@@ -123,37 +125,62 @@ interface Props {
   teacher: Teacher;
   onBack: () => void;
   onNewObs: () => void;
+  rubricSets: RubricSetRow[];
+  initialRubricSet: string;
+  initialCategories: CategoryEntry[];
+  schoolId?: number | null;
 }
 
-export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
+export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
   const { currentUser } = useUser();
+
+  /* ── Rubric switching ─────────────────────────────────────────── */
+  const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
+
+  const isInitialRubric = selectedRubricSlug === initialRubricSet;
+
+  const { data: altData, isFetching: altFetching } = useQuery({
+    queryKey: ["dashboard", selectedRubricSlug, schoolId ?? null],
+    queryFn: () => fetchDashboard(selectedRubricSlug, schoolId ?? null),
+    enabled: !isInitialRubric,
+    staleTime: 60_000,
+  });
+
+  const activeCategories: CategoryEntry[] = isInitialRubric
+    ? initialCategories
+    : (altData?.categories ?? initialCategories);
+
+  const activeTeacher: Teacher = isInitialRubric
+    ? teacher
+    : (altData?.teachers.find((t) => t.id === teacher.id) ?? teacher);
+
   const sortedObs = useMemo(
-    () => [...teacher.observations].sort((a, b) => b.date.localeCompare(a.date)),
-    [teacher],
+    () => [...activeTeacher.observations].sort((a, b) => b.date.localeCompare(a.date)),
+    [activeTeacher],
   );
 
   const recent = sortedObs[0];
   const recentScores = useMemo(() => {
     if (!recent) return [];
-    return CATEGORIES.flatMap((c) => c.domains)
+    return activeCategories.flatMap((c) => c.domains)
       .map((d) => ({ domain: d, score: recent.scores[d.id] as Score | undefined }))
       .filter((x): x is { domain: typeof x.domain; score: Score } => x.score !== undefined);
-  }, [recent]);
+  }, [recent, activeCategories]);
 
   const allScores = useMemo(() => {
-    return CATEGORIES.flatMap((c) => c.domains).map((d) => {
-      const vals = teacher.observations
+    return activeCategories.flatMap((c) => c.domains).map((d) => {
+      const vals = activeTeacher.observations
         .map((o) => o.scores[d.id] as Score | undefined)
         .filter((s): s is Score => s !== undefined);
       const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
-      const definedVals = teacher.observations
+      const definedVals = activeTeacher.observations
         .flatMap((o) => (o.scores[d.id] !== undefined ? [o.scores[d.id] as Score] : []));
       const trend = definedVals.length >= 2
         ? definedVals[definedVals.length - 1] - definedVals[0]
         : 0;
       return { domain: d, recentScore: recent?.scores[d.id] as Score | undefined, avg, trend };
     });
-  }, [teacher, recent]);
+  }, [activeTeacher, activeCategories, recent]);
 
   const overallAvg = recentScores.length
     ? recentScores.reduce((s, { score }) => s + score, 0) / recentScores.length
@@ -248,6 +275,34 @@ export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
                     </p>
                   </div>
                 </div>
+
+                {/* ── Rubric selector ─── */}
+                {rubricSets.length > 1 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {rubricSets.map((rs) => {
+                      const isActive = rs.slug === selectedRubricSlug;
+                      return (
+                        <button
+                          key={rs.slug}
+                          onClick={() => setSelectedRubricSlug(rs.slug)}
+                          className="px-3 py-1 rounded-full transition-all"
+                          style={{
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            fontSize: 13,
+                            letterSpacing: "0.04em",
+                            fontWeight: 700,
+                            backgroundColor: isActive ? YELLOW : "rgba(255,255,255,0.12)",
+                            color: isActive ? NAVY : "rgba(255,255,255,0.85)",
+                            border: isActive ? "none" : "1px solid rgba(255,255,255,0.2)",
+                            opacity: altFetching && !isActive ? 0.5 : 1,
+                          }}
+                        >
+                          {rs.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 sm:gap-3 flex-wrap">
@@ -272,7 +327,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
                     className="font-bold text-white mt-0.5"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1 }}
                   >
-                    {teacher.observations.length}
+                    {activeTeacher.observations.length}
                   </p>
                 </div>
                 {recent && (() => {
@@ -324,7 +379,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
               </div>
 
               <div className="divide-y divide-slate-100">
-                {CATEGORIES.map((cat) => (
+                {activeCategories.map((cat) => (
                   <div key={cat.id}>
                     <div
                       className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
@@ -435,7 +490,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs }: Props) {
           </h2>
           <div className="space-y-4">
             {sortedObs.map((obs, i) => (
-              <ObservationCard key={obs.id} obs={obs} index={i} />
+              <ObservationCard key={obs.id} obs={obs} index={i} categories={activeCategories} />
             ))}
           </div>
         </div>

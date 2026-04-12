@@ -406,6 +406,10 @@ export default function Dashboard() {
         teacher={profileTeacher}
         onBack={() => setTeacherProfileId(null)}
         onNewObs={() => setNewObsOpen(true)}
+        rubricSets={rubricSets}
+        initialRubricSet={activeRubricSet}
+        initialCategories={categories}
+        schoolId={effectiveSchoolId}
       />
     ) : (
     <div className="h-full flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
