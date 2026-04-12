@@ -1,9 +1,26 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, teachers, users } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { observations, observationScores, teachers, users, rubricSets } from "@workspace/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const router = Router();
+
+/* ── GET /api/observations/my-latest-rubric ─────────────────────────
+   Returns the slug of the rubric set containing the current user's
+   most recent observation (by date). Returns { slug: null } if the
+   user has no observations recorded.                                 */
+router.get("/my-latest-rubric", async (req, res) => {
+  const currentUser = req.user as Express.User;
+  const latest = await db
+    .select({ slug: rubricSets.slug })
+    .from(observations)
+    .innerJoin(rubricSets, eq(rubricSets.id, observations.rubricSetId))
+    .where(eq(observations.observerId, currentUser.id))
+    .orderBy(desc(observations.date))
+    .limit(1);
+
+  res.json({ slug: latest[0]?.slug ?? null });
+});
 
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,

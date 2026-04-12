@@ -1,6 +1,6 @@
 import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
+import { fetchDistrictSummary, fetchRubricSets, fetchMyLatestRubricSlug, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -160,6 +160,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   }, []);
 
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
+  const didInitRubric = useRef(false);
   const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
   const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
   const [filterRegion,      setFilterRegion]      = useState<string[]>([]);
@@ -182,12 +183,25 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
 
+  const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
+    queryKey: ["myLatestRubricSlug"],
+    queryFn: fetchMyLatestRubricSlug,
+    staleTime: Infinity,
+  });
+
+  /* Set the default rubric once on load: prefer the rubric with the
+     user's most recent observation; fall back to the first rubric.  */
   useEffect(() => {
-    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === activeRubricSet)) {
-      setActiveRubricSet(rubricSets[0].slug);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rubricSets]);
+    if (didInitRubric.current) return;
+    if (rubricSets.length === 0) return;
+    if (!latestRubricFetched) return;
+    const targetSlug =
+      myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
+        ? myLatestRubricSlug
+        : rubricSets[0].slug;
+    setActiveRubricSet(targetSlug);
+    didInitRubric.current = true;
+  }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
     queryKey: ["district", activeRubricSet, scoreType],

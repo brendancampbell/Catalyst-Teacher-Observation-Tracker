@@ -277,6 +277,11 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
   });
 }
 
+export async function fetchMyLatestRubricSlug(): Promise<string | null> {
+  const result = await apiFetch<{ slug: string | null }>("/observations/my-latest-rubric");
+  return result.slug;
+}
+
 /* ── Rubric Sets (admin) ───────────────────────────────────────── */
 
 export interface RubricSetRow {

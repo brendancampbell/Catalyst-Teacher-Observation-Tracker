@@ -11,7 +11,7 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchRubricSets, createObservation, updateObservation } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, fetchMyLatestRubricSlug } from "@/lib/api";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
@@ -172,6 +172,7 @@ export default function Dashboard() {
 
   /* ── Rubric set selection ──────────────────────────── */
   const [activeRubricSet, setActiveRubricSet] = useState<string>("Q1");
+  const didInitRubric = useRef(false);
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
     queryKey: ["rubricSets"],
@@ -180,12 +181,25 @@ export default function Dashboard() {
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
 
+  const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
+    queryKey: ["myLatestRubricSlug"],
+    queryFn: fetchMyLatestRubricSlug,
+    staleTime: Infinity,
+  });
+
+  /* Set the default rubric once on load: prefer the rubric with the
+     user's most recent observation; fall back to the first rubric.  */
   useEffect(() => {
-    if (rubricSets.length > 0 && !rubricSets.find((q) => q.slug === activeRubricSet)) {
-      setActiveRubricSet(rubricSets[0].slug);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rubricSets]);
+    if (didInitRubric.current) return;
+    if (rubricSets.length === 0) return;
+    if (!latestRubricFetched) return;
+    const targetSlug =
+      myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
+        ? myLatestRubricSlug
+        : rubricSets[0].slug;
+    setActiveRubricSet(targetSlug);
+    didInitRubric.current = true;
+  }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
 
   /* ── API data ──────────────────────────────────────── */
   const isNetworkRole = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER";
