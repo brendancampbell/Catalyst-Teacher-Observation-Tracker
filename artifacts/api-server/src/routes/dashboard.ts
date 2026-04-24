@@ -86,6 +86,7 @@ router.get("/", async (req, res) => {
           id:            String(o.id),
           date:          o.date,
           time:          o.time ?? undefined,
+          course:        o.course ?? undefined,
           isWalkthrough: o.isWalkthrough,
           strengths:     o.strengths ?? undefined,
           growthAreas:   o.growthAreas ?? undefined,

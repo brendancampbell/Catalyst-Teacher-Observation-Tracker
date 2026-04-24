@@ -67,6 +67,7 @@ export default function ObservationPage() {
   const todayIso = new Date().toISOString().split("T")[0];
   const [teacherId, setTeacherId] = useState<string>("");
   const [date, setDate] = useState(todayIso);
+  const [course, setCourse] = useState("");
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
@@ -87,6 +88,7 @@ export default function ObservationPage() {
   function resetForm() {
     setTeacherId(teachers?.[0] ? String(teachers[0].id) : "");
     setDate(new Date().toISOString().split("T")[0]);
+    setCourse("");
     setScores({});
     setStrengths("");
     setGrowthAreas("");
@@ -106,6 +108,7 @@ export default function ObservationPage() {
           teacherId: Number(teacherId),
           rubricSetId: selectedRubric.id,
           date,
+          course: course || null,
           strengths: strengths || null,
           growthAreas: growthAreas || null,
           scores: Object.fromEntries(Object.entries(scores).filter(([, v]) => v !== undefined)),
@@ -173,6 +176,21 @@ export default function ObservationPage() {
 
         {!isLoading && !isError && teachers && rubricData && (
           <form id="obs-form" onSubmit={handleSubmit} className="px-4 pt-4 flex flex-col gap-4">
+
+            {/* Subject / Course */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Subject / Course Being Observed
+              </label>
+              <input
+                type="text"
+                value={course}
+                onChange={(e) => setCourse(e.target.value)}
+                placeholder="e.g. AP Biology, 8th Grade Math, ELA Block 2…"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+              />
+            </div>
 
             {/* Teacher + Date */}
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">

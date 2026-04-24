@@ -25,6 +25,7 @@ interface Props {
     growthAreas: string,
     isWalkthrough: boolean,
     time: string,
+    course: string,
   ) => void;
   saving?: boolean;
 }
@@ -60,6 +61,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
   const [date, setDate] = useState(todayIso);
   const [time, setTime] = useState(nowTime);
+  const [course, setCourse] = useState("");
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
@@ -73,6 +75,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
       setDate(new Date().toISOString().split("T")[0]);
       setTime(nowTime());
+      setCourse("");
       setScores({});
       setStrengths("");
       setGrowthAreas("");
@@ -87,6 +90,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
     setDate(todayIso);
     setTime(nowTime());
+    setCourse("");
     setScores({});
     setStrengths("");
     setGrowthAreas("");
@@ -166,7 +170,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   function handleSubmit() {
     if (!teacherId) return;
-    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time);
+    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
     if (emailFeedback) {
       setEmailPreview(buildEmailDraft());
     } else {
@@ -280,6 +284,20 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
           {/* ── Form (hidden when showing email preview) ───── */}
           {!emailPreview && (<><div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+
+            {/* Subject / Course */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Subject / Course Being Observed
+              </label>
+              <input
+                type="text"
+                value={course}
+                onChange={(e) => setCourse(e.target.value)}
+                placeholder="e.g. AP Biology, 8th Grade Math, ELA Block 2…"
+                className={inputBase}
+              />
+            </div>
 
             {/* Teacher + Date + Time */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">

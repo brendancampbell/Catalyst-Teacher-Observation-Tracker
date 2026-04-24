@@ -4,6 +4,7 @@ export interface Observation {
   id: string;
   date: string;
   time?: string;
+  course?: string;
   scores: Record<string, Score>;
   strengths?: string;
   growthAreas?: string;

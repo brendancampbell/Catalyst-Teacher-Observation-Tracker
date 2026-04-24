@@ -335,6 +335,7 @@ export default function Dashboard() {
     growthAreas: string,
     isWalkthrough: boolean,
     time: string,
+    course: string,
   ) {
     if (!rubricSetId) return;
     setSaving(true);
@@ -343,7 +344,8 @@ export default function Dashboard() {
         teacherId,
         rubricSetId,
         date,
-        time:         time || undefined,
+        time:         time   || undefined,
+        course:       course || undefined,
         scores,
         strengths:    strengths || undefined,
         growthAreas:  growthAreas || undefined,

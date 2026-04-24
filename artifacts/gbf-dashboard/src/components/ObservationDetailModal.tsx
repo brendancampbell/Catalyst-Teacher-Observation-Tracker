@@ -191,6 +191,27 @@ export function ObservationDetailModal({
             className="overflow-y-auto flex-1 px-6 py-5 space-y-5"
             style={{ fontFamily: "'Libre Franklin', sans-serif" }}
           >
+            {/* Subject / Course */}
+            {observation.course && (
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-lg"
+                style={{ backgroundColor: "#EEF1FB", border: "1.5px solid #C7D0F5" }}
+              >
+                <span
+                  className="text-xs font-bold uppercase tracking-wider shrink-0"
+                  style={{ color: NAVY }}
+                >
+                  Subject / Course
+                </span>
+                <span
+                  className="text-sm font-semibold text-slate-700"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em", color: NAVY }}
+                >
+                  {observation.course}
+                </span>
+              </div>
+            )}
+
             {/* Domain scores by category */}
             {categories.map((cat) => (
               <div key={cat.id}>

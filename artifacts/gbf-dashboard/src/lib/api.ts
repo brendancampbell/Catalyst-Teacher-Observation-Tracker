@@ -259,6 +259,7 @@ export interface CreateObservationPayload {
   rubricSetId:  number;
   date:         string;
   time?:        string;
+  course?:      string;
   strengths?:   string;
   growthAreas?: string;
   observer?:    string;

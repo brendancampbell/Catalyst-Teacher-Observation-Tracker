@@ -191,6 +191,7 @@ export default function ActionCenterPage() {
     growthAreas:  string,
     isWalkthrough: boolean,
     time:         string,
+    course:       string,
   ) {
     setSaving(true);
     try {
@@ -199,6 +200,7 @@ export default function ActionCenterPage() {
         rubricSetId: activeQuarterId,
         date,
         time:        time        || undefined,
+        course:      course      || undefined,
         scores,
         strengths:   strengths   || undefined,
         growthAreas: growthAreas || undefined,

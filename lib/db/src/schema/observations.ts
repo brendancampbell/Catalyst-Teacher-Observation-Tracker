@@ -11,6 +11,7 @@ export const observations = pgTable("observations", {
   rubricSetId:    integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   observerId:     integer("observer_id").references(() => users.id, { onDelete: "set null" }),
   date:           date("date").notNull(),
+  course:         text("course"),
   strengths:      text("strengths"),
   growthAreas:    text("growth_areas"),
   observer:       text("observer").notNull().default("Principal Rivera"),
