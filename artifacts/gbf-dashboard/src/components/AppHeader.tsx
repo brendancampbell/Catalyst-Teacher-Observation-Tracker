@@ -37,12 +37,14 @@ export default function AppHeader({
 
           {/* ── Left: Logo + Title ── */}
           <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <img
-              src="/uncommon-logo.png"
-              alt="Uncommon Schools"
-              className="h-8 sm:h-12 w-auto object-contain shrink-0"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
+            <a href={basePath} style={{ lineHeight: 0, display: "block", flexShrink: 0 }} aria-label="Go to dashboard">
+              <img
+                src="/uncommon-logo.png"
+                alt="Uncommon Schools"
+                className="h-8 sm:h-12 w-auto object-contain"
+                style={{ filter: "brightness(0) invert(1)" }}
+              />
+            </a>
             <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
               {backHref && (
