@@ -177,21 +177,6 @@ export default function ObservationPage() {
         {!isLoading && !isError && teachers && rubricData && (
           <form id="obs-form" onSubmit={handleSubmit} className="px-4 pt-4 flex flex-col gap-4">
 
-            {/* Subject / Course */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                Subject / Course Being Observed
-              </label>
-              <input
-                type="text"
-                value={course}
-                onChange={(e) => setCourse(e.target.value)}
-                placeholder="e.g. AP Biology, 8th Grade Math, ELA Block 2…"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-              />
-            </div>
-
             {/* Teacher + Date */}
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
               <div>
@@ -227,6 +212,21 @@ export default function ObservationPage() {
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
                 />
               </div>
+            </div>
+
+            {/* Subject / Course */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                Subject / Course Being Observed
+              </label>
+              <input
+                type="text"
+                value={course}
+                onChange={(e) => setCourse(e.target.value)}
+                placeholder="e.g. AP Biology, 8th Grade Math, ELA Block 2…"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+              />
             </div>
 
             {/* Walkthrough toggle */}
