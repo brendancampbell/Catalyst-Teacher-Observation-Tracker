@@ -53,13 +53,21 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
         >
           {score.toFixed(1)}
         </span>
-        <span className="text-slate-600">{getScoreLabel(score)}</span>
+        <span className="text-slate-600">
+          {getScoreLabel(score)}{d.count > 1 ? " (avg)" : ""}
+        </span>
       </div>
-      <p className="text-slate-500 text-xs mt-2">
-        Observed by <span className="font-semibold text-slate-700">{d.observer}</span>
-      </p>
+      {d.count > 1 ? (
+        <p className="text-slate-500 text-xs mt-2">
+          <span className="font-semibold text-slate-700">{d.count} observations</span> on this date
+        </p>
+      ) : (
+        <p className="text-slate-500 text-xs mt-2">
+          Observed by <span className="font-semibold text-slate-700">{d.observer}</span>
+        </p>
+      )}
       <p className="text-blue-500 text-xs mt-2 border-t border-slate-100 pt-2">
-        Click to open full observation →
+        {d.count > 1 ? "Click to see individual observations →" : "Click to open full observation →"}
       </p>
     </div>
   );
@@ -105,9 +113,10 @@ interface ChartPoint {
   date: string;
   dateLabel: string;
   timestamp: number;
-  score: number | null;
-  observer: string;
-  obsId: string;
+  score: number | null;    // averaged when count > 1
+  observer: string;        // first observer name; comma-joined for multi
+  obsIds: string[];        // all observation IDs on this date
+  count: number;           // number of observations on this date
 }
 
 interface Props {
@@ -124,23 +133,41 @@ interface Props {
 
 export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onTeacherClick, categories, canEdit }: Props) {
   const [detailObsId, setDetailObsId] = useState<string | null>(null);
+  const [pendingGroup, setPendingGroup] = useState<ChartPoint | null>(null);
 
   const chartData = useMemo<ChartPoint[]>(() => {
     if (!teacher || !domainId) return [];
-    return [...teacher.observations]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((obs) => {
-        const dt = new Date(obs.date + "T00:00:00");
+
+    // Group observations by date
+    const byDate = new Map<string, typeof teacher.observations>();
+    for (const obs of teacher.observations) {
+      if (!byDate.has(obs.date)) byDate.set(obs.date, []);
+      byDate.get(obs.date)!.push(obs);
+    }
+
+    return [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, group]) => {
+        const dt = new Date(date + "T00:00:00");
+        const domainScores = group
+          .map((o) => o.scores[domainId] as number | undefined)
+          .filter((s): s is number => s !== undefined);
+        const avgScore = domainScores.length
+          ? domainScores.reduce((a, b) => a + b, 0) / domainScores.length
+          : null;
         return {
-          date: obs.date,
+          date,
           dateLabel: dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
           timestamp: dt.getTime(),
-          score: (obs.scores[domainId] as number) ?? null,
-          observer: obs.observer,
-          obsId: obs.id,
+          score: avgScore,
+          observer: group.map((o) => o.observer).join(", "),
+          obsIds: group.map((o) => o.id),
+          count: group.length,
         };
       });
   }, [teacher, domainId]);
+
+  const totalObsCount = chartData.reduce((sum, p) => sum + p.count, 0);
 
   const detailObs = useMemo(
     () => (detailObsId && teacher ? teacher.observations.find((o) => o.id === detailObsId) ?? null : null),
@@ -161,8 +188,14 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
   const maxTs = Math.max(...timestamps) + 5 * 86_400_000;
 
   function handleChartClick(data: { activePayload?: Array<{ payload: ChartPoint }> } | null) {
-    if (data?.activePayload?.[0]) {
-      setDetailObsId(data.activePayload[0].payload.obsId);
+    if (!data?.activePayload?.[0]) return;
+    const point = data.activePayload[0].payload;
+    if (point.count === 1) {
+      setDetailObsId(point.obsIds[0]);
+      setPendingGroup(null);
+    } else {
+      setPendingGroup(point);
+      setDetailObsId(null);
     }
   }
 
@@ -215,7 +248,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
               {/* ── Stat cards ─────────────────────────── */}
               <div className="flex items-stretch gap-3 flex-wrap">
                 <StatCard label="Observations">
-                  <span className="text-white">{chartData.length}</span>
+                  <span className="text-white">{totalObsCount}</span>
                 </StatCard>
 
                 {avgScore !== null && (
@@ -322,6 +355,61 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                 ))}
               </div>
             </div>
+
+            {/* ── Same-day observations picker ─────────────────── */}
+            {pendingGroup && teacher && (
+              <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    {pendingGroup.count} Observations on {pendingGroup.dateLabel} — select one to view
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPendingGroup(null)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors text-xs font-semibold"
+                  >
+                    ✕ Clear
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {pendingGroup.obsIds.map((obsId) => {
+                    const obs = teacher.observations.find((o) => o.id === obsId);
+                    if (!obs) return null;
+                    const domScore = obs.scores[domainId!] as number | undefined;
+                    const color = domScore !== undefined ? getDotColor(domScore) : "#94a3b8";
+                    return (
+                      <button
+                        key={obsId}
+                        type="button"
+                        onClick={() => { setDetailObsId(obsId); setPendingGroup(null); }}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-200 transition-colors text-left"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{obs.observer}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {obs.isWalkthrough ? "Walkthrough" : "Full Observation"}
+                            {obs.time ? ` · ${obs.time}` : ""}
+                          </p>
+                        </div>
+                        {domScore !== undefined ? (
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span
+                              className="font-bold px-2.5 py-0.5 rounded"
+                              style={{ backgroundColor: color + "22", color, border: `1.5px solid ${color}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
+                            >
+                              {domScore.toFixed(1)}
+                            </span>
+                            <span className="text-xs text-blue-600 font-semibold">View →</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-blue-600 font-semibold shrink-0">View →</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>

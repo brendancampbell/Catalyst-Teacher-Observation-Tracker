@@ -135,7 +135,7 @@ export function ObservationDetailModal({
                   {teacher.name}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-blue-200 text-sm mt-0.5">
-                  {observation.isWalkthrough ? "Walkthrough" : "Full Observation"} · {formatDate(observation.date)}
+                  {observation.isWalkthrough ? "Walkthrough" : "Full Observation"} · {formatDate(observation.date)}{observation.time ? ` · ${observation.time}` : ""}
                 </DialogPrimitive.Description>
                 <p className="text-blue-300 text-xs mt-1">
                   Observed by{" "}

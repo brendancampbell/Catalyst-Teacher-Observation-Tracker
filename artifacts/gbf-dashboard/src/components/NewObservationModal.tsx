@@ -24,6 +24,7 @@ interface Props {
     strengths: string,
     growthAreas: string,
     isWalkthrough: boolean,
+    time: string,
   ) => void;
   saving?: boolean;
 }
@@ -51,8 +52,14 @@ function formatDateLong(iso: string): string {
 export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, onSubmit, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
+  const nowTime = () => {
+    const n = new Date();
+    return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+  };
+
   const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
   const [date, setDate] = useState(todayIso);
+  const [time, setTime] = useState(nowTime);
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
@@ -65,6 +72,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     if (open) {
       setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
       setDate(new Date().toISOString().split("T")[0]);
+      setTime(nowTime());
       setScores({});
       setStrengths("");
       setGrowthAreas("");
@@ -78,6 +86,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   function reset() {
     setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
     setDate(todayIso);
+    setTime(nowTime());
     setScores({});
     setStrengths("");
     setGrowthAreas("");
@@ -157,7 +166,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   function handleSubmit() {
     if (!teacherId) return;
-    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough);
+    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time);
     if (emailFeedback) {
       setEmailPreview(buildEmailDraft());
     } else {
@@ -272,9 +281,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           {/* ── Form (hidden when showing email preview) ───── */}
           {!emailPreview && (<><div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
 
-            {/* Teacher + Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
+            {/* Teacher + Date + Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="sm:col-span-1">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                   Teacher
                 </label>
@@ -298,6 +307,17 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  className={inputBase}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                   className={inputBase}
                 />
               </div>

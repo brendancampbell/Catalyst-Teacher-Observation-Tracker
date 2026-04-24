@@ -31,7 +31,7 @@ router.get("/my-latest-rubric", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const {
-      teacherId, rubricSetId, quarterId, date, strengths, growthAreas,
+      teacherId, rubricSetId, quarterId, date, time, strengths, growthAreas,
       observer, scores, isWalkthrough,
     } = req.body;
 
@@ -61,6 +61,7 @@ router.post("/", async (req, res) => {
       teacherId:     Number(teacherId),
       rubricSetId:   Number(resolvedRubricSetId),
       date,
+      time:          time || null,
       strengths:     strengths || null,
       growthAreas:   growthAreas || null,
       observer:      observer || creator.name,
@@ -111,6 +112,7 @@ router.post("/", async (req, res) => {
     res.status(201).json({
       id:           String(obs.id),
       date:         obs.date,
+      time:         obs.time ?? undefined,
       isWalkthrough: obs.isWalkthrough,
       strengths:    obs.strengths ?? undefined,
       growthAreas:  obs.growthAreas ?? undefined,
@@ -191,6 +193,7 @@ router.put("/:id", async (req, res) => {
     res.json({
       id:            String(updated.id),
       date:          updated.date,
+      time:          updated.time ?? undefined,
       isWalkthrough: updated.isWalkthrough,
       strengths:     updated.strengths  ?? undefined,
       growthAreas:   updated.growthAreas ?? undefined,

@@ -3,6 +3,7 @@ export type Score = 0 | 0.5 | 1;
 export interface Observation {
   id: string;
   date: string;
+  time?: string;
   scores: Record<string, Score>;
   strengths?: string;
   growthAreas?: string;

@@ -14,6 +14,7 @@ export const observations = pgTable("observations", {
   strengths:      text("strengths"),
   growthAreas:    text("growth_areas"),
   observer:       text("observer").notNull().default("Principal Rivera"),
+  time:           text("time"),
   isWalkthrough:  boolean("is_walkthrough").notNull().default(false),
   editedById:     integer("edited_by_id").references(() => users.id, { onDelete: "set null" }),
   editedAt:       timestamp("edited_at", { withTimezone: true }),
