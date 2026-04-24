@@ -213,14 +213,19 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
       <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
         <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <a href="/" style={{ lineHeight: 0, display: "block", flexShrink: 0 }} aria-label="Go to dashboard">
+            <button
+              type="button"
+              onClick={onBack}
+              style={{ lineHeight: 0, display: "block", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              aria-label="Go to dashboard"
+            >
               <img
                 src="/uncommon-logo.png"
                 alt="Uncommon Schools"
                 className="h-8 sm:h-12 w-auto object-contain"
                 style={{ filter: "brightness(0) invert(1)" }}
               />
-            </a>
+            </button>
             <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
               <p
