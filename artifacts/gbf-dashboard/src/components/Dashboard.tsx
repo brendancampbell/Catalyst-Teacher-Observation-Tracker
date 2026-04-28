@@ -263,11 +263,13 @@ export default function Dashboard() {
 
   /* ── Derived lists (always computed — hooks must come before any return) */
   const filtered = useMemo(() => {
-    return teachers.filter((t) => {
-      if (subject.length  && !subject.includes(t.subject)) return false;
-      if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
-      return true;
-    });
+    return teachers
+      .filter((t) => {
+        if (subject.length  && !subject.includes(t.subject)) return false;
+        if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [teachers, subject, grade, viewBy]);
 
   const groupRows = useMemo(
