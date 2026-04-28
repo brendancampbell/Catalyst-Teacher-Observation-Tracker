@@ -229,6 +229,20 @@ export default function Dashboard() {
   /* ── Domain tooltip state ──────────────────────────── */
   const [domainTooltip, setDomainTooltip] = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
 
+  /* ── Dynamic filter options (derived from actual teachers) ── */
+  const availableSubjects = useMemo(
+    () => [...new Set(teachers.map((t) => t.subject))].sort((a, b) => a.localeCompare(b)),
+    [teachers],
+  );
+
+  const availableGrades = useMemo(
+    () => {
+      const present = new Set(teachers.flatMap((t) => t.gradeLevel));
+      return GRADE_LEVELS.filter((g) => present.has(g));
+    },
+    [teachers],
+  );
+
   /* ── Filter state ──────────────────────────────────── */
   const [subject, setSubject]       = useState<string[]>([]);
   const [grade, setGrade]           = useState<string[]>([]);
@@ -538,12 +552,12 @@ export default function Dashboard() {
 
           {/* Subject filter — hidden when grouped by subject */}
           {viewBy !== "subject" && (
-            <FilterMultiSelect label="Subject" values={subject}  onChange={setSubject}  options={[...SUBJECTS]} />
+            <FilterMultiSelect label="Subject" values={subject}  onChange={setSubject}  options={availableSubjects} />
           )}
 
           {/* Grade filter — hidden when grouped by grade */}
           {viewBy !== "grade" && (
-            <FilterMultiSelect label="Grade"      values={grade} onChange={setGrade} options={[...GRADE_LEVELS]} />
+            <FilterMultiSelect label="Grade"      values={grade} onChange={setGrade} options={availableGrades} />
           )}
 
           {/* Proficiency filter */}
