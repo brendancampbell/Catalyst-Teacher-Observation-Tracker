@@ -208,6 +208,23 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       return val === 0.5 ? "0.5" : String(val);
     }
 
+    // Trend: compare current scores to most recent prior observation for this teacher
+    const prevObs = (teachers.find((t) => t.id === teacherId)?.observations ?? [])
+      .slice()
+      .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+
+    function trendHtml(domainId: string, currentVal: Score | undefined): string {
+      if (currentVal === undefined) return `<span style="color:#cbd5e1;font-size:14px;">—</span>`;
+      const prior = prevObs.find((o) => o.scores[domainId] !== undefined);
+      if (!prior) return `<span style="color:#94a3b8;font-size:13px;" title="First observation">New</span>`;
+      const prevVal = prior.scores[domainId] as Score;
+      if (currentVal > prevVal)
+        return `<span style="color:#16a34a;font-size:18px;font-weight:900;line-height:1;">↑</span>`;
+      if (currentVal < prevVal)
+        return `<span style="color:#dc2626;font-size:18px;font-weight:900;line-height:1;">↓</span>`;
+      return `<span style="color:#94a3b8;font-size:18px;font-weight:700;line-height:1;">→</span>`;
+    }
+
     let scoreTableRows = "";
     for (const cat of categories) {
       scoreTableRows += `
@@ -220,14 +237,13 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
         const bg = scoreBg(val);
         const fg = scoreColor(val);
         const txt = scoreText(val);
-        const labelTxt = val !== undefined ? SCORE_LABEL[String(val)] ?? txt : "Unscored";
         scoreTableRows += `
         <tr style="border-bottom:1px solid #e2e8f0;">
           <td style="padding:8px 14px;font-size:13px;color:#374151;">${domain.label}</td>
           <td style="padding:8px 6px;text-align:center;">
             <span style="display:inline-block;background:${bg};color:${fg};border-radius:4px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${txt}</span>
           </td>
-          <td style="padding:8px 14px;font-size:12px;color:#6b7280;">${labelTxt}</td>
+          <td style="padding:8px 10px;text-align:center;">${trendHtml(domain.id, val)}</td>
         </tr>`;
         if (val !== undefined) { catTotal += val; catCount++; }
       }
@@ -339,7 +355,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
                 <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Domain</th>
                 <th style="padding:7px 6px;font-size:11px;font-weight:700;text-align:center;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:60px;">Score</th>
-                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:110px;">Level</th>
+                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:center;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:80px;">Trend</th>
               </tr>
             </thead>
             <tbody>
