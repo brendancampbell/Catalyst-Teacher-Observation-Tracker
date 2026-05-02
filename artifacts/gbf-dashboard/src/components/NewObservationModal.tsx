@@ -112,7 +112,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailTab("edit");
   }
 
-  function buildEmailDraft(): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
+  function buildEmailDraft(introText?: string): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
     const dateLabel = formatDateLong(date);
@@ -140,13 +140,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
     const overallAvg = scoredVals.length ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(1) : "—";
 
+    const resolvedIntro = introText ?? `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
+
     const body = [
-      `Dear ${firstName},`,
-      nl,
-      `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`,
-      nl,
-      `Warm regards,`,
-      observer,
+      resolvedIntro,
       nl,
       divider,
       `OBSERVATION DETAILS`,
@@ -303,9 +300,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       <!-- Greeting -->
       <tr>
         <td style="padding:28px 28px 0 28px;">
-          <p style="margin:0 0 10px;font-size:15px;color:#1e293b;">Dear <strong>${firstName}</strong>,</p>
-          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">${intro}</p>
-          <p style="margin:16px 0 0;font-size:14px;color:#475569;">Warm regards,<br/><strong>${observer}</strong></p>
+          ${intro.split(/\n\n+/).map((para: string) => `<p style="margin:0 0 12px;font-size:14px;color:#475569;line-height:1.6;">${para.replace(/\n/g, "<br/>")}</p>`).join("")}
         </td>
       </tr>
 
@@ -407,19 +402,21 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 </html>`;
   }
 
-  const DEFAULT_INTRO = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
+  const DEFAULT_INTRO_BODY = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
 
   function handleSubmit() {
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
     if (emailFeedback) {
-      const intro = DEFAULT_INTRO;
+      const firstName = teachers.find((t) => t.id === teacherId)?.name.split(" ")[0] ?? "Teacher";
+      const observer = observerName ?? "Your Observer";
+      const intro = `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
       const glows = strengths;
       const grows = growthAreas;
       setEditableIntro(intro);
       setEditableGlows(glows);
       setEditableGrows(grows);
-      const draft = buildEmailDraft();
+      const draft = buildEmailDraft(intro);
       const htmlEmail = buildHtmlEmail(intro, glows, grows);
       setEditableSubject(draft.subject);
       setEmailPreview({ ...draft, htmlEmail });
@@ -447,6 +444,12 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const liveHtmlEmail = useMemo(
     () => emailPreview ? buildHtmlEmail(editableIntro, editableGlows, editableGrows) : "",
     [emailPreview, editableIntro, editableGlows, editableGrows], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // Plain-text body for mailto/Outlook links — stays in sync with editable intro
+  const livePlainBody = useMemo(
+    () => emailPreview ? buildEmailDraft(editableIntro).body : "",
+    [emailPreview, editableIntro], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const inputBase =
@@ -491,7 +494,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 <div className="flex items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">✉</span>
-                    <p className="font-bold text-slate-700 text-sm">Observation saved! Edit the opening below, then copy or open in Outlook.</p>
+                    <div>
+                      <p className="font-bold text-slate-700 text-sm leading-snug">Observation saved!</p>
+                      <p className="text-slate-500 text-xs mt-0.5 leading-snug">Edit the opening below, then copy or send in Outlook.</p>
+                    </div>
                   </div>
                   {/* Edit / Preview tabs */}
                   <div className="flex rounded overflow-hidden border shrink-0" style={{ borderColor: NAVY }}>
@@ -575,7 +581,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   {copied ? "✓ Copied!" : "Copy Text"}
                 </button>
                 <a
-                  href={`https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(emailPreview.body)}`}
+                  href={`https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
@@ -584,7 +590,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   Outlook Web
                 </a>
                 <a
-                  href={`mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(emailPreview.body)}`}
+                  href={`mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
                   onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
