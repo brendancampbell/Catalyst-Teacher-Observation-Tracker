@@ -67,8 +67,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState(false);
-  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
+  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; htmlEmail: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedHtml, setCopiedHtml] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -98,9 +99,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailFeedback(false);
     setEmailPreview(null);
     setCopied(false);
+    setCopiedHtml(false);
   }
 
-  function buildEmailDraft(): { subject: string; body: string; gmailUrl: string } {
+  function buildEmailDraft(): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
     const dateLabel = formatDateLong(date);
@@ -168,11 +170,223 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
+  function buildHtmlEmail(): string {
+    const teacher = teachers.find((t) => t.id === teacherId);
+    const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
+    const dateLabel = formatDateLong(date);
+    const observer = observerName ?? "Your Observer";
+    const logoUrl = `${window.location.origin}/uncommon-logo.png`;
+
+    const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
+    const overallAvg = scoredVals.length
+      ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(2)
+      : null;
+
+    function scoreBg(val: Score | undefined): string {
+      if (val === undefined) return "#e2e8f0";
+      if (val >= 1) return "#16a34a";
+      if (val >= 0.5) return "#ca8a04";
+      return "#dc2626";
+    }
+    function scoreColor(val: Score | undefined): string {
+      if (val === undefined) return "#94a3b8";
+      return "#ffffff";
+    }
+    function scoreText(val: Score | undefined): string {
+      if (val === undefined) return "—";
+      return val === 0.5 ? "0.5" : String(val);
+    }
+
+    let scoreTableRows = "";
+    for (const cat of categories) {
+      scoreTableRows += `
+        <tr>
+          <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${cat.label}</td>
+        </tr>`;
+      let catTotal = 0, catCount = 0;
+      for (const domain of cat.domains) {
+        const val = scores[domain.id] as Score | undefined;
+        const bg = scoreBg(val);
+        const fg = scoreColor(val);
+        const txt = scoreText(val);
+        const labelTxt = val !== undefined ? SCORE_LABEL[String(val)] ?? txt : "Unscored";
+        scoreTableRows += `
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 14px;font-size:13px;color:#374151;">${domain.label}</td>
+          <td style="padding:8px 6px;text-align:center;">
+            <span style="display:inline-block;background:${bg};color:${fg};border-radius:4px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${txt}</span>
+          </td>
+          <td style="padding:8px 14px;font-size:12px;color:#6b7280;">${labelTxt}</td>
+        </tr>`;
+        if (val !== undefined) { catTotal += val; catCount++; }
+      }
+      if (catCount > 0) {
+        const avg = (catTotal / catCount).toFixed(2);
+        scoreTableRows += `
+        <tr style="background:#f8fafc;border-bottom:2px solid #dde3f0;">
+          <td style="padding:7px 14px;font-size:12px;font-weight:700;color:#374151;font-style:italic;">Sub-average</td>
+          <td style="padding:7px 6px;text-align:center;font-size:12px;font-weight:700;color:#374151;">${avg}</td>
+          <td></td>
+        </tr>`;
+      }
+    }
+
+    if (overallAvg !== null) {
+      scoreTableRows += `
+        <tr style="background:#1034B4;">
+          <td style="padding:9px 14px;font-size:13px;font-weight:700;color:#fff;">Overall Average</td>
+          <td style="padding:9px 6px;text-align:center;font-size:14px;font-weight:700;color:#FFB500;">${overallAvg}</td>
+          <td></td>
+        </tr>`;
+    }
+
+    const gradeLabel = `Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Observation Feedback</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Libre Franklin',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+      <!-- Header -->
+      <tr>
+        <td style="background:#1034B4;padding:20px 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <img src="${logoUrl}" alt="Uncommon Schools" height="36" style="display:block;height:36px;max-width:180px;"/>
+              </td>
+              <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
+                Observation Feedback
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Yellow accent bar -->
+      <tr><td style="background:#FFB500;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+      <!-- Greeting -->
+      <tr>
+        <td style="padding:28px 28px 0 28px;">
+          <p style="margin:0 0 10px;font-size:15px;color:#1e293b;">Dear <strong>${firstName}</strong>,</p>
+          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.</p>
+          <p style="margin:16px 0 0;font-size:14px;color:#475569;">Warm regards,<br/><strong>${observer}</strong></p>
+        </td>
+      </tr>
+
+      <!-- Observation Details -->
+      <tr>
+        <td style="padding:24px 28px 0 28px;">
+          <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Observation Details</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;width:110px;background:#f8fafc;">Date</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${dateLabel}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Time</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${time}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Observer</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${observer}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Teacher</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacher?.name ?? ""}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Subject</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacher?.subject ?? ""}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Grade</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${gradeLabel}</td>
+            </tr>
+            ${course ? `<tr>
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Course</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${course}</td>
+            </tr>` : ""}
+          </table>
+        </td>
+      </tr>
+
+      <!-- Rubric Scores -->
+      <tr>
+        <td style="padding:24px 28px 0 28px;">
+          <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Rubric Scores</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+            <thead>
+              <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Domain</th>
+                <th style="padding:7px 6px;font-size:11px;font-weight:700;text-align:center;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:60px;">Score</th>
+                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:110px;">Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${scoreTableRows}
+            </tbody>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Glows -->
+      <tr>
+        <td style="padding:24px 28px 0 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
+            <tr>
+              <td style="padding:14px 16px;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
+                <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;white-space:pre-wrap;">${strengths.trim() || "(none entered)"}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Grows -->
+      <tr>
+        <td style="padding:16px 28px 0 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
+            <tr>
+              <td style="padding:14px 16px;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
+                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;white-space:pre-wrap;">${growthAreas.trim() || "(none entered)"}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="padding:24px 28px;border-top:1px solid #e2e8f0;margin-top:24px;">
+          <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">&copy; ${new Date().getFullYear()} Uncommon Schools, Inc. &nbsp;&middot;&nbsp; This email was generated by the GBF Observation Tool.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+  }
+
   function handleSubmit() {
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
     if (emailFeedback) {
-      setEmailPreview(buildEmailDraft());
+      const draft = buildEmailDraft();
+      const htmlEmail = buildHtmlEmail();
+      setEmailPreview({ ...draft, htmlEmail });
     } else {
       reset();
       onOpenChange(false);
@@ -183,6 +397,13 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     navigator.clipboard.writeText(body).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  function handleCopyHtml(html: string) {
+    navigator.clipboard.writeText(html).then(() => {
+      setCopiedHtml(true);
+      setTimeout(() => setCopiedHtml(false), 2500);
     });
   }
 
@@ -222,12 +443,12 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           {/* ── Email Preview Screen ──────────────────────── */}
           {emailPreview && (
             <>
-              <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-4" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+              <div className="overflow-y-auto flex-1 flex flex-col gap-3 px-6 py-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">✉</span>
                   <div>
                     <p className="font-bold text-slate-700">Observation saved!</p>
-                    <p className="text-sm text-slate-500">Your email draft is ready — open in Outlook or copy and paste.</p>
+                    <p className="text-sm text-slate-500">Preview your branded email below — copy the HTML or open directly in Outlook.</p>
                   </div>
                 </div>
                 <div>
@@ -235,23 +456,32 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   <div className="px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700">{emailPreview.subject}</div>
                 </div>
                 <div className="flex-1 flex flex-col min-h-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Body</p>
-                  <textarea
-                    readOnly
-                    value={emailPreview.body}
-                    className="flex-1 w-full px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700 resize-none focus:outline-none font-mono"
-                    style={{ minHeight: 180 }}
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email Preview</p>
+                  <iframe
+                    srcDoc={emailPreview.htmlEmail}
+                    className="w-full rounded border border-slate-200 bg-white"
+                    style={{ minHeight: 340, flex: 1 }}
+                    title="Email Preview"
+                    sandbox="allow-same-origin"
                   />
                 </div>
               </div>
               <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 bg-slate-50">
                 <button
                   type="button"
+                  onClick={() => handleCopyHtml(emailPreview.htmlEmail)}
+                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
+                  style={{ borderColor: NAVY, color: copiedHtml ? "#15803d" : NAVY, backgroundColor: copiedHtml ? "#f0fdf4" : "white" }}
+                >
+                  {copiedHtml ? "✓ Copied!" : "Copy HTML"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleCopy(emailPreview.body)}
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
-                  style={{ borderColor: NAVY, color: copied ? "#15803d" : NAVY, backgroundColor: copied ? "#f0fdf4" : "white" }}
+                  style={{ borderColor: "#64748b", color: copied ? "#15803d" : "#64748b", backgroundColor: copied ? "#f0fdf4" : "white" }}
                 >
-                  {copied ? "✓ Copied!" : "Copy to Clipboard"}
+                  {copied ? "✓ Copied!" : "Copy Text"}
                 </button>
                 <a
                   href={emailPreview.outlookWebUrl}
