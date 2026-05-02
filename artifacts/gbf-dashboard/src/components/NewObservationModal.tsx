@@ -300,7 +300,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       <!-- Greeting -->
       <tr>
         <td style="padding:28px 28px 0 28px;">
-          ${intro.split(/\n\n+/).map((para: string) => `<p style="margin:0 0 12px;font-size:14px;color:#475569;line-height:1.6;">${para.replace(/\n/g, "<br/>")}</p>`).join("")}
+          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${intro.replace(/\n/g, "<br/>")}</p>
         </td>
       </tr>
 
