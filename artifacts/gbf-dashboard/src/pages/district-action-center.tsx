@@ -1,10 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 import {
   BarChart2, Sparkles, Activity, TrendingUp, TrendingDown,
-  Flame, ShieldAlert, AlertTriangle, Building2, Users, Send, Bot, User2,
+  Flame, ShieldAlert, AlertTriangle, Building2, CheckCircle2, Send, Bot, User2,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import AppHeader from "@/components/AppHeader";
 import { useUser } from "@/context/UserContext";
+import {
+  fetchRescoreQueue,
+  fetchAIInsights,
+  fetchAICalibrationFlags,
+  fetchAIPlateauAlerts,
+  fetchAIChat,
+  type RescoreQueueItem,
+  type AICalibrationFlag,
+  type AIPlateauAlert,
+  type AIInsightsResponse,
+  type AITrendingStep,
+} from "@/lib/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,84 +27,72 @@ import { Button } from "@/components/ui/button";
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 
-/* ── Dummy data ────────────────────────────────────────────── */
-
-const NETWORK_TRENDS = [
-  { pct: 42, insight: 'Across 4 schools, 42% of recent observations resulted in action steps related to "Sequential Directions" in Classroom Culture.' },
-  { pct: 31, insight: 'Schools in the Newark region are outperforming the network average by 0.3 points in "The First 15" category.' },
-  { pct: 27, insight: '"WTD Cycle" continues to be the lowest-scoring domain network-wide, with a mean score of 0.4 across all sites.' },
-  { pct: 19, insight: '"Confident Presence" is the most consistently high-scoring domain — 3 of 4 schools score above the 0.7 threshold.' },
-];
-
-const SCHOOL_CALIBRATION_FLAGS = [
-  { school: "Washington High",         domain: "WTD Cycle",                  internalAvg: 0.8, networkAvg: 0.5, delta: 0.3, direction: "over" },
-  { school: "Lincoln Middle",           domain: "Ratio & Engagement",         internalAvg: 0.5, networkAvg: 0.5, delta: 0.0, direction: "none" },
-  { school: "Roosevelt Elementary",     domain: "Academic Monitoring 101",    internalAvg: 0.7, networkAvg: 0.5, delta: 0.2, direction: "under" },
-  { school: "Camden Academy",           domain: "Annotations & Notebook Habits", internalAvg: 1.0, networkAvg: 0.5, delta: 0.5, direction: "over" },
-];
-
-const RESCORE_QUEUE = [
-  { school: "Washington High",       region: "NYC",      total: 8, overdue: 3 },
-  { school: "Lincoln Middle",         region: "Newark",   total: 5, overdue: 1 },
-  { school: "Roosevelt Elementary",   region: "Boston",   total: 3, overdue: 0 },
-  { school: "Camden Academy",         region: "Camden",   total: 6, overdue: 4 },
-];
-
-const SCHOOL_SUPPORT_ALERTS = [
-  {
-    school: "Lincoln Middle",
-    detail: "65% of staff stuck below 0.5 in \"WTD Cycle\" for 4+ weeks. Coaching cadence may need adjustment.",
-    severity: "high",
-    teachers: 12,
-  },
-  {
-    school: "Washington High",
-    detail: "9 teachers have shown no score improvement in \"Academic Monitoring 101\" across 3 consecutive observations.",
-    severity: "high",
-    teachers: 9,
-  },
-  {
-    school: "Camden Academy",
-    detail: "\"Annotations & Notebook Habits\" scores have declined 0.3 points on average since Q1.",
-    severity: "medium",
-    teachers: 7,
-  },
-  {
-    school: "Roosevelt Elementary",
-    detail: "3 teachers are on Growth Plateaus in \"Ratio & Engagement\" — no movement in 5 weeks.",
-    severity: "medium",
-    teachers: 3,
-  },
-];
-
 type ChatMsg = { role: "user" | "ai"; text: string };
 
-const SEED_CHAT: ChatMsg[] = [
-  { role: "user", text: "How does Washington High compare to Lincoln Middle in Classroom Culture?" },
-  {
-    role: "ai",
-    text: "Based on this quarter's walkthroughs, Washington High is outperforming Lincoln Middle by 0.6 points in Classroom Culture, largely driven by higher scores in \"Joy\" (1.0 vs 0.5) and \"Confident Presence\" (0.9 vs 0.6). Lincoln Middle's weakest area is \"WTD Cycle\" at 0.4.",
-  },
-  { role: "user", text: "Which schools need the most urgent support right now?" },
-  {
-    role: "ai",
-    text: "Based on current data, Camden Academy and Washington High have the most overdue rescore items (4 and 3 respectively). Additionally, Lincoln Middle shows the largest concentration of Growth Plateau alerts — 12 teachers stuck below 0.5 in WTD Cycle for over 4 weeks. I'd recommend prioritizing a network walkthrough calibration session at those two sites.",
-  },
-  { role: "user", text: "What's our strongest domain network-wide this quarter?" },
-  {
-    role: "ai",
-    text: "\"Confident Presence\" is the top-performing domain across the network with an average of 0.85. 3 of 4 schools exceed the 0.7 proficiency threshold in this domain. \"Joy\" follows closely at 0.82. These strengths are concentrated in ES and HS grade spans — MS schools show more variability.",
-  },
-];
-
-/* ─────────────────────────────────────────────────────────── */
+const WELCOME_MSG: ChatMsg = {
+  role: "ai",
+  text: "Hello! I'm your GBF Network Data Assistant. Ask me about network-wide domain trends, school calibration flags, growth plateaus, or which schools need the most urgent support right now.",
+};
 
 export default function DistrictActionCenterPage() {
   const { currentUser } = useUser();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  /* ── Chat state ──────────────────────────────────────────── */
-  const [chatMsgs,   setChatMsgs]   = useState<ChatMsg[]>(SEED_CHAT);
+  /* ── AI data ─────────────────────────────────────────── */
+  const { data: insights } = useQuery<AIInsightsResponse>({
+    queryKey: ["ai-insights-network"],
+    queryFn:  fetchAIInsights,
+    staleTime: 60_000,
+  });
+
+  const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
+    queryKey: ["ai-calibration-flags-network"],
+    queryFn:  fetchAICalibrationFlags,
+    staleTime: 60_000,
+  });
+
+  const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
+    queryKey: ["ai-plateau-alerts-network"],
+    queryFn:  fetchAIPlateauAlerts,
+    staleTime: 60_000,
+  });
+
+  const { data: rescoreQueue = [] } = useQuery<RescoreQueueItem[]>({
+    queryKey: ["rescoreQueue-network"],
+    queryFn:  fetchRescoreQueue,
+    staleTime: 30_000,
+  });
+
+  /* ── School-level rescore summary ───────────────────── */
+  const schoolRescoreSummary = (() => {
+    const map = new Map<string, { total: number; overdue: number }>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const item of rescoreQueue) {
+      const schoolName = item.schoolName ?? "Unknown";
+      const entry = map.get(schoolName) ?? { total: 0, overdue: 0 };
+      entry.total++;
+      if (item.rescoreDueDate) {
+        const due = new Date(item.rescoreDueDate + "T00:00:00");
+        if (due < today) entry.overdue++;
+      }
+      map.set(schoolName, entry);
+    }
+    return Array.from(map.entries())
+      .map(([school, data]) => ({ school, ...data }))
+      .sort((a, b) => b.overdue - a.overdue || b.total - a.total);
+  })();
+
+  /* ── Network overall avg from insights ──────────────── */
+  const networkAvg = (() => {
+    if (!insights?.topStrength && !insights?.topGrowth) return null;
+    const topAvg    = insights.topStrength?.avg ?? 0;
+    const bottomAvg = insights.topGrowth?.avg   ?? 0;
+    return (topAvg + bottomAvg) / 2;
+  })();
+
+  /* ── Chat state ──────────────────────────────────────── */
+  const [chatMsgs,   setChatMsgs]   = useState<ChatMsg[]>([WELCOME_MSG]);
   const [chatInput,  setChatInput]  = useState("");
   const [chatTyping, setChatTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -100,25 +101,26 @@ export default function DistrictActionCenterPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, chatTyping]);
 
-  function handleSendChat() {
+  async function handleSendChat() {
     const text = chatInput.trim();
     if (!text) return;
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
     setChatTyping(true);
-    setTimeout(() => {
-      setChatTyping(false);
+    try {
+      const { reply } = await fetchAIChat(text);
+      setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
+    } catch {
       setChatMsgs((prev) => [
         ...prev,
-        {
-          role: "ai",
-          text: "This is a placeholder response. In the live version, I'll analyze cross-school observation data and surface real network-wide insights here.",
-        },
+        { role: "ai", text: "Sorry, I couldn't retrieve a response right now. Please try again." },
       ]);
-    }, 1400);
+    } finally {
+      setChatTyping(false);
+    }
   }
 
-  /* ── Render ──────────────────────────────────────────────── */
+  /* ── Render ──────────────────────────────────────────── */
   return (
     <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
@@ -169,16 +171,6 @@ export default function DistrictActionCenterPage() {
         ════════════════════════════════════════════════════════ */}
         <TabsContent value="summary" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 mt-0">
 
-          {/* AI Disclaimer */}
-          <div className="flex items-start gap-3 px-4 py-3 rounded-xl border"
-            style={{ backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }}>
-            <Sparkles size={18} className="mt-0.5 shrink-0" style={{ color: "#D97706" }} />
-            <p className="text-sm text-amber-800">
-              <span className="font-bold">AI Features Coming Soon —</span> The cards below show placeholder data.
-              Once connected to an AI model, this page will automatically synthesize cross-school observation data into real-time network insights.
-            </p>
-          </div>
-
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
@@ -190,20 +182,33 @@ export default function DistrictActionCenterPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-5">
-                <div className="flex items-end gap-3">
-                  <span
-                    className="text-4xl font-bold tabular-nums"
-                    style={{ color: "#16a34a", fontFamily: "'Bebas Neue', sans-serif" }}
-                  >
-                    0.7
-                  </span>
-                  <Badge className="mb-1 text-xs font-bold px-2 py-0.5"
-                    style={{ backgroundColor: "#dcfce7", color: "#15803d", border: "none" }}>
-                    Proficient
-                  </Badge>
-                </div>
-                <p className="text-slate-400 text-xs mt-1">Across all schools, most recent observations</p>
-                <p className="text-xs mt-1" style={{ color: "#94a3b8", fontStyle: "italic" }}>AI-synthesized · placeholder</p>
+                {networkAvg !== null ? (
+                  <>
+                    <div className="flex items-end gap-3">
+                      <span
+                        className="text-4xl font-bold tabular-nums"
+                        style={{ color: networkAvg >= 0.7 ? "#16a34a" : "#dc2626", fontFamily: "'Bebas Neue', sans-serif" }}
+                      >
+                        {networkAvg.toFixed(2)}
+                      </span>
+                      <Badge className="mb-1 text-xs font-bold px-2 py-0.5"
+                        style={{
+                          backgroundColor: networkAvg >= 0.7 ? "#dcfce7" : "#fee2e2",
+                          color: networkAvg >= 0.7 ? "#15803d" : "#b91c1c",
+                          border: "none",
+                        }}>
+                        {networkAvg >= 0.7 ? "Proficient" : "Not Yet"}
+                      </Badge>
+                    </div>
+                    <p className="text-slate-400 text-xs mt-1">Across all schools, most recent observations</p>
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#94a3b8", fontStyle: "italic" }}><Sparkles size={10} /> AI-synthesized · live data</p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold tabular-nums text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</span>
+                    <p className="text-slate-400 text-xs mt-1">No observation data yet</p>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -215,16 +220,22 @@ export default function DistrictActionCenterPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-5">
-                <p
-                  className="text-2xl font-bold leading-tight"
-                  style={{ color: "#16a34a", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}
-                >
-                  Confident Presence
-                </p>
-                <p className="text-slate-500 text-sm mt-1">
-                  Avg score <span className="font-bold text-green-600">0.85</span> across all schools
-                </p>
-                <p className="text-xs mt-1" style={{ color: "#94a3b8", fontStyle: "italic" }}>AI-synthesized · placeholder</p>
+                {insights?.topStrength ? (
+                  <>
+                    <p className="text-2xl font-bold leading-tight" style={{ color: "#16a34a", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}>
+                      {insights.topStrength.domain}
+                    </p>
+                    <p className="text-slate-500 text-sm mt-1">
+                      Avg score <span className="font-bold text-green-600">{insights.topStrength.avg.toFixed(2)}</span> across all schools
+                    </p>
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#94a3b8", fontStyle: "italic" }}><Sparkles size={10} /> AI-synthesized · live data</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
+                    <p className="text-slate-400 text-sm mt-1">No observation data yet</p>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -236,46 +247,59 @@ export default function DistrictActionCenterPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-5">
-                <p
-                  className="text-2xl font-bold leading-tight"
-                  style={{ color: "#dc2626", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}
-                >
-                  WTD Cycle
-                </p>
-                <p className="text-slate-500 text-sm mt-1">
-                  Avg score <span className="font-bold text-red-600">0.4</span> across all schools
-                </p>
-                <p className="text-xs mt-1" style={{ color: "#94a3b8", fontStyle: "italic" }}>AI-synthesized · placeholder</p>
+                {insights?.topGrowth ? (
+                  <>
+                    <p className="text-2xl font-bold leading-tight" style={{ color: "#dc2626", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}>
+                      {insights.topGrowth.domain}
+                    </p>
+                    <p className="text-slate-500 text-sm mt-1">
+                      Avg score <span className="font-bold text-red-600">{insights.topGrowth.avg.toFixed(2)}</span> across all schools
+                    </p>
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "#94a3b8", fontStyle: "italic" }}><Sparkles size={10} /> AI-synthesized · live data</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
+                    <p className="text-slate-400 text-sm mt-1">No observation data yet</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Network-Wide Trends + Calibration Flags */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            {/* Network-Wide Trends */}
+          {/* Trending Action Steps */}
+          {(insights?.trendingSteps ?? []).length > 0 && (
             <Card className="border-slate-200 shadow-sm">
               <CardHeader className="px-5 pt-5 pb-3">
                 <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em", fontSize: 18 }}>
-                  <Flame size={16} style={{ color: YELLOW }} />
-                  Network-Wide Trends
+                  <Flame size={17} style={{ color: YELLOW }} />
+                  Trending Action Steps
                 </CardTitle>
-                <p className="text-xs text-slate-400 mt-0.5">Aggregated themes from recent observations · placeholder data</p>
+                <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                  <Sparkles size={10} /> High-priority growth domains across the network · live data
+                </p>
               </CardHeader>
-              <CardContent className="px-5 pb-5 space-y-3">
-                {NETWORK_TRENDS.map((item, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <span
-                      className="shrink-0 font-bold text-xs px-2 py-1 rounded-md"
-                      style={{ backgroundColor: "#EEF2FF", color: NAVY, minWidth: 40, textAlign: "center" }}
-                    >
-                      {item.pct}%
-                    </span>
-                    <p className="text-sm text-slate-600 leading-snug">{item.insight}</p>
-                  </div>
-                ))}
+              <CardContent className="px-5 pb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(insights!.trendingSteps as AITrendingStep[]).map((step, i) => (
+                    <div key={i} className="flex items-start gap-3 bg-slate-50 rounded-lg px-4 py-3 border border-slate-100">
+                      <div className="shrink-0 w-11 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                        style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                        {step.pct}%
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">{step.domain}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">avg <strong style={{ color: "#B91C1C" }}>{step.avg.toFixed(2)}</strong></p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Network-Wide Flags */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             {/* School Calibration Flags */}
             <Card className="border-slate-200 shadow-sm" style={{ borderTop: `3px solid ${YELLOW}` }}>
@@ -285,41 +309,87 @@ export default function DistrictActionCenterPage() {
                   School Calibration Flags
                 </CardTitle>
                 <p className="text-xs text-amber-600 mt-0.5">
-                  Score discrepancies between internal school grading and Network Walkthroughs · placeholder data
+                  Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough · live data
                 </p>
               </CardHeader>
               <CardContent className="px-5 pb-5 space-y-3">
-                {SCHOOL_CALIBRATION_FLAGS.filter((f) => f.delta > 0).map((flag, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
-                    style={{ backgroundColor: "#FFFBEB", border: "1px solid #FDE68A" }}
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate" style={{ color: NAVY }}>{flag.school}</p>
-                      <p className="text-xs text-slate-500 truncate">{flag.domain}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 text-xs">
-                      <span className="text-slate-500">
-                        Internal <span className="font-bold text-slate-700">{flag.internalAvg.toFixed(1)}</span>
-                      </span>
-                      <span className="text-slate-300">vs</span>
-                      <span className="text-slate-500">
-                        Network <span className="font-bold text-slate-700">{flag.networkAvg.toFixed(1)}</span>
-                      </span>
-                      <Badge
-                        className="font-bold text-xs px-2 py-0.5"
-                        style={{
-                          backgroundColor: flag.direction === "over" ? "#fee2e2" : "#fef3c7",
-                          color: flag.direction === "over" ? "#b91c1c" : "#92400e",
-                          border: "none",
-                        }}
-                      >
-                        Δ {flag.delta.toFixed(1)}
-                      </Badge>
-                    </div>
+                {calibrationFlags.length === 0 ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <CheckCircle2 size={16} className="text-green-500" />
+                    <p className="text-sm text-slate-500">No calibration discrepancies detected across the network.</p>
                   </div>
-                ))}
+                ) : (
+                  calibrationFlags.map((flag, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5"
+                      style={{ backgroundColor: "#FFFBEB", border: "1px solid #FDE68A" }}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate" style={{ color: NAVY }}>{flag.teacher ?? flag.school ?? "—"}</p>
+                        <p className="text-xs text-slate-500 truncate">{flag.domain}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
+                        <span className="text-slate-500">
+                          School <span className="font-bold text-slate-700">{flag.schoolScore.toFixed(1)}</span>
+                        </span>
+                        <span className="text-slate-300">vs</span>
+                        <span className="text-slate-500">
+                          Network <span className="font-bold text-slate-700">{flag.networkScore.toFixed(1)}</span>
+                        </span>
+                        <Badge
+                          className="font-bold text-xs px-2 py-0.5"
+                          style={{
+                            backgroundColor: flag.delta >= 0.7 ? "#fee2e2" : "#fef3c7",
+                            color: flag.delta >= 0.7 ? "#b91c1c" : "#92400e",
+                            border: "none",
+                          }}
+                        >
+                          Δ {flag.delta.toFixed(1)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Growth Plateau Summary */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="px-5 pt-5 pb-3">
+                <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em", fontSize: 18 }}>
+                  <Flame size={16} style={{ color: YELLOW }} />
+                  Network Growth Plateau Summary
+                </CardTitle>
+                <p className="text-xs text-slate-400 mt-0.5">Teachers with no score improvement across 3+ consecutive observations · live data</p>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 space-y-3">
+                {plateauAlerts.length === 0 ? (
+                  <div className="flex items-center gap-2 py-2">
+                    <CheckCircle2 size={16} className="text-green-500" />
+                    <p className="text-sm text-slate-500">No growth plateaus detected network-wide.</p>
+                  </div>
+                ) : (
+                  plateauAlerts.slice(0, 5).map((alert, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span
+                        className="shrink-0 font-bold text-xs px-2 py-1 rounded-md mt-0.5"
+                        style={{ backgroundColor: "#FEE2E2", color: "#B91C1C", minWidth: 40, textAlign: "center" }}
+                      >
+                        {alert.obsCount}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">{alert.teacherName}</p>
+                        <p className="text-xs text-slate-500">
+                          Stuck on <strong>{alert.domain}</strong> at {alert.score.toFixed(1)} for {alert.weekRange}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {plateauAlerts.length > 5 && (
+                  <p className="text-xs text-slate-400 text-right">+{plateauAlerts.length - 5} more in Interventions tab</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -339,170 +409,188 @@ export default function DistrictActionCenterPage() {
                   Network Walkthrough Rescore Queue
                 </CardTitle>
                 <Badge className="text-xs font-bold px-3 py-1" style={{ backgroundColor: "#EEF2FF", color: NAVY, border: "none" }}>
-                  {RESCORE_QUEUE.reduce((s, r) => s + r.total, 0)} total pending
+                  {rescoreQueue.length} total pending
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400 mt-1">Teachers across all schools awaiting walkthrough rescore review</p>
+              <p className="text-xs text-slate-400 mt-1">Teachers across all schools awaiting walkthrough rescore review · live data</p>
             </CardHeader>
             <CardContent className="px-5 pb-5">
-              <div className="overflow-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr style={{ backgroundColor: NAVY }}>
-                      {["School", "Region", "Pending Rescores", "Overdue", "Status"].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-4 py-2.5 text-white font-bold uppercase tracking-wider"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                    <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                      <td colSpan={5} style={{ padding: 0, height: 3 }} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {RESCORE_QUEUE.map((row, i) => (
-                      <tr
-                        key={i}
-                        className="border-b transition-colors"
-                        style={{ borderColor: "#e8edf8", backgroundColor: i % 2 === 0 ? "#ffffff" : "#f7f9fd" }}
-                      >
-                        <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{row.school}</td>
-                        <td className="px-4 py-3 text-slate-500">{row.region}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY }}>{row.total}</span>
-                            <span className="text-slate-400 text-xs">teachers</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {row.overdue > 0 ? (
-                            <Badge className="font-bold text-xs px-2 py-0.5" style={{ backgroundColor: "#fee2e2", color: "#b91c1c", border: "none" }}>
-                              {row.overdue} overdue
-                            </Badge>
-                          ) : (
-                            <Badge className="font-bold text-xs px-2 py-0.5" style={{ backgroundColor: "#dcfce7", color: "#15803d", border: "none" }}>
-                              None overdue
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className="text-xs font-semibold px-2 py-0.5"
-                            style={{
-                              backgroundColor: row.overdue >= 3 ? "#fee2e2" : row.overdue > 0 ? "#fef3c7" : "#f1f5f9",
-                              color: row.overdue >= 3 ? "#b91c1c" : row.overdue > 0 ? "#92400e" : "#64748b",
-                              border: "none",
-                            }}
+              {schoolRescoreSummary.length === 0 ? (
+                <div className="flex items-center gap-2 py-4">
+                  <CheckCircle2 size={20} className="text-green-500" />
+                  <p className="text-slate-500 font-semibold">All clear — no pending rescores across the network.</p>
+                </div>
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr style={{ backgroundColor: NAVY }}>
+                        {["School", "Pending Rescores", "Overdue", "Status"].map((h) => (
+                          <th
+                            key={h}
+                            className="text-left px-4 py-2.5 text-white font-bold uppercase tracking-wider"
+                            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}
                           >
-                            {row.overdue >= 3 ? "Urgent" : row.overdue > 0 ? "Needs Attention" : "On Track"}
-                          </Badge>
-                        </td>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                        <td colSpan={4} style={{ padding: 0, height: 3 }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {schoolRescoreSummary.map((row, i) => (
+                        <tr
+                          key={i}
+                          className="border-b transition-colors"
+                          style={{ borderColor: "#e8edf8", backgroundColor: i % 2 === 0 ? "#ffffff" : "#f7f9fd" }}
+                        >
+                          <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>{row.school}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY }}>{row.total}</span>
+                              <span className="text-slate-400 text-xs">teachers</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.overdue > 0 ? (
+                              <Badge className="font-bold text-xs px-2 py-0.5" style={{ backgroundColor: "#fee2e2", color: "#b91c1c", border: "none" }}>
+                                {row.overdue} overdue
+                              </Badge>
+                            ) : (
+                              <Badge className="font-bold text-xs px-2 py-0.5" style={{ backgroundColor: "#dcfce7", color: "#15803d", border: "none" }}>
+                                None overdue
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              className="text-xs font-semibold px-2 py-0.5"
+                              style={{
+                                backgroundColor: row.overdue >= 3 ? "#fee2e2" : row.overdue > 0 ? "#fef3c7" : "#f1f5f9",
+                                color: row.overdue >= 3 ? "#b91c1c" : row.overdue > 0 ? "#92400e" : "#64748b",
+                                border: "none",
+                              }}
+                            >
+                              {row.overdue >= 3 ? "Urgent" : row.overdue > 0 ? "Needs Attention" : "On Track"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* School Support Alerts */}
+          {/* School Support Alerts (plateau-based) */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Flame size={18} style={{ color: "#ea580c" }} />
               <h2 className="font-bold text-lg" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em", fontSize: 20 }}>
-                School Support Alerts
+                Growth Plateau Alerts
               </h2>
-              <span className="text-slate-400 text-sm font-normal ml-1">Growth plateaus detected network-wide</span>
+              <span className="text-slate-400 text-sm font-normal ml-1">Teachers stuck on a domain network-wide · live data</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {SCHOOL_SUPPORT_ALERTS.map((alert, i) => (
-                <Card
-                  key={i}
-                  className="border shadow-sm"
-                  style={{
-                    borderColor: alert.severity === "high" ? "#fca5a5" : "#fde68a",
-                    borderLeft: `4px solid ${alert.severity === "high" ? "#dc2626" : "#f59e0b"}`,
-                  }}
-                >
-                  <CardContent className="px-4 py-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Building2 size={14} style={{ color: NAVY, flexShrink: 0 }} />
-                        <span className="font-bold text-sm truncate" style={{ color: NAVY }}>{alert.school}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Badge
-                          className="text-xs font-bold px-2 py-0.5"
-                          style={{
-                            backgroundColor: alert.severity === "high" ? "#fee2e2" : "#fef3c7",
-                            color: alert.severity === "high" ? "#b91c1c" : "#92400e",
-                            border: "none",
-                          }}
-                        >
-                          {alert.severity === "high" ? "High Priority" : "Medium Priority"}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                          <Users size={11} />
-                          {alert.teachers} teachers
+            {plateauAlerts.length === 0 ? (
+              <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                <CheckCircle2 size={40} className="text-green-400" />
+                <div className="text-center">
+                  <p className="font-bold text-base" style={{ color: NAVY }}>No growth plateaus detected network-wide</p>
+                  <p className="text-slate-500 text-sm mt-1">All teachers have shown score movement across recent observations.</p>
+                </div>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {plateauAlerts.map((alert, i) => (
+                  <Card
+                    key={i}
+                    className="border shadow-sm"
+                    style={{
+                      borderColor: alert.score < 0.3 ? "#fca5a5" : "#fde68a",
+                      borderLeft: `4px solid ${alert.score < 0.3 ? "#dc2626" : "#f59e0b"}`,
+                    }}
+                  >
+                    <CardContent className="px-4 py-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 size={14} style={{ color: NAVY, flexShrink: 0 }} />
+                          <span className="font-bold text-sm truncate" style={{ color: NAVY }}>{alert.teacherName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge
+                            className="text-xs font-bold px-2 py-0.5"
+                            style={{
+                              backgroundColor: alert.score < 0.3 ? "#fee2e2" : "#fef3c7",
+                              color: alert.score < 0.3 ? "#b91c1c" : "#92400e",
+                              border: "none",
+                            }}
+                          >
+                            {alert.score < 0.3 ? "High Priority" : "Monitor"}
+                          </Badge>
                         </div>
                       </div>
-                    </div>
-                    <p className="text-sm text-slate-600 leading-snug">{alert.detail}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Stuck on <strong>{alert.domain}</strong> at score <strong>{alert.score.toFixed(1)}</strong> for {alert.obsCount} consecutive observations over {alert.weekRange}.
+                        {alert.subject ? ` (${alert.subject}${alert.gradeLevel?.length ? ` · Gr. ${alert.gradeLevel.join(", ")}` : ""})` : ""}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
 
         {/* ═══════════════════════════════════════════════════════
             TAB 3 — NETWORK DATA ASSISTANT
         ════════════════════════════════════════════════════════ */}
-        <TabsContent value="chat" className="flex-1 flex flex-col mt-0 overflow-hidden">
-          <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 gap-0 overflow-hidden">
+        <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+          <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0 gap-4">
 
             {/* Header */}
-            <div className="mb-4 shrink-0">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles size={18} style={{ color: NAVY }} />
-                <h2 className="font-bold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.02em" }}>
-                  Network Data Assistant
-                </h2>
+            <div className="flex items-center gap-3 shrink-0">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                style={{ backgroundColor: NAVY }}
+              >
+                <Sparkles size={18} color={YELLOW} />
               </div>
-              <p className="text-sm text-slate-500">Ask cross-school comparative questions about your network's observation data.</p>
-              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                style={{ backgroundColor: "#FFFBEB", borderColor: "#FCD34D", border: "1px solid #FCD34D", color: "#92400e" }}>
-                <Sparkles size={13} style={{ color: "#D97706", flexShrink: 0 }} />
-                <span><strong>AI Coming Soon</strong> — Conversation below shows placeholder responses for UI preview purposes only.</span>
+              <div>
+                <h2 className="font-bold text-slate-800 text-base">GBF Network Data Assistant</h2>
+                <p className="text-xs text-slate-400">Ask questions about cross-school observation data</p>
               </div>
+              <Badge
+                className="ml-auto text-xs font-bold px-2.5 py-1 shrink-0"
+                style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}
+              >
+                Live Data
+              </Badge>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2 pr-1">
               {chatMsgs.map((msg, i) => (
                 <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.role === "ai" && (
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                      style={{ backgroundColor: NAVY }}
-                    >
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm" style={{ backgroundColor: NAVY }}>
                       <Bot size={15} className="text-white" />
                     </div>
                   )}
                   <div
-                    className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm"
+                    className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
                     style={
                       msg.role === "user"
-                        ? { backgroundColor: NAVY, color: "white", borderBottomRightRadius: 4 }
-                        : { backgroundColor: "white", color: "#1e293b", border: "1px solid #e2e8f0", borderBottomLeftRadius: 4 }
+                        ? { backgroundColor: NAVY, color: "white", borderRadius: "18px 4px 18px 18px" }
+                        : { backgroundColor: "white", color: "#1e293b", border: "1px solid #e2e8f0", borderRadius: "4px 18px 18px 18px" }
                     }
                   >
-                    {msg.text}
+                    {msg.text.split("**").map((part, pi) =>
+                      pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                    )}
                   </div>
                   {msg.role === "user" && (
                     <div
@@ -521,7 +609,7 @@ export default function DistrictActionCenterPage() {
                   <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
                     <Bot size={15} className="text-white" />
                   </div>
-                  <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm" style={{ borderBottomLeftRadius: 4 }}>
+                  <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm" style={{ borderRadius: "4px 18px 18px 18px" }}>
                     <div className="flex gap-1 items-center h-4">
                       {[0, 1, 2].map((j) => (
                         <span
@@ -538,7 +626,7 @@ export default function DistrictActionCenterPage() {
             </div>
 
             {/* Input */}
-            <div className="shrink-0 pt-4 border-t border-slate-200 mt-4">
+            <div className="shrink-0 border-t border-slate-200 pt-4">
               <form
                 onSubmit={(e) => { e.preventDefault(); handleSendChat(); }}
                 className="flex gap-2"
@@ -560,9 +648,6 @@ export default function DistrictActionCenterPage() {
                   <Send size={16} />
                 </Button>
               </form>
-              <p className="text-center text-xs text-slate-400 mt-2">
-                Placeholder UI — AI responses not yet connected
-              </p>
             </div>
           </div>
         </TabsContent>

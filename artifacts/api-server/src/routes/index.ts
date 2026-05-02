@@ -10,6 +10,7 @@ import usersRouter from "./users";
 import adminTeachersRouter from "./admin-teachers";
 import adminSchoolsRouter from "./admin-schools";
 import actionCenterRouter from "./action-center";
+import aiRouter from "./ai";
 import { requireAuth, requireNetworkScope, requireNetworkAdmin, enforceSchoolScope } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -26,5 +27,6 @@ router.use("/users",          requireAuth, usersRouter);
 router.use("/admin/teachers", requireAuth, adminTeachersRouter);
 router.use("/admin/schools",  requireAuth, requireNetworkScope, adminSchoolsRouter);
 router.use("/action-center",  requireAuth, actionCenterRouter);
+router.use("/ai",             requireAuth, aiRouter);
 
 export default router;

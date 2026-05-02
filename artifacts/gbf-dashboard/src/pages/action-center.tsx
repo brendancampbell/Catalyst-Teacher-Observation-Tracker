@@ -11,8 +11,16 @@ import {
   fetchDashboard,
   fetchQuarters,
   createObservation,
+  fetchAIInsights,
+  fetchAICalibrationFlags,
+  fetchAIPlateauAlerts,
+  fetchAIChat,
   type RescoreQueueItem,
   type RubricQuarterRow,
+  type AICalibrationFlag,
+  type AIPlateauAlert,
+  type AIInsightsResponse,
+  type AITrendingStep,
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
@@ -41,86 +49,12 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
   return { label: `Due in ${diffDays}d`, color: "#16a34a", urgent: false };
 }
 
-/* ── Fake data ─────────────────────────────────────── */
-const TRENDING_STEPS = [
-  { pct: 38, insight: "Observations linked action steps to \"Sequential Directions\" in Classroom Culture." },
-  { pct: 29, insight: "Teachers flagged for growth in \"Academic Monitoring 101\" this quarter." },
-  { pct: 21, insight: "Recurring coaching around \"WTD Cycle\" pacing for ELA classrooms." },
-  { pct: 17, insight: "\"Joy\" noted as a consistent strength across the Math department." },
-];
-
-const CALIBRATION_FLAGS = [
-  {
-    teacher: "Rachel Kim",
-    domain: "Ratio & Engagement",
-    schoolScore: 0.5,
-    districtScore: 1.0,
-    delta: 0.5,
-  },
-  {
-    teacher: "Derek Thompson",
-    domain: "F15: Entry / DN / DNR",
-    schoolScore: 1.0,
-    districtScore: 0.5,
-    delta: 0.5,
-  },
-  {
-    teacher: "James Mitchell",
-    domain: "Confident Presence",
-    schoolScore: 0.5,
-    districtScore: 0.0,
-    delta: 0.5,
-  },
-];
-
-const PLATEAU_ALERTS = [
-  {
-    teacher: "Sarah Johnson",
-    domain: "WTD Cycle",
-    score: 0.0,
-    obsCount: 3,
-    weekRange: "4 weeks",
-    subject: "English · Grade 6",
-  },
-  {
-    teacher: "Derek Thompson",
-    domain: "Annotations & Notebook Habits",
-    score: 0.5,
-    obsCount: 3,
-    weekRange: "5 weeks",
-    subject: "History · Grade 8",
-  },
-  {
-    teacher: "Lisa Hernandez",
-    domain: "Academic Monitoring 101",
-    score: 0.0,
-    obsCount: 4,
-    weekRange: "6 weeks",
-    subject: "Science · Grade 7",
-  },
-];
-
 type ChatMsg = { role: "user" | "ai"; text: string };
 
-const SEED_CHAT: ChatMsg[] = [
-  { role: "user", text: "What are the biggest trends in the Math department this month?" },
-  {
-    role: "ai",
-    text: "Based on the last 15 observations, the Math department is excelling in **Ratio & Engagement** (avg 0.9) but consistently underperforming in **Annotations & Notebook Habits** (avg 0.4). I'd recommend a targeted coaching cycle on note-taking routines.",
-  },
-  { role: "user", text: "Which teachers are closest to crossing the 0.7 proficiency threshold?" },
-  {
-    role: "ai",
-    text: "Derek Thompson (avg 0.6) and Sarah Johnson (avg 0.5) are within striking distance. Derek's strongest domain is Joy (1.0); focusing his next cycle on WTD Cycle could push him over threshold within 2–3 observations.",
-  },
-  { role: "user", text: "Are there any calibration concerns I should know about?" },
-  {
-    role: "ai",
-    text: "Yes — I've flagged 3 potential calibration discrepancies where School Coach scores differ from Network Walkthrough scores by ≥ 0.5 points. The largest gap is in Rachel Kim's Ratio & Engagement scores. I'd recommend a calibration session before the next round of walkthroughs.",
-  },
-];
-
-/* ─────────────────────────────────────────────────── */
+const WELCOME_MSG: ChatMsg = {
+  role: "ai",
+  text: "Hello! I'm your GBF Data Assistant. Ask me about your school's observation trends, domain scores, calibration flags, growth plateaus, or which teachers are closest to the 0.7 proficiency threshold.",
+};
 
 export default function ActionCenterPage() {
   const { currentUser } = useUser();
@@ -154,6 +88,25 @@ export default function ActionCenterPage() {
   const allTeachers: Teacher[]      = dashData?.teachers   ?? [];
   const categories:  CategoryEntry[] = dashData?.categories ?? [];
   const allDomains:  DomainEntry[]   = categories.flatMap((c) => c.domains);
+
+  /* ── AI data ─────────────────────────────────────────── */
+  const { data: insights } = useQuery<AIInsightsResponse>({
+    queryKey: ["ai-insights"],
+    queryFn:  fetchAIInsights,
+    staleTime: 60_000,
+  });
+
+  const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
+    queryKey: ["ai-calibration-flags"],
+    queryFn:  fetchAICalibrationFlags,
+    staleTime: 60_000,
+  });
+
+  const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
+    queryKey: ["ai-plateau-alerts"],
+    queryFn:  fetchAIPlateauAlerts,
+    staleTime: 60_000,
+  });
 
   /* ── Compute real school avg ─────────────────────────── */
   const schoolAvg = (() => {
@@ -210,6 +163,9 @@ export default function ActionCenterPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["ai-plateau-alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["ai-insights"] });
     } finally {
       setSaving(false);
       setNewObsOpen(false);
@@ -218,7 +174,7 @@ export default function ActionCenterPage() {
   }
 
   /* ── Chat state ──────────────────────────────────────── */
-  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>(SEED_CHAT);
+  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([WELCOME_MSG]);
   const [chatInput, setChatInput] = useState("");
   const [chatTyping, setChatTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -227,22 +183,23 @@ export default function ActionCenterPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, chatTyping]);
 
-  function handleSendChat() {
+  async function handleSendChat() {
     const text = chatInput.trim();
     if (!text) return;
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
     setChatTyping(true);
-    setTimeout(() => {
-      setChatTyping(false);
+    try {
+      const { reply } = await fetchAIChat(text);
+      setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
+    } catch {
       setChatMsgs((prev) => [
         ...prev,
-        {
-          role: "ai",
-          text: "This is a placeholder response. In the live version, I'll analyze your school's observation data and surface real insights here.",
-        },
+        { role: "ai", text: "Sorry, I couldn't retrieve a response right now. Please try again." },
       ]);
-    }, 1400);
+    } finally {
+      setChatTyping(false);
+    }
   }
 
   /* ── Render ─────────────────────────────────────────── */
@@ -298,16 +255,6 @@ export default function ActionCenterPage() {
           ════════════════════════════════════════════════════ */}
           <TabsContent value="summary" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6 mt-0">
 
-            {/* AI Disclaimer */}
-            <div className="flex items-start gap-3 px-4 py-3 rounded-xl border"
-              style={{ backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }}>
-              <Sparkles size={18} className="mt-0.5 shrink-0" style={{ color: "#D97706" }} />
-              <p className="text-sm text-amber-800">
-                <span className="font-bold">AI Features Coming Soon —</span> The cards below show placeholder data.
-                Once connected to an AI model, this page will automatically synthesize your school's observation data into real-time insights.
-              </p>
-            </div>
-
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="border-slate-200 shadow-sm">
@@ -349,9 +296,22 @@ export default function ActionCenterPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
-                  <p className="text-2xl font-bold" style={{ color: "#15803D", fontFamily: "'Bebas Neue', sans-serif" }}>Joy</p>
-                  <p className="text-sm text-slate-500 mt-1">Avg score <span className="font-bold text-green-600">0.9</span> across 6 teachers</p>
-                  <p className="text-xs text-slate-400 mt-0.5 italic">AI-synthesized · placeholder</p>
+                  {insights?.topStrength ? (
+                    <>
+                      <p className="text-2xl font-bold leading-tight" style={{ color: "#15803D", fontFamily: "'Bebas Neue', sans-serif" }}>
+                        {insights.topStrength.domain}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Avg score <span className="font-bold text-green-600">{insights.topStrength.avg.toFixed(2)}</span> across {insights.topStrength.count} observation{insights.topStrength.count !== 1 ? "s" : ""}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
+                      <p className="text-sm text-slate-400 mt-1">No observation data yet</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -362,38 +322,27 @@ export default function ActionCenterPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
-                  <p className="text-2xl font-bold" style={{ color: "#B91C1C", fontFamily: "'Bebas Neue', sans-serif" }}>Academic Mon. 101</p>
-                  <p className="text-sm text-slate-500 mt-1">Avg score <span className="font-bold text-red-600">0.3</span> across 6 teachers</p>
-                  <p className="text-xs text-slate-400 mt-0.5 italic">AI-synthesized · placeholder</p>
+                  {insights?.topGrowth ? (
+                    <>
+                      <p className="text-2xl font-bold leading-tight" style={{ color: "#B91C1C", fontFamily: "'Bebas Neue', sans-serif" }}>
+                        {insights.topGrowth.domain}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Avg score <span className="font-bold text-red-600">{insights.topGrowth.avg.toFixed(2)}</span> across {insights.topGrowth.count} observation{insights.topGrowth.count !== 1 ? "s" : ""}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
+                      <p className="text-sm text-slate-400 mt-1">No observation data yet</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Trending Action Steps */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="px-5 pt-5 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <Flame size={17} style={{ color: YELLOW }} />
-                    Trending Action Steps
-                  </CardTitle>
-                  <p className="text-xs text-slate-400 mt-0.5">Aggregated themes from recent observations · placeholder data</p>
-                </CardHeader>
-                <CardContent className="px-5 pb-5 space-y-3">
-                  {TRENDING_STEPS.map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className="shrink-0 w-11 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                        style={{ backgroundColor: "#EEF1FB", color: NAVY }}
-                      >
-                        {step.pct}%
-                      </div>
-                      <p className="text-sm text-slate-600 leading-snug">{step.insight}</p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
               {/* Calibration Flags */}
               <Card className="border-amber-200 shadow-sm" style={{ backgroundColor: "#FFFBEB" }}>
                 <CardHeader className="px-5 pt-5 pb-3">
@@ -402,35 +351,72 @@ export default function ActionCenterPage() {
                     Calibration Flags
                   </CardTitle>
                   <p className="text-xs text-amber-600 mt-0.5">
-                    Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough · placeholder data
+                    Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough · live data
                   </p>
                 </CardHeader>
                 <CardContent className="px-5 pb-5 space-y-3">
-                  {CALIBRATION_FLAGS.map((flag, i) => (
-                    <div key={i} className="bg-white rounded-lg px-4 py-3 border border-amber-100 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700">{flag.teacher}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{flag.domain}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-center">
-                          <p className="text-xs text-slate-400">School</p>
-                          <p className="text-sm font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</p>
-                        </div>
-                        <div className="text-slate-300 font-light">vs</div>
-                        <div className="text-center">
-                          <p className="text-xs text-slate-400">Network</p>
-                          <p className="text-sm font-bold text-amber-700">{flag.districtScore.toFixed(1)}</p>
-                        </div>
-                        <Badge
-                          className="text-xs font-bold ml-1"
-                          style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "none" }}
-                        >
-                          Δ {flag.delta.toFixed(1)}
-                        </Badge>
-                      </div>
+                  {calibrationFlags.length === 0 ? (
+                    <div className="flex items-center gap-2 py-2">
+                      <CheckCircle2 size={16} className="text-green-500" />
+                      <p className="text-sm text-slate-500">No calibration discrepancies detected.</p>
                     </div>
-                  ))}
+                  ) : (
+                    calibrationFlags.map((flag, i) => (
+                      <div key={i} className="bg-white rounded-lg px-4 py-3 border border-amber-100 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{flag.domain}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-center">
+                            <p className="text-xs text-slate-400">School</p>
+                            <p className="text-sm font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</p>
+                          </div>
+                          <div className="text-slate-300 font-light">vs</div>
+                          <div className="text-center">
+                            <p className="text-xs text-slate-400">Network</p>
+                            <p className="text-sm font-bold text-amber-700">{flag.networkScore.toFixed(1)}</p>
+                          </div>
+                          <Badge
+                            className="text-xs font-bold ml-1"
+                            style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "none" }}
+                          >
+                            Δ {flag.delta.toFixed(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Trending Action Steps — live from AI insights */}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="px-5 pt-5 pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                    <Flame size={17} style={{ color: YELLOW }} />
+                    Trending Action Steps
+                  </CardTitle>
+                  <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <Sparkles size={10} /> High-priority growth domains · live data
+                  </p>
+                </CardHeader>
+                <CardContent className="px-5 pb-5 space-y-3">
+                  {(insights?.trendingSteps ?? []).length > 0 ? (
+                    (insights!.trendingSteps as AITrendingStep[]).map((step, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className="shrink-0 w-11 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                          style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                          {step.pct}%
+                        </div>
+                        <p className="text-sm text-slate-600 leading-snug">
+                          <strong>{step.domain}</strong> — avg <strong style={{ color: "#B91C1C" }}>{step.avg.toFixed(2)}</strong>
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No high-priority growth domains identified yet.</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -492,12 +478,15 @@ export default function ActionCenterPage() {
                           {["Teacher", "School", "Subject / Grade", "Due Date", "Status", ""].map((h, i) => (
                             <th
                               key={i}
-                              className="px-4 py-3 text-left font-bold uppercase tracking-wider text-white"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
+                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-xs"
+                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
                             >
                               {h}
                             </th>
                           ))}
+                        </tr>
+                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                          <td colSpan={6} style={{ padding: 0, height: 3 }} />
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -566,56 +555,68 @@ export default function ActionCenterPage() {
                   Growth Plateau Alerts
                 </h2>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  Teachers showing no score improvement in a specific domain over their last 3+ observations.
-                  <span className="italic text-slate-400 ml-1">· Placeholder data</span>
+                  Teachers showing no score improvement in a specific domain over their last 3+ observations spanning 4+ weeks.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {PLATEAU_ALERTS.map((alert, i) => (
-                  <Card key={i} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="px-5 py-4">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div>
-                          <p className="font-bold text-slate-800">{alert.teacher}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{alert.subject}</p>
-                        </div>
-                        <Badge
-                          className="shrink-0 text-xs font-bold px-2 py-0.5"
-                          style={{ backgroundColor: "#FEE2E2", color: "#B91C1C", border: "none" }}
-                        >
-                          Stuck
-                        </Badge>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Domain</p>
-                        <p className="text-sm font-bold" style={{ color: NAVY }}>{alert.domain}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span
-                            className="text-xl font-bold"
-                            style={{ fontFamily: "'Bebas Neue', sans-serif", color: alert.score >= 0.7 ? "#16a34a" : "#dc2626" }}
+              {plateauAlerts.length === 0 ? (
+                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                  <CheckCircle2 size={40} className="text-green-400" />
+                  <div className="text-center">
+                    <p className="font-bold text-base" style={{ color: NAVY }}>No growth plateaus detected</p>
+                    <p className="text-slate-500 text-sm mt-1">All teachers have shown score improvement across their recent observations.</p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {plateauAlerts.map((alert, i) => (
+                    <Card key={i} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div>
+                            <p className="font-bold text-slate-800">{alert.teacherName}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {alert.subject}
+                              {alert.gradeLevel?.length > 0 ? ` · Gr. ${alert.gradeLevel.join(", ")}` : ""}
+                            </p>
+                          </div>
+                          <Badge
+                            className="shrink-0 text-xs font-bold px-2 py-0.5"
+                            style={{ backgroundColor: "#FEE2E2", color: "#B91C1C", border: "none" }}
                           >
-                            {alert.score.toFixed(1)}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            for {alert.obsCount} consecutive observations · {alert.weekRange}
-                          </span>
+                            Stuck
+                          </Badge>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const t = allTeachers.find((x) => x.name === alert.teacher);
-                          if (t) handleAddObsClick(Number(t.id));
-                        }}
-                        className="mt-3 w-full text-xs font-bold py-2 rounded-md border transition-colors hover:opacity-80"
-                        style={{ color: NAVY, borderColor: "#c7d0f0", backgroundColor: "#EEF1FB" }}
-                      >
-                        + Add Observation
-                      </button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                        <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Domain</p>
+                          <p className="text-sm font-bold" style={{ color: NAVY }}>{alert.domain}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span
+                              className="text-xl font-bold"
+                              style={{ fontFamily: "'Bebas Neue', sans-serif", color: alert.score >= 0.7 ? "#16a34a" : "#dc2626" }}
+                            >
+                              {alert.score.toFixed(1)}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              for {alert.obsCount} consecutive obs · {alert.weekRange}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const t = allTeachers.find((x) => x.name === alert.teacherName);
+                            if (t) handleAddObsClick(Number(t.id));
+                          }}
+                          className="mt-3 w-full text-xs font-bold py-2 rounded-md border transition-colors hover:opacity-80"
+                          style={{ color: NAVY, borderColor: "#c7d0f0", backgroundColor: "#EEF1FB" }}
+                        >
+                          + Add Observation
+                        </button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </section>
 
           </TabsContent>
@@ -640,20 +641,10 @@ export default function ActionCenterPage() {
                 </div>
                 <Badge
                   className="ml-auto text-xs font-bold px-2.5 py-1"
-                  style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "none" }}
+                  style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}
                 >
-                  Preview · Placeholder
+                  Live Data
                 </Badge>
-              </div>
-
-              {/* AI disclaimer */}
-              <div className="shrink-0 mb-4 flex items-start gap-2 px-4 py-3 rounded-xl border"
-                style={{ backgroundColor: "#EEF1FB", borderColor: "#c7d0f0" }}>
-                <Sparkles size={15} className="mt-0.5 shrink-0" style={{ color: NAVY }} />
-                <p className="text-xs" style={{ color: NAVY }}>
-                  <span className="font-bold">Mockup only.</span> Responses below are pre-written examples.
-                  The live version will connect to an AI model with access to your real observation data.
-                </p>
               </div>
 
               {/* Message area */}

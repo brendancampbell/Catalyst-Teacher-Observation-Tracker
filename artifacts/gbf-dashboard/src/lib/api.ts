@@ -410,3 +410,62 @@ export async function updateDomain(id: number, name: string, slug: string, descr
 export async function deleteDomain(id: number): Promise<void> {
   await apiFetch<void>(`/rubric/domains/${id}`, { method: "DELETE" });
 }
+
+/* ── AI ────────────────────────────────────────────────────────── */
+
+export interface AIChatResponse {
+  reply: string;
+}
+
+export interface AITrendingStep {
+  pct:     number;
+  domain:  string;
+  avg:     number;
+  insight: string;
+}
+
+export interface AIInsightsResponse {
+  topStrength:   { domain: string; avg: number; count: number } | null;
+  topGrowth:     { domain: string; avg: number; count: number } | null;
+  trendingSteps: AITrendingStep[];
+}
+
+export interface AICalibrationFlag {
+  teacher?:     string;
+  school?:      string;
+  domain:       string;
+  schoolScore:  number;
+  networkScore: number;
+  delta:        number;
+}
+
+export interface AIPlateauAlert {
+  teacherName: string;
+  subject:     string;
+  gradeLevel:  string[];
+  domain:      string;
+  score:       number;
+  obsCount:    number;
+  firstDate:   string;
+  lastDate:    string;
+  weekRange:   string;
+}
+
+export async function fetchAIChat(message: string): Promise<AIChatResponse> {
+  return apiFetch<AIChatResponse>("/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
+export async function fetchAIInsights(): Promise<AIInsightsResponse> {
+  return apiFetch<AIInsightsResponse>("/ai/insights");
+}
+
+export async function fetchAICalibrationFlags(): Promise<AICalibrationFlag[]> {
+  return apiFetch<AICalibrationFlag[]>("/ai/calibration-flags");
+}
+
+export async function fetchAIPlateauAlerts(): Promise<AIPlateauAlert[]> {
+  return apiFetch<AIPlateauAlert[]>("/ai/plateau-alerts");
+}
