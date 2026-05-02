@@ -73,7 +73,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [editableIntro, setEditableIntro] = useState("");
   const [editableGlows, setEditableGlows] = useState("");
   const [editableGrows, setEditableGrows] = useState("");
-  const [emailTab, setEmailTab] = useState<"preview" | "edit">("preview");
+  const [emailTab, setEmailTab] = useState<"preview" | "edit">("edit");
+  const [editableSubject, setEditableSubject] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -104,10 +105,11 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailPreview(null);
     setCopied(false);
     setCopiedHtml(false);
+    setEditableSubject("");
     setEditableIntro("");
     setEditableGlows("");
     setEditableGrows("");
-    setEmailTab("preview");
+    setEmailTab("edit");
   }
 
   function buildEmailDraft(): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -184,6 +186,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
     const logoUrl = `${window.location.origin}/uncommon-logo.png`;
+    const logoStyle = "display:block;height:36px;max-width:180px;filter:brightness(0) invert(1);";
 
     const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
     const overallAvg = scoredVals.length
@@ -268,7 +271,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
-                <img src="${logoUrl}" alt="Uncommon Schools" height="36" style="display:block;height:36px;max-width:180px;"/>
+                <img src="${logoUrl}" alt="Uncommon Schools" height="36" style="${logoStyle}"/>
               </td>
               <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
                 Observation Feedback
@@ -402,6 +405,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setEditableGrows(grows);
       const draft = buildEmailDraft();
       const htmlEmail = buildHtmlEmail(intro, glows, grows);
+      setEditableSubject(draft.subject);
       setEmailPreview({ ...draft, htmlEmail });
     } else {
       reset();
@@ -471,7 +475,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 <div className="flex items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">✉</span>
-                    <p className="font-bold text-slate-700 text-sm">Observation saved! Edit the email below, then copy or open in Outlook.</p>
+                    <p className="font-bold text-slate-700 text-sm">Observation saved! Edit the opening below, then copy or open in Outlook.</p>
                   </div>
                   {/* Edit / Preview tabs */}
                   <div className="flex rounded overflow-hidden border shrink-0" style={{ borderColor: NAVY }}>
@@ -486,57 +490,36 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                           color: emailTab === tab ? "white" : NAVY,
                         }}
                       >
-                        {tab === "edit" ? "✏ Edit" : "👁 Preview"}
+                        {tab === "edit" ? "Edit Opening" : "Preview"}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Subject line */}
-                <div className="shrink-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Subject</p>
-                  <div className="px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700">{emailPreview.subject}</div>
-                </div>
-
-                {/* Edit tab — editable text fields */}
+                {/* Edit tab — subject + opening only */}
                 {emailTab === "edit" && (
                   <div className="flex flex-col gap-4 flex-1">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Opening Message
+                        Subject Line
+                      </label>
+                      <input
+                        type="text"
+                        value={editableSubject}
+                        onChange={(e) => setEditableSubject(e.target.value)}
+                        className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                        style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Opening Message (Salutation, Body &amp; Signature)
                       </label>
                       <textarea
                         value={editableIntro}
                         onChange={(e) => setEditableIntro(e.target.value)}
-                        rows={4}
-                        className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none"
-                        style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#16a34a" }}>
-                        ✦ Teacher Strengths (Glows)
-                      </label>
-                      <textarea
-                        value={editableGlows}
-                        onChange={(e) => setEditableGlows(e.target.value)}
-                        rows={3}
-                        placeholder="What is this teacher doing well?"
-                        className="w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-green-300 bg-white resize-none"
-                        style={{ fontFamily: "'Libre Franklin', sans-serif", borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#ea580c" }}>
-                        ↑ Growth Areas (Grows)
-                      </label>
-                      <textarea
-                        value={editableGrows}
-                        onChange={(e) => setEditableGrows(e.target.value)}
-                        rows={3}
-                        placeholder="Where should this teacher focus next?"
-                        className="w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white resize-none"
-                        style={{ fontFamily: "'Libre Franklin', sans-serif", borderColor: "#fed7aa", backgroundColor: "#fff7ed", color: "#9a3412" }}
+                        className="w-full flex-1 px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none"
+                        style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 180 }}
                       />
                     </div>
                   </div>
@@ -576,7 +559,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   {copied ? "✓ Copied!" : "Copy Text"}
                 </button>
                 <a
-                  href={emailPreview.outlookWebUrl}
+                  href={`https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(emailPreview.body)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
@@ -585,7 +568,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   Outlook Web
                 </a>
                 <a
-                  href={emailPreview.mailtoUrl}
+                  href={`mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(emailPreview.body)}`}
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
                   onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
