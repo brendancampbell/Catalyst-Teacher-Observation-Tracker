@@ -70,6 +70,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; htmlEmail: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedHtml, setCopiedHtml] = useState(false);
+  const [editableIntro, setEditableIntro] = useState("");
+  const [editableGlows, setEditableGlows] = useState("");
+  const [editableGrows, setEditableGrows] = useState("");
+  const [emailTab, setEmailTab] = useState<"preview" | "edit">("preview");
 
   useEffect(() => {
     if (open) {
@@ -100,6 +104,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailPreview(null);
     setCopied(false);
     setCopiedHtml(false);
+    setEditableIntro("");
+    setEditableGlows("");
+    setEditableGrows("");
+    setEmailTab("preview");
   }
 
   function buildEmailDraft(): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -170,7 +178,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
-  function buildHtmlEmail(): string {
+  function buildHtmlEmail(intro: string, glowsText: string, growsText: string): string {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
     const dateLabel = formatDateLong(date);
@@ -277,7 +285,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       <tr>
         <td style="padding:28px 28px 0 28px;">
           <p style="margin:0 0 10px;font-size:15px;color:#1e293b;">Dear <strong>${firstName}</strong>,</p>
-          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.</p>
+          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">${intro}</p>
           <p style="margin:16px 0 0;font-size:14px;color:#475569;">Warm regards,<br/><strong>${observer}</strong></p>
         </td>
       </tr>
@@ -345,7 +353,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
-                <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;white-space:pre-wrap;">${strengths.trim() || "(none entered)"}</p>
+                <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;white-space:pre-wrap;">${glowsText.trim() || "(none entered)"}</p>
               </td>
             </tr>
           </table>
@@ -359,7 +367,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
-                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;white-space:pre-wrap;">${growthAreas.trim() || "(none entered)"}</p>
+                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;white-space:pre-wrap;">${growsText.trim() || "(none entered)"}</p>
               </td>
             </tr>
           </table>
@@ -380,12 +388,20 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 </html>`;
   }
 
+  const DEFAULT_INTRO = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
+
   function handleSubmit() {
     if (!teacherId) return;
     onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
     if (emailFeedback) {
+      const intro = DEFAULT_INTRO;
+      const glows = strengths;
+      const grows = growthAreas;
+      setEditableIntro(intro);
+      setEditableGlows(glows);
+      setEditableGrows(grows);
       const draft = buildEmailDraft();
-      const htmlEmail = buildHtmlEmail();
+      const htmlEmail = buildHtmlEmail(intro, glows, grows);
       setEmailPreview({ ...draft, htmlEmail });
     } else {
       reset();
@@ -406,6 +422,12 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setTimeout(() => setCopiedHtml(false), 2500);
     });
   }
+
+  // Recomputes whenever the editable text fields change
+  const liveHtmlEmail = useMemo(
+    () => emailPreview ? buildHtmlEmail(editableIntro, editableGlows, editableGrows) : "",
+    [emailPreview, editableIntro, editableGlows, editableGrows], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const inputBase =
     "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
@@ -443,33 +465,103 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           {/* ── Email Preview Screen ──────────────────────── */}
           {emailPreview && (
             <>
-              <div className="overflow-y-auto flex-1 flex flex-col gap-3 px-6 py-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">✉</span>
-                  <div>
-                    <p className="font-bold text-slate-700">Observation saved!</p>
-                    <p className="text-sm text-slate-500">Preview your branded email below — copy the HTML or open directly in Outlook.</p>
+              <div className="overflow-y-auto flex-1 flex flex-col gap-3 px-6 py-4" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+
+                {/* Header row */}
+                <div className="flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">✉</span>
+                    <p className="font-bold text-slate-700 text-sm">Observation saved! Edit the email below, then copy or open in Outlook.</p>
+                  </div>
+                  {/* Edit / Preview tabs */}
+                  <div className="flex rounded overflow-hidden border shrink-0" style={{ borderColor: NAVY }}>
+                    {(["edit", "preview"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setEmailTab(tab)}
+                        className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors"
+                        style={{
+                          backgroundColor: emailTab === tab ? NAVY : "white",
+                          color: emailTab === tab ? "white" : NAVY,
+                        }}
+                      >
+                        {tab === "edit" ? "✏ Edit" : "👁 Preview"}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div>
+
+                {/* Subject line */}
+                <div className="shrink-0">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Subject</p>
                   <div className="px-3 py-2 rounded border border-slate-200 text-sm bg-slate-50 text-slate-700">{emailPreview.subject}</div>
                 </div>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email Preview</p>
-                  <iframe
-                    srcDoc={emailPreview.htmlEmail}
-                    className="w-full rounded border border-slate-200 bg-white"
-                    style={{ minHeight: 340, flex: 1 }}
-                    title="Email Preview"
-                    sandbox="allow-same-origin"
-                  />
-                </div>
+
+                {/* Edit tab — editable text fields */}
+                {emailTab === "edit" && (
+                  <div className="flex flex-col gap-4 flex-1">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Opening Message
+                      </label>
+                      <textarea
+                        value={editableIntro}
+                        onChange={(e) => setEditableIntro(e.target.value)}
+                        rows={4}
+                        className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none"
+                        style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#16a34a" }}>
+                        ✦ Teacher Strengths (Glows)
+                      </label>
+                      <textarea
+                        value={editableGlows}
+                        onChange={(e) => setEditableGlows(e.target.value)}
+                        rows={3}
+                        placeholder="What is this teacher doing well?"
+                        className="w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-green-300 bg-white resize-none"
+                        style={{ fontFamily: "'Libre Franklin', sans-serif", borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#ea580c" }}>
+                        ↑ Growth Areas (Grows)
+                      </label>
+                      <textarea
+                        value={editableGrows}
+                        onChange={(e) => setEditableGrows(e.target.value)}
+                        rows={3}
+                        placeholder="Where should this teacher focus next?"
+                        className="w-full px-3 py-2 rounded border text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white resize-none"
+                        style={{ fontFamily: "'Libre Franklin', sans-serif", borderColor: "#fed7aa", backgroundColor: "#fff7ed", color: "#9a3412" }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview tab — rendered iframe */}
+                {emailTab === "preview" && (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <iframe
+                      srcDoc={liveHtmlEmail}
+                      className="w-full rounded border border-slate-200 bg-white flex-1"
+                      style={{ minHeight: 320 }}
+                      title="Email Preview"
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                )}
+
               </div>
-              <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 bg-slate-50">
+
+              {/* Footer buttons */}
+              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 bg-slate-50">
                 <button
                   type="button"
-                  onClick={() => handleCopyHtml(emailPreview.htmlEmail)}
+                  onClick={() => handleCopyHtml(liveHtmlEmail)}
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
                   style={{ borderColor: NAVY, color: copiedHtml ? "#15803d" : NAVY, backgroundColor: copiedHtml ? "#f0fdf4" : "white" }}
                 >
