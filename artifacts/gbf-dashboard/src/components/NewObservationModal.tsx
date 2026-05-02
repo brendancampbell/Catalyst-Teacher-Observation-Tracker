@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { type Score, type Teacher } from "@/data/dummy";
