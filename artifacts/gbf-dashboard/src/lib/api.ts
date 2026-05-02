@@ -101,6 +101,7 @@ export async function deleteAdminSchool(id: number): Promise<void> {
 export interface AdminTeacher {
   id:         number;
   name:       string;
+  email:      string | null;
   subject:    string;
   gradeLevel: string[];
   isActive:   boolean;
@@ -112,14 +113,14 @@ export async function fetchAdminTeachers(): Promise<AdminTeacher[]> {
   return apiFetch<AdminTeacher[]>("/admin/teachers");
 }
 
-export async function createAdminTeacher(payload: { name: string; subject: string; gradeLevel: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
+export async function createAdminTeacher(payload: { name: string; email?: string | null; subject: string; gradeLevel: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>("/admin/teachers", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAdminTeacher(id: number, payload: { name?: string; subject?: string; gradeLevel?: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
+export async function updateAdminTeacher(id: number, payload: { name?: string; email?: string | null; subject?: string; gradeLevel?: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>(`/admin/teachers/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),

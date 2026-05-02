@@ -16,6 +16,7 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
       .select({
         id:         teachers.id,
         name:       teachers.name,
+        email:      teachers.email,
         subject:    teachers.subject,
         gradeLevel: teachers.gradeLevel,
         isActive:   teachers.isActive,
@@ -38,8 +39,9 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
   try {
     const user = req.user as Express.User;
     const isNetworkAdmin = user.role === "NETWORK_ADMIN";
-    const { name, subject, gradeLevel, schoolId } = req.body as {
+    const { name, email, subject, gradeLevel, schoolId } = req.body as {
       name: string;
+      email?: string | null;
       subject: string;
       gradeLevel: string[];
       schoolId?: number | null;
@@ -55,6 +57,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       .insert(teachers)
       .values({
         name: name.trim(),
+        email: email?.trim() || null,
         subject: subject.trim(),
         gradeLevel: gradeLevel ?? [],
         isActive: true,
@@ -64,7 +67,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
 
     const withSchool = await db
       .select({
-        id: teachers.id, name: teachers.name, subject: teachers.subject,
+        id: teachers.id, name: teachers.name, email: teachers.email, subject: teachers.subject,
         gradeLevel: teachers.gradeLevel, isActive: teachers.isActive,
         schoolId: teachers.schoolId, schoolName: schools.name,
       })
@@ -94,14 +97,16 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       return;
     }
 
-    const { name, subject, gradeLevel, schoolId } = req.body as Partial<{
+    const { name, email, subject, gradeLevel, schoolId } = req.body as Partial<{
       name: string;
+      email: string | null;
       subject: string;
       gradeLevel: string[];
       schoolId: number | null;
     }>;
     const updates: Record<string, unknown> = {};
     if (name !== undefined)       updates.name       = name.trim();
+    if (email !== undefined)      updates.email      = email?.trim() || null;
     if (subject !== undefined)    updates.subject    = subject.trim();
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
     if (schoolId !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
@@ -113,7 +118,7 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
 
     const withSchool = await db
       .select({
-        id: teachers.id, name: teachers.name, subject: teachers.subject,
+        id: teachers.id, name: teachers.name, email: teachers.email, subject: teachers.subject,
         gradeLevel: teachers.gradeLevel, isActive: teachers.isActive,
         schoolId: teachers.schoolId, schoolName: schools.name,
       })

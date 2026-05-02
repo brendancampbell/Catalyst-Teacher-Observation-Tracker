@@ -457,6 +457,7 @@ export default function Dashboard() {
             onAddObservation={() => setNewObsOpen(true)}
             actionCenterHref={`${BASE_PATH}/action-center`}
             userName={currentUser.name}
+            userEmail={currentUser.email}
             userRole={currentUser.role}
             canAdmin={currentUser.role !== "COACH"}
             {...(isNetworkRole && schoolId != null

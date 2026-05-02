@@ -299,6 +299,15 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     <p className="text-blue-200 text-sm font-medium">
                       {teacher.subject} · Grade{teacher.gradeLevel.length !== 1 ? "s" : ""} {teacher.gradeLevel.join(", ")}
                     </p>
+                    {teacher.email && (
+                      <a
+                        href={`mailto:${teacher.email}`}
+                        className="text-xs font-medium mt-0.5 hover:text-white transition-colors"
+                        style={{ color: "rgba(147,197,253,0.85)", textDecoration: "none" }}
+                      >
+                        {teacher.email}
+                      </a>
+                    )}
                   </div>
                 </div>
 

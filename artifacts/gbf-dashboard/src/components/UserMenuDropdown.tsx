@@ -6,12 +6,13 @@ const YELLOW = "#FFB500";
 
 interface Props {
   name:      string;
+  email?:    string | null;
   role:      string;
   basePath:  string;
   canAdmin:  boolean;
 }
 
-export default function UserMenuDropdown({ name, role, basePath, canAdmin }: Props) {
+export default function UserMenuDropdown({ name, email, role, basePath, canAdmin }: Props) {
   const [open, setOpen]  = useState(false);
   const ref              = useRef<HTMLDivElement>(null);
 
@@ -81,7 +82,8 @@ export default function UserMenuDropdown({ name, role, basePath, canAdmin }: Pro
             style={{ borderColor: "#eef1fb", backgroundColor: "#f5f7ff" }}
           >
             <p className="font-bold text-sm truncate" style={{ color: NAVY }}>{name}</p>
-            <p className="text-xs mt-0.5 font-medium truncate" style={{ color: "#6b7280" }}>{roleLabel}</p>
+            {email && <p className="text-xs font-medium truncate" style={{ color: "#6b7280" }}>{email}</p>}
+            <p className="text-xs font-medium truncate" style={{ color: "#94a3b8" }}>{roleLabel}</p>
           </div>
 
           {/* Menu items */}

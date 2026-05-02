@@ -13,6 +13,7 @@ interface AppHeaderProps {
   actionCenterHref: string;
   actionCenterLabel?: string;
   userName: string;
+  userEmail?: string | null;
   userRole: string;
   canAdmin: boolean;
 }
@@ -26,6 +27,7 @@ export default function AppHeader({
   actionCenterHref,
   actionCenterLabel = "Action Center",
   userName,
+  userEmail,
   userRole,
   canAdmin,
 }: AppHeaderProps) {
@@ -106,6 +108,7 @@ export default function AppHeader({
 
             <UserMenuDropdown
               name={userName}
+              email={userEmail}
               role={userRole}
               basePath={basePath}
               canAdmin={canAdmin}

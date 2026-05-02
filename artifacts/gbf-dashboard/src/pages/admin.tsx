@@ -403,6 +403,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   /* Add form */
   const [adding, setAdding]               = useState(false);
   const [newName, setNewName]             = useState("");
+  const [newEmail, setNewEmail]           = useState("");
   const [newSubject, setNewSubject]       = useState("");
   const [newGrades, setNewGrades]         = useState<string[]>([]);
   const [newSchoolId, setNewSchoolId]     = useState<number | null>(null);
@@ -410,6 +411,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   /* Edit form */
   const [editId, setEditId]               = useState<number | null>(null);
   const [editName, setEditName]           = useState("");
+  const [editEmail, setEditEmail]         = useState("");
   const [editSubject, setEditSubject]     = useState("");
   const [editGrades, setEditGrades]       = useState<string[]>([]);
   const [editSchoolId, setEditSchoolId]   = useState<number | null>(null);
@@ -420,15 +422,15 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   const [filterSchools,  setFilterSchools]  = useState<string[]>([]);
 
   const createMut = useMutation({
-    mutationFn: () => createAdminTeacher({ name: newName.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
+    mutationFn: () => createAdminTeacher({ name: newName.trim(), email: newEmail.trim() || null, subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
-      setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
+      setAdding(false); setNewName(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
     },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
+    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), email: editEmail.trim() || null, subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
   });
 
@@ -438,7 +440,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   });
 
   function startEdit(t: AdminTeacher) {
-    setEditId(t.id); setEditName(t.name); setEditSubject(t.subject);
+    setEditId(t.id); setEditName(t.name); setEditEmail(t.email ?? ""); setEditSubject(t.subject);
     setEditGrades(t.gradeLevel); setEditSchoolId(t.schoolId);
   }
 
@@ -584,13 +586,14 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
         <TeacherForm
           title="Add New Teacher"
           name={newName} setName={setNewName}
+          email={newEmail} setEmail={setNewEmail}
           subject={newSubject} setSubject={setNewSubject}
           grades={newGrades}
           onToggleGrade={(g) => toggleGrade(g, newGrades, setNewGrades)}
           schools={isDistrictAdmin ? schools : null}
           schoolId={newSchoolId} setSchoolId={setNewSchoolId}
           onSave={() => createMut.mutate()}
-          onCancel={() => { setAdding(false); setNewName(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
+          onCancel={() => { setAdding(false); setNewName(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
           saving={createMut.isPending}
           inputCls={inputCls}
         />
@@ -622,6 +625,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
                     <TeacherForm
                       title={`Editing: ${t.name}`}
                       name={editName} setName={setEditName}
+                      email={editEmail} setEmail={setEditEmail}
                       subject={editSubject} setSubject={setEditSubject}
                       grades={editGrades}
                       onToggleGrade={(g) => toggleGrade(g, editGrades, setEditGrades)}
@@ -693,11 +697,12 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
 
 /* Shared form component */
 function TeacherForm({
-  title, name, setName, subject, setSubject, grades, onToggleGrade,
+  title, name, setName, email, setEmail, subject, setSubject, grades, onToggleGrade,
   schools, schoolId, setSchoolId,
   onSave, onCancel, saving, inputCls, compact = false,
 }: {
   title: string; name: string; setName: (v: string) => void;
+  email: string; setEmail: (v: string) => void;
   subject: string; setSubject: (v: string) => void;
   grades: string[]; onToggleGrade: (g: string) => void;
   schools: AdminSchool[] | null;
@@ -715,6 +720,13 @@ function TeacherForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="Full name"
           autoFocus
+        />
+        <input
+          type="email"
+          className={`${inputCls} flex-1 min-w-[200px]`}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email address (optional)"
         />
         <select
           className={`${inputCls} flex-1 min-w-[140px]`}

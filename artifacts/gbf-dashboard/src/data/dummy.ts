@@ -17,6 +17,7 @@ export interface Observation {
 export interface Teacher {
   id: string;
   name: string;
+  email?: string | null;
   subject: string;
   gradeLevel: string[];
   observations: Observation[];
