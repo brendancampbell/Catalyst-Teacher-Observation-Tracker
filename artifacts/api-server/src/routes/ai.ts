@@ -5,6 +5,7 @@ import {
   observationScores,
   teachers,
   schools,
+  rubricDomains,
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -33,6 +34,20 @@ async function getTeacherIds(isNetworkScope: boolean, schoolId: number | null): 
   return rows.map((r) => r.id);
 }
 
+/** Fetch a slug→label map for the given slugs from rubric_domains. */
+async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
+  if (!slugs.length) return new Map();
+  const rows = await db
+    .select({ slug: rubricDomains.slug, name: rubricDomains.name })
+    .from(rubricDomains)
+    .where(inArray(rubricDomains.slug, slugs));
+  const m = new Map<string, string>();
+  for (const r of rows) {
+    if (!m.has(r.slug)) m.set(r.slug, r.name);
+  }
+  return m;
+}
+
 async function buildDomainAverages(teacherIds: number[]): Promise<DomainAvg[]> {
   if (!teacherIds.length) return [];
 
@@ -52,9 +67,11 @@ async function buildDomainAverages(teacherIds: number[]): Promise<DomainAvg[]> {
     byDomain.set(r.domainSlug, bucket);
   }
 
+  const names = await slugNameMap(Array.from(byDomain.keys()));
+
   return Array.from(byDomain.entries()).map(([domainSlug, scores]) => ({
     domainSlug,
-    domainName: domainSlug,
+    domainName: names.get(domainSlug) ?? domainSlug,
     avg:        scores.reduce((s, v) => s + v, 0) / scores.length,
     count:      scores.length,
   }));
@@ -104,6 +121,9 @@ async function buildCalibrationFlags(
       groupMap.set(key, entry);
     }
 
+    const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
+    const names = await slugNameMap(allSlugs);
+
     const flags: CalibrationFlag[] = [];
     for (const entry of groupMap.values()) {
       if (!entry.coachScores.length || !entry.walkthroughScores.length) continue;
@@ -113,7 +133,7 @@ async function buildCalibrationFlags(
       if (delta >= 0.5) {
         flags.push({
           teacher:     entry.teacherName,
-          domain:      entry.domain,
+          domain:      names.get(entry.domain) ?? entry.domain,
           schoolScore: coachAvg,
           networkScore: networkAvg,
           delta,
@@ -144,6 +164,9 @@ async function buildCalibrationFlags(
     schoolMap.set(key, entry);
   }
 
+  const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
+  const names = await slugNameMap(allSlugs);
+
   const flags: CalibrationFlag[] = [];
   for (const entry of schoolMap.values()) {
     if (!entry.coachScores.length || !entry.walkthroughScores.length) continue;
@@ -153,7 +176,7 @@ async function buildCalibrationFlags(
     if (delta >= 0.5) {
       flags.push({
         school:      entry.schoolName,
-        domain:      entry.domain,
+        domain:      names.get(entry.domain) ?? entry.domain,
         schoolScore: coachAvg,
         networkScore: networkAvg,
         delta,
@@ -202,6 +225,9 @@ async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]>
     seriesMap.set(key, entry);
   }
 
+  const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
+  const names = await slugNameMap(allSlugs);
+
   const alerts: PlateauAlert[] = [];
   for (const entry of seriesMap.values()) {
     const pts = entry.points.sort((a, b) => a.date.localeCompare(b.date));
@@ -236,7 +262,7 @@ async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]>
       teacherName: entry.teacherName,
       subject:     entry.subject,
       gradeLevel:  entry.gradeLevel,
-      domain:      entry.domain,
+      domain:      names.get(entry.domain) ?? entry.domain,
       score:       bestEnd.score,
       obsCount:    bestStreak,
       firstDate:   bestStart.date,
