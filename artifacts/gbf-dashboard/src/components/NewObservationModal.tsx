@@ -172,8 +172,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     ].join(nl);
 
     const subject = `Classroom Observation Feedback - ${dateLabel}`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    const outlookWebUrl = `https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const teacherEmail = teacher?.email ?? "";
+    const mailtoUrl = `mailto:${encodeURIComponent(teacherEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const outlookWebUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teacherEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
@@ -584,7 +585,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   {copied ? "✓ Copied!" : "Copy Text"}
                 </button>
                 <a
-                  href={`https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
+                  href={`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
@@ -593,7 +594,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   Outlook Web
                 </a>
                 <a
-                  href={`mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
+                  href={`mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
                   className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
                   onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
