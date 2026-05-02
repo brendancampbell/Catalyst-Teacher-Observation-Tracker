@@ -1059,7 +1059,7 @@ export default function Dashboard() {
       </main>
 
       <footer className="text-center py-4" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
-        &copy; 2026 Uncommon Schools, Inc. All rights reserved.
+        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved.
       </footer>
 
     </div>
