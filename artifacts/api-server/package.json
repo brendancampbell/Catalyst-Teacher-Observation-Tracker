@@ -24,7 +24,8 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "resend": "4.0.0"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",

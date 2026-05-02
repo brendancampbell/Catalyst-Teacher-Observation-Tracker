@@ -11,6 +11,7 @@ import adminTeachersRouter from "./admin-teachers";
 import adminSchoolsRouter from "./admin-schools";
 import actionCenterRouter from "./action-center";
 import aiRouter from "./ai";
+import emailRouter from "./email";
 import { requireAuth, requireNetworkScope, requireNetworkAdmin, enforceSchoolScope } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -28,5 +29,6 @@ router.use("/admin/teachers", requireAuth, adminTeachersRouter);
 router.use("/admin/schools",  requireAuth, requireNetworkScope, adminSchoolsRouter);
 router.use("/action-center",  requireAuth, actionCenterRouter);
 router.use("/ai",             requireAuth, aiRouter);
+router.use("/email",          requireAuth, emailRouter);
 
 export default router;

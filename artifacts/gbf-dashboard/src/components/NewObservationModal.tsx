@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
+import { sendObservationEmail } from "@/lib/api";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -26,7 +27,7 @@ interface Props {
     isWalkthrough: boolean,
     time: string,
     course: string,
-  ) => void;
+  ) => Promise<string>;
   saving?: boolean;
 }
 
@@ -75,6 +76,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [editableGrows, setEditableGrows] = useState("");
   const [emailTab, setEmailTab] = useState<"preview" | "edit">("edit");
   const [editableSubject, setEditableSubject] = useState("");
+  const [savedObsId, setSavedObsId] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailSendError, setEmailSendError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -110,6 +115,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEditableGlows("");
     setEditableGrows("");
     setEmailTab("edit");
+    setSavedObsId(null);
+    setSendingEmail(false);
+    setEmailSent(false);
+    setEmailSendError(null);
   }
 
   function buildEmailDraft(introText?: string): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -408,9 +417,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   const DEFAULT_INTRO_BODY = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!teacherId) return;
-    onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
+    const obsId = await onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
+    setSavedObsId(obsId ?? null);
     if (emailFeedback) {
       const firstName = teachers.find((t) => t.id === teacherId)?.name.split(" ")[0] ?? "Teacher";
       const observer = observerName ?? "Your Observer";
@@ -427,6 +437,30 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     } else {
       reset();
       onOpenChange(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!savedObsId) return;
+    const teacher = teachers.find((t) => t.id === teacherId);
+    if (!teacher?.email) return;
+    setSendingEmail(true);
+    setEmailSendError(null);
+    try {
+      await sendObservationEmail({
+        observationId: savedObsId,
+        intro: editableIntro,
+        glows: editableGlows,
+        grows: editableGrows,
+        subject: editableSubject,
+        teacherEmail: teacher.email,
+        logoUrl: `${window.location.origin}/uncommon-logo.png`,
+      });
+      setEmailSent(true);
+    } catch (err) {
+      setEmailSendError(err instanceof Error ? err.message : "Failed to send email");
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -567,48 +601,77 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               </div>
 
               {/* Footer buttons */}
-              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 bg-slate-50">
-                <button
-                  type="button"
-                  onClick={() => handleCopyHtml(liveHtmlEmail)}
-                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
-                  style={{ borderColor: NAVY, color: copiedHtml ? "#15803d" : NAVY, backgroundColor: copiedHtml ? "#f0fdf4" : "white" }}
-                >
-                  {copiedHtml ? "✓ Copied!" : "Copy HTML"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(emailPreview.body)}
-                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
-                  style={{ borderColor: "#64748b", color: copied ? "#15803d" : "#64748b", backgroundColor: copied ? "#f0fdf4" : "white" }}
-                >
-                  {copied ? "✓ Copied!" : "Copy Text"}
-                </button>
-                <a
-                  href={`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "#0078D4", textDecoration: "none" }}
-                >
-                  Outlook Web
-                </a>
-                <a
-                  href={`mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
-                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
-                  onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
-                >
-                  Open in Outlook
-                </a>
-                <button
-                  type="button"
-                  onClick={() => { reset(); onOpenChange(false); }}
-                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
-                  style={{ backgroundColor: NAVY }}
-                >
-                  Done
-                </button>
+              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50 space-y-2">
+                {/* Send error */}
+                {emailSendError && (
+                  <p className="text-xs text-red-600 text-center">{emailSendError}</p>
+                )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyHtml(liveHtmlEmail)}
+                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
+                    style={{ borderColor: NAVY, color: copiedHtml ? "#15803d" : NAVY, backgroundColor: copiedHtml ? "#f0fdf4" : "white" }}
+                  >
+                    {copiedHtml ? "✓ Copied!" : "Copy HTML"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(emailPreview.body)}
+                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
+                    style={{ borderColor: "#64748b", color: copied ? "#15803d" : "#64748b", backgroundColor: copied ? "#f0fdf4" : "white" }}
+                  >
+                    {copied ? "✓ Copied!" : "Copy Text"}
+                  </button>
+                  <a
+                    href={`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: "#0078D4", textDecoration: "none" }}
+                  >
+                    Outlook Web
+                  </a>
+                  <a
+                    href={`mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
+                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
+                    onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
+                  >
+                    Open in Outlook
+                  </a>
+                  {/* Send via Resend */}
+                  {(() => {
+                    const teacherEmail = teachers.find(t => t.id === teacherId)?.email;
+                    if (emailSent) {
+                      return (
+                        <span className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-center text-green-700 bg-green-50 border border-green-200">
+                          ✓ Email Sent!
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        type="button"
+                        onClick={handleSendEmail}
+                        disabled={!teacherEmail || sendingEmail || !savedObsId}
+                        title={!teacherEmail ? "No email address on this teacher's profile" : undefined}
+                        className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: "#16a34a" }}
+                      >
+                        {sendingEmail ? "Sending…" : "✉ Send Email"}
+                      </button>
+                    );
+                  })()}
+                  <button
+                    type="button"
+                    onClick={() => { reset(); onOpenChange(false); }}
+                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                    style={{ backgroundColor: NAVY }}
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </>
           )}

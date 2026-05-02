@@ -469,3 +469,20 @@ export async function fetchAICalibrationFlags(): Promise<AICalibrationFlag[]> {
 export async function fetchAIPlateauAlerts(): Promise<AIPlateauAlert[]> {
   return apiFetch<AIPlateauAlert[]>("/ai/plateau-alerts");
 }
+
+/* ── Email ──────────────────────────────────────────────────────── */
+
+export async function sendObservationEmail(payload: {
+  observationId: string;
+  intro: string;
+  glows: string;
+  grows: string;
+  subject: string;
+  teacherEmail: string;
+  logoUrl: string;
+}): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>("/email/send-observation", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

@@ -352,11 +352,11 @@ export default function Dashboard() {
     isWalkthrough: boolean,
     time: string,
     course: string,
-  ) {
-    if (!rubricSetId) return;
+  ): Promise<string> {
+    if (!rubricSetId) return "";
     setSaving(true);
     try {
-      await createObservation({
+      const obs = await createObservation({
         teacherId,
         rubricSetId,
         date,
@@ -370,8 +370,10 @@ export default function Dashboard() {
         isWalkthrough,
       });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
+      return "";
     } finally {
       setSaving(false);
     }
