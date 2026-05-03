@@ -2295,7 +2295,7 @@ export default function AdminPage() {
       <div className="sticky top-0 z-30 shadow-md">
         <AppHeader
           subtitle="Settings"
-          basePath={returnTo}
+          basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
           backHref={returnTo}
           backLabel="Dashboard"
           onAddObservation={() => {

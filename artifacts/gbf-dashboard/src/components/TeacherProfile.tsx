@@ -227,7 +227,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             subtitle={teacher.name}
             backHref={backHref}
             backLabel={schoolDisplayName || "Dashboard"}
-            basePath={backHref}
+            basePath={basePath}
             onAddObservation={onNewObs}
             actionCenterHref={`${basePath}/action-center?returnTo=${encodeURIComponent(backHref)}`}
             userName={currentUser.name}

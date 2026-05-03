@@ -139,7 +139,7 @@ export default function DistrictActionCenterPage() {
               subtitle="Network Action Center"
               backHref={returnTo}
               backLabel="Back to Network Overview"
-              basePath={returnTo}
+              basePath={baseUrl}
               actionCenterHref={`${baseUrl}/district-action-center`}
               userName={currentUser.name}
               userRole={currentUser.role}
