@@ -4,6 +4,16 @@ import { X, Pencil, Check, ChevronLeft, Trash2 } from "lucide-react";
 import { type Observation, type Score } from "@/data/dummy";
 import { type CategoryEntry } from "@/lib/api";
 import { getScoreColorExact } from "@/components/ScoreCell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -77,20 +87,18 @@ export function ObservationDetailModal({
   const [saveError, setSaveError]       = useState<string | null>(null);
   const [deleting, setDeleting]         = useState(false);
   const [deleteError, setDeleteError]   = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen]   = useState(false);
   const [draftScores, setDraftScores]   = useState<Record<string, Score>>(observation.scores);
   const [draftStrengths, setDraftStrengths] = useState(observation.strengths ?? "");
   const [draftGrowth, setDraftGrowth]   = useState(observation.growthAreas ?? "");
 
-  async function handleDelete() {
+  async function performDelete() {
     if (!onDelete) return;
-    const dateLabel = formatDate(observation.date);
-    if (!confirm(`Delete the observation from ${dateLabel} for ${teacher.name}?\n\nThis will permanently remove the observation and all of its scores. This cannot be undone.`)) {
-      return;
-    }
     setDeleting(true);
     setDeleteError(null);
     try {
       await onDelete(observation.id);
+      setConfirmOpen(false);
     } catch {
       setDeleteError("Failed to delete — please try again.");
       setDeleting(false);
@@ -377,16 +385,12 @@ export function ObservationDetailModal({
                     {onDelete && (
                       <button
                         type="button"
-                        onClick={handleDelete}
+                        onClick={() => { setDeleteError(null); setConfirmOpen(true); }}
                         disabled={deleting}
                         className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold transition-colors hover:bg-red-50 border border-red-200 text-red-700 disabled:opacity-50"
                       >
-                        {deleting ? (
-                          <span className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-700 rounded-full animate-spin" />
-                        ) : (
-                          <Trash2 size={13} />
-                        )}
-                        {deleting ? "Deleting…" : "Delete"}
+                        <Trash2 size={13} />
+                        Delete
                       </button>
                     )}
                     <button
@@ -408,6 +412,31 @@ export function ObservationDetailModal({
 
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!deleting) setConfirmOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this observation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the observation from {formatDate(observation.date)} for {teacher.name},
+              along with all of its scores. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="text-xs text-red-600">{deleteError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void performDelete(); }}
+              disabled={deleting}
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+            >
+              {deleting ? "Deleting…" : "Delete observation"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DialogPrimitive.Root>
   );
 }
