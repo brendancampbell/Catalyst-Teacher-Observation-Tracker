@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import AppHeader from "@/components/AppHeader";
+import { safeReturnTo } from "@/lib/safeReturnTo";
 import { useUser } from "@/context/UserContext";
 import {
   fetchRescoreQueue,
@@ -38,10 +39,10 @@ export default function DistrictActionCenterPage() {
   const { currentUser } = useUser();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  const returnTo = (() => {
-    const p = new URLSearchParams(window.location.search).get("returnTo");
-    return p ?? (baseUrl + "/");
-  })();
+  const returnTo = safeReturnTo(
+    new URLSearchParams(window.location.search).get("returnTo"),
+    baseUrl + "/",
+  );
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({

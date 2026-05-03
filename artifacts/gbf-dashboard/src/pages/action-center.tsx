@@ -6,6 +6,7 @@ import {
   Bot, User2, Flame, ShieldAlert, Activity,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import { safeReturnTo } from "@/lib/safeReturnTo";
 import {
   fetchRescoreQueue,
   fetchDashboard,
@@ -61,10 +62,10 @@ export default function ActionCenterPage() {
   const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  const returnTo = (() => {
-    const p = new URLSearchParams(window.location.search).get("returnTo");
-    return p ?? (baseUrl + "/");
-  })();
+  const returnTo = safeReturnTo(
+    new URLSearchParams(window.location.search).get("returnTo"),
+    baseUrl + "/",
+  );
 
   /* ── Rescore queue ─────────────────────────────────── */
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({

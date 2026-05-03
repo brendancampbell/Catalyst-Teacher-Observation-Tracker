@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search } from "lucide-react";
+import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import {
@@ -2155,11 +2156,10 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const returnTo = (() => {
-    const p = new URLSearchParams(window.location.search).get("returnTo");
-    if (p) return p;
-    return BASE + "/";
-  })();
+  const returnTo = safeReturnTo(
+    new URLSearchParams(window.location.search).get("returnTo"),
+    BASE + "/",
+  );
 
   /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
