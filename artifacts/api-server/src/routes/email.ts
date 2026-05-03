@@ -7,7 +7,7 @@ import {
   rubricCategories,
   rubricDomains,
 } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { getUncachableResendClient } from "../lib/resend";
 
 const router = Router();
@@ -339,17 +339,20 @@ router.post("/send-observation", async (req, res) => {
       .where(eq(rubricCategories.rubricSetId, obs.rubricSetId))
       .orderBy(rubricCategories.displayOrder);
 
-    const domains = await db
-      .select()
-      .from(rubricDomains)
-      .where(eq(rubricDomains.rubricSetId, obs.rubricSetId))
-      .orderBy(rubricDomains.displayOrder);
+    const catIds = cats.map((c) => c.id);
+    const domains = catIds.length
+      ? await db
+          .select()
+          .from(rubricDomains)
+          .where(inArray(rubricDomains.categoryId, catIds))
+          .orderBy(rubricDomains.displayOrder)
+      : [];
 
     const categories = cats.map((cat) => ({
-      label: cat.label,
+      label: cat.name,
       domains: domains
         .filter((d) => d.categoryId === cat.id)
-        .map((d) => ({ slug: d.slug, label: d.label })),
+        .map((d) => ({ slug: d.slug, label: d.name })),
     }));
 
     /* ── Build HTML ────────────────────────────────────────── */
@@ -359,7 +362,7 @@ router.post("/send-observation", async (req, res) => {
       growsText: grows ?? "",
       teacherName: teacher.name,
       teacherSubject: teacher.subject,
-      teacherGrade: teacher.gradeLevel,
+      teacherGrade: Array.isArray(teacher.gradeLevel) ? teacher.gradeLevel.join(", ") : (teacher.gradeLevel ?? null),
       date: obs.date,
       time: obs.time,
       course: obs.course,
