@@ -90,7 +90,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
           <div className="py-1">
             {canAdmin && (
               <a
-                href={`${basePath}/admin`}
+                href={`${basePath}/admin?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
                 style={{ color: NAVY, textDecoration: "none" }}

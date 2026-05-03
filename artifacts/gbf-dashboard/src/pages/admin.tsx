@@ -2154,6 +2154,13 @@ export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
   const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
 
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const returnTo = (() => {
+    const p = new URLSearchParams(window.location.search).get("returnTo");
+    if (p) return p;
+    return BASE + "/";
+  })();
+
   /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
   const { data: rubricSets = [], isLoading: rubricSetsLoading } = useQuery<RubricSetRow[]>({
@@ -2239,7 +2246,7 @@ export default function AdminPage() {
         <div style={{ height: 5, backgroundColor: YELLOW }} />
         <header style={{ backgroundColor: NAVY }} className="shadow-md">
           <div className="px-4 sm:px-6 py-3 flex items-center gap-4">
-            <a href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/`} className="flex items-center gap-2 font-semibold hover:opacity-80" style={{ color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.02em" }}>
+            <a href={returnTo} className="flex items-center gap-2 font-semibold hover:opacity-80" style={{ color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.02em" }}>
               <ArrowLeft size={18} /> Dashboard
             </a>
           </div>
@@ -2254,7 +2261,7 @@ export default function AdminPage() {
             Coaches do not have access to the Admin panel. Switch to a School Leader, Network Leader, or Super Admin account to manage settings.
           </p>
           <a
-            href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/`}
+            href={returnTo}
             className="mt-2 px-6 py-2 rounded-lg font-bold text-white"
             style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em" }}
           >
@@ -2288,12 +2295,11 @@ export default function AdminPage() {
       <div className="sticky top-0 z-30 shadow-md">
         <AppHeader
           subtitle="Settings"
-          basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
-          backHref={import.meta.env.BASE_URL.replace(/\/$/, "") + "/"}
+          basePath={returnTo}
+          backHref={returnTo}
           backLabel="Dashboard"
           onAddObservation={() => {
-            const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-            window.location.href = `${base}/`;
+            window.location.href = returnTo;
           }}
           actionCenterHref={
             (currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER")
