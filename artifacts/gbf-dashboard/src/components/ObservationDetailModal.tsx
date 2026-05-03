@@ -140,6 +140,7 @@ export function ObservationDetailModal({
     "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   return (
+    <>
     <DialogPrimitive.Root
       open={open}
       onOpenChange={(o) => {
@@ -412,31 +413,32 @@ export function ObservationDetailModal({
 
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
-
-      <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!deleting) setConfirmOpen(o); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this observation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove the observation from {formatDate(observation.date)} for {teacher.name},
-              along with all of its scores. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {deleteError && (
-            <p className="text-xs text-red-600">{deleteError}</p>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); void performDelete(); }}
-              disabled={deleting}
-              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
-            >
-              {deleting ? "Deleting…" : "Delete observation"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DialogPrimitive.Root>
+
+    <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!deleting) setConfirmOpen(o); }}>
+      <AlertDialogContent className="z-[80]">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this observation?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently remove the observation from {formatDate(observation.date)} for {teacher.name},
+            along with all of its scores. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {deleteError && (
+          <p className="text-xs text-red-600">{deleteError}</p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); void performDelete(); }}
+            disabled={deleting}
+            className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+          >
+            {deleting ? "Deleting…" : "Delete observation"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
