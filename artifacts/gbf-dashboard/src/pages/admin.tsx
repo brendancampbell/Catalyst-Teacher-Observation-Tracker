@@ -723,6 +723,10 @@ function TeacherForm({
           autoFocus
         />
         <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            Email <span className="text-red-600" aria-hidden="true">*</span>
+            <span className="sr-only">(required)</span>
+          </label>
           <input
             type="email"
             required
@@ -730,7 +734,7 @@ function TeacherForm({
             className={`${inputCls} w-full ${email.length > 0 && !email.includes("@") ? "border-red-500 focus:border-red-500" : ""}`}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email address *"
+            placeholder="name@school.org"
           />
           {email.length > 0 && !email.includes("@") && (
             <p className="mt-1 text-xs text-red-600">Please enter a valid email address.</p>

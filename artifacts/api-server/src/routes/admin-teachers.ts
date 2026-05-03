@@ -109,16 +109,13 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       gradeLevel: string[];
       schoolId: number | null;
     }>;
-    const updates: Record<string, unknown> = {};
-    if (name !== undefined)       updates.name       = name.trim();
-    if ("email" in req.body) {
-      const trimmed = email?.trim() ?? "";
-      if (!trimmed || !trimmed.includes("@")) {
-        res.status(400).json({ error: "A valid email address is required" });
-        return;
-      }
-      updates.email = trimmed;
+    const trimmedEmail = email?.trim() ?? "";
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      res.status(400).json({ error: "A valid email address is required" });
+      return;
     }
+    const updates: Record<string, unknown> = { email: trimmedEmail };
+    if (name !== undefined)       updates.name       = name.trim();
     if (subject !== undefined)    updates.subject    = subject.trim();
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
     if (schoolId !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
