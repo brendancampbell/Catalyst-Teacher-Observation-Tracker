@@ -423,7 +423,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   const [filterSchools,  setFilterSchools]  = useState<string[]>([]);
 
   const createMut = useMutation({
-    mutationFn: () => createAdminTeacher({ name: newName.trim(), email: newEmail.trim() || null, subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
+    mutationFn: () => createAdminTeacher({ name: newName.trim(), email: newEmail.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
       setAdding(false); setNewName(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
@@ -431,7 +431,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), email: editEmail.trim() || null, subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
+    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), email: editEmail.trim(), subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
   });
 
@@ -724,10 +724,11 @@ function TeacherForm({
         />
         <input
           type="email"
+          required
           className={`${inputCls} flex-1 min-w-[200px]`}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email address (optional)"
+          placeholder="Email address *"
         />
         <select
           className={`${inputCls} flex-1 min-w-[140px]`}
@@ -772,7 +773,7 @@ function TeacherForm({
           className="px-4 py-1.5 rounded font-bold text-white text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
           style={{ backgroundColor: NAVY }}
           onClick={onSave}
-          disabled={saving || !name.trim() || !subject}
+          disabled={saving || !name.trim() || !subject || !email.trim() || !email.includes("@")}
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -914,7 +915,7 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
                   { col: "subject",    req: true,            desc: "Subject area (e.g. Math, ELA, Science)" },
                   { col: "gradeLevel", req: true,            desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
                   { col: "school",     req: isDistrictAdmin, desc: isDistrictAdmin ? "Exact school name (required for Network Admin)" : "School name (ignored — your school is used automatically)" },
-                  { col: "email",      req: false,           desc: "Teacher's email address — used to send observation feedback" },
+                  { col: "email",      req: true,            desc: "Teacher's email address — used to send observation feedback" },
                 ].map(({ col, req, desc }) => (
                   <tr key={col}>
                     <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
@@ -1010,7 +1011,7 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
                     {isDistrictAdmin && (
                       <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-red-400 italic">missing</span>}</td>
                     )}
-                    <td className="px-3 py-2 text-slate-500 text-xs">{row.email || <span className="text-slate-300 italic">—</span>}</td>
+                    <td className="px-3 py-2 text-slate-500 text-xs">{row.email || <span className="text-red-400 italic">missing</span>}</td>
                   </tr>
                 ))}
               </tbody>

@@ -50,6 +50,11 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       res.status(400).json({ error: "name and subject are required" });
       return;
     }
+    const trimmedEmail = email?.trim() ?? "";
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      res.status(400).json({ error: "A valid email address is required" });
+      return;
+    }
 
     const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : user.schoolId;
 
@@ -57,7 +62,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       .insert(teachers)
       .values({
         name: name.trim(),
-        email: email?.trim() || null,
+        email: trimmedEmail,
         subject: subject.trim(),
         gradeLevel: gradeLevel ?? [],
         isActive: true,
@@ -106,7 +111,14 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     }>;
     const updates: Record<string, unknown> = {};
     if (name !== undefined)       updates.name       = name.trim();
-    if (email !== undefined)      updates.email      = email?.trim() || null;
+    if (email !== undefined) {
+      const trimmed = email?.trim() ?? "";
+      if (!trimmed || !trimmed.includes("@")) {
+        res.status(400).json({ error: "A valid email address is required" });
+        return;
+      }
+      updates.email = trimmed;
+    }
     if (subject !== undefined)    updates.subject    = subject.trim();
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
     if (schoolId !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
@@ -194,6 +206,14 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       }
       if (gradeLevel.length === 0) {
         results.push({ row: rowNum, status: "error", name, reason: "Missing gradeLevel" });
+        continue;
+      }
+      if (!email) {
+        results.push({ row: rowNum, status: "error", name, reason: "Missing email" });
+        continue;
+      }
+      if (!email.includes("@")) {
+        results.push({ row: rowNum, status: "error", name, reason: "Invalid email address" });
         continue;
       }
 

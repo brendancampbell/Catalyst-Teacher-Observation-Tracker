@@ -67,7 +67,7 @@ async function seedDev() {
   ]).onConflictDoNothing().returning();
 
   console.log("Inserting teachers…");
-  const teacherRows = [
+  const teacherSeeds = [
     { name: "Aaliyah Brooks",    subject: "Math",    gradeLevel: ["5", "6"],    schoolId: insertedSchools[0].id, isActive: true },
     { name: "Brandon Kim",       subject: "ELA",     gradeLevel: ["6", "7"],    schoolId: insertedSchools[0].id, isActive: true },
     { name: "Carmen Diaz",       subject: "Science", gradeLevel: ["7", "8"],    schoolId: insertedSchools[0].id, isActive: true },
@@ -98,6 +98,12 @@ async function seedDev() {
     { name: "Xara Jenkins",      subject: "History", gradeLevel: ["8"],         schoolId: insertedSchools[4].id, isActive: true },
     { name: "Yusuf Ahmad",       subject: "Math",    gradeLevel: ["5"],         schoolId: insertedSchools[4].id, isActive: true },
   ];
+
+  const teacherRows = teacherSeeds.map((t) => {
+    const [first, ...rest] = t.name.toLowerCase().split(/\s+/);
+    const last = rest.join("");
+    return { ...t, email: `${first}.${last}@uncommonschools.org` };
+  });
 
   const insertedTeachers = await db.insert(teachers).values(teacherRows).returning();
 

@@ -49,7 +49,7 @@ router.get("/:id", async (req, res) => {
     res.json({
       id: String(teacher.id),
       name: teacher.name,
-      email: teacher.email ?? null,
+      email: teacher.email,
       subject: teacher.subject,
       gradeLevel: teacher.gradeLevel,
       observations: obsRows
