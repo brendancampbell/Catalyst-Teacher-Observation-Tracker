@@ -488,11 +488,26 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     });
   }
 
-  function handleCopyHtml(html: string) {
-    navigator.clipboard.writeText(html).then(() => {
+  async function handleCopyHtml(html: string) {
+    const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html":  new Blob([html],  { type: "text/html"  }),
+            "text/plain": new Blob([plain], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(html);
+      }
       setCopiedHtml(true);
       setTimeout(() => setCopiedHtml(false), 2500);
-    });
+    } catch {
+      await navigator.clipboard.writeText(html);
+      setCopiedHtml(true);
+      setTimeout(() => setCopiedHtml(false), 2500);
+    }
   }
 
   // Recomputes whenever the editable text fields change
