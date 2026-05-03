@@ -198,8 +198,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
-    const logoUrl = `${window.location.origin}/uncommon-logo.png`;
-    const logoStyle = "display:block;height:36px;max-width:180px;filter:brightness(0) invert(1);";
+    const logoUrl = `${window.location.origin}/uncommon-logo-white.png`;
+    const logoStyle = "display:block;height:36px;max-width:180px;";
 
     const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
     const overallAvg = scoredVals.length
@@ -460,7 +460,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
         grows: editableGrows,
         subject: editableSubject,
         teacherEmail: teacher.email,
-        logoUrl: `${window.location.origin}/uncommon-logo.png`,
+        logoUrl: `${window.location.origin}/uncommon-logo-white.png`,
       });
       setEmailSent(true);
       const teacherFirstName = teacher.name.split(" ")[0];
