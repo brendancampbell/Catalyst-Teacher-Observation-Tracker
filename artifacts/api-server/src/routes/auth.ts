@@ -89,6 +89,7 @@ router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) =
       id:       users.id,
       role:     users.role,
       name:     users.name,
+      isActive: users.isActive,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -102,6 +103,10 @@ router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) =
   const target = rows[0];
   if (target.role === "NETWORK_ADMIN") {
     res.status(403).json({ error: "Cannot impersonate another Network Admin" });
+    return;
+  }
+  if (!target.isActive) {
+    res.status(403).json({ error: "Cannot impersonate a deactivated user" });
     return;
   }
 

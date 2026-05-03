@@ -47,6 +47,10 @@ export function configurePassport() {
             return done(null, false, { message: "Email not provisioned" });
           }
 
+          if (!user.isActive) {
+            return done(null, false, { message: "Account deactivated" });
+          }
+
           if (!user.googleId) {
             await db
               .update(users)

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, pgEnum, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, pgEnum, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schools } from "./schools";
@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   role:     roleEnum("role").notNull().default("COACH"),
   schoolId: integer("school_id").references(() => schools.id, { onDelete: "set null" }),
   googleId: text("google_id"),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });

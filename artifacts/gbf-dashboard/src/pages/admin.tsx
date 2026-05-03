@@ -21,6 +21,7 @@ import {
   createAdminTeacher,
   updateAdminTeacher,
   toggleTeacherActive,
+  toggleUserActive,
   fetchAdminSchools,
   createAdminSchool,
   updateAdminSchool,
@@ -1472,6 +1473,7 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
   const [userSearch,    setUserSearch]    = useState("");
   const [filterRoles,   setFilterRoles]   = useState<string[]>([]);
   const [filterUserSchools, setFilterUserSchools] = useState<string[]>([]);
+  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
 
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
@@ -1492,6 +1494,12 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
   const updateMut = useMutation({
     mutationFn: () => updateUser(editId!, { email: editEmail.trim(), name: editName.trim(), role: editRole, schoolId: editSchoolId }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const toggleUserMut = useMutation({
+    mutationFn: (id: number) => toggleUserActive(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
     onError: (err: Error) => alert(err.message),
   });
 
@@ -1520,6 +1528,7 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
   const userFiltersActive = filterRoles.length > 0 || filterUserSchools.length > 0;
 
   const shownUsers = userList.filter((u) => {
+    if (!showInactiveUsers && !u.isActive) return false;
     if (userSearch) {
       const q = userSearch.toLowerCase();
       if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
@@ -1616,6 +1625,10 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
         {isNetworkAdmin && userSchoolOptions.length > 0 && (
           <FilterMultiSelect label="School" values={filterUserSchools} onChange={setFilterUserSchools} options={userSchoolOptions} />
         )}
+        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
+          <input type="checkbox" checked={showInactiveUsers} onChange={(e) => setShowInactiveUsers(e.target.checked)} className="accent-blue-700" />
+          Show inactive
+        </label>
 
         {(userFiltersActive || userSearch) && (
           <button
@@ -1691,20 +1704,21 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
               <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Email</th>
               <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Role</th>
               {isNetworkAdmin && <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>}
+              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {userList.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No users found.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No users found.</td></tr>
             )}
             {userList.length > 0 && shownUsers.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No users match your filters.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No users match your filters.</td></tr>
             )}
             {shownUsers.map((u) => (
               <tr key={u.id}>
                 {editId === u.id ? (
-                  <td colSpan={isNetworkAdmin ? 5 : 4} className="px-4 py-3 bg-blue-50">
+                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
                     <div className="flex flex-wrap gap-3 items-start">
                       <input className={`${inputCls} flex-1 min-w-[160px]`} value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name" autoFocus />
                       <input className={`${inputCls} flex-1 min-w-[200px]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" type="email" />
@@ -1725,17 +1739,28 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
                   </td>
                 ) : (
                   <>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{u.name}</td>
-                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell">{u.email}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 font-medium text-slate-800" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.name}</td>
+                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.email}</td>
+                    <td className="px-4 py-2.5" style={{ opacity: u.isActive ? 1 : 0.5 }}>
                       <span className="text-xs font-bold rounded-full px-2.5 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
                         {ALL_ROLES_MAP[u.role] ?? u.role}
                       </span>
                     </td>
-                    {isNetworkAdmin && <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell">{u.schoolName ?? <span className="text-slate-300 italic">None</span>}</td>}
+                    {isNetworkAdmin && <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.schoolName ?? <span className="text-slate-300 italic">None</span>}</td>}
+                    <td className="px-4 py-2.5">
+                      <span
+                        className="text-xs font-bold rounded-full px-2.5 py-1"
+                        style={u.isActive
+                          ? { backgroundColor: "#dcfce7", color: "#15803d" }
+                          : { backgroundColor: "#fee2e2", color: "#b91c1c" }
+                        }
+                      >
+                        {u.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {isNetworkAdmin && !isImpersonating && u.role !== "NETWORK_ADMIN" && (
+                        {isNetworkAdmin && !isImpersonating && u.role !== "NETWORK_ADMIN" && u.isActive && (
                           <button
                             className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-colors hover:bg-purple-50 hover:text-purple-700 disabled:opacity-40"
                             style={{ color: "#7c3aed", border: "1px solid #ede9fe" }}
@@ -1749,6 +1774,14 @@ function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: 
                         )}
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" onClick={() => startEdit(u)} title="Edit">
                           <Pencil size={13} />
+                        </button>
+                        <button
+                          className={`p-1.5 rounded transition-colors ${u.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
+                          title={u.isActive ? "Deactivate" : "Reactivate"}
+                          onClick={() => toggleUserMut.mutate(u.id)}
+                          disabled={toggleUserMut.isPending}
+                        >
+                          {u.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
                         </button>
                       </div>
                     </td>

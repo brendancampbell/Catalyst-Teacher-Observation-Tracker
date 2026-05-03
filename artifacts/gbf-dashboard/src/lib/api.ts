@@ -11,6 +11,7 @@ export interface UserRow {
   role:       UserRole;
   schoolId:   number | null;
   schoolName: string | null;
+  isActive:   boolean;
 }
 
 export async function fetchUsers(): Promise<UserRow[]> {
@@ -34,6 +35,10 @@ export async function createUser(payload: { email: string; name: string; role: U
 
 export async function updateUser(id: number, payload: Partial<{ email: string; name: string; role: UserRole; schoolId: number | null }>): Promise<UserRow> {
   return apiFetch<UserRow>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function toggleUserActive(id: number): Promise<UserRow> {
+  return apiFetch<UserRow>(`/users/${id}/toggle-active`, { method: "PATCH" });
 }
 
 export interface BulkImportRowResult {

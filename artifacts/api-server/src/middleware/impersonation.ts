@@ -34,6 +34,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
         role:       users.role,
         schoolId:   users.schoolId,
         googleId:   users.googleId,
+        isActive:   users.isActive,
         schoolName: schools.name,
       })
       .from(users)
@@ -41,7 +42,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
       .where(eq(users.id, impersonatingUserId))
       .limit(1);
 
-    if (rows.length > 0) {
+    if (rows.length > 0 && rows[0].isActive) {
       const target = rows[0];
       (req as Request & { realUser?: Express.User }).realUser = req.user;
       req.user = {
@@ -51,6 +52,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
         role:       target.role,
         schoolId:   target.schoolId,
         googleId:   target.googleId,
+        isActive:   target.isActive,
         schoolName: target.schoolName ?? null,
       } as Express.User;
     } else {

@@ -25,6 +25,7 @@ router.get("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) 
         role:       users.role,
         schoolId:   users.schoolId,
         schoolName: schools.name,
+        isActive:   users.isActive,
       })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
@@ -86,7 +87,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
     }).returning();
 
     const [withSchool] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name })
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
       .where(eq(users.id, created.id));
@@ -266,7 +267,7 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
 
     const [withSchool] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name })
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
       .where(eq(users.id, updated.id));
@@ -278,6 +279,56 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       return;
     }
     console.error("PATCH /users/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── PATCH /api/users/:id/toggle-active ───────────────────────────
+   Soft-delete: flip isActive. Same scope rules as PATCH /:id.
+   Cannot deactivate yourself.                                       */
+router.patch("/:id/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const isNetworkAdmin: boolean = currentUser.role === "NETWORK_ADMIN";
+    const userId = Number(req.params.id);
+
+    if (userId === currentUser.id) {
+      res.status(400).json({ error: "You cannot deactivate your own account" });
+      return;
+    }
+
+    const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (!isNetworkAdmin) {
+      if (target.schoolId !== currentUser.schoolId) {
+        res.status(403).json({ error: "Cannot edit users in another school" });
+        return;
+      }
+      if (!SCHOOL_ASSIGNABLE_ROLES.includes(target.role as UserRole)) {
+        res.status(403).json({ error: "Cannot edit Network Leader or Network Admin users" });
+        return;
+      }
+    }
+
+    const [updated] = await db
+      .update(users)
+      .set({ isActive: !target.isActive })
+      .where(eq(users.id, userId))
+      .returning();
+
+    const [withSchool] = await db
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
+      .from(users)
+      .leftJoin(schools, eq(users.schoolId, schools.id))
+      .where(eq(users.id, updated.id));
+
+    res.json(withSchool);
+  } catch (err) {
+    console.error("PATCH /users/:id/toggle-active error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

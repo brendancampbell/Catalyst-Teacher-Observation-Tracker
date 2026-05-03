@@ -69,6 +69,7 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
   - Admin page blocked for COACH (shows Access Restricted screen)
   - Walkthrough toggle shown to SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN
 - **Teacher Roster** (Admin > Teacher Roster tab): Add, Edit, Deactivate teachers; show/hide inactive
+- **User Management** (Admin > Users tab): Add, Edit, Deactivate users (soft-delete via `users.isActive`). Deactivated users cannot log in (blocked at OAuth callback) and cannot be impersonated; existing impersonation sessions auto-terminate. NETWORK_ADMIN scope is global; SCHOOL_LEADER scope is own school + only COACH/SCHOOL_LEADER targets. Self-deactivation blocked.
 
 ### Design
 
@@ -115,6 +116,7 @@ All routes mounted at `/api`:
 - `POST /api/admin/teachers` — Create teacher
 - `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel
 - `PATCH /api/admin/teachers/:id/toggle-active` — Toggle isActive
+- `PATCH /api/users/:id/toggle-active` — Soft-delete user (toggle isActive); blocks self
 - `GET /api/action-center/rescore-queue` — Teachers where needsRescore=true + school info + due date
 
 ### Phase 5 Features (District Walkthrough + Action Center)
