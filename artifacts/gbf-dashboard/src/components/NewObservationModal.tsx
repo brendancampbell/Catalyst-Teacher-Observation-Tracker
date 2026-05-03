@@ -4,6 +4,7 @@ import { X, Plus } from "lucide-react";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { sendObservationEmail } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -457,8 +458,19 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
         logoUrl: `${window.location.origin}/uncommon-logo.png`,
       });
       setEmailSent(true);
+      const teacherFirstName = teacher.name.split(" ")[0];
+      toast({
+        title: "Email sent",
+        description: `Email sent to ${teacherFirstName}`,
+      });
     } catch (err) {
-      setEmailSendError(err instanceof Error ? err.message : "Failed to send email");
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      setEmailSendError(message);
+      toast({
+        title: "Failed to send email",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setSendingEmail(false);
     }
