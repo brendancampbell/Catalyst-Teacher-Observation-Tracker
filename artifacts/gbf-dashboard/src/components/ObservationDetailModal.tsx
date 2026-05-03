@@ -416,7 +416,7 @@ export function ObservationDetailModal({
     </DialogPrimitive.Root>
 
     <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!deleting) setConfirmOpen(o); }}>
-      <AlertDialogContent className="z-[80]">
+      <AlertDialogContent className="z-[80] !slide-in-from-left-0 !slide-in-from-top-0 !slide-out-to-left-0 !slide-out-to-top-0">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this observation?</AlertDialogTitle>
           <AlertDialogDescription>
