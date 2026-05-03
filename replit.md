@@ -216,3 +216,22 @@ Only users pre-provisioned in the `users` table can sign in. To add a user:
 - Via seed: add to `artifacts/api-server/src/seed.ts` and re-run
 
 On first login, the user's `google_id` is populated automatically.
+
+## Pending Production Migration: teacher email NOT NULL
+
+The `teachers.email` column is currently **nullable + unique** in the schema. This is a temporary state to allow the production deploy to succeed (production has 80 existing teachers with no email).
+
+Three-step rollout:
+
+1. ✅ **Done (current).** Schema relaxed to `text("email").unique()`. Deploy this. The post-deploy migration on production will:
+   - `ALTER TABLE teachers ADD COLUMN email TEXT` (nullable — succeeds despite existing rows)
+   - `ALTER TABLE teachers ADD CONSTRAINT teachers_email_unique UNIQUE (email)` (succeeds; multiple NULLs allowed in unique indexes)
+
+2. **Backfill (manual, post-deploy).** Populate emails for the 80 existing teachers via:
+   - Admin UI → Teachers tab → edit each, OR
+   - Admin UI → Teachers tab → CSV bulk import (already validates email present + uniqueness)
+   - Verify with: `SELECT COUNT(*) FILTER (WHERE email IS NULL) FROM teachers;` (should be 0)
+
+3. **Tighten back to NOT NULL (follow-up deploy).** Change `lib/db/src/schema/teachers.ts` line 12 back to `text("email").notNull().unique()` and push. This will succeed only if step 2 left zero NULL rows.
+
+App-level validation in `admin-teachers.ts` already requires email on create/edit/CSV import, so no new teachers can be added without one — only the legacy 80 rows are temporarily allowed to have NULL.

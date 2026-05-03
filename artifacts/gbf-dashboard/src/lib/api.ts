@@ -101,7 +101,7 @@ export async function deleteAdminSchool(id: number): Promise<void> {
 export interface AdminTeacher {
   id:         number;
   name:       string;
-  email:      string;
+  email:      string | null;
   subject:    string;
   gradeLevel: string[];
   isActive:   boolean;
