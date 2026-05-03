@@ -788,9 +788,9 @@ function TeacherForm({
    TEACHER BULK IMPORT
    ════════════════════════════════════════════════════════════════ */
 
-const TEACHER_CSV_TEMPLATE = `name,subject,gradeLevel,school
-Jane Smith,Math,"K,1,2",Lincoln Elementary
-John Doe,ELA,"3,4",Lincoln Elementary
+const TEACHER_CSV_TEMPLATE = `name,subject,gradeLevel,school,email
+Jane Smith,Math,"K,1,2",Lincoln Elementary,jane.smith@uncommonschools.org
+John Doe,ELA,"3,4",Lincoln Elementary,john.doe@uncommonschools.org
 `;
 
 function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
@@ -804,6 +804,7 @@ function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
   const subjectIdx = headers.indexOf("subject");
   const gradeIdx   = headers.indexOf("gradelevel");
   const schoolIdx  = headers.indexOf("school");
+  const emailIdx   = headers.indexOf("email");
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -814,6 +815,7 @@ function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
       subject:    subjectIdx >= 0 ? (cols[subjectIdx] ?? "") : "",
       gradeLevel: gradeIdx   >= 0 ? (cols[gradeIdx]   ?? "") : "",
       school:     schoolIdx  >= 0 ? (cols[schoolIdx]  ?? "") : "",
+      email:      emailIdx   >= 0 ? (cols[emailIdx]   ?? "") : "",
     });
   }
   return results;
@@ -908,10 +910,11 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  { col: "name",       req: true,          desc: "Full name of the teacher" },
-                  { col: "subject",    req: true,          desc: "Subject area (e.g. Math, ELA, Science)" },
-                  { col: "gradeLevel", req: true,          desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
+                  { col: "name",       req: true,            desc: "Full name of the teacher" },
+                  { col: "subject",    req: true,            desc: "Subject area (e.g. Math, ELA, Science)" },
+                  { col: "gradeLevel", req: true,            desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
                   { col: "school",     req: isDistrictAdmin, desc: isDistrictAdmin ? "Exact school name (required for Network Admin)" : "School name (ignored — your school is used automatically)" },
+                  { col: "email",      req: false,           desc: "Teacher's email address — used to send observation feedback" },
                 ].map(({ col, req, desc }) => (
                   <tr key={col}>
                     <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
@@ -994,6 +997,7 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
                   {isDistrictAdmin && (
                     <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">School</th>
                   )}
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1006,6 +1010,7 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
                     {isDistrictAdmin && (
                       <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-red-400 italic">missing</span>}</td>
                     )}
+                    <td className="px-3 py-2 text-slate-500 text-xs">{row.email || <span className="text-slate-300 italic">—</span>}</td>
                   </tr>
                 ))}
               </tbody>

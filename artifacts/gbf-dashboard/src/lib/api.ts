@@ -136,6 +136,7 @@ export interface BulkImportTeacherPayload {
   subject:    string;
   gradeLevel: string;
   school:     string;
+  email:      string;
 }
 
 export interface BulkImportTeacherRowResult {

@@ -145,6 +145,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       subject?: unknown;
       gradeLevel?: unknown;
       school?: unknown;
+      email?: unknown;
     }>;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -173,6 +174,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       const name    = typeof raw.name    === "string" ? raw.name.trim()    : null;
       const subject = typeof raw.subject === "string" ? raw.subject.trim() : null;
       const school  = typeof raw.school  === "string" ? raw.school.trim()  : null;
+      const email   = typeof raw.email   === "string" && raw.email.trim() ? raw.email.trim() : null;
 
       // Parse gradeLevel — accept string (comma-separated) or array
       let gradeLevel: string[] = [];
@@ -229,6 +231,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
           gradeLevel,
           isActive: true,
           schoolId,
+          email,
         });
         results.push({ row: rowNum, status: "created", name });
       } catch {
