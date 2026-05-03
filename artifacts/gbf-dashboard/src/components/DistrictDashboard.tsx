@@ -254,7 +254,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
           <AppHeader
             subtitle="Network Overview"
             basePath={baseUrl}
-            actionCenterHref={`${baseUrl}/district-action-center`}
+            actionCenterHref={`${baseUrl}/district-action-center?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             actionCenterLabel="Action Center"
             userName={currentUser.name}
             userRole={currentUser.role}

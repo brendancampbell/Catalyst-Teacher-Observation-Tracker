@@ -61,6 +61,11 @@ export default function ActionCenterPage() {
   const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  const returnTo = (() => {
+    const p = new URLSearchParams(window.location.search).get("returnTo");
+    return p ?? (baseUrl + "/");
+  })();
+
   /* ── Rescore queue ─────────────────────────────────── */
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({
     queryKey: ["rescoreQueue"],
@@ -215,9 +220,9 @@ export default function ActionCenterPage() {
           {currentUser && (
             <AppHeader
               subtitle="Action Center"
-              backHref={`${baseUrl}/`}
+              backHref={returnTo}
               backLabel="Back to Dashboard"
-              basePath={baseUrl}
+              basePath={returnTo}
               onAddObservation={() => setNewObsOpen(true)}
               actionCenterHref={`${baseUrl}/action-center`}
               userName={currentUser.name}

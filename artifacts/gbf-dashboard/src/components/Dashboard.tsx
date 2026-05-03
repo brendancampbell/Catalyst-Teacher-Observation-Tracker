@@ -457,7 +457,7 @@ export default function Dashboard() {
             subtitle={schoolName ?? currentUser.schoolName ?? ""}
             basePath={BASE_PATH}
             onAddObservation={() => setNewObsOpen(true)}
-            actionCenterHref={`${BASE_PATH}/action-center`}
+            actionCenterHref={`${BASE_PATH}/action-center?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}
             userRole={currentUser.role}

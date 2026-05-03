@@ -38,6 +38,11 @@ export default function DistrictActionCenterPage() {
   const { currentUser } = useUser();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  const returnTo = (() => {
+    const p = new URLSearchParams(window.location.search).get("returnTo");
+    return p ?? (baseUrl + "/");
+  })();
+
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
     queryKey: ["ai-insights-network"],
@@ -132,9 +137,9 @@ export default function DistrictActionCenterPage() {
           {currentUser && (
             <AppHeader
               subtitle="Network Action Center"
-              backHref={`${baseUrl}/`}
+              backHref={returnTo}
               backLabel="Back to Network Overview"
-              basePath={baseUrl}
+              basePath={returnTo}
               actionCenterHref={`${baseUrl}/district-action-center`}
               userName={currentUser.name}
               userRole={currentUser.role}
