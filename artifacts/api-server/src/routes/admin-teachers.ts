@@ -111,7 +111,7 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     }>;
     const updates: Record<string, unknown> = {};
     if (name !== undefined)       updates.name       = name.trim();
-    if (email !== undefined) {
+    if ("email" in req.body) {
       const trimmed = email?.trim() ?? "";
       if (!trimmed || !trimmed.includes("@")) {
         res.status(400).json({ error: "A valid email address is required" });

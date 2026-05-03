@@ -722,14 +722,23 @@ function TeacherForm({
           placeholder="Full name"
           autoFocus
         />
-        <input
-          type="email"
-          required
-          className={`${inputCls} flex-1 min-w-[200px]`}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email address *"
-        />
+        <div className="flex-1 min-w-[200px]">
+          <input
+            type="email"
+            required
+            aria-invalid={email.length > 0 && !email.includes("@")}
+            className={`${inputCls} w-full ${email.length > 0 && !email.includes("@") ? "border-red-500 focus:border-red-500" : ""}`}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email address *"
+          />
+          {email.length > 0 && !email.includes("@") && (
+            <p className="mt-1 text-xs text-red-600">Please enter a valid email address.</p>
+          )}
+          {email.length === 0 && (
+            <p className="mt-1 text-xs text-slate-500">Email is required.</p>
+          )}
+        </div>
         <select
           className={`${inputCls} flex-1 min-w-[140px]`}
           value={subject}
