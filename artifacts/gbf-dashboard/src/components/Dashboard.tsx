@@ -176,7 +176,9 @@ export default function Dashboard() {
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
     queryKey: ["rubricSets"],
-    queryFn: fetchRubricSets,
+    // fetchRubricSets takes (includeArchived?: boolean); React Query would pass its
+    // QueryFunctionContext as that arg, so wrap in an arrow to call with no args.
+    queryFn: () => fetchRubricSets(),
     staleTime: 60_000,
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);

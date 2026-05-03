@@ -77,7 +77,9 @@ export default function ActionCenterPage() {
   /* ── Dashboard data ──────────────────────────────────── */
   const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
     queryKey: ["quarters"],
-    queryFn:  fetchQuarters,
+    // fetchQuarters takes (includeArchived?: boolean); React Query would pass its
+    // QueryFunctionContext as that arg, so wrap in an arrow to call with no args.
+    queryFn:  () => fetchQuarters(),
     staleTime: 60_000,
   });
 
