@@ -145,6 +145,28 @@ All routes mounted at `/api`:
 
 The frontend proxies `/api` to `http://localhost:8080` in development (configured in `vite.config.ts`).
 
+### Email sending
+
+Direct email send via Resend is **currently disabled** in the UI because the Resend sending domain has not been verified yet. The green "✉ Send Email" button is hidden in the post-save observation preview.
+
+Principals send observation feedback to teachers using the still-visible buttons:
+- **Open in Outlook** / **Outlook Web** — opens the principal's mail client with the subject and plain-text body pre-filled.
+- **Copy HTML** / **Copy Text** — copies the formatted email for pasting into any mail tool.
+
+All backend email plumbing remains intact and is not stubbed:
+- `artifacts/api-server/src/routes/email.ts` — `POST /api/email/send-observation` (still mounted, just no UI caller).
+- `artifacts/api-server/src/lib/resend.ts` — Resend client wrapper using the Replit Resend connector.
+- `sendObservationEmail()` in `artifacts/gbf-dashboard/src/lib/api.ts` — frontend API call.
+- `handleSendEmail()` in `NewObservationModal.tsx` — frontend handler.
+
+**To re-enable direct send when Resend is ready:**
+1. Verify the sending domain (e.g. `uncommonschools.org` or a subdomain) in the Resend dashboard.
+2. Confirm the Replit Resend connector's `from_email` matches the verified domain.
+3. In `artifacts/gbf-dashboard/src/components/NewObservationModal.tsx`, change `const EMAIL_DIRECT_SEND_ENABLED = false;` (top of file) to `true`.
+4. Restart the `artifacts/gbf-dashboard: web` workflow.
+
+No backend or schema changes are required to flip it back on.
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)

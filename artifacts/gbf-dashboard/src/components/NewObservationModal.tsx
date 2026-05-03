@@ -9,6 +9,11 @@ import { toast } from "@/hooks/use-toast";
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
+// Direct email send is gated off until the Resend sending domain is verified.
+// Flip to `true` when the Resend connector is fully configured and the
+// sending domain is verified. See replit.md → "Email sending".
+const EMAIL_DIRECT_SEND_ENABLED = false;
+
 interface Props {
   teachers: Teacher[];
   categories: CategoryEntry[];
@@ -614,8 +619,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
               {/* Footer buttons */}
               <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                {/* Send error */}
-                {emailSendError && (
+                {/* Send error (only shown when direct send is enabled) */}
+                {EMAIL_DIRECT_SEND_ENABLED && emailSendError && (
                   <p className="text-xs text-red-600 text-center">{emailSendError}</p>
                 )}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3">
@@ -652,8 +657,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   >
                     Open in Outlook
                   </a>
-                  {/* Send via Resend */}
-                  {(() => {
+                  {/* Send via Resend — gated off until Resend domain is verified */}
+                  {EMAIL_DIRECT_SEND_ENABLED && (() => {
                     const teacherEmail = teachers.find(t => t.id === teacherId)?.email;
                     if (emailSent) {
                       return (
