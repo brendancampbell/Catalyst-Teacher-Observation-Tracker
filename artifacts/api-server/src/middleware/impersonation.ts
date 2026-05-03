@@ -20,8 +20,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
     return next();
   }
 
-  const sess = req.session as Record<string, unknown>;
-  const impersonatingUserId = sess["impersonatingUserId"] as number | undefined;
+  const impersonatingUserId = req.session.impersonatingUserId;
   if (!impersonatingUserId) {
     return next();
   }
@@ -55,8 +54,8 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
         schoolName: target.schoolName ?? null,
       } as Express.User;
     } else {
-      delete sess["impersonatingUserId"];
-      delete sess["realUserId"];
+      delete req.session.impersonatingUserId;
+      delete req.session.realUserId;
     }
   } catch {
     /* on error, proceed as real user */

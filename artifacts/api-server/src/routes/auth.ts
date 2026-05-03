@@ -26,7 +26,7 @@ router.get(
   (req, res, next) => {
     const returnTo = req.query["returnTo"];
     if (typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo)) {
-      (req.session as Record<string, unknown>)["returnTo"] = returnTo;
+      req.session.returnTo = returnTo;
     }
     next();
   },
@@ -43,14 +43,14 @@ router.get(
   (req, res, next) => {
     passport.authenticate("google", { session: true }, (err: unknown, user: Express.User | false) => {
       if (err) return next(err);
-      const returnTo = (req.session as Record<string, unknown>)["returnTo"];
+      const returnTo = req.session.returnTo;
       const isMobile = typeof returnTo === "string" && returnTo.startsWith("/gbf-mobile");
       if (!user) {
         return res.redirect(isMobile ? "/gbf-mobile/access-denied" : "/access-denied");
       }
       req.logIn(user, (loginErr) => {
         if (loginErr) return next(loginErr);
-        delete (req.session as Record<string, unknown>)["returnTo"];
+        delete req.session.returnTo;
         const dest = typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo) ? returnTo : "/";
         res.redirect(dest);
       });
@@ -66,11 +66,10 @@ router.get("/me", (req, res) => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  const sess = req.session as Record<string, unknown>;
   const realUser = (req as unknown as { realUser?: Express.User }).realUser;
   res.json({
     ...req.user,
-    _isImpersonating: !!sess["impersonatingUserId"],
+    _isImpersonating: !!req.session.impersonatingUserId,
     _realUser: realUser ? { id: realUser.id, name: realUser.name } : null,
   });
 });
@@ -106,9 +105,8 @@ router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) =
     return;
   }
 
-  const sess = req.session as Record<string, unknown>;
-  sess["impersonatingUserId"] = userId;
-  sess["realUserId"] = (req.user as Express.User).id;
+  req.session.impersonatingUserId = userId;
+  req.session.realUserId = (req.user as Express.User).id;
 
   res.json({ ok: true, impersonating: { id: target.id, name: target.name } });
 });
@@ -116,9 +114,8 @@ router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) =
 /* ── POST /api/auth/stop-impersonating ───────────────────────────
    Stops the active impersonation session.                          */
 router.post("/stop-impersonating", requireAuth, (req, res) => {
-  const sess = req.session as Record<string, unknown>;
-  delete sess["impersonatingUserId"];
-  delete sess["realUserId"];
+  delete req.session.impersonatingUserId;
+  delete req.session.realUserId;
   res.json({ ok: true });
 });
 
