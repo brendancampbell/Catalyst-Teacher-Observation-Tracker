@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Pencil, Check, ChevronLeft } from "lucide-react";
+import { X, Pencil, Check, ChevronLeft, Trash2 } from "lucide-react";
 import { type Observation, type Score } from "@/data/dummy";
 import { type CategoryEntry } from "@/lib/api";
 import { getScoreColorExact } from "@/components/ScoreCell";
@@ -66,17 +66,36 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (updated: Observation) => Promise<void>;
+  onDelete?: (observationId: string) => Promise<void>;
 }
 
 export function ObservationDetailModal({
-  teacher, observation, categories, canEdit, open, onOpenChange, onSave,
+  teacher, observation, categories, canEdit, open, onOpenChange, onSave, onDelete,
 }: Props) {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
   const [saveError, setSaveError]       = useState<string | null>(null);
+  const [deleting, setDeleting]         = useState(false);
+  const [deleteError, setDeleteError]   = useState<string | null>(null);
   const [draftScores, setDraftScores]   = useState<Record<string, Score>>(observation.scores);
   const [draftStrengths, setDraftStrengths] = useState(observation.strengths ?? "");
   const [draftGrowth, setDraftGrowth]   = useState(observation.growthAreas ?? "");
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    const dateLabel = formatDate(observation.date);
+    if (!confirm(`Delete the observation from ${dateLabel} for ${teacher.name}?\n\nThis will permanently remove the observation and all of its scores. This cannot be undone.`)) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDelete(observation.id);
+    } catch {
+      setDeleteError("Failed to delete — please try again.");
+      setDeleting(false);
+    }
+  }
 
   function startEdit() {
     setDraftScores(observation.scores);
@@ -354,18 +373,38 @@ export function ObservationDetailModal({
                   {teacher.gradeLevel.join(", ")}
                 </p>
                 {canEdit && (
-                  <button
-                    type="button"
-                    onClick={startEdit}
-                    className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-bold transition-opacity hover:opacity-90 shadow-sm"
-                    style={{ backgroundColor: NAVY, color: "white" }}
-                  >
-                    <Pencil size={13} /> Edit Observation
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {onDelete && (
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold transition-colors hover:bg-red-50 border border-red-200 text-red-700 disabled:opacity-50"
+                      >
+                        {deleting ? (
+                          <span className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-700 rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        {deleting ? "Deleting…" : "Delete"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-bold transition-opacity hover:opacity-90 shadow-sm"
+                      style={{ backgroundColor: NAVY, color: "white" }}
+                    >
+                      <Pencil size={13} /> Edit Observation
+                    </button>
+                  </div>
                 )}
               </>
             )}
           </div>
+          {deleteError && (
+            <p className="px-5 pb-3 text-xs text-red-600 text-right">{deleteError}</p>
+          )}
 
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

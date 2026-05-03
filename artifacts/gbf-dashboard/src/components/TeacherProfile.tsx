@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
-import { fetchDashboard, updateObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
@@ -140,6 +140,7 @@ interface Props {
 
 export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
   const { currentUser } = useUser();
+  const queryClient = useQueryClient();
 
   /* ── Role-based edit permission ───────────────────────────────── */
   const canEdit =
@@ -523,6 +524,16 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
           }}
+          onDelete={canEdit ? async (observationId) => {
+            await deleteObservation(observationId);
+            setLocalObsOverrides((prev) => {
+              const next = { ...prev };
+              delete next[observationId];
+              return next;
+            });
+            setSelectedObservation(null);
+            await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          } : undefined}
         />
       )}
     </div>

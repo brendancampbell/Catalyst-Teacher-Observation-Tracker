@@ -292,6 +292,12 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
   });
 }
 
+export async function deleteObservation(id: string): Promise<{ ok: boolean; id: string }> {
+  return apiFetch<{ ok: boolean; id: string }>(`/observations/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchMyLatestRubricSlug(): Promise<string | null> {
   const result = await apiFetch<{ slug: string | null }>("/observations/my-latest-rubric");
   return result.slug;

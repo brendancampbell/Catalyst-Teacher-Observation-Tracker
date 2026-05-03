@@ -211,4 +211,51 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+/* ── DELETE /api/observations/:id ───────────────────────────────────
+   Permitted roles: SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
+   COACHes may NOT delete observations.
+   School Leaders are restricted to teachers in their own school.
+   observation_scores are removed automatically by the FK ON DELETE
+   CASCADE defined in the schema.                                     */
+router.delete("/:id", async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const obsId = Number(req.params.id);
+
+    if (!Number.isFinite(obsId)) {
+      res.status(400).json({ error: "Invalid observation id" });
+      return;
+    }
+
+    const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
+    const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
+    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
+
+    if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
+      res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may delete observations" });
+      return;
+    }
+
+    const existing = await db.query.observations.findFirst({
+      where: eq(observations.id, obsId),
+    });
+    if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
+
+    if (isSchoolLeader) {
+      const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
+      if (!teacher || teacher.schoolId !== currentUser.schoolId) {
+        res.status(403).json({ error: "Cannot delete observations for teachers outside your school" });
+        return;
+      }
+    }
+
+    await db.delete(observations).where(eq(observations.id, obsId));
+
+    res.json({ ok: true, id: String(obsId) });
+  } catch (err) {
+    console.error("DELETE /observations/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
