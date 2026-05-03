@@ -75,6 +75,7 @@ router.get("/", async (req, res) => {
     const teacherData = allTeachers.map((t) => ({
       id:             String(t.id),
       name:           t.name,
+      email:          t.email ?? null,
       subject:        t.subject,
       gradeLevel:     t.gradeLevel,
       schoolId:       t.schoolId,
