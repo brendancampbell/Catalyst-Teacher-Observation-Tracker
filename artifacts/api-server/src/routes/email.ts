@@ -337,13 +337,13 @@ router.post("/send-observation", async (req, res) => {
       .select()
       .from(rubricCategories)
       .where(eq(rubricCategories.rubricSetId, obs.rubricSetId))
-      .orderBy(rubricCategories.order);
+      .orderBy(rubricCategories.displayOrder);
 
     const domains = await db
       .select()
       .from(rubricDomains)
       .where(eq(rubricDomains.rubricSetId, obs.rubricSetId))
-      .orderBy(rubricDomains.order);
+      .orderBy(rubricDomains.displayOrder);
 
     const categories = cats.map((cat) => ({
       label: cat.label,
