@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
+import AppHeader from "@/components/AppHeader";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -205,71 +206,37 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
     ? recentScores.reduce((s, { score }) => s + score, 0) / recentScores.length
     : null;
 
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const backHref = (() => {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("teacher");
+    const qs = params.toString();
+    return window.location.pathname + (qs ? "?" + qs : "");
+  })();
+  const schoolDisplayName =
+    new URLSearchParams(window.location.search).get("schoolName") ??
+    currentUser?.schoolName ?? "";
+
   return (
     <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* ── Top bar ──────────────────────────────────────── */}
-      <div style={{ height: 5, backgroundColor: YELLOW }} />
-      <header style={{ backgroundColor: NAVY }} className="sticky top-0 z-30 shrink-0 shadow-md">
-        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-            <button
-              type="button"
-              onClick={onBack}
-              style={{ lineHeight: 0, display: "block", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer" }}
-              aria-label="Go to dashboard"
-            >
-              <img
-                src="/uncommon-logo.png"
-                alt="Uncommon Schools"
-                className="h-8 sm:h-12 w-auto object-contain"
-                style={{ filter: "brightness(0) invert(1)" }}
-              />
-            </button>
-            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
-            <div className="hidden sm:block min-w-0">
-              <p
-                className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.02em" }}
-              >
-                Get Better Faster
-              </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>Lincoln Elementary</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded font-semibold text-sm transition-colors"
-              style={{ color: "white", backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}
-            >
-              <ArrowLeft size={15} />
-              <span className="hidden sm:inline">Back to Dashboard</span>
-            </button>
-            <button
-              onClick={onNewObs}
-              className="flex items-center gap-1.5 font-bold rounded-md px-2.5 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
-              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.02em" }}
-            >
-              <Plus size={16} strokeWidth={3} />
-              <span className="hidden sm:inline">Add Observation</span>
-            </button>
-            <div
-              className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5"
-              style={{ backgroundColor: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
-            >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: YELLOW, color: NAVY }}>
-                {currentUser ? currentUser.name.split(" ").map((w) => w[0]).slice(0, 2).join("") : "…"}
-              </div>
-              <span className="text-white font-medium hidden sm:block" style={{ fontSize: 15 }}>{currentUser?.name ?? "Loading…"}</span>
-              <span className="font-semibold rounded-full px-2.5 py-0.5 hidden md:block" style={{ backgroundColor: YELLOW, color: NAVY, fontSize: 11 }}>
-                {currentUser?.role?.replace("_", " ") ?? ""}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div style={{ height: 3, backgroundColor: YELLOW }} />
-      </header>
+      <div className="sticky top-0 z-30 shadow-md">
+        {currentUser && (
+          <AppHeader
+            subtitle={teacher.name}
+            backHref={backHref}
+            backLabel={schoolDisplayName || "Dashboard"}
+            basePath={backHref}
+            onAddObservation={onNewObs}
+            actionCenterHref={`${basePath}/action-center?returnTo=${encodeURIComponent(backHref)}`}
+            userName={currentUser.name}
+            userEmail={currentUser.email}
+            userRole={currentUser.role}
+            canAdmin={currentUser.role !== "COACH"}
+          />
+        )}
+      </div>
 
       {/* ── Page body ─────────────────────────────────────── */}
       <main className="px-3 sm:px-5 py-3 sm:py-5 flex flex-col gap-4 sm:gap-5 flex-1">
