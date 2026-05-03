@@ -150,10 +150,10 @@ export default function ActionCenterPage() {
     isWalkthrough: boolean,
     time:         string,
     course:       string,
-  ) {
+  ): Promise<string> {
     setSaving(true);
     try {
-      await createObservation({
+      const obs = await createObservation({
         teacherId,
         rubricSetId: activeQuarterId,
         date,
@@ -171,10 +171,12 @@ export default function ActionCenterPage() {
       queryClient.invalidateQueries({ queryKey: ["ai-plateau-alerts"] });
       queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
       queryClient.invalidateQueries({ queryKey: ["ai-insights"] });
+      return obs.id;
+    } catch (err) {
+      console.error("Failed to save observation:", err);
+      return "";
     } finally {
       setSaving(false);
-      setNewObsOpen(false);
-      setAddObsTeacherId(null);
     }
   }
 
