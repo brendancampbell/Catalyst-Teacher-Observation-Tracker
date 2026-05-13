@@ -91,7 +91,7 @@ export default function AppHeader({
                 className="text-white uppercase tracking-widest leading-tight"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
               >
-                Teacher Observation Tracker
+                Teacher Observation Tracker [Beta]
               </p>
               <p className="text-blue-200 font-medium truncate" style={{ fontSize: 12 }}>
                 {subtitle}
