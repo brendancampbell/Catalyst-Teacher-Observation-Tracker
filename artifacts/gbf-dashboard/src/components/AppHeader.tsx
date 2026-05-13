@@ -92,7 +92,7 @@ export default function AppHeader({
 
             <a
               href={actionCenterHref}
-              className="hidden sm:flex items-center justify-center rounded-md p-1.5 transition-opacity hover:opacity-80"
+              className="hidden sm:flex items-center justify-center rounded-md px-2 py-2 transition-opacity hover:opacity-80"
               title={actionCenterLabel}
               style={{
                 border: "1.5px solid rgba(255,181,0,0.5)",
