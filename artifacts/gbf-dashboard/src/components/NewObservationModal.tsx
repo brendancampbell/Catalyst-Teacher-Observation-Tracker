@@ -713,16 +713,18 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 .gbf-copy-notif { animation: gbfFadeOut 3.5s forwards; }
               `}</style>
               <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50">
-                {copiedHtml && (
-                  <p className="gbf-copy-notif text-center text-sm font-semibold text-green-700 mb-2">
-                    Email Copied — Paste (Ctrl+V) into a new email message.
-                  </p>
-                )}
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    {copiedHtml && (
+                      <p className="gbf-copy-notif text-sm font-semibold text-green-700 truncate">
+                        Email Copied — Paste (Ctrl+V) into a new email message.
+                      </p>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleCopyHtml(liveHtmlEmail)}
-                    className="px-5 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                    className="shrink-0 px-5 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
                     style={{ backgroundColor: NAVY }}
                   >
                     Copy Email
@@ -730,7 +732,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   <button
                     type="button"
                     onClick={() => { reset(); onOpenChange(false); }}
-                    className="px-5 py-2 rounded text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="shrink-0 px-5 py-2 rounded text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
                   >
                     Close
                   </button>
