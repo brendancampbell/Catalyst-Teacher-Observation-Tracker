@@ -171,7 +171,9 @@ export default function Dashboard() {
   const urlTeacherId = useMemo(() => searchParams.get("teacher"), [searchParams]);
 
   /* ── Rubric set selection ──────────────────────────── */
-  const [activeRubricSet, setActiveRubricSet] = useState<string>("Q1");
+  const [activeRubricSet, setActiveRubricSet] = useState<string>(() =>
+    new URLSearchParams(window.location.search).get("rubric") || "Q1"
+  );
   const didInitRubric = useRef(false);
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
@@ -195,11 +197,15 @@ export default function Dashboard() {
     if (didInitRubric.current) return;
     if (rubricSets.length === 0) return;
     if (!latestRubricFetched) return;
-    const targetSlug =
-      myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
-        ? myLatestRubricSlug
-        : rubricSets[0].slug;
-    setActiveRubricSet(targetSlug);
+    const urlRubric = new URLSearchParams(window.location.search).get("rubric");
+    const urlRubricValid = urlRubric && rubricSets.find((r) => r.slug === urlRubric);
+    if (!urlRubricValid) {
+      const targetSlug =
+        myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
+          ? myLatestRubricSlug
+          : rubricSets[0]!.slug;
+      setActiveRubricSet(targetSlug);
+    }
     didInitRubric.current = true;
   }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
 
@@ -211,8 +217,14 @@ export default function Dashboard() {
   const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
 
   /* ── View toggles — must be before walkthroughsOnly derivation ─── */
-  const [viewMode, setViewMode] = useState<ViewMode>("recent");
-  const [viewBy,   setViewBy]   = useState<ViewBy>("teacher");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    return (v === "periodAvg" || v === "walkthroughs") ? v : "recent";
+  });
+  const [viewBy, setViewBy] = useState<ViewBy>(() => {
+    const v = new URLSearchParams(window.location.search).get("by");
+    return (v === "subject" || v === "grade") ? v : "teacher";
+  });
 
   const walkthroughsOnly = viewMode === "walkthroughs";
 
@@ -246,9 +258,18 @@ export default function Dashboard() {
   );
 
   /* ── Filter state ──────────────────────────────────── */
-  const [subject, setSubject]       = useState<string[]>([]);
-  const [grade, setGrade]           = useState<string[]>([]);
-  const [proficiency, setProficiency] = useState<string[]>([]);
+  const [subject, setSubject] = useState<string[]>(() => {
+    const v = new URLSearchParams(window.location.search).get("subjects");
+    return v ? v.split(",").filter(Boolean) : [];
+  });
+  const [grade, setGrade] = useState<string[]>(() => {
+    const v = new URLSearchParams(window.location.search).get("grades");
+    return v ? v.split(",").filter(Boolean) : [];
+  });
+  const [proficiency, setProficiency] = useState<string[]>(() => {
+    const v = new URLSearchParams(window.location.search).get("prof");
+    return v ? v.split(",").filter(Boolean) : [];
+  });
 
   /* ── Teacher profile ───────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
@@ -321,6 +342,22 @@ export default function Dashboard() {
       return profActive === "Proficient" ? a >= 0.7 : a < 0.7;
     });
   }, [groupRows, profActive, categories, viewMode]);
+
+  /* ── Sync view state → URL (for shareability) ──────── */
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (schoolId != null)       p.set("schoolId",  String(schoolId));
+    if (schoolName)             p.set("schoolName", schoolName);
+    if (activeRubricSet)        p.set("rubric",     activeRubricSet);
+    if (viewMode !== "recent")  p.set("view",       viewMode);
+    if (viewBy   !== "teacher") p.set("by",         viewBy);
+    if (teacherProfileId)       p.set("teacher",    teacherProfileId);
+    if (subject.length)         p.set("subjects",   subject.join(","));
+    if (grade.length)           p.set("grades",     grade.join(","));
+    if (proficiency.length)     p.set("prof",       proficiency.join(","));
+    const qs = p.toString();
+    window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+  }, [activeRubricSet, viewMode, viewBy, teacherProfileId, schoolId, schoolName, subject, grade, proficiency]);
 
   /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
   if (isDistrictHome) {
