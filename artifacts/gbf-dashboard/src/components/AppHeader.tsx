@@ -35,37 +35,37 @@ export default function AppHeader({
     <>
       <div style={{ height: 5, backgroundColor: YELLOW, flexShrink: 0 }} />
       <header style={{ backgroundColor: NAVY }} className="shrink-0">
-        <div className="px-3 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2">
+        <div className="px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
 
           {/* ── Left: Logo + Title ── */}
-          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <a href={basePath} style={{ lineHeight: 0, display: "block", flexShrink: 0 }} aria-label="Go to dashboard">
               <img
                 src="/uncommon-logo.png"
                 alt="Uncommon Schools"
-                className="h-8 sm:h-12 w-auto object-contain"
+                className="h-6 sm:h-9 w-auto object-contain"
                 style={{ filter: "brightness(0) invert(1)" }}
               />
             </a>
-            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 30, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
               {backHref && (
                 <a
                   href={backHref}
                   className="flex items-center gap-1 mb-0.5 transition-colors hover:text-yellow-300"
-                  style={{ fontSize: 12, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", color: "rgba(147,197,253,0.9)", textDecoration: "none" }}
+                  style={{ fontSize: 11, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", color: "rgba(147,197,253,0.9)", textDecoration: "none" }}
                 >
-                  <ArrowLeft size={12} />
+                  <ArrowLeft size={11} />
                   {backLabel}
                 </a>
               )}
               <p
                 className="text-white uppercase tracking-widest leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
+                style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
               >
                 Teacher Observation Tracker
               </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 15 }}>
+              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 12 }}>
                 {subtitle}
               </p>
             </div>
@@ -92,18 +92,15 @@ export default function AppHeader({
 
             <a
               href={actionCenterHref}
-              className="hidden sm:flex items-center gap-1.5 font-bold rounded-md px-3 py-2 transition-opacity hover:opacity-80"
+              className="hidden sm:flex items-center justify-center rounded-md p-1.5 transition-opacity hover:opacity-80"
+              title={actionCenterLabel}
               style={{
                 border: "1.5px solid rgba(255,181,0,0.5)",
                 color: YELLOW,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 14,
-                letterSpacing: "0.02em",
                 textDecoration: "none",
               }}
             >
-              <Activity size={14} />
-              {actionCenterLabel}
+              <Activity size={16} />
             </a>
 
             <UserMenuDropdown

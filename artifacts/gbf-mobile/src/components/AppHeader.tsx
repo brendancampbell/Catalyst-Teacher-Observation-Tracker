@@ -16,11 +16,11 @@ export function AppHeader({ subtitle, onSwitchSchool }: AppHeaderProps) {
   return (
     <header>
       <div style={{ height: 5, backgroundColor: YELLOW }} />
-      <div style={{ backgroundColor: NAVY }} className="px-4 py-3 flex items-center justify-between gap-2">
+      <div style={{ backgroundColor: NAVY }} className="px-4 py-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p
             className="text-white uppercase tracking-wider leading-tight truncate"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.04em" }}
           >
             Teacher Observation Tracker
           </p>

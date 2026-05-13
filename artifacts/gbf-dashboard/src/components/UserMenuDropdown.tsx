@@ -55,9 +55,6 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
           {initials}
         </div>
 
-        {/* Name */}
-        <span className="font-medium hidden sm:block" style={{ fontSize: 15 }}>{name}</span>
-
         <ChevronDown
           size={14}
           strokeWidth={2.5}
