@@ -512,7 +512,7 @@ export default function Dashboard() {
       )}
 
       {/* ══ MAIN ════════════════════════════════════════════════ */}
-      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0 overflow-auto">
+      <main className="px-3 sm:px-5 py-3 sm:py-4 flex flex-col gap-3 flex-1 min-h-0">
 
         {/* ── Filters + View toggles ─────────────────────────── */}
         <div
@@ -606,7 +606,8 @@ export default function Dashboard() {
         </div>
 
         {/* ── Table ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
+        <div className="flex-1 min-h-0">
+        <div className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
               <thead className="sticky top-0 z-20">
 
@@ -1059,6 +1060,7 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
+        </div>
         </div>
 
       </main>
