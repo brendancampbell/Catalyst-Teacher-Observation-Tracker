@@ -47,10 +47,13 @@ router.get("/:id", async (req, res) => {
     }
 
     res.json({
-      id: String(teacher.id),
-      name: teacher.name,
-      email: teacher.email,
-      subject: teacher.subject,
+      id:         String(teacher.id),
+      name:       `${teacher.firstName} ${teacher.lastName}`.trim(),
+      firstName:  teacher.firstName,
+      lastName:   teacher.lastName,
+      employeeId: teacher.employeeId,
+      email:      teacher.email,
+      subject:    teacher.subject,
       gradeLevel: teacher.gradeLevel,
       observations: obsRows
         .sort((a, b) => a.date.localeCompare(b.date))

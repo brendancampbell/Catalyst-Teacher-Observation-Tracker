@@ -5,7 +5,9 @@ import { schools } from "./schools";
 
 export const teachers = pgTable("teachers", {
   id:             serial("id").primaryKey(),
-  name:           text("name").notNull(),
+  firstName:      text("first_name").notNull().default(""),
+  lastName:       text("last_name").notNull().default(""),
+  employeeId:     text("employee_id").unique(),
   email:          text("email").unique(),
   subject:        text("subject").notNull(),
   gradeLevel:     text("grade_level").array().notNull(),

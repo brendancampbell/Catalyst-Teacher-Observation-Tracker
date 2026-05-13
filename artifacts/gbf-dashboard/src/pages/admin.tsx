@@ -404,19 +404,23 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
 
   /* Add form */
   const [adding, setAdding]               = useState(false);
-  const [newName, setNewName]             = useState("");
+  const [newFirstName, setNewFirstName]   = useState("");
+  const [newLastName,  setNewLastName]    = useState("");
+  const [newEmployeeId, setNewEmployeeId] = useState("");
   const [newEmail, setNewEmail]           = useState("");
   const [newSubject, setNewSubject]       = useState("");
   const [newGrades, setNewGrades]         = useState<string[]>([]);
   const [newSchoolId, setNewSchoolId]     = useState<number | null>(null);
 
   /* Edit form */
-  const [editId, setEditId]               = useState<number | null>(null);
-  const [editName, setEditName]           = useState("");
-  const [editEmail, setEditEmail]         = useState("");
-  const [editSubject, setEditSubject]     = useState("");
-  const [editGrades, setEditGrades]       = useState<string[]>([]);
-  const [editSchoolId, setEditSchoolId]   = useState<number | null>(null);
+  const [editId, setEditId]                 = useState<number | null>(null);
+  const [editFirstName, setEditFirstName]   = useState("");
+  const [editLastName,  setEditLastName]    = useState("");
+  const [editEmployeeId, setEditEmployeeId] = useState("");
+  const [editEmail, setEditEmail]           = useState("");
+  const [editSubject, setEditSubject]       = useState("");
+  const [editGrades, setEditGrades]         = useState<string[]>([]);
+  const [editSchoolId, setEditSchoolId]     = useState<number | null>(null);
 
   const [showInactive,   setShowInactive]   = useState(false);
   const [teacherSearch,  setTeacherSearch]  = useState("");
@@ -424,15 +428,32 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   const [filterSchools,  setFilterSchools]  = useState<string[]>([]);
 
   const createMut = useMutation({
-    mutationFn: () => createAdminTeacher({ name: newName.trim(), email: newEmail.trim(), subject: newSubject, gradeLevel: newGrades, schoolId: newSchoolId }),
+    mutationFn: () => createAdminTeacher({
+      firstName:  newFirstName.trim(),
+      lastName:   newLastName.trim(),
+      employeeId: newEmployeeId.trim() || null,
+      email:      newEmail.trim(),
+      subject:    newSubject,
+      gradeLevel: newGrades,
+      schoolId:   newSchoolId,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
-      setAdding(false); setNewName(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
+      setAdding(false);
+      setNewFirstName(""); setNewLastName(""); setNewEmployeeId(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
     },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminTeacher(editId!, { name: editName.trim(), email: editEmail.trim(), subject: editSubject, gradeLevel: editGrades, schoolId: editSchoolId }),
+    mutationFn: () => updateAdminTeacher(editId!, {
+      firstName:  editFirstName.trim(),
+      lastName:   editLastName.trim(),
+      employeeId: editEmployeeId.trim() || null,
+      email:      editEmail.trim(),
+      subject:    editSubject,
+      gradeLevel: editGrades,
+      schoolId:   editSchoolId,
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
   });
 
@@ -442,8 +463,14 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
   });
 
   function startEdit(t: AdminTeacher) {
-    setEditId(t.id); setEditName(t.name); setEditEmail(t.email ?? ""); setEditSubject(t.subject);
-    setEditGrades(t.gradeLevel); setEditSchoolId(t.schoolId);
+    setEditId(t.id);
+    setEditFirstName(t.firstName);
+    setEditLastName(t.lastName);
+    setEditEmployeeId(t.employeeId ?? "");
+    setEditEmail(t.email ?? "");
+    setEditSubject(t.subject);
+    setEditGrades(t.gradeLevel);
+    setEditSchoolId(t.schoolId);
   }
 
   function toggleGrade(g: string, arr: string[], setArr: (v: string[]) => void) {
@@ -587,7 +614,9 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
       {adding && (
         <TeacherForm
           title="Add New Teacher"
-          name={newName} setName={setNewName}
+          firstName={newFirstName} setFirstName={setNewFirstName}
+          lastName={newLastName} setLastName={setNewLastName}
+          employeeId={newEmployeeId} setEmployeeId={setNewEmployeeId}
           email={newEmail} setEmail={setNewEmail}
           subject={newSubject} setSubject={setNewSubject}
           grades={newGrades}
@@ -595,7 +624,7 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
           schools={isDistrictAdmin ? schools : null}
           schoolId={newSchoolId} setSchoolId={setNewSchoolId}
           onSave={() => createMut.mutate()}
-          onCancel={() => { setAdding(false); setNewName(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
+          onCancel={() => { setAdding(false); setNewFirstName(""); setNewLastName(""); setNewEmployeeId(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
           saving={createMut.isPending}
           inputCls={inputCls}
         />
@@ -626,7 +655,9 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
                   <td colSpan={colSpanTotal} className="px-4 py-3 bg-blue-50">
                     <TeacherForm
                       title={`Editing: ${t.name}`}
-                      name={editName} setName={setEditName}
+                      firstName={editFirstName} setFirstName={setEditFirstName}
+                      lastName={editLastName} setLastName={setEditLastName}
+                      employeeId={editEmployeeId} setEmployeeId={setEditEmployeeId}
                       email={editEmail} setEmail={setEditEmail}
                       subject={editSubject} setSubject={setEditSubject}
                       grades={editGrades}
@@ -699,11 +730,15 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
 
 /* Shared form component */
 function TeacherForm({
-  title, name, setName, email, setEmail, subject, setSubject, grades, onToggleGrade,
+  title, firstName, setFirstName, lastName, setLastName, employeeId, setEmployeeId,
+  email, setEmail, subject, setSubject, grades, onToggleGrade,
   schools, schoolId, setSchoolId,
   onSave, onCancel, saving, inputCls, compact = false,
 }: {
-  title: string; name: string; setName: (v: string) => void;
+  title: string;
+  firstName: string; setFirstName: (v: string) => void;
+  lastName: string; setLastName: (v: string) => void;
+  employeeId: string; setEmployeeId: (v: string) => void;
   email: string; setEmail: (v: string) => void;
   subject: string; setSubject: (v: string) => void;
   grades: string[]; onToggleGrade: (g: string) => void;
@@ -717,11 +752,23 @@ function TeacherForm({
       {!compact && <p className="font-bold text-slate-700 text-sm">{title}</p>}
       <div className="flex flex-wrap gap-3">
         <input
-          className={`${inputCls} flex-1 min-w-[160px]`}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Full name"
+          className={`${inputCls} flex-1 min-w-[130px]`}
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          placeholder="First name *"
           autoFocus
+        />
+        <input
+          className={`${inputCls} flex-1 min-w-[130px]`}
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          placeholder="Last name *"
+        />
+        <input
+          className={`${inputCls} flex-1 min-w-[120px]`}
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+          placeholder="Employee ID (optional)"
         />
         <div className="flex-1 min-w-[200px]">
           <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -787,7 +834,7 @@ function TeacherForm({
           className="px-4 py-1.5 rounded font-bold text-white text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
           style={{ backgroundColor: NAVY }}
           onClick={onSave}
-          disabled={saving || !name.trim() || !subject || !email.trim() || !email.includes("@")}
+          disabled={saving || !firstName.trim() || !lastName.trim() || !subject || !email.trim() || !email.includes("@")}
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -803,9 +850,9 @@ function TeacherForm({
    TEACHER BULK IMPORT
    ════════════════════════════════════════════════════════════════ */
 
-const TEACHER_CSV_TEMPLATE = `name,subject,gradeLevel,school,email
-Jane Smith,Math,"K,1,2",Lincoln Elementary,jane.smith@uncommonschools.org
-John Doe,ELA,"3,4",Lincoln Elementary,john.doe@uncommonschools.org
+const TEACHER_CSV_TEMPLATE = `firstName,lastName,employeeId,subject,gradeLevel,school,email
+Jane,Smith,EMP001,Math,"K,1,2",Lincoln Elementary,jane.smith@uncommonschools.org
+John,Doe,,ELA,"3,4",Lincoln Elementary,john.doe@uncommonschools.org
 `;
 
 function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
@@ -814,23 +861,41 @@ function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
   const results: BulkImportTeacherPayload[] = [];
   if (lines.length < 2) return results;
 
-  const headers    = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-  const nameIdx    = headers.indexOf("name");
-  const subjectIdx = headers.indexOf("subject");
-  const gradeIdx   = headers.indexOf("gradelevel");
-  const schoolIdx  = headers.indexOf("school");
-  const emailIdx   = headers.indexOf("email");
+  const headers       = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim());
+  const firstNameIdx  = headers.indexOf("firstname");
+  const lastNameIdx   = headers.indexOf("lastname");
+  const nameIdx       = headers.indexOf("name");  /* legacy fallback */
+  const employeeIdIdx = headers.indexOf("employeeid");
+  const subjectIdx    = headers.indexOf("subject");
+  const gradeIdx      = headers.indexOf("gradelevel");
+  const schoolIdx     = headers.indexOf("school");
+  const emailIdx      = headers.indexOf("email");
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     const cols = parseCSVLine(line);
+
+    let firstName = "";
+    let lastName  = "";
+    if (firstNameIdx >= 0) {
+      firstName = cols[firstNameIdx] ?? "";
+      lastName  = lastNameIdx >= 0 ? (cols[lastNameIdx] ?? "") : "";
+    } else if (nameIdx >= 0) {
+      const full = cols[nameIdx] ?? "";
+      const parts = full.trim().split(/\s+/);
+      firstName = parts[0] ?? "";
+      lastName  = parts.slice(1).join(" ");
+    }
+
     results.push({
-      name:       nameIdx    >= 0 ? (cols[nameIdx]    ?? "") : "",
-      subject:    subjectIdx >= 0 ? (cols[subjectIdx] ?? "") : "",
-      gradeLevel: gradeIdx   >= 0 ? (cols[gradeIdx]   ?? "") : "",
-      school:     schoolIdx  >= 0 ? (cols[schoolIdx]  ?? "") : "",
-      email:      emailIdx   >= 0 ? (cols[emailIdx]   ?? "") : "",
+      firstName,
+      lastName,
+      employeeId: employeeIdIdx >= 0 ? (cols[employeeIdIdx] ?? "") : "",
+      subject:    subjectIdx    >= 0 ? (cols[subjectIdx]    ?? "") : "",
+      gradeLevel: gradeIdx      >= 0 ? (cols[gradeIdx]      ?? "") : "",
+      school:     schoolIdx     >= 0 ? (cols[schoolIdx]     ?? "") : "",
+      email:      emailIdx      >= 0 ? (cols[emailIdx]      ?? "") : "",
     });
   }
   return results;
@@ -925,7 +990,9 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  { col: "name",       req: true,            desc: "Full name of the teacher" },
+                  { col: "firstName",  req: true,            desc: "Teacher's first name" },
+                  { col: "lastName",   req: true,            desc: "Teacher's last name" },
+                  { col: "employeeId", req: false,           desc: "Unique employee / staff ID — used to detect duplicates during re-imports" },
                   { col: "subject",    req: true,            desc: "Subject area (e.g. Math, ELA, Science)" },
                   { col: "gradeLevel", req: true,            desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
                   { col: "school",     req: isDistrictAdmin, desc: isDistrictAdmin ? "Exact school name (required for Network Admin)" : "School name (ignored — your school is used automatically)" },
@@ -1006,7 +1073,9 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">First Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Last Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Emp. ID</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Subject</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade Level</th>
                   {isDistrictAdmin && (
@@ -1019,7 +1088,9 @@ function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
                 {preview.map((row, i) => (
                   <tr key={i} className="hover:bg-slate-50">
                     <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{row.name || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row.firstName || <span className="text-red-400 italic">missing</span>}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row.lastName || <span className="text-slate-400 italic">—</span>}</td>
+                    <td className="px-3 py-2 text-slate-500 text-xs">{row.employeeId || <span className="text-slate-300 italic">—</span>}</td>
                     <td className="px-3 py-2 text-slate-600">{row.subject || <span className="text-red-400 italic">missing</span>}</td>
                     <td className="px-3 py-2 text-slate-500 text-xs">{row.gradeLevel || <span className="text-red-400 italic">missing</span>}</td>
                     {isDistrictAdmin && (

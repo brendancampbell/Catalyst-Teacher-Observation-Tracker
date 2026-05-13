@@ -85,14 +85,15 @@ async function buildCalibrationFlags(
 
   const rows = await db
     .select({
-      teacherId:     observations.teacherId,
-      teacherName:   teachers.name,
-      schoolId:      teachers.schoolId,
-      schoolName:    schools.name,
-      domainSlug:    observationScores.domainSlug,
-      score:         observationScores.score,
-      isWalkthrough: observations.isWalkthrough,
-      rubricSetId:   observations.rubricSetId,
+      teacherId:      observations.teacherId,
+      teacherFirst:   teachers.firstName,
+      teacherLast:    teachers.lastName,
+      schoolId:       teachers.schoolId,
+      schoolName:     schools.name,
+      domainSlug:     observationScores.domainSlug,
+      score:          observationScores.score,
+      isWalkthrough:  observations.isWalkthrough,
+      rubricSetId:    observations.rubricSetId,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
@@ -113,7 +114,7 @@ async function buildCalibrationFlags(
       const entry = groupMap.get(key) ?? {
         coachScores:       [],
         walkthroughScores: [],
-        teacherName:       r.teacherName,
+        teacherName:       `${r.teacherFirst} ${r.teacherLast}`.trim(),
         domain:            r.domainSlug,
       };
       if (r.isWalkthrough) entry.walkthroughScores.push(r.score);
@@ -191,13 +192,14 @@ async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]>
 
   const rows = await db
     .select({
-      teacherId:   observations.teacherId,
-      teacherName: teachers.name,
-      subject:     teachers.subject,
-      gradeLevel:  teachers.gradeLevel,
-      domainSlug:  observationScores.domainSlug,
-      score:       observationScores.score,
-      obsDate:     observations.date,
+      teacherId:    observations.teacherId,
+      teacherFirst: teachers.firstName,
+      teacherLast:  teachers.lastName,
+      subject:      teachers.subject,
+      gradeLevel:   teachers.gradeLevel,
+      domainSlug:   observationScores.domainSlug,
+      score:        observationScores.score,
+      obsDate:      observations.date,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
@@ -214,15 +216,16 @@ async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]>
 
   for (const r of rows) {
     const key: SeriesKey = `${r.teacherId}|${r.domainSlug}`;
-    const entry = seriesMap.get(key) ?? {
-      teacherName: r.teacherName,
-      subject:     r.subject,
-      gradeLevel:  r.gradeLevel as string[],
-      domain:      r.domainSlug,
-      points:      [],
-    };
-    entry.points.push({ date: r.obsDate, score: r.score });
-    seriesMap.set(key, entry);
+    if (!seriesMap.has(key)) {
+      seriesMap.set(key, {
+        teacherName: `${r.teacherFirst} ${r.teacherLast}`.trim(),
+        subject:     r.subject,
+        gradeLevel:  r.gradeLevel as string[],
+        domain:      r.domainSlug,
+        points:      [],
+      });
+    }
+    seriesMap.get(key)!.points.push({ date: r.obsDate, score: r.score });
   }
 
   const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));

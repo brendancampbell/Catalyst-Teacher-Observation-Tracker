@@ -360,7 +360,7 @@ router.post("/send-observation", async (req, res) => {
       intro,
       glowsText: glows ?? "",
       growsText: grows ?? "",
-      teacherName: teacher.name,
+      teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
       teacherSubject: teacher.subject,
       teacherGrade: Array.isArray(teacher.gradeLevel) ? teacher.gradeLevel.join(", ") : (teacher.gradeLevel ?? null),
       date: obs.date,

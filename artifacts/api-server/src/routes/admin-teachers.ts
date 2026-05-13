@@ -6,6 +6,24 @@ import { requireRole } from "../middleware/auth";
 
 const router = Router();
 
+/* ── Shared select shape ─────────────────────────────────────────── */
+const TEACHER_SELECT = {
+  id:             teachers.id,
+  firstName:      teachers.firstName,
+  lastName:       teachers.lastName,
+  employeeId:     teachers.employeeId,
+  email:          teachers.email,
+  subject:        teachers.subject,
+  gradeLevel:     teachers.gradeLevel,
+  isActive:       teachers.isActive,
+  schoolId:       teachers.schoolId,
+  schoolName:     schools.name,
+} as const;
+
+function withName<T extends { firstName: string; lastName: string }>(row: T) {
+  return { ...row, name: `${row.firstName} ${row.lastName}`.trim() };
+}
+
 /* GET /api/admin/teachers — teachers in scope, with school name */
 router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
@@ -13,21 +31,12 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
     const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
 
     const rows = await db
-      .select({
-        id:         teachers.id,
-        name:       teachers.name,
-        email:      teachers.email,
-        subject:    teachers.subject,
-        gradeLevel: teachers.gradeLevel,
-        isActive:   teachers.isActive,
-        schoolId:   teachers.schoolId,
-        schoolName: schools.name,
-      })
+      .select(TEACHER_SELECT)
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
       .where(isNetworkScope ? undefined : eq(teachers.schoolId, user.schoolId!))
-      .orderBy(teachers.name);
-    res.json(rows);
+      .orderBy(teachers.lastName, teachers.firstName);
+    res.json(rows.map(withName));
   } catch (err) {
     console.error("GET /admin/teachers error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -39,15 +48,25 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
   try {
     const user = req.user as Express.User;
     const isNetworkAdmin = user.role === "NETWORK_ADMIN";
-    const { name, email, subject, gradeLevel, schoolId } = req.body as {
-      name: string;
-      email?: string | null;
-      subject: string;
-      gradeLevel: string[];
-      schoolId?: number | null;
+    const { firstName, lastName, employeeId, email, subject, gradeLevel, schoolId } = req.body as {
+      firstName:   string;
+      lastName:    string;
+      employeeId?: string | null;
+      email:       string;
+      subject:     string;
+      gradeLevel:  string[];
+      schoolId?:   number | null;
     };
-    if (!name?.trim() || !subject?.trim()) {
-      res.status(400).json({ error: "name and subject are required" });
+    if (!firstName?.trim()) {
+      res.status(400).json({ error: "firstName is required" });
+      return;
+    }
+    if (!lastName?.trim()) {
+      res.status(400).json({ error: "lastName is required" });
+      return;
+    }
+    if (!subject?.trim()) {
+      res.status(400).json({ error: "subject is required" });
       return;
     }
     const trimmedEmail = email?.trim() ?? "";
@@ -61,33 +80,31 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
     const [row] = await db
       .insert(teachers)
       .values({
-        name: name.trim(),
-        email: trimmedEmail,
-        subject: subject.trim(),
+        firstName:  firstName.trim(),
+        lastName:   lastName.trim(),
+        employeeId: employeeId?.trim() || null,
+        email:      trimmedEmail,
+        subject:    subject.trim(),
         gradeLevel: gradeLevel ?? [],
-        isActive: true,
-        schoolId: assignedSchoolId,
+        isActive:   true,
+        schoolId:   assignedSchoolId,
       })
       .returning();
 
-    const withSchool = await db
-      .select({
-        id: teachers.id, name: teachers.name, email: teachers.email, subject: teachers.subject,
-        gradeLevel: teachers.gradeLevel, isActive: teachers.isActive,
-        schoolId: teachers.schoolId, schoolName: schools.name,
-      })
+    const [withSchool] = await db
+      .select(TEACHER_SELECT)
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
       .where(eq(teachers.id, row.id));
 
-    res.status(201).json(withSchool[0] ?? row);
+    res.status(201).json(withName(withSchool!));
   } catch (err) {
     console.error("POST /admin/teachers error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/* PATCH /api/admin/teachers/:id — update name/subject/gradeLevel/schoolId */
+/* PATCH /api/admin/teachers/:id — update teacher fields */
 router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const user = req.user as Express.User;
@@ -102,12 +119,14 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       return;
     }
 
-    const { name, email, subject, gradeLevel, schoolId } = req.body as Partial<{
-      name: string;
-      email: string | null;
-      subject: string;
+    const { firstName, lastName, employeeId, email, subject, gradeLevel, schoolId } = req.body as Partial<{
+      firstName:  string;
+      lastName:   string;
+      employeeId: string | null;
+      email:      string | null;
+      subject:    string;
       gradeLevel: string[];
-      schoolId: number | null;
+      schoolId:   number | null;
     }>;
     const trimmedEmail = email?.trim() ?? "";
     if (!trimmedEmail || !trimmedEmail.includes("@")) {
@@ -115,28 +134,26 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       return;
     }
     const updates: Record<string, unknown> = { email: trimmedEmail };
-    if (name !== undefined)       updates.name       = name.trim();
-    if (subject !== undefined)    updates.subject    = subject.trim();
+    if (firstName !== undefined) updates.firstName  = firstName.trim();
+    if (lastName  !== undefined) updates.lastName   = lastName.trim();
+    if (employeeId !== undefined) updates.employeeId = employeeId?.trim() || null;
+    if (subject   !== undefined) updates.subject    = subject.trim();
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
-    if (schoolId !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
+    if (schoolId  !== undefined && isNetworkAdmin) updates.schoolId = schoolId;
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "Nothing to update" });
       return;
     }
     await db.update(teachers).set(updates).where(eq(teachers.id, id));
 
-    const withSchool = await db
-      .select({
-        id: teachers.id, name: teachers.name, email: teachers.email, subject: teachers.subject,
-        gradeLevel: teachers.gradeLevel, isActive: teachers.isActive,
-        schoolId: teachers.schoolId, schoolName: schools.name,
-      })
+    const [withSchool] = await db
+      .select(TEACHER_SELECT)
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
       .where(eq(teachers.id, id));
 
-    if (!withSchool[0]) { res.status(404).json({ error: "Teacher not found" }); return; }
-    res.json(withSchool[0]);
+    if (!withSchool) { res.status(404).json({ error: "Teacher not found" }); return; }
+    res.json(withName(withSchool));
   } catch (err) {
     console.error("PATCH /admin/teachers/:id error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -150,11 +167,14 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     const isNetworkAdmin = user.role === "NETWORK_ADMIN";
 
     const rows = req.body as Array<{
-      name?: unknown;
-      subject?: unknown;
+      firstName?:  unknown;
+      lastName?:   unknown;
+      name?:       unknown;
+      employeeId?: unknown;
+      subject?:    unknown;
       gradeLevel?: unknown;
-      school?: unknown;
-      email?: unknown;
+      school?:     unknown;
+      email?:      unknown;
     }>;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -180,12 +200,25 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       const raw = rows[i];
       const rowNum = i + 1;
 
-      const name    = typeof raw.name    === "string" ? raw.name.trim()    : null;
+      /* Support both firstName/lastName columns and a legacy name column */
+      let firstName: string | null = null;
+      let lastName:  string | null = null;
+      if (typeof raw.firstName === "string" && raw.firstName.trim()) {
+        firstName = raw.firstName.trim();
+        lastName  = typeof raw.lastName === "string" ? raw.lastName.trim() : "";
+      } else if (typeof raw.name === "string" && raw.name.trim()) {
+        const parts = raw.name.trim().split(/\s+/);
+        firstName = parts[0] ?? "";
+        lastName  = parts.slice(1).join(" ");
+      }
+
+      const employeeId = typeof raw.employeeId === "string" && raw.employeeId.trim()
+        ? raw.employeeId.trim()
+        : null;
       const subject = typeof raw.subject === "string" ? raw.subject.trim() : null;
       const school  = typeof raw.school  === "string" ? raw.school.trim()  : null;
       const email   = typeof raw.email   === "string" && raw.email.trim() ? raw.email.trim() : null;
 
-      // Parse gradeLevel — accept string (comma-separated) or array
       let gradeLevel: string[] = [];
       if (Array.isArray(raw.gradeLevel)) {
         gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
@@ -193,66 +226,74 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         gradeLevel = raw.gradeLevel.split(",").map((g) => g.trim()).filter(Boolean);
       }
 
-      if (!name) {
-        results.push({ row: rowNum, status: "error", reason: "Missing name" });
+      const displayName = firstName ? `${firstName} ${lastName}`.trim() : null;
+
+      if (!firstName) {
+        results.push({ row: rowNum, status: "error", reason: "Missing firstName (or name)" });
         continue;
       }
       if (!subject) {
-        results.push({ row: rowNum, status: "error", name, reason: "Missing subject" });
+        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Missing subject" });
         continue;
       }
       if (gradeLevel.length === 0) {
-        results.push({ row: rowNum, status: "error", name, reason: "Missing gradeLevel" });
+        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Missing gradeLevel" });
         continue;
       }
       if (!email) {
-        results.push({ row: rowNum, status: "error", name, reason: "Missing email" });
+        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Missing email" });
         continue;
       }
       if (!email.includes("@")) {
-        results.push({ row: rowNum, status: "error", name, reason: "Invalid email address" });
+        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Invalid email address" });
         continue;
       }
 
-      // Resolve school to schoolId
       let schoolId: number | null = null;
       if (isNetworkAdmin) {
         if (!school) {
-          results.push({ row: rowNum, status: "error", name, reason: "Missing school (required for Network Admin imports)" });
+          results.push({ row: rowNum, status: "error", name: displayName!, reason: "Missing school (required for Network Admin imports)" });
           continue;
         }
         const found = schoolNameMap.get(school.toLowerCase());
         if (found === undefined) {
-          results.push({ row: rowNum, status: "error", name, reason: `School "${school}" not found` });
+          results.push({ row: rowNum, status: "error", name: displayName!, reason: `School "${school}" not found` });
           continue;
         }
         schoolId = found;
       } else {
-        // SCHOOL_LEADER: always assign to their own school, school column in CSV is ignored
         schoolId = user.schoolId ?? null;
       }
 
-      // Check for duplicate: same name + schoolId
-      const existing = await db.query.teachers.findFirst({
-        where: and(eq(teachers.name, name), schoolId !== null ? eq(teachers.schoolId, schoolId) : undefined),
-      });
+      /* Duplicate check: employeeId takes priority, else firstName+lastName+school */
+      const existing = employeeId
+        ? await db.query.teachers.findFirst({ where: eq(teachers.employeeId, employeeId) })
+        : await db.query.teachers.findFirst({
+            where: and(
+              eq(teachers.firstName, firstName),
+              eq(teachers.lastName, lastName ?? ""),
+              schoolId !== null ? eq(teachers.schoolId, schoolId) : undefined,
+            ),
+          });
       if (existing) {
-        results.push({ row: rowNum, status: "skipped", name, reason: "Duplicate teacher name at this school" });
+        results.push({ row: rowNum, status: "skipped", name: displayName!, reason: "Duplicate teacher at this school" });
         continue;
       }
 
       try {
         await db.insert(teachers).values({
-          name,
+          firstName:  firstName,
+          lastName:   lastName ?? "",
+          employeeId: employeeId,
+          email,
           subject,
           gradeLevel,
           isActive: true,
           schoolId,
-          email,
         });
-        results.push({ row: rowNum, status: "created", name });
+        results.push({ row: rowNum, status: "created", name: displayName! });
       } catch {
-        results.push({ row: rowNum, status: "error", name, reason: "Database error" });
+        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Database error" });
       }
     }
 
@@ -282,7 +323,7 @@ router.patch("/:id/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN")
       .set({ isActive: !existing.isActive })
       .where(eq(teachers.id, id))
       .returning();
-    res.json(row);
+    res.json({ ...row, name: `${row.firstName} ${row.lastName}`.trim() });
   } catch (err) {
     console.error("PATCH /admin/teachers/:id/toggle-active error:", err);
     res.status(500).json({ error: "Internal server error" });

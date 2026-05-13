@@ -105,7 +105,10 @@ export async function deleteAdminSchool(id: number): Promise<void> {
 
 export interface AdminTeacher {
   id:         number;
+  firstName:  string;
+  lastName:   string;
   name:       string;
+  employeeId: string | null;
   email:      string | null;
   subject:    string;
   gradeLevel: string[];
@@ -118,14 +121,30 @@ export async function fetchAdminTeachers(): Promise<AdminTeacher[]> {
   return apiFetch<AdminTeacher[]>("/admin/teachers");
 }
 
-export async function createAdminTeacher(payload: { name: string; email: string; subject: string; gradeLevel: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
+export async function createAdminTeacher(payload: {
+  firstName:   string;
+  lastName:    string;
+  employeeId?: string | null;
+  email:       string;
+  subject:     string;
+  gradeLevel:  string[];
+  schoolId?:   number | null;
+}): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>("/admin/teachers", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function updateAdminTeacher(id: number, payload: { name?: string; email?: string; subject?: string; gradeLevel?: string[]; schoolId?: number | null }): Promise<AdminTeacher> {
+export async function updateAdminTeacher(id: number, payload: {
+  firstName?:  string;
+  lastName?:   string;
+  employeeId?: string | null;
+  email?:      string;
+  subject?:    string;
+  gradeLevel?: string[];
+  schoolId?:   number | null;
+}): Promise<AdminTeacher> {
   return apiFetch<AdminTeacher>(`/admin/teachers/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -137,7 +156,9 @@ export async function toggleTeacherActive(id: number): Promise<AdminTeacher> {
 }
 
 export interface BulkImportTeacherPayload {
-  name:       string;
+  firstName:  string;
+  lastName:   string;
+  employeeId: string;
   subject:    string;
   gradeLevel: string;
   school:     string;

@@ -255,7 +255,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base sm:text-lg font-bold shrink-0"
                     style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif" }}
                   >
-                    {teacher.name.split(" ").map((n) => n[0]).join("")}
+                    {[teacher.firstName?.[0], teacher.lastName?.[0]].filter(Boolean).join("") || teacher.name.split(" ").map((n) => n[0]).join("")}
                   </div>
                   <div>
                     <h1

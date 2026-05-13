@@ -129,7 +129,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   function buildEmailDraft(introText?: string): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
     const teacher = teachers.find((t) => t.id === teacherId);
-    const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
+    const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
 
@@ -195,7 +195,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   function buildHtmlEmail(intro: string, glowsText: string, growsText: string): string {
     const teacher = teachers.find((t) => t.id === teacherId);
-    const firstName = teacher?.name.split(" ")[0] ?? "Teacher";
+    const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
     const logoUrl = `${window.location.origin}/uncommon-logo-white.png`;
@@ -428,7 +428,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const obsId = await onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
     setSavedObsId(obsId ?? null);
     if (emailFeedback) {
-      const firstName = teachers.find((t) => t.id === teacherId)?.name.split(" ")[0] ?? "Teacher";
+      const _t = teachers.find((t) => t.id === teacherId);
+      const firstName = _t?.firstName || _t?.name.split(" ")[0] || "Teacher";
       const observer = observerName ?? "Your Observer";
       const intro = `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
       const glows = strengths;
@@ -463,7 +464,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
         logoUrl: `${window.location.origin}/uncommon-logo-white.png`,
       });
       setEmailSent(true);
-      const teacherFirstName = teacher.name.split(" ")[0];
+      const teacherFirstName = teacher.firstName || teacher.name.split(" ")[0];
       toast({
         title: "Email sent",
         description: `Email sent to ${teacherFirstName}`,

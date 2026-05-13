@@ -74,7 +74,10 @@ router.get("/", async (req, res) => {
 
     const teacherData = allTeachers.map((t) => ({
       id:             String(t.id),
-      name:           t.name,
+      name:           `${t.firstName} ${t.lastName}`.trim(),
+      firstName:      t.firstName,
+      lastName:       t.lastName,
+      employeeId:     t.employeeId,
       email:          t.email,
       subject:        t.subject,
       gradeLevel:     t.gradeLevel,

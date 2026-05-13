@@ -13,7 +13,8 @@ router.get("/network", requireNetworkScope, async (_req, res) => {
     const rows = await db
       .select({
         teacherId:      teachers.id,
-        teacherName:    teachers.name,
+        teacherFirst:   teachers.firstName,
+        teacherLast:    teachers.lastName,
         subject:        teachers.subject,
         gradeLevel:     teachers.gradeLevel,
         schoolName:     schools.name,
@@ -25,7 +26,10 @@ router.get("/network", requireNetworkScope, async (_req, res) => {
       .where(eq(teachers.needsRescore, true))
       .orderBy(teachers.rescoreDueDate);
 
-    res.json(rows);
+    res.json(rows.map((r) => ({
+      ...r,
+      teacherName: `${r.teacherFirst} ${r.teacherLast}`.trim(),
+    })));
   } catch (err) {
     console.error("GET /action-center/network error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -43,7 +47,8 @@ router.get("/rescore-queue", async (req, res) => {
     const rows = await db
       .select({
         teacherId:      teachers.id,
-        teacherName:    teachers.name,
+        teacherFirst:   teachers.firstName,
+        teacherLast:    teachers.lastName,
         subject:        teachers.subject,
         gradeLevel:     teachers.gradeLevel,
         schoolName:     schools.name,
@@ -59,7 +64,10 @@ router.get("/rescore-queue", async (req, res) => {
       )
       .orderBy(teachers.rescoreDueDate);
 
-    res.json(rows);
+    res.json(rows.map((r) => ({
+      ...r,
+      teacherName: `${r.teacherFirst} ${r.teacherLast}`.trim(),
+    })));
   } catch (err) {
     console.error("GET /action-center/rescore-queue error:", err);
     res.status(500).json({ error: "Internal server error" });
