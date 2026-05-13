@@ -137,11 +137,6 @@ export default function AppHeader({
                     className="absolute right-0 mt-2 rounded-lg shadow-xl z-50 overflow-hidden"
                     style={{ backgroundColor: "white", border: "1.5px solid #dde3f0", top: "100%", minWidth: 160 }}
                   >
-                    <div className="px-3 py-2 border-b" style={{ borderColor: "#eef1fb", backgroundColor: "#f5f7ff" }}>
-                      <p className="font-bold text-xs uppercase tracking-widest" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em" }}>
-                        Select Rubric
-                      </p>
-                    </div>
                     <div className="py-1">
                       {rubricSets.map((q) => {
                         const active = q.slug === activeRubricSet;
