@@ -35,14 +35,6 @@ export function FilterMultiSelect({ label, values, onChange, options }: {
         }}
       >
         {label}
-        {active && (
-          <span
-            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
-            style={{ backgroundColor: YELLOW, color: NAVY }}
-          >
-            {values.length}
-          </span>
-        )}
         <svg className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
         </svg>
