@@ -175,10 +175,11 @@ export default function AppHeader({
                 <button
                   onClick={onAddObservation}
                   title="Add Observation"
-                  className="w-8 h-8 flex items-center justify-center rounded transition-opacity hover:opacity-90 shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                  className="h-8 flex items-center gap-1.5 px-2.5 rounded transition-opacity hover:opacity-90 shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
                 >
-                  <Plus size={16} strokeWidth={3} />
+                  <Plus size={14} strokeWidth={3} />
+                  <span>Add Observation</span>
                 </button>
               )}
 
