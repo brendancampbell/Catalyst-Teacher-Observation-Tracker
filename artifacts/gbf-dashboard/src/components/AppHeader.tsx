@@ -108,7 +108,7 @@ export default function AppHeader({
                 <button
                   type="button"
                   onClick={() => setRubricOpen((v) => !v)}
-                  className="flex items-center gap-1.5 rounded px-2 py-1.5 transition-colors hover:opacity-90"
+                  className="flex items-center rounded px-2 py-1.5 transition-colors hover:opacity-90"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.1)",
                     border: "1px solid rgba(255,255,255,0.15)",
@@ -116,18 +116,20 @@ export default function AppHeader({
                     outline: "none",
                   }}
                 >
-                  <BookOpen size={13} style={{ color: YELLOW, flexShrink: 0 }} />
-                  <span
-                    className="font-bold uppercase"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em", color: YELLOW }}
-                  >
-                    {activeRubricName}
-                  </span>
-                  <ChevronDown
-                    size={12}
-                    strokeWidth={2.5}
-                    style={{ color: "rgba(255,255,255,0.6)", transform: rubricOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-                  />
+                  <div className="h-8 flex items-center gap-1.5">
+                    <BookOpen size={15} style={{ color: YELLOW, flexShrink: 0 }} />
+                    <span
+                      className="font-bold uppercase"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em", color: YELLOW }}
+                    >
+                      {activeRubricName}
+                    </span>
+                    <ChevronDown
+                      size={13}
+                      strokeWidth={2.5}
+                      style={{ color: "rgba(255,255,255,0.6)", transform: rubricOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                    />
+                  </div>
                 </button>
 
                 {rubricOpen && (
@@ -153,12 +155,10 @@ export default function AppHeader({
                               backgroundColor: active ? "#f0f4ff" : "transparent",
                               color: active ? NAVY : "#374151",
                               fontFamily: "'Bebas Neue', sans-serif",
-                              fontSize: 14,
+                              fontSize: 16,
                               letterSpacing: "0.03em",
                             }}
                           >
-                            {active && <span style={{ color: YELLOW, fontSize: 10 }}>●</span>}
-                            {!active && <span style={{ width: 10, display: "inline-block" }} />}
                             {q.name}
                           </button>
                         );
