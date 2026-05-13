@@ -87,6 +87,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [emailSent, setEmailSent] = useState(false);
   const [emailSendError, setEmailSendError] = useState<string | null>(null);
   const [outlookHint, setOutlookHint] = useState(false);
+  const [emailMode, setEmailMode] = useState<"all" | "scored" | "glows">("all");
 
   useEffect(() => {
     if (open) {
@@ -127,9 +128,10 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailSent(false);
     setEmailSendError(null);
     setOutlookHint(false);
+    setEmailMode("all");
   }
 
-  function buildEmailDraft(introText?: string): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
+  function buildEmailDraft(introText?: string, mode: "all" | "scored" | "glows" = emailMode): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
     const dateLabel = formatDateLong(date);
@@ -139,18 +141,24 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const divider = "─".repeat(48);
 
     let scoreBlock = "";
-    for (const cat of categories) {
-      scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
-      let catTotal = 0, catCount = 0;
-      for (const domain of cat.domains) {
-        const raw = scores[domain.id];
-        const scoreStr = raw !== undefined ? String(raw) : undefined;
-        const label = scoreStr !== undefined ? `${scoreStr}  (${SCORE_LABEL[scoreStr] ?? scoreStr})` : "—";
-        scoreBlock += `  ${domain.label.padEnd(32)} ${label}${nl}`;
-        if (raw !== undefined) { catTotal += raw; catCount++; }
-      }
-      if (catCount > 0) {
-        scoreBlock += `  ${"Sub-average".padEnd(32)} ${(catTotal / catCount).toFixed(1)}${nl}`;
+    if (mode !== "glows") {
+      for (const cat of categories) {
+        const domainsToShow = mode === "scored"
+          ? cat.domains.filter((d) => scores[d.id] !== undefined)
+          : cat.domains;
+        if (domainsToShow.length === 0) continue;
+        scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
+        let catTotal = 0, catCount = 0;
+        for (const domain of domainsToShow) {
+          const raw = scores[domain.id];
+          const scoreStr = raw !== undefined ? String(raw) : undefined;
+          const label = scoreStr !== undefined ? `${scoreStr}  (${SCORE_LABEL[scoreStr] ?? scoreStr})` : "—";
+          scoreBlock += `  ${domain.label.padEnd(32)} ${label}${nl}`;
+          if (raw !== undefined) { catTotal += raw; catCount++; }
+        }
+        if (catCount > 0) {
+          scoreBlock += `  ${"Sub-average".padEnd(32)} ${(catTotal / catCount).toFixed(1)}${nl}`;
+        }
       }
     }
 
@@ -158,6 +166,16 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     const overallAvg = scoredVals.length ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(1) : "—";
 
     const resolvedIntro = introText ?? `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
+
+    const rubricLines = mode !== "glows" && scoreBlock.trim() ? [
+      divider,
+      `RUBRIC SCORES`,
+      divider,
+      scoreBlock.trimEnd(),
+      nl,
+      `${"Overall Average".padEnd(32)} ${overallAvg}`,
+      nl,
+    ] : [];
 
     const body = [
       resolvedIntro,
@@ -170,13 +188,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       `Teacher:   ${teacher?.name ?? ""}`,
       `Subject:   ${teacher?.subject ?? ""}  ·  Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`,
       nl,
-      divider,
-      `RUBRIC SCORES`,
-      divider,
-      scoreBlock.trimEnd(),
-      nl,
-      `${"Overall Average".padEnd(32)} ${overallAvg}`,
-      nl,
+      ...rubricLines,
       divider,
       `GLOWS (Teacher Strengths)`,
       divider,
@@ -195,7 +207,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
-  function buildHtmlEmail(intro: string, glowsText: string, growsText: string): string {
+  function buildHtmlEmail(intro: string, glowsText: string, growsText: string, mode: "all" | "scored" | "glows" = emailMode): string {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
     const dateLabel = formatDateLong(date);
@@ -241,18 +253,23 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     }
 
     let scoreTableRows = "";
-    for (const cat of categories) {
-      scoreTableRows += `
+    if (mode !== "glows") {
+      for (const cat of categories) {
+        const domainsToShow = mode === "scored"
+          ? cat.domains.filter((d) => scores[d.id] !== undefined)
+          : cat.domains;
+        if (domainsToShow.length === 0) continue;
+        scoreTableRows += `
         <tr>
           <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${cat.label}</td>
         </tr>`;
-      let catTotal = 0, catCount = 0;
-      for (const domain of cat.domains) {
-        const val = scores[domain.id] as Score | undefined;
-        const bg = scoreBg(val);
-        const fg = scoreColor(val);
-        const txt = scoreText(val);
-        scoreTableRows += `
+        let catTotal = 0, catCount = 0;
+        for (const domain of domainsToShow) {
+          const val = scores[domain.id] as Score | undefined;
+          const bg = scoreBg(val);
+          const fg = scoreColor(val);
+          const txt = scoreText(val);
+          scoreTableRows += `
         <tr style="border-bottom:1px solid #e2e8f0;">
           <td style="padding:8px 14px;font-size:13px;color:#374151;">${domain.label}</td>
           <td style="padding:8px 6px;text-align:center;">
@@ -260,26 +277,26 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           </td>
           <td style="padding:8px 10px;text-align:center;">${trendHtml(domain.id, val)}</td>
         </tr>`;
-        if (val !== undefined) { catTotal += val; catCount++; }
-      }
-      if (catCount > 0) {
-        const avg = (catTotal / catCount).toFixed(2);
-        scoreTableRows += `
+          if (val !== undefined) { catTotal += val; catCount++; }
+        }
+        if (catCount > 0) {
+          const avg = (catTotal / catCount).toFixed(2);
+          scoreTableRows += `
         <tr style="background:#f8fafc;border-bottom:2px solid #dde3f0;">
           <td style="padding:7px 14px;font-size:12px;font-weight:700;color:#374151;font-style:italic;">Sub-average</td>
           <td style="padding:7px 6px;text-align:center;font-size:12px;font-weight:700;color:#374151;">${avg}</td>
           <td></td>
         </tr>`;
+        }
       }
-    }
-
-    if (overallAvg !== null) {
-      scoreTableRows += `
+      if (overallAvg !== null && scoreTableRows.trim()) {
+        scoreTableRows += `
         <tr style="background:#1034B4;">
           <td style="padding:9px 14px;font-size:13px;font-weight:700;color:#fff;">Overall Average</td>
           <td style="padding:9px 6px;text-align:center;font-size:14px;font-weight:700;color:#FFB500;">${overallAvg}</td>
           <td></td>
         </tr>`;
+      }
     }
 
     const gradeLabel = `Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`;
@@ -359,6 +376,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
         </td>
       </tr>
 
+      ${scoreTableRows.trim() ? `
       <!-- Rubric Scores -->
       <tr>
         <td style="padding:24px 28px 0 28px;">
@@ -376,7 +394,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             </tbody>
           </table>
         </td>
-      </tr>
+      </tr>` : ""}
 
       <!-- Glows -->
       <tr>
@@ -548,14 +566,14 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   // Recomputes whenever the editable text fields change
   const liveHtmlEmail = useMemo(
-    () => emailPreview ? buildHtmlEmail(editableIntro, editableGlows, editableGrows) : "",
-    [emailPreview, editableIntro, editableGlows, editableGrows], // eslint-disable-line react-hooks/exhaustive-deps
+    () => emailPreview ? buildHtmlEmail(editableIntro, editableGlows, editableGrows, emailMode) : "",
+    [emailPreview, editableIntro, editableGlows, editableGrows, emailMode], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Plain-text body for mailto/Outlook links — stays in sync with editable intro
   const livePlainBody = useMemo(
-    () => emailPreview ? buildEmailDraft(editableIntro).body : "",
-    [emailPreview, editableIntro], // eslint-disable-line react-hooks/exhaustive-deps
+    () => emailPreview ? buildEmailDraft(editableIntro, emailMode).body : "",
+    [emailPreview, editableIntro, emailMode], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const inputBase =
@@ -627,17 +645,34 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 {/* Edit tab — subject + opening only */}
                 {emailTab === "edit" && (
                   <div className="flex flex-col gap-4 flex-1">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Subject Line
-                      </label>
-                      <input
-                        type="text"
-                        value={editableSubject}
-                        onChange={(e) => setEditableSubject(e.target.value)}
-                        className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                        style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                      />
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Subject Line
+                        </label>
+                        <input
+                          type="text"
+                          value={editableSubject}
+                          onChange={(e) => setEditableSubject(e.target.value)}
+                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                        />
+                      </div>
+                      <div className="shrink-0">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                          Include Scores
+                        </label>
+                        <select
+                          value={emailMode}
+                          onChange={(e) => setEmailMode(e.target.value as "all" | "scored" | "glows")}
+                          className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                        >
+                          <option value="all">All Rubric Rows</option>
+                          <option value="scored">Scored Rows Only</option>
+                          <option value="glows">Glows / Grows Only</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex-1 flex flex-col">
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
