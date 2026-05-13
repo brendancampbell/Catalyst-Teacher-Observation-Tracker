@@ -554,7 +554,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   async function handleCopyHtml(html: string) {
     try { await writeRichHtmlToClipboard(html); } catch { /* ignore */ }
     setCopiedHtml(true);
-    setTimeout(() => setCopiedHtml(false), 2500);
+    setTimeout(() => setCopiedHtml(false), 3500);
   }
 
   async function handleOpenOutlook(outlookUrl: string) {
@@ -703,91 +703,36 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
               </div>
 
-              {/* Footer buttons */}
-              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                {/* Send error (only shown when direct send is enabled) */}
-                {EMAIL_DIRECT_SEND_ENABLED && emailSendError && (
-                  <p className="text-xs text-red-600 text-center">{emailSendError}</p>
+              {/* Footer */}
+              <style>{`
+                @keyframes gbfFadeOut {
+                  0%   { opacity: 1; }
+                  60%  { opacity: 1; }
+                  100% { opacity: 0; }
+                }
+                .gbf-copy-notif { animation: gbfFadeOut 3.5s forwards; }
+              `}</style>
+              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50">
+                {copiedHtml && (
+                  <p className="gbf-copy-notif text-center text-sm font-semibold text-green-700 mb-2">
+                    Email Copied — Paste (Ctrl+V) into a new email message.
+                  </p>
                 )}
-                {/* Paste hint — shown after clicking an Outlook button */}
-                {outlookHint && (
-                  <div className="flex items-start gap-2 rounded px-3 py-2 text-xs text-amber-800 bg-amber-50 border border-amber-200">
-                    <span className="shrink-0 mt-0.5">📋</span>
-                    <span>
-                      <strong>Formatted email copied.</strong> In Outlook, click in the message body and press{" "}
-                      <kbd className="px-1 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-xs">Ctrl+V</kbd>{" "}
-                      (or <kbd className="px-1 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-xs">⌘V</kbd>) to paste with full formatting.
-                    </span>
-                    <button type="button" onClick={() => setOutlookHint(false)} className="shrink-0 ml-auto text-amber-400 hover:text-amber-700 leading-none">✕</button>
-                  </div>
-                )}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3">
+                <div className="flex items-center justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => handleCopyHtml(liveHtmlEmail)}
-                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
-                    style={{ borderColor: NAVY, color: copiedHtml ? "#15803d" : NAVY, backgroundColor: copiedHtml ? "#f0fdf4" : "white" }}
+                    className="px-5 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
+                    style={{ backgroundColor: NAVY }}
                   >
-                    {copiedHtml ? "✓ Copied!" : "Copy HTML"}
+                    Copy Email
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(emailPreview.body)}
-                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors text-center"
-                    style={{ borderColor: "#64748b", color: copied ? "#15803d" : "#64748b", backgroundColor: copied ? "#f0fdf4" : "white" }}
-                  >
-                    {copied ? "✓ Copied!" : "Copy Text"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenOutlook(
-                      `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}`
-                    )}
-                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: "#0078D4" }}
-                  >
-                    Outlook Web
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenOutlook(
-                      `mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}`
-                    )}
-                    className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: "#0078D4", opacity: 0.85 }}
-                  >
-                    Open in Outlook
-                  </button>
-                  {/* Send via Resend — gated off until Resend domain is verified */}
-                  {EMAIL_DIRECT_SEND_ENABLED && (() => {
-                    const teacherEmail = teachers.find(t => t.id === teacherId)?.email;
-                    if (emailSent) {
-                      return (
-                        <span className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-center text-green-700 bg-green-50 border border-green-200">
-                          ✓ Email Sent!
-                        </span>
-                      );
-                    }
-                    return (
-                      <button
-                        type="button"
-                        onClick={handleSendEmail}
-                        disabled={!teacherEmail || sendingEmail || !savedObsId}
-                        title={!teacherEmail ? "No email address on this teacher's profile" : undefined}
-                        className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: "#16a34a" }}
-                      >
-                        {sendingEmail ? "Sending…" : "✉ Send Email"}
-                      </button>
-                    );
-                  })()}
                   <button
                     type="button"
                     onClick={() => { reset(); onOpenChange(false); }}
-                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
-                    style={{ backgroundColor: NAVY }}
+                    className="px-5 py-2 rounded text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
                   >
-                    Done
+                    Close
                   </button>
                 </div>
               </div>
