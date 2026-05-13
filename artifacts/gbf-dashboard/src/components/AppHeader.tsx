@@ -1,4 +1,5 @@
-import { Plus, Activity, ArrowLeft } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
 const NAVY   = "#1034B4";
@@ -42,6 +43,22 @@ export default function AppHeader({
   activeRubricSet,
   onRubricChange,
 }: AppHeaderProps) {
+  const [rubricOpen, setRubricOpen] = useState(false);
+  const rubricRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!rubricOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (rubricRef.current && !rubricRef.current.contains(e.target as Node)) {
+        setRubricOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [rubricOpen]);
+
+  const activeRubricName = rubricSets?.find((r) => r.slug === activeRubricSet)?.name ?? activeRubricSet ?? "Rubric";
+
   return (
     <>
       <div style={{ height: 5, backgroundColor: YELLOW, flexShrink: 0 }} />
@@ -85,41 +102,70 @@ export default function AppHeader({
           {/* ── Right: Actions ── */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
-            {/* ── Rubric Picker ── */}
+            {/* ── Rubric Dropdown ── */}
             {rubricSets && rubricSets.length > 0 && onRubricChange && (
-              <div
-                className="hidden sm:flex items-center gap-1.5 rounded px-2 py-1.5"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.1)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                }}
-              >
-                <span
-                  className="font-bold uppercase shrink-0"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.05em", color: "rgba(255,255,255,0.65)" }}
+              <div ref={rubricRef} className="hidden sm:block relative">
+                <button
+                  type="button"
+                  onClick={() => setRubricOpen((v) => !v)}
+                  className="flex items-center gap-1.5 rounded px-2 py-1.5 transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "white",
+                    outline: "none",
+                  }}
                 >
-                  Rubric
-                </span>
-                {rubricSets.map((q) => {
-                  const active = q.slug === activeRubricSet;
-                  return (
-                    <button
-                      key={q.slug}
-                      type="button"
-                      onClick={() => onRubricChange(q.slug)}
-                      className="h-8 px-2.5 font-bold uppercase tracking-wide rounded transition-colors"
-                      style={{
-                        fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: 13,
-                        letterSpacing: "0.04em",
-                        backgroundColor: active ? YELLOW : "rgba(255,255,255,0.15)",
-                        color: active ? NAVY : "rgba(255,255,255,0.9)",
-                      }}
-                    >
-                      {q.name}
-                    </button>
-                  );
-                })}
+                  <BookOpen size={13} style={{ color: YELLOW, flexShrink: 0 }} />
+                  <span
+                    className="font-bold uppercase"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em", color: YELLOW }}
+                  >
+                    {activeRubricName}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    strokeWidth={2.5}
+                    style={{ color: "rgba(255,255,255,0.6)", transform: rubricOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                  />
+                </button>
+
+                {rubricOpen && (
+                  <div
+                    className="absolute right-0 mt-2 rounded-lg shadow-xl z-50 overflow-hidden"
+                    style={{ backgroundColor: "white", border: "1.5px solid #dde3f0", top: "100%", minWidth: 160 }}
+                  >
+                    <div className="px-3 py-2 border-b" style={{ borderColor: "#eef1fb", backgroundColor: "#f5f7ff" }}>
+                      <p className="font-bold text-xs uppercase tracking-widest" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em" }}>
+                        Select Rubric
+                      </p>
+                    </div>
+                    <div className="py-1">
+                      {rubricSets.map((q) => {
+                        const active = q.slug === activeRubricSet;
+                        return (
+                          <button
+                            key={q.slug}
+                            type="button"
+                            onClick={() => { onRubricChange(q.slug); setRubricOpen(false); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-sm font-semibold transition-colors text-left"
+                            style={{
+                              backgroundColor: active ? "#f0f4ff" : "transparent",
+                              color: active ? NAVY : "#374151",
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: 14,
+                              letterSpacing: "0.03em",
+                            }}
+                          >
+                            {active && <span style={{ color: YELLOW, fontSize: 10 }}>●</span>}
+                            {!active && <span style={{ width: 10, display: "inline-block" }} />}
+                            {q.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
