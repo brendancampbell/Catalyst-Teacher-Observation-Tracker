@@ -809,7 +809,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
         )}
       </main>
 
-      <footer className="text-center py-4" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
+      <footer className="text-center py-1.5" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
         &copy; 2026 Uncommon Schools, Inc. All rights reserved.
       </footer>
 
