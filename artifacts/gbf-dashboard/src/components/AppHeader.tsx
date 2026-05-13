@@ -4,6 +4,11 @@ import UserMenuDropdown from "./UserMenuDropdown";
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 
+interface RubricOption {
+  slug: string;
+  name: string;
+}
+
 interface AppHeaderProps {
   subtitle: string;
   backHref?: string;
@@ -16,6 +21,9 @@ interface AppHeaderProps {
   userEmail?: string | null;
   userRole: string;
   canAdmin: boolean;
+  rubricSets?: RubricOption[];
+  activeRubricSet?: string;
+  onRubricChange?: (slug: string) => void;
 }
 
 export default function AppHeader({
@@ -30,6 +38,9 @@ export default function AppHeader({
   userEmail,
   userRole,
   canAdmin,
+  rubricSets,
+  activeRubricSet,
+  onRubricChange,
 }: AppHeaderProps) {
   return (
     <>
@@ -73,6 +84,45 @@ export default function AppHeader({
 
           {/* ── Right: Actions ── */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+
+            {/* ── Rubric Picker ── */}
+            {rubricSets && rubricSets.length > 0 && onRubricChange && (
+              <div
+                className="hidden sm:flex items-center gap-1.5 rounded px-2 py-1.5"
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              >
+                <span
+                  className="font-bold uppercase shrink-0"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.05em", color: "rgba(255,255,255,0.65)" }}
+                >
+                  Rubric
+                </span>
+                {rubricSets.map((q) => {
+                  const active = q.slug === activeRubricSet;
+                  return (
+                    <button
+                      key={q.slug}
+                      type="button"
+                      onClick={() => onRubricChange(q.slug)}
+                      className="h-8 px-2.5 font-bold uppercase tracking-wide rounded transition-colors"
+                      style={{
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontSize: 13,
+                        letterSpacing: "0.04em",
+                        backgroundColor: active ? YELLOW : "rgba(255,255,255,0.15)",
+                        color: active ? NAVY : "rgba(255,255,255,0.9)",
+                      }}
+                    >
+                      {q.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Action buttons grouped in one semi-transparent wrapper */}
             <div
               className="flex items-center gap-2 rounded px-2 py-1.5"
