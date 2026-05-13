@@ -76,26 +76,25 @@ export default function AppHeader({
             {onAddObservation && (
               <button
                 onClick={onAddObservation}
-                className="flex items-center gap-1.5 font-bold rounded-md px-3 sm:px-4 py-2 transition-opacity hover:opacity-90 shadow-sm"
+                title="Add Observation"
+                className="flex items-center justify-center rounded px-2 py-2 transition-colors hover:opacity-90"
                 style={{
-                  backgroundColor: YELLOW,
-                  color: NAVY,
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 15,
-                  letterSpacing: "0.02em",
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: YELLOW,
                 }}
               >
-                <Plus size={16} strokeWidth={3} />
-                <span className="hidden sm:inline">Add Observation</span>
+                <Plus size={18} strokeWidth={3} />
               </button>
             )}
 
             <a
               href={actionCenterHref}
-              className="hidden sm:flex items-center justify-center rounded-md px-2 py-2 transition-opacity hover:opacity-80"
+              className="hidden sm:flex items-center justify-center rounded px-2 py-2 transition-opacity hover:opacity-80"
               title={actionCenterLabel}
               style={{
-                border: "1.5px solid rgba(255,181,0,0.5)",
+                backgroundColor: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.15)",
                 color: YELLOW,
                 textDecoration: "none",
               }}
