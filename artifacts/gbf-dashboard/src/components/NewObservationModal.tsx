@@ -86,6 +86,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailSendError, setEmailSendError] = useState<string | null>(null);
+  const [outlookHint, setOutlookHint] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -125,6 +126,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setSendingEmail(false);
     setEmailSent(false);
     setEmailSendError(null);
+    setOutlookHint(false);
   }
 
   function buildEmailDraft(introText?: string): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -489,26 +491,59 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     });
   }
 
-  async function handleCopyHtml(html: string) {
+  async function writeRichHtmlToClipboard(html: string): Promise<void> {
     const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
-    try {
-      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+
+    // 1. Modern Clipboard API — writes both text/html and text/plain
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      try {
         await navigator.clipboard.write([
           new ClipboardItem({
             "text/html":  new Blob([html],  { type: "text/html"  }),
             "text/plain": new Blob([plain], { type: "text/plain" }),
           }),
         ]);
-      } else {
-        await navigator.clipboard.writeText(html);
-      }
-      setCopiedHtml(true);
-      setTimeout(() => setCopiedHtml(false), 2500);
-    } catch {
-      await navigator.clipboard.writeText(html);
-      setCopiedHtml(true);
-      setTimeout(() => setCopiedHtml(false), 2500);
+        return;
+      } catch { /* fall through */ }
     }
+
+    // 2. contenteditable + execCommand — copies rendered DOM so rich formatting is preserved
+    try {
+      const div = document.createElement("div");
+      div.contentEditable = "true";
+      div.innerHTML = html;
+      Object.assign(div.style, {
+        position: "fixed", top: "0", left: "0",
+        width: "1px", height: "1px",
+        opacity: "0", pointerEvents: "none", overflow: "hidden",
+      });
+      document.body.appendChild(div);
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(div);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      document.execCommand("copy");
+      sel?.removeAllRanges();
+      document.body.removeChild(div);
+      return;
+    } catch { /* fall through */ }
+
+    // 3. Last resort — raw HTML markup as plain text
+    await navigator.clipboard.writeText(html);
+  }
+
+  async function handleCopyHtml(html: string) {
+    try { await writeRichHtmlToClipboard(html); } catch { /* ignore */ }
+    setCopiedHtml(true);
+    setTimeout(() => setCopiedHtml(false), 2500);
+  }
+
+  async function handleOpenOutlook(outlookUrl: string) {
+    try { await writeRichHtmlToClipboard(liveHtmlEmail); } catch { /* ignore */ }
+    window.open(outlookUrl, "_blank", "noopener,noreferrer");
+    setOutlookHint(true);
+    setTimeout(() => setOutlookHint(false), 10000);
   }
 
   // Recomputes whenever the editable text fields change
@@ -639,6 +674,18 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                 {EMAIL_DIRECT_SEND_ENABLED && emailSendError && (
                   <p className="text-xs text-red-600 text-center">{emailSendError}</p>
                 )}
+                {/* Paste hint — shown after clicking an Outlook button */}
+                {outlookHint && (
+                  <div className="flex items-start gap-2 rounded px-3 py-2 text-xs text-amber-800 bg-amber-50 border border-amber-200">
+                    <span className="shrink-0 mt-0.5">📋</span>
+                    <span>
+                      <strong>Formatted email copied.</strong> In Outlook, click in the message body and press{" "}
+                      <kbd className="px-1 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-xs">Ctrl+V</kbd>{" "}
+                      (or <kbd className="px-1 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-xs">⌘V</kbd>) to paste with full formatting.
+                    </span>
+                    <button type="button" onClick={() => setOutlookHint(false)} className="shrink-0 ml-auto text-amber-400 hover:text-amber-700 leading-none">✕</button>
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-3">
                   <button
                     type="button"
@@ -656,23 +703,26 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   >
                     {copied ? "✓ Copied!" : "Copy Text"}
                   </button>
-                  <a
-                    href={`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOutlook(
+                      `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}&subject=${encodeURIComponent(editableSubject)}`
+                    )}
                     className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: "#0078D4", textDecoration: "none" }}
+                    style={{ backgroundColor: "#0078D4" }}
                   >
                     Outlook Web
-                  </a>
-                  <a
-                    href={`mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(livePlainBody)}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOutlook(
+                      `mailto:${encodeURIComponent(teachers.find(t => t.id === teacherId)?.email ?? "")}?subject=${encodeURIComponent(editableSubject)}`
+                    )}
                     className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-bold text-white text-center transition-opacity hover:opacity-90"
-                    style={{ backgroundColor: "#0078D4", textDecoration: "none", opacity: 0.85 }}
-                    onClick={() => { setTimeout(() => { reset(); onOpenChange(false); }, 400); }}
+                    style={{ backgroundColor: "#0078D4", opacity: 0.85 }}
                   >
                     Open in Outlook
-                  </a>
+                  </button>
                   {/* Send via Resend — gated off until Resend domain is verified */}
                   {EMAIL_DIRECT_SEND_ENABLED && (() => {
                     const teacherEmail = teachers.find(t => t.id === teacherId)?.email;
