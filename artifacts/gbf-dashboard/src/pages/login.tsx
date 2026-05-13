@@ -53,7 +53,7 @@ export default function LoginPage() {
               letterSpacing: "0.06em",
             }}
           >
-            Get Better Faster Tracker
+            Teacher Feedback Tracker
           </h1>
         </div>
 
