@@ -22,7 +22,7 @@ export function AppHeader({ subtitle, onSwitchSchool }: AppHeaderProps) {
             className="text-white uppercase tracking-wider leading-tight truncate"
             style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}
           >
-            Teacher Feedback Tracker
+            Teacher Observation Tracker
           </p>
           {subtitle && (
             <p className="text-blue-200 truncate" style={{ fontSize: 13 }}>{subtitle}</p>

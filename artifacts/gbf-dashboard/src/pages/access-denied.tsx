@@ -26,7 +26,7 @@ export default function AccessDeniedPage() {
               letterSpacing: "0.06em",
             }}
           >
-            Teacher Feedback Tracker
+            Teacher Observation Tracker
           </h1>
         </div>
 
