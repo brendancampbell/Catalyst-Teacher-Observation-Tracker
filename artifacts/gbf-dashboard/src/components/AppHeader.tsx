@@ -73,34 +73,34 @@ export default function AppHeader({
 
           {/* ── Right: Actions ── */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {onAddObservation && (
-              <button
-                onClick={onAddObservation}
-                title="Add Observation"
-                className="flex items-center justify-center rounded px-2 py-2 transition-colors hover:opacity-90"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.1)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: YELLOW,
-                }}
-              >
-                <Plus size={18} strokeWidth={3} />
-              </button>
-            )}
-
-            <a
-              href={actionCenterHref}
-              className="hidden sm:flex items-center justify-center rounded px-2 py-2 transition-opacity hover:opacity-80"
-              title={actionCenterLabel}
+            {/* Action buttons grouped in one semi-transparent wrapper */}
+            <div
+              className="flex items-center gap-2 rounded px-2 py-1.5"
               style={{
                 backgroundColor: "rgba(255,255,255,0.1)",
                 border: "1px solid rgba(255,255,255,0.15)",
-                color: YELLOW,
-                textDecoration: "none",
               }}
             >
-              <Activity size={16} />
-            </a>
+              {onAddObservation && (
+                <button
+                  onClick={onAddObservation}
+                  title="Add Observation"
+                  className="w-8 h-8 flex items-center justify-center rounded transition-opacity hover:opacity-90 shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                >
+                  <Plus size={16} strokeWidth={3} />
+                </button>
+              )}
+
+              <a
+                href={actionCenterHref}
+                className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
+                title={actionCenterLabel}
+                style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
+              >
+                <Activity size={15} />
+              </a>
+            </div>
 
             <UserMenuDropdown
               name={userName}
