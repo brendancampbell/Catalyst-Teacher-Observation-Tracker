@@ -227,6 +227,7 @@ export default function ActionCenterPage() {
               subtitle="Action Center"
               backHref={returnTo}
               backLabel="Back to Dashboard"
+              draftsHref={`${baseUrl}/drafts`}
               basePath={baseUrl}
               onAddObservation={() => setNewObsOpen(true)}
               actionCenterHref={`${baseUrl}/action-center`}

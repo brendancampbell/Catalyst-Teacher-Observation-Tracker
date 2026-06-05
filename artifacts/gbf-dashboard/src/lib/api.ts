@@ -327,18 +327,21 @@ export async function deleteObservation(id: string): Promise<{ ok: boolean; id: 
 }
 
 export interface DraftObservation {
-  id:            string;
-  teacherId:     string;
-  rubricSetId:   number;
-  date:          string;
-  time?:         string;
-  course?:       string;
-  isWalkthrough: boolean;
-  strengths?:    string;
-  growthAreas?:  string;
-  observer:      string;
-  status:        "draft";
-  scores:        Record<string, Score>;
+  id:             string;
+  teacherId:      string;
+  teacherName?:   string;
+  rubricSetId:    number;
+  rubricSetSlug?: string;
+  rubricSetName?: string;
+  date:           string;
+  time?:          string;
+  course?:        string;
+  isWalkthrough:  boolean;
+  strengths?:     string;
+  growthAreas?:   string;
+  observer:       string;
+  status:         "draft";
+  scores:         Record<string, Score>;
 }
 
 export async function fetchMyDrafts(): Promise<DraftObservation[]> {

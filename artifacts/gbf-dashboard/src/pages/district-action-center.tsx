@@ -141,6 +141,7 @@ export default function DistrictActionCenterPage() {
               backHref={returnTo}
               backLabel="Back to Network Overview"
               basePath={baseUrl}
+              draftsHref={`${baseUrl}/drafts`}
               actionCenterHref={`${baseUrl}/district-action-center`}
               userName={currentUser.name}
               userRole={currentUser.role}

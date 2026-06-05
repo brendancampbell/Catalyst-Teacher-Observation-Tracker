@@ -30,8 +30,25 @@ router.get("/drafts", async (req, res) => {
     const currentUser = req.user as Express.User;
 
     const drafts = await db
-      .select()
+      .select({
+        id:            observations.id,
+        teacherId:     observations.teacherId,
+        teacherName:   teachers.name,
+        rubricSetId:   observations.rubricSetId,
+        rubricSetSlug: rubricSets.slug,
+        rubricSetName: rubricSets.name,
+        date:          observations.date,
+        time:          observations.time,
+        course:        observations.course,
+        isWalkthrough: observations.isWalkthrough,
+        strengths:     observations.strengths,
+        growthAreas:   observations.growthAreas,
+        observer:      observations.observer,
+        status:        observations.status,
+      })
       .from(observations)
+      .innerJoin(teachers,   eq(teachers.id,   observations.teacherId))
+      .innerJoin(rubricSets, eq(rubricSets.id,  observations.rubricSetId))
       .where(and(eq(observations.observerId, currentUser.id), eq(observations.status, "draft")))
       .orderBy(desc(observations.date));
 
@@ -55,7 +72,10 @@ router.get("/drafts", async (req, res) => {
     res.json(drafts.map((d) => ({
       id:            String(d.id),
       teacherId:     String(d.teacherId),
+      teacherName:   d.teacherName,
       rubricSetId:   d.rubricSetId,
+      rubricSetSlug: d.rubricSetSlug,
+      rubricSetName: d.rubricSetName,
       date:          d.date,
       time:          d.time ?? undefined,
       course:        d.course ?? undefined,

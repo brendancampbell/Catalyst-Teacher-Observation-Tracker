@@ -7,6 +7,7 @@ import Dashboard from "@/components/Dashboard";
 import AdminPage from "@/pages/admin";
 import ActionCenterPage from "@/pages/action-center";
 import DistrictActionCenterPage from "@/pages/district-action-center";
+import DraftsPage from "@/pages/drafts";
 import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import { UserProvider, useUser } from "@/context/UserContext";
@@ -90,6 +91,9 @@ function Router() {
       </Route>
       <Route path="/district-action-center">
         <NetworkProtectedRoute><DistrictActionCenterPage /></NetworkProtectedRoute>
+      </Route>
+      <Route path="/drafts">
+        <ProtectedRoute><DraftsPage /></ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

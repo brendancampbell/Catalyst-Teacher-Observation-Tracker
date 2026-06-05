@@ -281,6 +281,21 @@ export default function Dashboard() {
     }
   }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* Auto-open observation modal when ?draft=<teacherId> param is present
+     (set by the Drafts page Resume button). The modal's checkForDraft
+     logic will auto-populate the form from the saved draft.            */
+  const urlDraftTeacherId = useMemo(() => searchParams.get("draft"), [searchParams]);
+  useEffect(() => {
+    if (urlDraftTeacherId && teachers.length > 0) {
+      const found = teachers.find((t) => t.id === urlDraftTeacherId);
+      if (found) {
+        setNewObsDefaultTeacherId(urlDraftTeacherId);
+        setNewObsOpen(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, [urlDraftTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── Header height measurement for sticky rows ── */
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -294,9 +309,10 @@ export default function Dashboard() {
   }, []);
 
   /* ── Modal state ───────────────────────────────────── */
-  const [newObsOpen, setNewObsOpen] = useState(false);
-  const [drillDown, setDrillDown]   = useState<DrillDownTarget | null>(null);
-  const [saving, setSaving]         = useState(false);
+  const [newObsOpen, setNewObsOpen]                     = useState(false);
+  const [newObsDefaultTeacherId, setNewObsDefaultTeacherId] = useState<string | undefined>(undefined);
+  const [drillDown, setDrillDown]                       = useState<DrillDownTarget | null>(null);
+  const [saving, setSaving]                             = useState(false);
 
   /* ── Derived lists (always computed — hooks must come before any return) */
   const filtered = useMemo(() => {
@@ -431,49 +447,6 @@ export default function Dashboard() {
     }
   }
 
-  async function handleSaveDraft(
-    teacherId: string,
-    date: string,
-    scores: Partial<Record<string, Score>>,
-    strengths: string,
-    growthAreas: string,
-    isWalkthrough: boolean,
-    time: string,
-    course: string,
-    existingDraftId?: string,
-  ): Promise<string> {
-    if (!rubricSetId) return "";
-    try {
-      let obs;
-      if (existingDraftId) {
-        obs = await updateObservation(existingDraftId, {
-          strengths:   strengths   || undefined,
-          growthAreas: growthAreas || undefined,
-          scores:      scores as Record<string, Score>,
-          status:      "draft",
-        });
-      } else {
-        obs = await createObservation({
-          teacherId,
-          rubricSetId,
-          date,
-          time:         time   || undefined,
-          course:       course || undefined,
-          scores:       scores as Record<string, Score>,
-          strengths:    strengths || undefined,
-          growthAreas:  growthAreas || undefined,
-          observer:     currentUser?.name ?? "Unknown",
-          observerId:   currentUser?.id,
-          isWalkthrough,
-          status:       "draft",
-        });
-      }
-      return obs.id;
-    } catch (err) {
-      console.error("Failed to save draft:", err);
-      throw err;
-    }
-  }
 
   async function handleUpdateObs(teacherId: string, updated: Observation) {
     setSaving(true);
@@ -552,7 +525,8 @@ export default function Dashboard() {
           <AppHeader
             subtitle={schoolName ?? currentUser.schoolName ?? ""}
             basePath={BASE_PATH}
-            onAddObservation={() => setNewObsOpen(true)}
+            onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
+            draftsHref={`${BASE_PATH}/drafts`}
             actionCenterHref={`${BASE_PATH}/action-center?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}
@@ -1135,12 +1109,12 @@ export default function Dashboard() {
         categories={categories}
         allDomains={allDomains}
         open={newObsOpen}
-        onOpenChange={setNewObsOpen}
+        onOpenChange={(v) => { setNewObsOpen(v); if (!v) setNewObsDefaultTeacherId(undefined); }}
         canMarkWalkthrough={currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "SCHOOL_LEADER"}
+        defaultTeacherId={newObsDefaultTeacherId}
         observerName={currentUser?.name}
         rubricSetId={rubricSetId ?? undefined}
         onSubmit={handleNewObservation}
-        onSaveDraft={handleSaveDraft}
         saving={saving}
       />
 

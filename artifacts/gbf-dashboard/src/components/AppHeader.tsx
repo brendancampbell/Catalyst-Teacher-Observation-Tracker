@@ -1,4 +1,4 @@
-import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
@@ -16,6 +16,7 @@ interface AppHeaderProps {
   backLabel?: string;
   basePath: string;
   onAddObservation?: () => void;
+  draftsHref?: string;
   actionCenterHref: string;
   actionCenterLabel?: string;
   userName: string;
@@ -33,6 +34,7 @@ export default function AppHeader({
   backLabel = "Dashboard",
   basePath,
   onAddObservation,
+  draftsHref,
   actionCenterHref,
   actionCenterLabel = "Action Center",
   userName,
@@ -187,6 +189,17 @@ export default function AppHeader({
                   <Plus size={14} strokeWidth={3} />
                   <span>Add Observation</span>
                 </button>
+              )}
+
+              {draftsHref && (
+                <a
+                  href={draftsHref}
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
+                  title="My Drafts"
+                  style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
+                >
+                  <FileEdit size={15} />
+                </a>
               )}
 
               <a
