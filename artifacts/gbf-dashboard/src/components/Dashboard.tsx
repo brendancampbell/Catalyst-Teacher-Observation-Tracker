@@ -391,23 +391,36 @@ export default function Dashboard() {
     isWalkthrough: boolean,
     time: string,
     course: string,
+    draftId?: string,
   ): Promise<string> {
     if (!rubricSetId) return "";
     setSaving(true);
     try {
-      const obs = await createObservation({
-        teacherId,
-        rubricSetId,
-        date,
-        time:         time   || undefined,
-        course:       course || undefined,
-        scores,
-        strengths:    strengths || undefined,
-        growthAreas:  growthAreas || undefined,
-        observer:     currentUser?.name ?? "Unknown",
-        observerId:   currentUser?.id,
-        isWalkthrough,
-      });
+      let obs;
+      if (draftId) {
+        /* Publishing an existing draft → PUT with status: published */
+        obs = await updateObservation(draftId, {
+          strengths:    strengths    || undefined,
+          growthAreas:  growthAreas  || undefined,
+          scores:       scores,
+          status:       "published",
+        });
+      } else {
+        obs = await createObservation({
+          teacherId,
+          rubricSetId,
+          date,
+          time:         time   || undefined,
+          course:       course || undefined,
+          scores,
+          strengths:    strengths || undefined,
+          growthAreas:  growthAreas || undefined,
+          observer:     currentUser?.name ?? "Unknown",
+          observerId:   currentUser?.id,
+          isWalkthrough,
+          status:       "published",
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       return obs.id;
     } catch (err) {
@@ -415,6 +428,50 @@ export default function Dashboard() {
       return "";
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveDraft(
+    teacherId: string,
+    date: string,
+    scores: Partial<Record<string, Score>>,
+    strengths: string,
+    growthAreas: string,
+    isWalkthrough: boolean,
+    time: string,
+    course: string,
+    existingDraftId?: string,
+  ): Promise<string> {
+    if (!rubricSetId) return "";
+    try {
+      let obs;
+      if (existingDraftId) {
+        obs = await updateObservation(existingDraftId, {
+          strengths:   strengths   || undefined,
+          growthAreas: growthAreas || undefined,
+          scores:      scores as Record<string, Score>,
+          status:      "draft",
+        });
+      } else {
+        obs = await createObservation({
+          teacherId,
+          rubricSetId,
+          date,
+          time:         time   || undefined,
+          course:       course || undefined,
+          scores:       scores as Record<string, Score>,
+          strengths:    strengths || undefined,
+          growthAreas:  growthAreas || undefined,
+          observer:     currentUser?.name ?? "Unknown",
+          observerId:   currentUser?.id,
+          isWalkthrough,
+          status:       "draft",
+        });
+      }
+      return obs.id;
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+      throw err;
     }
   }
 
@@ -1081,7 +1138,9 @@ export default function Dashboard() {
         onOpenChange={setNewObsOpen}
         canMarkWalkthrough={currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "SCHOOL_LEADER"}
         observerName={currentUser?.name}
+        rubricSetId={rubricSetId ?? undefined}
         onSubmit={handleNewObservation}
+        onSaveDraft={handleSaveDraft}
         saving={saving}
       />
 

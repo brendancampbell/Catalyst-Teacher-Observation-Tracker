@@ -293,7 +293,8 @@ export interface CreateObservationPayload {
   observer?:    string;
   observerId?:  number;
   isWalkthrough?: boolean;
-  scores:       Record<string, Score>;
+  scores?:      Record<string, Score>;
+  status?:      "draft" | "published";
 }
 
 export async function createObservation(payload: CreateObservationPayload): Promise<Observation> {
@@ -309,6 +310,7 @@ export interface UpdateObservationPayload {
   growthAreas?: string;
   observer?:    string;
   scores?:      Record<string, Score>;
+  status?:      "draft" | "published";
 }
 
 export async function updateObservation(id: string, payload: UpdateObservationPayload): Promise<Observation> {
@@ -322,6 +324,25 @@ export async function deleteObservation(id: string): Promise<{ ok: boolean; id: 
   return apiFetch<{ ok: boolean; id: string }>(`/observations/${id}`, {
     method: "DELETE",
   });
+}
+
+export interface DraftObservation {
+  id:            string;
+  teacherId:     string;
+  rubricSetId:   number;
+  date:          string;
+  time?:         string;
+  course?:       string;
+  isWalkthrough: boolean;
+  strengths?:    string;
+  growthAreas?:  string;
+  observer:      string;
+  status:        "draft";
+  scores:        Record<string, Score>;
+}
+
+export async function fetchMyDrafts(): Promise<DraftObservation[]> {
+  return apiFetch<DraftObservation[]>("/observations/drafts");
 }
 
 export async function fetchMyLatestRubricSlug(): Promise<string | null> {

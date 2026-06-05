@@ -4,7 +4,7 @@ import {
   teachers, rubricQuarters,
   observations, observationScores,
 } from "@workspace/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, ne } from "drizzle-orm";
 
 const router = Router();
 
@@ -33,7 +33,7 @@ router.get("/:id", async (req, res) => {
     if (!quarter) { res.status(404).json({ error: "Quarter not found" }); return; }
 
     const obsRows = await db.select().from(observations)
-      .where(and(eq(observations.teacherId, teacherId), eq(observations.rubricSetId, quarter.id)));
+      .where(and(eq(observations.teacherId, teacherId), eq(observations.rubricSetId, quarter.id), ne(observations.status, "draft")));
 
     const obsIds = obsRows.map((o) => o.id);
     const scores = obsIds.length > 0

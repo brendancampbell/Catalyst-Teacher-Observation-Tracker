@@ -19,6 +19,7 @@ export const observations = pgTable("observations", {
   isWalkthrough:  boolean("is_walkthrough").notNull().default(false),
   editedById:     integer("edited_by_id").references(() => users.id, { onDelete: "set null" }),
   editedAt:       timestamp("edited_at", { withTimezone: true }),
+  status:         text("status").notNull().default("published"),
 });
 
 export const observationScores = pgTable("observation_scores", {

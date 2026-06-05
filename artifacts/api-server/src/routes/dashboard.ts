@@ -4,7 +4,7 @@ import {
   teachers, rubricSets, rubricCategories,
   observations, observationScores, users,
 } from "@workspace/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, ne } from "drizzle-orm";
 
 const router = Router();
 
@@ -42,8 +42,8 @@ router.get("/", async (req, res) => {
       : await db.select().from(teachers).where(eq(teachers.isActive, true));
 
     const obsWhere = walkthroughsOnly
-      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true))
-      : eq(observations.rubricSetId, rubricSet.id);
+      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"))
+      : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"));
 
     const allObs = await db.select().from(observations).where(obsWhere);
 

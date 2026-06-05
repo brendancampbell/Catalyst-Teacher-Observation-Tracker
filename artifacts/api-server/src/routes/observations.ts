@@ -1,44 +1,100 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { observations, observationScores, teachers, users, rubricSets } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
 const router = Router();
 
 /* ── GET /api/observations/my-latest-rubric ─────────────────────────
    Returns the slug of the rubric set containing the current user's
-   most recent observation (by date). Returns { slug: null } if the
-   user has no observations recorded.                                 */
+   most recent PUBLISHED observation (by date). Returns { slug: null }
+   if the user has no published observations recorded.                 */
 router.get("/my-latest-rubric", async (req, res) => {
   const currentUser = req.user as Express.User;
   const latest = await db
     .select({ slug: rubricSets.slug })
     .from(observations)
     .innerJoin(rubricSets, eq(rubricSets.id, observations.rubricSetId))
-    .where(eq(observations.observerId, currentUser.id))
+    .where(and(eq(observations.observerId, currentUser.id), ne(observations.status, "draft")))
     .orderBy(desc(observations.date))
     .limit(1);
 
   res.json({ slug: latest[0]?.slug ?? null });
 });
 
+/* ── GET /api/observations/drafts ───────────────────────────────────
+   Returns all draft observations created by the current user,
+   with their scores included.                                         */
+router.get("/drafts", async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+
+    const drafts = await db
+      .select()
+      .from(observations)
+      .where(and(eq(observations.observerId, currentUser.id), eq(observations.status, "draft")))
+      .orderBy(desc(observations.date));
+
+    if (drafts.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const draftIds = drafts.map((d) => d.id);
+    const allScores = await db
+      .select()
+      .from(observationScores)
+      .where(inArray(observationScores.observationId, draftIds));
+
+    const scoresByObs = new Map<number, Record<string, number>>();
+    for (const s of allScores) {
+      if (!scoresByObs.has(s.observationId)) scoresByObs.set(s.observationId, {});
+      scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
+    }
+
+    res.json(drafts.map((d) => ({
+      id:            String(d.id),
+      teacherId:     String(d.teacherId),
+      rubricSetId:   d.rubricSetId,
+      date:          d.date,
+      time:          d.time ?? undefined,
+      course:        d.course ?? undefined,
+      isWalkthrough: d.isWalkthrough,
+      strengths:     d.strengths ?? undefined,
+      growthAreas:   d.growthAreas ?? undefined,
+      observer:      d.observer,
+      status:        d.status,
+      scores:        scoresByObs.get(d.id) ?? {},
+    })));
+  } catch (err) {
+    console.error("GET /observations/drafts error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,
-           observer?, scores, isWalkthrough? }
+           observer?, scores, isWalkthrough?, status? }
    Also accepts legacy field `quarterId` as fallback for rubricSetId.
    observerId is ALWAYS derived from the authenticated session —
-   client-supplied observerId is intentionally ignored.               */
+   client-supplied observerId is intentionally ignored.
+   status defaults to "published". Drafts skip the rescore queue.     */
 router.post("/", async (req, res) => {
   try {
     const {
       teacherId, rubricSetId, quarterId, date, time, course, strengths, growthAreas,
-      observer, scores, isWalkthrough,
+      observer, scores, isWalkthrough, status,
     } = req.body;
 
     const resolvedRubricSetId = rubricSetId ?? quarterId;
+    const resolvedStatus: string = status === "draft" ? "draft" : "published";
 
-    if (!teacherId || !resolvedRubricSetId || !date || !scores) {
-      res.status(400).json({ error: "teacherId, rubricSetId, date and scores are required" });
+    if (!teacherId || !resolvedRubricSetId || !date) {
+      res.status(400).json({ error: "teacherId, rubricSetId, and date are required" });
+      return;
+    }
+    if (resolvedStatus === "published" && !scores) {
+      res.status(400).json({ error: "scores are required for published observations" });
       return;
     }
 
@@ -68,22 +124,25 @@ router.post("/", async (req, res) => {
       observer:      observer || creator.name,
       observerId:    creator.id,
       isWalkthrough: !!isWalkthrough,
+      status:        resolvedStatus,
     }).returning();
 
-    const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
-      observationId: obs.id,
-      domainSlug,
-      score: Number(score),
-    }));
+    const scoreRows = scores
+      ? Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
+          observationId: obs.id,
+          domainSlug,
+          score: Number(score),
+        }))
+      : [];
 
     if (scoreRows.length > 0) {
       await db.insert(observationScores).values(scoreRows);
     }
 
     /* ── Walkthrough / Rescore queue logic ───────────────────────────
-       Applies when isWalkthrough === true. Uses creator.role from the
-       authenticated session — never from client-supplied body data.   */
-    if (obs.isWalkthrough) {
+       Only runs for PUBLISHED observations.
+       Applies when isWalkthrough === true.                            */
+    if (obs.isWalkthrough && obs.status === "published") {
       const canTriggerRescore =
         creator.role === "NETWORK_ADMIN" ||
         creator.role === "NETWORK_LEADER" ||
@@ -111,15 +170,16 @@ router.post("/", async (req, res) => {
       .where(eq(observationScores.observationId, obs.id));
 
     res.status(201).json({
-      id:           String(obs.id),
-      date:         obs.date,
-      time:         obs.time ?? undefined,
-      course:       obs.course ?? undefined,
+      id:            String(obs.id),
+      date:          obs.date,
+      time:          obs.time ?? undefined,
+      course:        obs.course ?? undefined,
       isWalkthrough: obs.isWalkthrough,
-      strengths:    obs.strengths ?? undefined,
-      growthAreas:  obs.growthAreas ?? undefined,
-      observer:     obs.observer,
-      scores:       Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      strengths:     obs.strengths ?? undefined,
+      growthAreas:   obs.growthAreas ?? undefined,
+      observer:      obs.observer,
+      status:        obs.status,
+      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("POST /observations error:", err);
@@ -128,46 +188,62 @@ router.post("/", async (req, res) => {
 });
 
 /* ── PUT /api/observations/:id ──────────────────────────────────────
-   Permitted roles: SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
-   COACHes may NOT edit observations.
-   Stores editedById + editedAt for the audit trail.                  */
+   For PUBLISHED observations: requires SCHOOL_LEADER, NETWORK_LEADER,
+   or NETWORK_ADMIN.
+   For DRAFT observations: the original creator (any role) may edit or
+   publish their own draft.
+   Stores editedById + editedAt for the audit trail on published edits. */
 router.put("/:id", async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { strengths, growthAreas, observer, scores } = req.body;
-
-    /* ── Role gate ──────────────────────────────────────────────── */
-    const isSchoolLeader   = currentUser.role === "SCHOOL_LEADER";
-    const isNetworkLeader  = currentUser.role === "NETWORK_LEADER";
-    const isNetworkAdmin   = currentUser.role === "NETWORK_ADMIN";
-
-    if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
-      res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may edit observations" });
-      return;
-    }
+    const { strengths, growthAreas, observer, scores, status } = req.body;
 
     const existing = await db.query.observations.findFirst({
       where: eq(observations.id, obsId),
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    /* ── School-scope for School Leaders ────────────────────────── */
-    if (isSchoolLeader) {
-      const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
-      if (!teacher || teacher.schoolId !== currentUser.schoolId) {
-        res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
+    const isDraftEdit = existing.status === "draft" && existing.observerId === currentUser.id;
+
+    /* ── Role gate ──────────────────────────────────────────────────
+       Draft creators (any role) may edit/publish their own drafts.
+       Published observations require SCHOOL_LEADER+.               */
+    if (!isDraftEdit) {
+      const isSchoolLeader   = currentUser.role === "SCHOOL_LEADER";
+      const isNetworkLeader  = currentUser.role === "NETWORK_LEADER";
+      const isNetworkAdmin   = currentUser.role === "NETWORK_ADMIN";
+
+      if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
+        res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may edit observations" });
         return;
+      }
+
+      /* ── School-scope for School Leaders ───────────────────────── */
+      if (currentUser.role === "SCHOOL_LEADER") {
+        const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
+        if (!teacher || teacher.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
+          return;
+        }
       }
     }
 
+    const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
+    const isPublishing = existing.status === "draft" && resolvedStatus === "published";
+
+    /* Stamp editedBy only for edits to already-published observations */
+    const auditFields = !isDraftEdit
+      ? { editedById: currentUser.id, editedAt: new Date() }
+      : {};
+
     const [updated] = await db.update(observations)
       .set({
-        strengths:   strengths  ?? existing.strengths,
-        growthAreas: growthAreas ?? existing.growthAreas,
-        observer:    observer   ?? existing.observer,
-        editedById:  currentUser.id,
-        editedAt:    new Date(),
+        strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
+        growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
+        observer:    observer    !== undefined ? (observer    || existing.observer) : existing.observer,
+        status:      resolvedStatus,
+        ...auditFields,
       })
       .where(eq(observations.id, obsId))
       .returning();
@@ -180,6 +256,33 @@ router.put("/:id", async (req, res) => {
         score: Number(score),
       }));
       if (scoreRows.length > 0) await db.insert(observationScores).values(scoreRows);
+    }
+
+    /* ── Walkthrough / Rescore queue logic on publish ─────────────── */
+    if (isPublishing && updated.isWalkthrough) {
+      const canTriggerRescore =
+        currentUser.role === "NETWORK_ADMIN" ||
+        currentUser.role === "NETWORK_LEADER" ||
+        currentUser.role === "SCHOOL_LEADER";
+
+      if (canTriggerRescore) {
+        const savedScoresForRescore = await db.select().from(observationScores)
+          .where(eq(observationScores.observationId, obsId));
+        if (savedScoresForRescore.length > 0) {
+          const avg = savedScoresForRescore.reduce((s, r) => s + r.score, 0) / savedScoresForRescore.length;
+          if (avg < 0.7) {
+            const due = new Date(updated.date);
+            due.setDate(due.getDate() + 14);
+            await db.update(teachers)
+              .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0] })
+              .where(eq(teachers.id, updated.teacherId));
+          } else {
+            await db.update(teachers)
+              .set({ needsRescore: false, rescoreDueDate: null })
+              .where(eq(teachers.id, updated.teacherId));
+          }
+        }
+      }
     }
 
     const savedScores = await db.select().from(observationScores)
@@ -201,6 +304,7 @@ router.put("/:id", async (req, res) => {
       strengths:     updated.strengths  ?? undefined,
       growthAreas:   updated.growthAreas ?? undefined,
       observer:      updated.observer,
+      status:        updated.status,
       editedBy:      editedByName,
       editedAt:      updated.editedAt?.toISOString() ?? undefined,
       scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
@@ -213,7 +317,7 @@ router.put("/:id", async (req, res) => {
 
 /* ── DELETE /api/observations/:id ───────────────────────────────────
    Permitted roles: SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
-   COACHes may NOT delete observations.
+   Draft creators (any role) may delete their own drafts.
    School Leaders are restricted to teachers in their own school.
    observation_scores are removed automatically by the FK ON DELETE
    CASCADE defined in the schema.                                     */
@@ -227,25 +331,29 @@ router.delete("/:id", async (req, res) => {
       return;
     }
 
-    const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
-    const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
-    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
-
-    if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
-      res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may delete observations" });
-      return;
-    }
-
     const existing = await db.query.observations.findFirst({
       where: eq(observations.id, obsId),
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    if (isSchoolLeader) {
-      const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
-      if (!teacher || teacher.schoolId !== currentUser.schoolId) {
-        res.status(403).json({ error: "Cannot delete observations for teachers outside your school" });
+    const isDraftOwner = existing.status === "draft" && existing.observerId === currentUser.id;
+
+    if (!isDraftOwner) {
+      const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
+      const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
+      const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
+
+      if (!isSchoolLeader && !isNetworkLeader && !isNetworkAdmin) {
+        res.status(403).json({ error: "Only School Leaders, Network Leaders, and Network Admins may delete observations" });
         return;
+      }
+
+      if (currentUser.role === "SCHOOL_LEADER") {
+        const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
+        if (!teacher || teacher.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot delete observations for teachers outside your school" });
+          return;
+        }
       }
     }
 

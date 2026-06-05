@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
-import type { CategoryEntry, DomainEntry } from "@/lib/api";
-import { sendObservationEmail } from "@/lib/api";
+import type { CategoryEntry, DomainEntry, DraftObservation } from "@/lib/api";
+import { sendObservationEmail, fetchMyDrafts } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 const NAVY = "#1034B4";
@@ -25,6 +25,7 @@ interface Props {
   defaultTeacherId?: string;
   defaultIsWalkthrough?: boolean;
   observerName?: string;
+  rubricSetId?: number;
   onSubmit: (
     teacherId: string,
     date: string,
@@ -34,6 +35,18 @@ interface Props {
     isWalkthrough: boolean,
     time: string,
     course: string,
+    draftId?: string,
+  ) => Promise<string>;
+  onSaveDraft?: (
+    teacherId: string,
+    date: string,
+    scores: Partial<Record<string, Score>>,
+    strengths: string,
+    growthAreas: string,
+    isWalkthrough: boolean,
+    time: string,
+    course: string,
+    existingDraftId?: string,
   ) => Promise<string>;
   saving?: boolean;
 }
@@ -58,7 +71,7 @@ function formatDateLong(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, onSubmit, saving }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, onSubmit, onSaveDraft, saving }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const nowTime = () => {
@@ -75,6 +88,11 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [growthAreas, setGrowthAreas] = useState("");
   const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState(false);
+
+  /* ── Draft state ──────────────────────────────────────────────── */
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftBanner, setDraftBanner] = useState<DraftObservation | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; htmlEmail: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedHtml, setCopiedHtml] = useState(false);
@@ -90,9 +108,26 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const [outlookHint, setOutlookHint] = useState(false);
   const [emailMode, setEmailMode] = useState<"all" | "scored" | "glows">("all");
 
+  /* Detect drafts for the currently selected teacher when the modal opens */
+  const checkForDraft = useCallback(async (forTeacherId: string) => {
+    if (!forTeacherId || !rubricSetId) return;
+    try {
+      const drafts = await fetchMyDrafts();
+      const match = drafts.find((d) => d.teacherId === forTeacherId && d.rubricSetId === rubricSetId);
+      if (match) {
+        setDraftBanner(match);
+      } else {
+        setDraftBanner(null);
+      }
+    } catch {
+      /* silently ignore — draft detection is best-effort */
+    }
+  }, [rubricSetId]);
+
   useEffect(() => {
     if (open) {
-      setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
+      const tid = defaultTeacherId ?? teachers[0]?.id ?? "";
+      setTeacherId(tid);
       setDate(new Date().toISOString().split("T")[0]);
       setTime(nowTime());
       setCourse("");
@@ -101,8 +136,20 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setGrowthAreas("");
       setIsWalkthrough(!!defaultIsWalkthrough);
       setEmailFeedback(false);
+      setDraftId(null);
+      setDraftBanner(null);
+      checkForDraft(tid);
     }
   }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Re-check for a draft when the teacher selector changes */
+  useEffect(() => {
+    if (open && teacherId) {
+      setDraftId(null);
+      setDraftBanner(null);
+      checkForDraft(teacherId);
+    }
+  }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
@@ -130,6 +177,9 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setEmailSendError(null);
     setOutlookHint(false);
     setEmailMode("all");
+    setDraftId(null);
+    setDraftBanner(null);
+    setSavingDraft(false);
   }
 
   function buildEmailDraft(introText?: string, mode: "all" | "scored" | "glows" = emailMode): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -451,9 +501,26 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
   const DEFAULT_INTRO_BODY = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
 
+  async function handleSaveDraft() {
+    if (!onSaveDraft || !teacherId) return;
+    setSavingDraft(true);
+    try {
+      const id = await onSaveDraft(teacherId, date, scores, strengths, growthAreas, isWalkthrough, time, course, draftId ?? undefined);
+      setDraftId(id);
+      setDraftBanner(null);
+      toast({ title: "Draft saved", description: "You can resume this observation any time." });
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      toast({ title: "Could not save draft", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!teacherId) return;
-    const obsId = await onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course);
+    const obsId = await onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course, draftId ?? undefined);
     setSavedObsId(obsId ?? null);
     if (emailFeedback) {
       const _t = teachers.find((t) => t.id === teacherId);
@@ -752,6 +819,61 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
           {/* ── Form (hidden when showing email preview) ───── */}
           {!emailPreview && (<><div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
 
+            {/* ── Draft resume banner ──────────────────────────── */}
+            {draftBanner && !draftId && (
+              <div
+                className="flex items-start gap-3 rounded-lg px-4 py-3"
+                style={{ backgroundColor: "#fffbeb", border: "1.5px solid #f59e0b" }}
+              >
+                <span className="text-lg shrink-0" aria-hidden>📝</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm" style={{ color: "#92400e" }}>
+                    You have an unsaved draft for this teacher
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: "#b45309" }}>
+                    Started on {formatDateLong(draftBanner.date)} — {Object.keys(draftBanner.scores).length} domains scored
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDate(draftBanner.date);
+                        setTime(draftBanner.time ?? nowTime());
+                        setCourse(draftBanner.course ?? "");
+                        setScores(draftBanner.scores as Partial<Record<string, Score>>);
+                        setStrengths(draftBanner.strengths ?? "");
+                        setGrowthAreas(draftBanner.growthAreas ?? "");
+                        setIsWalkthrough(draftBanner.isWalkthrough);
+                        setDraftId(draftBanner.id);
+                        setDraftBanner(null);
+                      }}
+                      className="px-3 py-1.5 rounded text-xs font-bold text-white"
+                      style={{ backgroundColor: "#d97706" }}
+                    >
+                      Resume Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDraftBanner(null)}
+                      className="px-3 py-1.5 rounded text-xs font-semibold text-amber-700 border border-amber-300 hover:bg-amber-50"
+                    >
+                      Start Fresh
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Resuming draft indicator ──────────────────────── */}
+            {draftId && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded text-xs font-semibold"
+                style={{ backgroundColor: "#f0fdf4", border: "1px solid #86efac", color: "#15803d" }}
+              >
+                <span>✏️ Resuming draft — submit to publish, or save draft to keep your progress.</span>
+              </div>
+            )}
+
             {/* Teacher + Date + Time */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div className="sm:col-span-1">
@@ -972,10 +1094,21 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               >
                 Cancel
               </DialogPrimitive.Close>
+              {onSaveDraft && (
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={saving || savingDraft}
+                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors disabled:opacity-60"
+                  style={{ borderColor: NAVY, color: NAVY, backgroundColor: "white" }}
+                >
+                  {savingDraft ? "Saving…" : "Save Draft"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={saving}
+                disabled={saving || savingDraft}
                 className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
