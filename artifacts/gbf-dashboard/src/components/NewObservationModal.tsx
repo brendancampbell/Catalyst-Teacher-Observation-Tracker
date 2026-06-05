@@ -1083,33 +1083,35 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
 
           {/* ── Footer ───────────────────────────────────── */}
           <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50">
-            <p className="text-xs text-slate-400 order-2 sm:order-1">
-              {scoredCount === allDomains.length
-                ? "✓ All domains scored."
-                : `${scoredCount} of ${allDomains.length} domains scored — unscored domains will be left blank.`}
-            </p>
-            <div className="flex gap-2 sm:gap-3 order-1 sm:order-2">
-              <DialogPrimitive.Close
-                className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
-              >
-                Cancel
-              </DialogPrimitive.Close>
+            <div className="flex items-center gap-3 order-2 sm:order-1 min-w-0">
+              <p className="text-xs text-slate-400 truncate">
+                {scoredCount === allDomains.length
+                  ? "✓ All domains scored."
+                  : `${scoredCount} of ${allDomains.length} domains scored`}
+              </p>
               {onSaveDraft && (
                 <button
                   type="button"
                   onClick={handleSaveDraft}
                   disabled={saving || savingDraft}
-                  className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded text-sm font-semibold border transition-colors disabled:opacity-60"
+                  className="shrink-0 px-3 py-1.5 rounded text-xs font-semibold border transition-colors disabled:opacity-60 whitespace-nowrap"
                   style={{ borderColor: NAVY, color: NAVY, backgroundColor: "white" }}
                 >
                   {savingDraft ? "Saving…" : "Save Draft"}
                 </button>
               )}
+            </div>
+            <div className="flex gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
+              <DialogPrimitive.Close
+                className="px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
+              >
+                Cancel
+              </DialogPrimitive.Close>
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving || savingDraft}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
+                className="px-5 sm:px-7 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
                 style={{ backgroundColor: NAVY }}
               >
                 {saving ? "Saving…" : "Submit"}
