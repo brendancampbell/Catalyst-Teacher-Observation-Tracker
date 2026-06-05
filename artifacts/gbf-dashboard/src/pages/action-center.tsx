@@ -742,8 +742,8 @@ export default function ActionCenterPage() {
 
         </Tabs>
 
-      <footer className="text-center py-4 shrink-0" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
-        &copy; 2026 Uncommon Schools, Inc. All rights reserved.
+      <footer className="text-center pt-1 pb-4 shrink-0" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
+        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="#" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
       </footer>
 
       {/* New Observation Modal */}
