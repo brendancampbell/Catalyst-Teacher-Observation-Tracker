@@ -64,12 +64,13 @@ export default function LoginPage() {
             Catalyst
           </h1>
           <p
-            className="text-white uppercase text-center"
+            className="uppercase text-center"
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 16,
+              fontSize: 20,
               letterSpacing: "0.08em",
               marginTop: 2,
+              color: "#FFB500",
             }}
           >
             Teacher Observation Tool
