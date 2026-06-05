@@ -14,6 +14,13 @@ const router = Router();
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
+function richToEmailHtml(text: string, color: string): string {
+  if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
+  const isHtml = /<[a-z][\s\S]*>/i.test(text);
+  if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${text}</div>`;
+  return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${text.trim()}</p>`;
+}
+
 function formatDateLong(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
@@ -229,7 +236,7 @@ function buildHtmlEmail(params: {
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
-                <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;white-space:pre-wrap;">${glowsText.trim() || "(none entered)"}</p>
+                ${richToEmailHtml(glowsText, "#166534")}
               </td>
             </tr>
           </table>
@@ -243,7 +250,7 @@ function buildHtmlEmail(params: {
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
-                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;white-space:pre-wrap;">${growsText.trim() || "(none entered)"}</p>
+                ${richToEmailHtml(growsText, "#9a3412")}
               </td>
             </tr>
           </table>

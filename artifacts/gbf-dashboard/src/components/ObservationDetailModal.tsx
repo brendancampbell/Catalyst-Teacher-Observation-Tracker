@@ -1,6 +1,8 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Pencil, Check, ChevronLeft, Trash2 } from "lucide-react";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Observation, type Score } from "@/data/dummy";
 import { type CategoryEntry } from "@/lib/api";
 import { getScoreColorExact } from "@/components/ScoreCell";
@@ -294,7 +296,7 @@ export function ObservationDetailModal({
             ))}
 
             {/* Glows & Grows */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-4">
               <div>
                 <p
                   className="text-xs font-bold uppercase tracking-wider mb-1.5"
@@ -303,20 +305,20 @@ export function ObservationDetailModal({
                   ✦ Glows (Strengths)
                 </p>
                 {editing ? (
-                  <textarea
+                  <RichTextEditor
                     value={draftStrengths}
-                    onChange={(e) => setDraftStrengths(e.target.value)}
+                    onChange={setDraftStrengths}
                     placeholder="What is this teacher doing well?"
-                    className={inputBase + " resize-none"}
-                    rows={4}
+                    focusBorderColor="#86efac"
+                    minHeight={90}
                   />
                 ) : (
-                  <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2.5 min-h-[80px]">
-                    <p className="text-sm text-slate-700 leading-relaxed">
-                      {observation.strengths || (
-                        <span className="text-slate-400 italic">No strengths recorded.</span>
-                      )}
-                    </p>
+                  <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2.5 min-h-[60px]">
+                    <RichTextDisplay
+                      content={observation.strengths}
+                      className="text-slate-700"
+                      emptyNode={<span className="text-slate-400 italic text-sm">No strengths recorded.</span>}
+                    />
                   </div>
                 )}
               </div>
@@ -328,20 +330,20 @@ export function ObservationDetailModal({
                   ↑ Grows (Growth Areas)
                 </p>
                 {editing ? (
-                  <textarea
+                  <RichTextEditor
                     value={draftGrowth}
-                    onChange={(e) => setDraftGrowth(e.target.value)}
+                    onChange={setDraftGrowth}
                     placeholder="Where should this teacher focus next?"
-                    className={inputBase + " resize-none"}
-                    rows={4}
+                    focusBorderColor="#fdba74"
+                    minHeight={90}
                   />
                 ) : (
-                  <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2.5 min-h-[80px]">
-                    <p className="text-sm text-slate-700 leading-relaxed">
-                      {observation.growthAreas || (
-                        <span className="text-slate-400 italic">No growth areas recorded.</span>
-                      )}
-                    </p>
+                  <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2.5 min-h-[60px]">
+                    <RichTextDisplay
+                      content={observation.growthAreas}
+                      className="text-slate-700"
+                      emptyNode={<span className="text-slate-400 italic text-sm">No growth areas recorded.</span>}
+                    />
                   </div>
                 )}
               </div>

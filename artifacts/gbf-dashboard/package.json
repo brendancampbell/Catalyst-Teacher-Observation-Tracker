@@ -73,5 +73,9 @@
     "vite": "catalog:",
     "wouter": "^3.3.5",
     "zod": "catalog:"
+  },
+  "dependencies": {
+    "@tiptap/react": "^3.25.0",
+    "@tiptap/starter-kit": "^3.25.0"
   }
 }

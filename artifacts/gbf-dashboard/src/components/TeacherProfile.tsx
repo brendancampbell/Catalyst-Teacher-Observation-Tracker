@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
@@ -111,15 +112,19 @@ function ObservationCard({ obs, index, categories, onClick }: { obs: Observation
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#16a34a" }}>✦ Glows</p>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                {obs.strengths || <span className="italic text-slate-400">None recorded</span>}
-              </p>
+              <RichTextDisplay
+                content={obs.strengths}
+                className="text-slate-600"
+                emptyNode={<span className="italic text-slate-400 text-sm">None recorded</span>}
+              />
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#ea580c" }}>↑ Grows</p>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                {obs.growthAreas || <span className="italic text-slate-400">None recorded</span>}
-              </p>
+              <RichTextDisplay
+                content={obs.growthAreas}
+                className="text-slate-600"
+                emptyNode={<span className="italic text-slate-400 text-sm">None recorded</span>}
+              />
             </div>
           </div>
         )}
@@ -464,11 +469,11 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     </h2>
                   </div>
                   <div className="px-4 py-4">
-                    {recent.growthAreas ? (
-                      <p className="text-slate-700 leading-relaxed text-sm">{recent.growthAreas}</p>
-                    ) : (
-                      <p className="text-slate-400 italic text-sm">No growth areas recorded for most recent observation.</p>
-                    )}
+                    <RichTextDisplay
+                      content={recent.growthAreas}
+                      className="text-slate-700"
+                      emptyNode={<p className="text-slate-400 italic text-sm">No growth areas recorded for most recent observation.</p>}
+                    />
                     <p className="text-xs text-slate-400 mt-3">From observation on {formatDate(recent.date)}</p>
                   </div>
                 </div>

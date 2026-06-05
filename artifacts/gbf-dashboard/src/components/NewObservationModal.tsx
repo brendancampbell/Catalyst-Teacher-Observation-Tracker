@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { sendObservationEmail } from "@/lib/api";
@@ -207,6 +208,13 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     return { subject, body, mailtoUrl, outlookWebUrl };
   }
 
+  function richToEmailHtml(text: string, color: string): string {
+    if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
+    const isHtml = /<[a-z][\s\S]*>/i.test(text);
+    if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${text}</div>`;
+    return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${text.trim()}</p>`;
+  }
+
   function buildHtmlEmail(intro: string, glowsText: string, growsText: string, mode: "all" | "scored" | "glows" = emailMode): string {
     const teacher = teachers.find((t) => t.id === teacherId);
     const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
@@ -403,7 +411,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
-                <p style="margin:0;font-size:13px;color:#166534;line-height:1.6;white-space:pre-wrap;">${glowsText.trim() || "(none entered)"}</p>
+                ${richToEmailHtml(glowsText, "#166534")}
               </td>
             </tr>
           </table>
@@ -417,7 +425,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             <tr>
               <td style="padding:14px 16px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
-                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;white-space:pre-wrap;">${growsText.trim() || "(none entered)"}</p>
+                ${richToEmailHtml(growsText, "#9a3412")}
               </td>
             </tr>
           </table>
@@ -897,29 +905,29 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
             ))}
 
             {/* Notes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="flex flex-col gap-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
                   ✦ Teacher Strengths (Glows)
                 </label>
-                <textarea
+                <RichTextEditor
                   value={strengths}
-                  onChange={(e) => setStrengths(e.target.value)}
+                  onChange={setStrengths}
                   placeholder="What is this teacher doing well?"
-                  className="w-full px-3 py-2 rounded border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-300 bg-white"
-                  rows={4}
+                  focusBorderColor="#86efac"
+                  minHeight={90}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
                   ↑ Growth Areas (Grows)
                 </label>
-                <textarea
+                <RichTextEditor
                   value={growthAreas}
-                  onChange={(e) => setGrowthAreas(e.target.value)}
+                  onChange={setGrowthAreas}
                   placeholder="Where should this teacher focus next?"
-                  className="w-full px-3 py-2 rounded border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white"
-                  rows={4}
+                  focusBorderColor="#fdba74"
+                  minHeight={90}
                 />
               </div>
             </div>
