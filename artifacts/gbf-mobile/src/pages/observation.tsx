@@ -314,7 +314,7 @@ export default function ObservationPage() {
                             key={value}
                             type="button"
                             title={label}
-                            onClick={() => setScores((prev) => ({ ...prev, [domain.slug]: value }))}
+                            onClick={() => setScores((prev) => ({ ...prev, [domain.slug]: prev[domain.slug] === value ? undefined : value }))}
                             className="px-2.5 h-9 rounded font-bold text-sm transition-all whitespace-nowrap min-w-[36px]"
                             style={scorePillStyle(value, scores[domain.slug] === value)}
                           >

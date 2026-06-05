@@ -882,7 +882,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                               key={value}
                               type="button"
                               title={label}
-                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: value }))}
+                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: prev[domain.id] === value ? undefined : value }))}
                               className={`px-3 h-9 rounded font-bold text-sm transition-all whitespace-nowrap ${scorePillClass(value, scores[domain.id] === value)}`}
                             >
                               {value === 0 ? "0" : value === 1 ? "1" : "0.5"}
