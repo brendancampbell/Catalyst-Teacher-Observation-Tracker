@@ -764,6 +764,7 @@ export default function ActionCenterPage() {
           observerName={currentUser?.name}
           onSubmit={handleSubmitObs}
           saving={saving}
+          freshStart
         />
       )}
 

@@ -26,6 +26,8 @@ interface Props {
   defaultIsWalkthrough?: boolean;
   observerName?: string;
   rubricSetId?: number;
+  freshStart?: boolean;
+  resumeDraftId?: string;
   onSubmit: (
     teacherId: string,
     date: string,
@@ -60,7 +62,7 @@ function formatDateLong(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, onSubmit, saving }: Props) {
+export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, onSubmit, saving, freshStart, resumeDraftId }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const nowTime = () => {
@@ -110,8 +112,8 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const checkForDraft = useCallback(async (forTeacherId: string) => {
     if (!forTeacherId || !rubricSetId) return;
     try {
-      const drafts = await fetchMyDrafts();
-      const match = drafts.find((d) => d.teacherId === forTeacherId && d.rubricSetId === rubricSetId);
+      const allDrafts = await fetchMyDrafts();
+      const match = allDrafts.find((d) => d.teacherId === forTeacherId && d.rubricSetId === rubricSetId);
       if (match) {
         draftJustLoaded.current = true;
         setDate(match.date);
@@ -131,7 +133,29 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     }
   }, [rubricSetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* On modal open: reset state, then load any existing draft ───────── */
+  /* Load a specific draft by ID (used when resuming from Drafts page) ─ */
+  const loadDraftById = useCallback(async (id: string) => {
+    try {
+      const allDrafts = await fetchMyDrafts();
+      const match = allDrafts.find((d) => d.id === id);
+      if (match) {
+        draftJustLoaded.current = true;
+        setDate(match.date);
+        setTime(match.time ?? nowTime());
+        setCourse(match.course ?? "");
+        setScores(match.scores as Partial<Record<string, Score>>);
+        setStrengths(match.strengths ?? "");
+        setGrowthAreas(match.growthAreas ?? "");
+        setIsWalkthrough(match.isWalkthrough);
+        setDraftId(match.id);
+        setDraftResumedFrom(match.date);
+        setAutoSaveStatus("saved");
+        setLastSavedTime(null);
+      }
+    } catch { /* silently ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* On modal open: reset state, then optionally load a draft ───────── */
   useEffect(() => {
     if (open) {
       const tid = defaultTeacherId ?? teachers[0]?.id ?? "";
@@ -149,7 +173,11 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
       setDraftResumedFrom(null);
       setAutoSaveStatus("idle");
       setLastSavedTime(null);
-      checkForDraft(tid);
+      if (resumeDraftId) {
+        loadDraftById(resumeDraftId);
+      } else if (!freshStart) {
+        checkForDraft(tid);
+      }
     }
   }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -167,7 +195,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     setDraftResumedFrom(null);
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
-    checkForDraft(teacherId);
+    if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
   }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Auto-save: debounced upsert 2 s after any form change ─────────── */
@@ -1157,7 +1185,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
               <DialogPrimitive.Close
                 className="px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
               >
-                Cancel
+                Close
               </DialogPrimitive.Close>
               <button
                 type="button"

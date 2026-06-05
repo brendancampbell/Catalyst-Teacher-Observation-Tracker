@@ -526,7 +526,7 @@ export default function Dashboard() {
             subtitle={schoolName ?? currentUser.schoolName ?? ""}
             basePath={BASE_PATH}
             onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
-            draftsHref={`${BASE_PATH}/drafts`}
+            draftsHref={`${BASE_PATH}/drafts?returnUrl=${encodeURIComponent(window.location.search)}`}
             actionCenterHref={`${BASE_PATH}/action-center?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}
@@ -1116,6 +1116,7 @@ export default function Dashboard() {
         rubricSetId={rubricSetId ?? undefined}
         onSubmit={handleNewObservation}
         saving={saving}
+        freshStart
       />
 
       <DrillDownModal

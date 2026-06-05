@@ -33,7 +33,8 @@ router.get("/drafts", async (req, res) => {
       .select({
         id:            observations.id,
         teacherId:     observations.teacherId,
-        teacherName:   teachers.name,
+        teacherFirst:  teachers.firstName,
+        teacherLast:   teachers.lastName,
         rubricSetId:   observations.rubricSetId,
         rubricSetSlug: rubricSets.slug,
         rubricSetName: rubricSets.name,
@@ -72,7 +73,7 @@ router.get("/drafts", async (req, res) => {
     res.json(drafts.map((d) => ({
       id:            String(d.id),
       teacherId:     String(d.teacherId),
-      teacherName:   d.teacherName,
+      teacherName:   [d.teacherFirst, d.teacherLast].filter(Boolean).join(" ") || undefined,
       rubricSetId:   d.rubricSetId,
       rubricSetSlug: d.rubricSetSlug,
       rubricSetName: d.rubricSetName,

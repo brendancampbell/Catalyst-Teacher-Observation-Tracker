@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileEdit, Trash2, RotateCcw, FileX } from "lucide-react";
+import { useSearch } from "wouter";
+import { FileEdit, Trash2, RotateCcw, FileX, Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { useUser } from "@/context/UserContext";
-import { fetchMyDrafts, deleteObservation, type DraftObservation } from "@/lib/api";
+import {
+  fetchMyDrafts,
+  deleteObservation,
+  fetchDashboard,
+  createObservation,
+  updateObservation,
+  type DraftObservation,
+  type CategoryEntry,
+} from "@/lib/api";
+import { NewObservationModal } from "@/components/NewObservationModal";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import type { Teacher, DomainEntry, Score } from "@/data/dummy";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -28,14 +39,32 @@ export default function DraftsPage() {
   const queryClient     = useQueryClient();
   const baseUrl         = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
   const [, navigate]    = useLocation();
+  const search          = useSearch();
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  /* ── "Back to Dashboard" uses the returnUrl passed from the dashboard ── */
+  const rawReturnUrl = new URLSearchParams(search).get("returnUrl");
+  const backHref = rawReturnUrl ? `${baseUrl}${rawReturnUrl}` : `${baseUrl}/`;
+
+  /* ── Resume-modal state ─────────────────────────────────────────── */
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeData, setResumeData] = useState<{
+    draft:      DraftObservation;
+    teachers:   Teacher[];
+    categories: CategoryEntry[];
+    allDomains: DomainEntry[];
+  } | null>(null);
+  const [resumeLoading, setResumeLoading] = useState<string | null>(null);
+  const [resumeSaving,  setResumeSaving]  = useState(false);
+
+  /* ── Drafts query ───────────────────────────────────────────────── */
   const { data: drafts = [], isLoading, isError } = useQuery<DraftObservation[]>({
     queryKey:  ["myDrafts"],
     queryFn:   fetchMyDrafts,
     staleTime: 15_000,
   });
 
+  /* ── Handlers ───────────────────────────────────────────────────── */
   async function handleDelete(draft: DraftObservation) {
     setDeleting(draft.id);
     try {
@@ -49,8 +78,76 @@ export default function DraftsPage() {
     }
   }
 
-  function handleResume(draft: DraftObservation) {
-    navigate(`/?draft=${encodeURIComponent(draft.teacherId)}`);
+  async function handleResume(draft: DraftObservation) {
+    setResumeLoading(draft.id);
+    try {
+      const data = await fetchDashboard(
+        draft.rubricSetSlug ?? "Q1",
+        currentUser?.schoolId ?? null,
+      );
+      const allDomains = data.categories.flatMap((c) => c.domains);
+      setResumeData({
+        draft,
+        teachers:   data.teachers,
+        categories: data.categories,
+        allDomains,
+      });
+      setResumeOpen(true);
+    } catch {
+      toast({ title: "Could not load draft data", variant: "destructive" });
+    } finally {
+      setResumeLoading(null);
+    }
+  }
+
+  async function handleSubmitResumed(
+    teacherId:    string,
+    date:         string,
+    scores:       Record<string, Score>,
+    strengths:    string,
+    growthAreas:  string,
+    isWalkthrough: boolean,
+    time:         string,
+    course:       string,
+    draftId?:     string,
+  ): Promise<string> {
+    if (!resumeData) return "";
+    setResumeSaving(true);
+    try {
+      let obs;
+      if (draftId) {
+        obs = await updateObservation(draftId, {
+          strengths:   strengths   || undefined,
+          growthAreas: growthAreas || undefined,
+          scores,
+          status: "published",
+        });
+      } else {
+        obs = await createObservation({
+          teacherId,
+          rubricSetId:  resumeData.draft.rubricSetId,
+          date,
+          time:         time   || undefined,
+          course:       course || undefined,
+          scores,
+          strengths:    strengths   || undefined,
+          growthAreas:  growthAreas || undefined,
+          observer:     currentUser?.name ?? "Unknown",
+          observerId:   currentUser?.id,
+          isWalkthrough,
+          status: "published",
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      toast({ title: "Observation submitted!" });
+      return String(obs.id);
+    } catch (err) {
+      console.error("Failed to submit observation:", err);
+      toast({ title: "Failed to submit observation", variant: "destructive" });
+      return "";
+    } finally {
+      setResumeSaving(false);
+    }
   }
 
   if (!currentUser) return null;
@@ -61,7 +158,7 @@ export default function DraftsPage() {
       <div className="sticky top-0 z-30 shadow-md">
         <AppHeader
           subtitle="My Drafts"
-          backHref={`${baseUrl}/`}
+          backHref={backHref}
           backLabel="Back to Dashboard"
           basePath={baseUrl}
           draftsHref={`${baseUrl}/drafts`}
@@ -122,7 +219,7 @@ export default function DraftsPage() {
               Start an observation from the dashboard — it will auto-save here as you go.
             </p>
             <a
-              href={`${baseUrl}/`}
+              href={backHref}
               className="mt-2 px-5 py-2 rounded text-sm font-bold text-white"
               style={{ backgroundColor: NAVY }}
             >
@@ -135,10 +232,11 @@ export default function DraftsPage() {
         {!isLoading && !isError && drafts.length > 0 && (
           <div className="flex flex-col gap-3">
             {drafts.map((draft) => {
-              const scoreCount    = Object.keys(draft.scores).length;
-              const glows         = draft.strengths ? stripHtml(draft.strengths) : null;
-              const grows         = draft.growthAreas ? stripHtml(draft.growthAreas) : null;
-              const isBeingDeleted = deleting === draft.id;
+              const scoreCount     = Object.keys(draft.scores).length;
+              const glows          = draft.strengths  ? stripHtml(draft.strengths)  : null;
+              const grows          = draft.growthAreas ? stripHtml(draft.growthAreas) : null;
+              const isBeingDeleted = deleting    === draft.id;
+              const isBeingLoaded  = resumeLoading === draft.id;
 
               return (
                 <div
@@ -201,17 +299,20 @@ export default function DraftsPage() {
                     <button
                       type="button"
                       onClick={() => handleResume(draft)}
-                      disabled={isBeingDeleted}
+                      disabled={isBeingDeleted || isBeingLoaded}
                       className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-40"
                       style={{ backgroundColor: NAVY, color: "white" }}
                     >
-                      <RotateCcw size={13} />
-                      Resume
+                      {isBeingLoaded
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <RotateCcw size={13} />
+                      }
+                      {isBeingLoaded ? "Loading…" : "Resume"}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(draft)}
-                      disabled={isBeingDeleted}
+                      disabled={isBeingDeleted || isBeingLoaded}
                       className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
                     >
                       <Trash2 size={13} />
@@ -224,6 +325,24 @@ export default function DraftsPage() {
           </div>
         )}
       </main>
+
+      {/* ── Resume modal (opens inline on this page) ── */}
+      {resumeData && (
+        <NewObservationModal
+          teachers={resumeData.teachers}
+          categories={resumeData.categories}
+          allDomains={resumeData.allDomains}
+          open={resumeOpen}
+          onOpenChange={(o) => { setResumeOpen(o); if (!o) setResumeData(null); }}
+          defaultTeacherId={resumeData.draft.teacherId}
+          resumeDraftId={resumeData.draft.id}
+          rubricSetId={resumeData.draft.rubricSetId}
+          observerName={currentUser.name}
+          canMarkWalkthrough={currentUser.role !== "COACH"}
+          onSubmit={handleSubmitResumed}
+          saving={resumeSaving}
+        />
+      )}
     </div>
   );
 }
