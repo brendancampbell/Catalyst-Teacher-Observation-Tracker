@@ -4,7 +4,7 @@ import { X, Plus } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, DraftObservation } from "@/lib/api";
-import { sendObservationEmail, fetchMyDrafts } from "@/lib/api";
+import { sendObservationEmail, fetchMyDrafts, deleteObservation } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 const NAVY = "#1034B4";
@@ -854,10 +854,18 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDraftBanner(null)}
-                      className="px-3 py-1.5 rounded text-xs font-semibold text-amber-700 border border-amber-300 hover:bg-amber-50"
+                      onClick={async () => {
+                        try {
+                          await deleteObservation(draftBanner.id);
+                          setDraftBanner(null);
+                          toast({ title: "Draft deleted" });
+                        } catch {
+                          toast({ title: "Could not delete draft", variant: "destructive" });
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded text-xs font-semibold text-red-700 border border-red-300 hover:bg-red-50"
                     >
-                      Start Fresh
+                      Delete Draft
                     </button>
                   </div>
                 </div>
