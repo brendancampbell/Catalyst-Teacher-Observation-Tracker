@@ -53,8 +53,19 @@ export default function LoginPage() {
               letterSpacing: "0.06em",
             }}
           >
-            Teacher Observation Tracker
+            Catalyst
           </h1>
+          <p
+            className="text-white uppercase text-center"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 16,
+              letterSpacing: "0.08em",
+              marginTop: 2,
+            }}
+          >
+            Teacher Observation Tool
+          </p>
         </div>
 
         {/* Card */}

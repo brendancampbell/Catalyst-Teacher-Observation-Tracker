@@ -19,10 +19,16 @@ export function AppHeader({ subtitle, onSwitchSchool }: AppHeaderProps) {
       <div style={{ backgroundColor: NAVY }} className="px-4 py-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p
-            className="text-white uppercase tracking-wider leading-tight truncate"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.04em" }}
+            className="text-white uppercase leading-none"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: "0.04em" }}
           >
-            Teacher Observation Tracker
+            Catalyst
+          </p>
+          <p
+            className="text-blue-200 uppercase leading-tight"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.05em" }}
+          >
+            Teacher Observation Tool
           </p>
           {subtitle && (
             <p className="text-blue-200 truncate" style={{ fontSize: 13 }}>{subtitle}</p>
