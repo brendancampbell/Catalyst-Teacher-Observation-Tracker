@@ -61,7 +61,7 @@ export default function LoginPage() {
               fontFamily: "'Bebas Neue', sans-serif",
               fontSize: 20,
               letterSpacing: "0.08em",
-              marginTop: 2,
+              marginTop: -4,
               color: "#FFB500",
             }}
           >
