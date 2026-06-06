@@ -44,7 +44,7 @@ export default function DraftsPage() {
 
   /* ── "Back to Dashboard" uses the returnUrl passed from the dashboard ── */
   const rawReturnUrl = new URLSearchParams(search).get("returnUrl");
-  const backHref = rawReturnUrl ? `${baseUrl}${rawReturnUrl}` : `${baseUrl}/`;
+  const backHref = rawReturnUrl || `${baseUrl}/`;
 
   /* ── Resume-modal state ─────────────────────────────────────────── */
   const [resumeOpen, setResumeOpen] = useState(false);
