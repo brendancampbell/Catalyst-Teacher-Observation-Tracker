@@ -377,7 +377,7 @@ export async function fetchRubricSets(includeArchived = false): Promise<RubricSe
 /** @deprecated Use fetchRubricSets */
 export const fetchQuarters = fetchRubricSets;
 
-export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean }): Promise<RubricSetRow> {
+export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null }): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
     method: "PATCH",
     body: JSON.stringify(fields),

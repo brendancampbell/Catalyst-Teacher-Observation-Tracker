@@ -74,6 +74,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomDesc, setEditingDomDesc] = useState("");
   const [editingSetName, setEditingSetName] = useState(false);
   const [pendingSetName, setPendingSetName] = useState("");
+  const [editingGradeSpan,   setEditingGradeSpan]   = useState(false);
+  const [pendingGradeSpanArr, setPendingGradeSpanArr] = useState<string[]>([]);
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
   const [newCatOrder,       setNewCatOrder]       = useState(1);
@@ -99,6 +101,15 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setEditingSetName(false);
+    },
+  });
+
+  const updateGradeSpanMut = useMutation({
+    mutationFn: (spans: string[]) => updateRubricSet(setSlug, { gradeSpan: spans.length ? spans.join(",") : null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      setEditingGradeSpan(false);
     },
   });
 
@@ -217,6 +228,52 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 uppercase tracking-wide">
             Archived
           </span>
+        )}
+
+        {/* ── Grade span edit ── */}
+        {editingGradeSpan ? (
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0">Grade spans:</span>
+            <div className="flex items-center gap-3">
+              {GRADE_SPANS.map((gs) => (
+                <label key={gs} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={pendingGradeSpanArr.includes(gs)}
+                    onChange={(e) => setPendingGradeSpanArr((p) =>
+                      e.target.checked ? [...p, gs] : p.filter((g) => g !== gs)
+                    )}
+                    className="accent-blue-600 w-3.5 h-3.5"
+                  />
+                  {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
+                </label>
+              ))}
+            </div>
+            <button
+              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
+              disabled={updateGradeSpanMut.isPending}
+              onClick={() => updateGradeSpanMut.mutate(pendingGradeSpanArr)}
+            >
+              <Check size={15} />
+            </button>
+            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingGradeSpan(false)}>
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            title="Edit grade span"
+            onClick={() => {
+              setPendingGradeSpanArr(data.rubricSet.gradeSpan ? data.rubricSet.gradeSpan.split(",").filter(Boolean) : []);
+              setEditingGradeSpan(true);
+            }}
+          >
+            <Pencil size={11} />
+            {data.rubricSet.gradeSpan
+              ? data.rubricSet.gradeSpan.split(",").filter(Boolean).join(", ")
+              : "All grade spans"}
+          </button>
         )}
 
         <div className="ml-auto">
@@ -2308,8 +2365,8 @@ export default function AdminPage() {
 
   /* New Rubric Set dialog */
   const [showNewRubricSetDialog, setShowNewRubricSetDialog] = useState(false);
-  const [newQName, setNewQName]         = useState("");
-  const [newQGradeSpan, setNewQGradeSpan] = useState<string>("");
+  const [newQName, setNewQName]           = useState("");
+  const [newQGradeSpans, setNewQGradeSpans] = useState<string[]>([]);
   const [copyFromSlug, setCopyFromSlug] = useState<string>("");
 
   function slugify(s: string) {
@@ -2320,7 +2377,7 @@ export default function AdminPage() {
     mutationFn: () => createRubricSet(
       slugify(newQName) || `RS${activeSets.length + 1}`,
       newQName.trim(),
-      newQGradeSpan || undefined,
+      newQGradeSpans.join(",") || undefined,
       copyFromSlug || undefined,
     ),
     onSuccess: (created) => {
@@ -2505,7 +2562,7 @@ export default function AdminPage() {
                       >
                         {q.name}
                         {q.gradeSpan && (
-                          <span className="ml-1 text-xs opacity-70">({q.gradeSpan})</span>
+                          <span className="ml-1 text-xs opacity-70">({q.gradeSpan.split(",").filter(Boolean).join(", ")})</span>
                         )}
                       </button>
                       <button
@@ -2578,7 +2635,7 @@ export default function AdminPage() {
                     >
                       <span className="font-bold uppercase text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}>
                         {q.name}
-                        {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan})</span>}
+                        {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan.split(",").filter(Boolean).join(", ")})</span>}
                       </span>
                     </div>
                   );
@@ -2632,21 +2689,26 @@ export default function AdminPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-slate-700">Grade Span (optional)</label>
-                <select
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                  value={newQGradeSpan}
-                  onChange={(e) => setNewQGradeSpan(e.target.value)}
-                >
-                  <option value="">— All grade spans —</option>
+                <label className="text-sm font-semibold text-slate-700">Grade Spans (optional)</label>
+                <div className="flex items-center gap-4 px-1 py-1">
                   {GRADE_SPANS.map((gs) => (
-                    <option key={gs} value={gs}>{gs === "ES" ? "Elementary (ES)" : gs === "MS" ? "Middle (MS)" : "High School (HS)"}</option>
+                    <label key={gs} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={newQGradeSpans.includes(gs)}
+                        onChange={(e) => setNewQGradeSpans((p) =>
+                          e.target.checked ? [...p, gs] : p.filter((g) => g !== gs)
+                        )}
+                        className="accent-blue-600 w-4 h-4"
+                      />
+                      {gs === "ES" ? "Elementary (ES)" : gs === "MS" ? "Middle (MS)" : "High School (HS)"}
+                    </label>
                   ))}
-                </select>
+                </div>
                 <p className="text-xs text-slate-400">
-                  {newQGradeSpan
-                    ? `This rubric set will be scoped to ${newQGradeSpan} schools.`
-                    : "Leave blank to apply this rubric set to all grade spans."}
+                  {newQGradeSpans.length > 0
+                    ? `Scoped to: ${newQGradeSpans.join(", ")}`
+                    : "Leave unchecked to apply to all grade spans."}
                 </p>
               </div>
 

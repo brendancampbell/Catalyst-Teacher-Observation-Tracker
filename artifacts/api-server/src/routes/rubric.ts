@@ -105,11 +105,12 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, description, isArchived } = req.body as { name?: string; description?: string; isArchived?: boolean };
+    const { name, description, isArchived, gradeSpan } = req.body as { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null };
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (description !== undefined) updates.description = description;
     if (isArchived !== undefined) updates.isArchived = isArchived;
+    if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
 
     const [updated] = await db
