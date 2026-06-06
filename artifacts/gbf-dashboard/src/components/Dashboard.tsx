@@ -165,7 +165,8 @@ export default function Dashboard() {
   }, [searchParams]);
 
   /* ── School name from URL param (for drill-down label) */
-  const schoolName = useMemo(() => searchParams.get("schoolName") ?? null, [searchParams]);
+  const schoolName      = useMemo(() => searchParams.get("schoolName")      ?? null, [searchParams]);
+  const schoolGradeSpan = useMemo(() => searchParams.get("schoolGradeSpan") ?? null, [searchParams]);
 
   /* ── ?teacher=<id> — auto-open teacher profile on load */
   const urlTeacherId = useMemo(() => searchParams.get("teacher"), [searchParams]);
@@ -184,6 +185,16 @@ export default function Dashboard() {
     staleTime: 60_000,
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
+
+  /* In a per-school view, only offer rubrics compatible with the school's grade span.
+     A rubric with no gradeSpan (null / empty) is compatible with all schools.
+     A rubric scoped to "ES,HS" is compatible with ES or HS schools only.           */
+  const compatibleRubricSets = useMemo(() => {
+    if (!schoolGradeSpan) return rubricSets;
+    return rubricSets.filter(
+      (r) => !r.gradeSpan || r.gradeSpan.split(",").filter(Boolean).includes(schoolGradeSpan),
+    );
+  }, [rubricSets, schoolGradeSpan]);
 
   const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
     queryKey: ["myLatestRubricSlug"],
@@ -208,6 +219,15 @@ export default function Dashboard() {
     }
     didInitRubric.current = true;
   }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
+
+  /* Auto-switch rubric when the current selection is incompatible with this school */
+  useEffect(() => {
+    if (!schoolGradeSpan || compatibleRubricSets.length === 0) return;
+    if (!compatibleRubricSets.find((r) => r.slug === activeRubricSet)) {
+      setActiveRubricSet(compatibleRubricSets[0].slug);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolGradeSpan, compatibleRubricSets]);
 
   /* ── API data ──────────────────────────────────────── */
   const isNetworkRole = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER";
@@ -379,9 +399,10 @@ export default function Dashboard() {
   if (isDistrictHome) {
     return (
       <DistrictDashboard
-        onDrillDown={(id, name) => {
-          const params = new URLSearchParams({ schoolId: String(id), schoolName: name });
-          window.location.href = `${BASE_PATH}/?${params.toString()}`;
+        onDrillDown={(id, name, gradeSpan) => {
+          const p: Record<string, string> = { schoolId: String(id), schoolName: name };
+          if (gradeSpan) p.schoolGradeSpan = gradeSpan;
+          window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
         }}
       />
     );
@@ -532,7 +553,7 @@ export default function Dashboard() {
             userEmail={currentUser.email}
             userRole={currentUser.role}
             canAdmin={currentUser.role !== "COACH"}
-            rubricSets={rubricSets}
+            rubricSets={compatibleRubricSets}
             activeRubricSet={activeRubricSet}
             onRubricChange={setActiveRubricSet}
             {...(isNetworkRole && schoolId != null

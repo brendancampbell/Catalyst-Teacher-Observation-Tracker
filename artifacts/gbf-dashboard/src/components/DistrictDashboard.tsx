@@ -141,7 +141,7 @@ function buildDisplayRows(
    ═══════════════════════════════════════════════════════════════ */
 
 interface Props {
-  onDrillDown: (schoolId: number, schoolName: string) => void;
+  onDrillDown: (schoolId: number, schoolName: string, schoolGradeSpan?: string) => void;
 }
 
 export default function DistrictDashboard({ onDrillDown }: Props) {
@@ -185,6 +185,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
 
+  /* Grade spans the active rubric is scoped to (empty = all) */
+  const activeRubricSpans = useMemo(() => {
+    const obj = rubricSets.find((r) => r.slug === activeRubricSet);
+    return obj?.gradeSpan ? obj.gradeSpan.split(",").filter(Boolean) : [];
+  }, [rubricSets, activeRubricSet]);
+
   const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
     queryKey: ["myLatestRubricSlug"],
     queryFn: fetchMyLatestRubricSlug,
@@ -214,13 +220,14 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const allDomains = useMemo(() => (data?.categories ?? []).flatMap((c) => c.domains), [data]);
   const allSlugs   = useMemo(() => allDomains.map((d) => d.id), [allDomains]);
 
-  /* Apply region + gradeSpan filters to school rows */
+  /* Apply rubric grade span, then user region + gradeSpan filters */
   const filteredSchools = useMemo(() => {
     let rows = data?.schools ?? [];
+    if (activeRubricSpans.length > 0) rows = rows.filter((s) => activeRubricSpans.includes(s.gradeSpan));
     if (filterRegion.length    > 0) rows = rows.filter((s) => filterRegion.includes(s.region));
     if (filterGradeSpan.length > 0) rows = rows.filter((s) => filterGradeSpan.includes(s.gradeSpan));
     return rows;
-  }, [data, filterRegion, filterGradeSpan]);
+  }, [data, activeRubricSpans, filterRegion, filterGradeSpan]);
 
   const allCategories = useMemo(() => data?.categories ?? [], [data]);
 
@@ -324,14 +331,21 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             />
           )}
 
-          {/* Grade Span filter — hidden when grouping by grade span */}
-          {viewBy !== "gradeSpan" && (
+          {/* Grade Span filter — hidden when grouping by grade span OR rubric already scopes it */}
+          {viewBy !== "gradeSpan" && activeRubricSpans.length === 0 && (
             <FilterMultiSelect
               label="Grade Span"
               values={filterGradeSpan}
               onChange={setFilterGradeSpan}
               options={[...GRADE_SPANS]}
             />
+          )}
+
+          {/* Rubric grade-span scope badge */}
+          {activeRubricSpans.length > 0 && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border" style={{ color: NAVY, backgroundColor: "rgba(16,52,180,0.07)", borderColor: "rgba(16,52,180,0.25)" }}>
+              Showing: {activeRubricSpans.map((s) => s === "ES" ? "Elementary" : s === "MS" ? "Middle" : "High School").join(", ")}
+            </span>
           )}
 
           {/* Proficiency filter */}
@@ -581,7 +595,11 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             <button
                               className="font-semibold leading-tight truncate text-left w-full hover:underline"
                               style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
-                              onClick={() => row.schoolId != null && onDrillDown(row.schoolId, row.label)}
+                              onClick={() => {
+                                if (row.schoolId == null) return;
+                                const school = data.schools.find((s) => s.id === row.schoolId);
+                                onDrillDown(row.schoolId, row.label, school?.gradeSpan);
+                              }}
                             >
                               {row.label}
                             </button>
