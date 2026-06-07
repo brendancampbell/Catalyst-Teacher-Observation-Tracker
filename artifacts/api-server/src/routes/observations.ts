@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, teachers, users, rubricSets } from "@workspace/db/schema";
+import { observations, observationScores, teachers, users, rubricSets, schools } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -50,7 +50,7 @@ router.get("/drafts", async (req, res) => {
       .from(observations)
       .innerJoin(teachers,   eq(teachers.id,   observations.teacherId))
       .innerJoin(rubricSets, eq(rubricSets.id,  observations.rubricSetId))
-      .where(and(eq(observations.observerId, currentUser.id), eq(observations.status, "draft")))
+      .where(and(eq(observations.observerId, currentUser.id), eq(observations.status, "draft"), eq(observations.target, "TEACHER")))
       .orderBy(desc(observations.date));
 
     if (drafts.length === 0) {
@@ -72,7 +72,7 @@ router.get("/drafts", async (req, res) => {
 
     res.json(drafts.map((d) => ({
       id:            String(d.id),
-      teacherId:     String(d.teacherId),
+      teacherId:     d.teacherId ? String(d.teacherId) : undefined,
       teacherName:   [d.teacherFirst, d.teacherLast].filter(Boolean).join(" ") || undefined,
       rubricSetId:   d.rubricSetId,
       rubricSetSlug: d.rubricSetSlug,
@@ -95,21 +95,89 @@ router.get("/drafts", async (req, res) => {
 
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,
-           observer?, scores, isWalkthrough?, status? }
-   Also accepts legacy field `quarterId` as fallback for rubricSetId.
-   observerId is ALWAYS derived from the authenticated session —
-   client-supplied observerId is intentionally ignored.
-   status defaults to "published". Drafts skip the rescore queue.     */
+           observer?, scores, isWalkthrough?, status?, target?,
+           schoolId? }
+   For target=SCHOOL: schoolId required, teacherId ignored,
+   caller must be NETWORK_ADMIN.
+   observerId is ALWAYS derived from the authenticated session.        */
 router.post("/", async (req, res) => {
   try {
     const {
       teacherId, rubricSetId, quarterId, date, time, course, strengths, growthAreas,
-      observer, scores, isWalkthrough, status,
+      observer, scores, isWalkthrough, status, target, schoolId,
     } = req.body;
 
     const resolvedRubricSetId = rubricSetId ?? quarterId;
     const resolvedStatus: string = status === "draft" ? "draft" : "published";
+    const resolvedTarget: "TEACHER" | "SCHOOL" = target === "SCHOOL" ? "SCHOOL" : "TEACHER";
 
+    const creator = req.user as Express.User;
+
+    /* ── SCHOOL target: different validation + permission ───────── */
+    if (resolvedTarget === "SCHOOL") {
+      if (creator.role !== "NETWORK_ADMIN") {
+        res.status(403).json({ error: "Only Network Admins may create school-wide observations" });
+        return;
+      }
+      if (!schoolId || !resolvedRubricSetId || !date) {
+        res.status(400).json({ error: "schoolId, rubricSetId, and date are required for school observations" });
+        return;
+      }
+      if (resolvedStatus === "published" && !scores) {
+        res.status(400).json({ error: "scores are required for published observations" });
+        return;
+      }
+
+      /* Verify school exists */
+      const school = await db.query.schools.findFirst({ where: eq(schools.id, Number(schoolId)) });
+      if (!school) {
+        res.status(404).json({ error: "School not found" });
+        return;
+      }
+
+      const [obs] = await db.insert(observations).values({
+        teacherId:     null,
+        schoolId:      Number(schoolId),
+        rubricSetId:   Number(resolvedRubricSetId),
+        date,
+        time:          time || null,
+        course:        course || null,
+        strengths:     strengths || null,
+        growthAreas:   growthAreas || null,
+        observer:      observer || creator.name,
+        observerId:    creator.id,
+        isWalkthrough: false,
+        status:        resolvedStatus,
+        target:        "SCHOOL",
+      }).returning();
+
+      const scoreRows = scores
+        ? Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
+            observationId: obs.id,
+            domainSlug,
+            score: Number(score),
+          }))
+        : [];
+      if (scoreRows.length > 0) await db.insert(observationScores).values(scoreRows);
+
+      const savedScores = await db.select().from(observationScores)
+        .where(eq(observationScores.observationId, obs.id));
+
+      res.status(201).json({
+        id:            String(obs.id),
+        schoolId:      obs.schoolId,
+        target:        obs.target,
+        date:          obs.date,
+        strengths:     obs.strengths ?? undefined,
+        growthAreas:   obs.growthAreas ?? undefined,
+        observer:      obs.observer,
+        status:        obs.status,
+        scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      });
+      return;
+    }
+
+    /* ── TEACHER target: existing logic ─────────────────────────── */
     if (!teacherId || !resolvedRubricSetId || !date) {
       res.status(400).json({ error: "teacherId, rubricSetId, and date are required" });
       return;
@@ -118,9 +186,6 @@ router.post("/", async (req, res) => {
       res.status(400).json({ error: "scores are required for published observations" });
       return;
     }
-
-    /* ── Identity: always use the authenticated session user ─────── */
-    const creator = req.user as Express.User;
 
     /* ── School-scope enforcement on create ─────────────────────────
        COACH and SCHOOL_LEADER may only observe teachers at their
@@ -136,6 +201,7 @@ router.post("/", async (req, res) => {
 
     const [obs] = await db.insert(observations).values({
       teacherId:     Number(teacherId),
+      schoolId:      null,
       rubricSetId:   Number(resolvedRubricSetId),
       date,
       time:          time || null,
@@ -146,6 +212,7 @@ router.post("/", async (req, res) => {
       observerId:    creator.id,
       isWalkthrough: !!isWalkthrough,
       status:        resolvedStatus,
+      target:        "TEACHER",
     }).returning();
 
     const scoreRows = scores
@@ -163,7 +230,7 @@ router.post("/", async (req, res) => {
     /* ── Walkthrough / Rescore queue logic ───────────────────────────
        Only runs for PUBLISHED observations.
        Applies when isWalkthrough === true.                            */
-    if (obs.isWalkthrough && obs.status === "published") {
+    if (obs.isWalkthrough && obs.status === "published" && obs.teacherId) {
       const canTriggerRescore =
         creator.role === "NETWORK_ADMIN" ||
         creator.role === "NETWORK_LEADER" ||
@@ -178,11 +245,11 @@ router.post("/", async (req, res) => {
           const dueDateStr = due.toISOString().split("T")[0];
           await db.update(teachers)
             .set({ needsRescore: true, rescoreDueDate: dueDateStr })
-            .where(eq(teachers.id, Number(teacherId)));
+            .where(eq(teachers.id, obs.teacherId));
         } else {
           await db.update(teachers)
             .set({ needsRescore: false, rescoreDueDate: null })
-            .where(eq(teachers.id, Number(teacherId)));
+            .where(eq(teachers.id, obs.teacherId));
         }
       }
     }
@@ -240,8 +307,8 @@ router.put("/:id", async (req, res) => {
         return;
       }
 
-      /* ── School-scope for School Leaders ───────────────────────── */
-      if (currentUser.role === "SCHOOL_LEADER") {
+      /* ── School-scope for School Leaders (teacher observations only) */
+      if (currentUser.role === "SCHOOL_LEADER" && existing.teacherId) {
         const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
         if (!teacher || teacher.schoolId !== currentUser.schoolId) {
           res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
@@ -279,8 +346,8 @@ router.put("/:id", async (req, res) => {
       if (scoreRows.length > 0) await db.insert(observationScores).values(scoreRows);
     }
 
-    /* ── Walkthrough / Rescore queue logic on publish ─────────────── */
-    if (isPublishing && updated.isWalkthrough) {
+    /* ── Walkthrough / Rescore queue logic on publish (teacher obs only) */
+    if (isPublishing && updated.isWalkthrough && updated.teacherId) {
       const canTriggerRescore =
         currentUser.role === "NETWORK_ADMIN" ||
         currentUser.role === "NETWORK_LEADER" ||
@@ -369,7 +436,8 @@ router.delete("/:id", async (req, res) => {
         return;
       }
 
-      if (currentUser.role === "SCHOOL_LEADER") {
+      /* School Leaders scoped to their own school (teacher obs only) */
+      if (currentUser.role === "SCHOOL_LEADER" && existing.teacherId) {
         const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
         if (!teacher || teacher.schoolId !== currentUser.schoolId) {
           res.status(403).json({ error: "Cannot delete observations for teachers outside your school" });

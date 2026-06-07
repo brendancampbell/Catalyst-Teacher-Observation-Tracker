@@ -109,7 +109,7 @@ router.get("/", async (req, res) => {
     }));
 
     res.json({
-      rubricSet:       { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan },
+      rubricSet:       { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan, target: rubricSet.target },
       schoolGradeSpan: schoolGradeSpan,
       categories: categories.map((cat) => ({
         id: `cat_${cat.id}`,

@@ -199,6 +199,7 @@ export interface RubricSetInfo {
   slug:      string;
   name:      string;
   gradeSpan: string | null;
+  target:    "TEACHER" | "SCHOOL";
 }
 
 export interface DashboardData {
@@ -211,20 +212,38 @@ export interface DashboardData {
 /* ── District ────────────────────────────────────────────────── */
 
 export interface DistrictSchoolRow {
-  id:            number;
-  name:          string;
-  region:        string;
-  gradeSpan:     string;
-  teacherCount:  number;
-  observedCount: number;
-  domainAverages: Record<string, number | null>;
-  overall:       number | null;
+  id:               number;
+  name:             string;
+  region:           string;
+  gradeSpan:        string;
+  teacherCount:     number;
+  observedCount:    number;
+  domainAverages:   Record<string, number | null>;
+  overall:          number | null;
+  lastObservedDate: string | null;
 }
 
 export interface DistrictSummaryData {
   rubricSet:  RubricSetInfo;
   categories: CategoryEntry[];
   schools:    DistrictSchoolRow[];
+}
+
+export interface SchoolObservationPayload {
+  schoolId:     number;
+  rubricSetId:  number;
+  date:         string;
+  strengths?:   string;
+  growthAreas?: string;
+  scores:       Record<string, number>;
+  target:       "SCHOOL";
+}
+
+export async function createSchoolObservation(payload: SchoolObservationPayload): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>("/observations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function fetchDistrictSummary(
@@ -365,6 +384,7 @@ export interface RubricSetRow {
   gradeSpan:    string | null;
   description:  string | null;
   displayOrder: number;
+  target:       "TEACHER" | "SCHOOL";
 }
 
 /** @deprecated Use RubricSetRow */
@@ -378,7 +398,7 @@ export async function fetchRubricSets(includeArchived = false): Promise<RubricSe
 /** @deprecated Use fetchRubricSets */
 export const fetchQuarters = fetchRubricSets;
 
-export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null }): Promise<RubricSetRow> {
+export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL" }): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
     method: "PATCH",
     body: JSON.stringify(fields),
@@ -396,10 +416,10 @@ export async function reorderRubricSets(items: { slug: string; displayOrder: num
   });
 }
 
-export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string): Promise<RubricSetRow> {
+export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string, target?: "TEACHER" | "SCHOOL"): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>("/rubric/sets", {
     method: "POST",
-    body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}) }),
+    body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}), ...(target ? { target } : {}) }),
   });
 }
 

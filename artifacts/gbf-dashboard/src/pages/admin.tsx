@@ -2367,6 +2367,7 @@ export default function AdminPage() {
   const [showNewRubricSetDialog, setShowNewRubricSetDialog] = useState(false);
   const [newQName, setNewQName]           = useState("");
   const [newQGradeSpans, setNewQGradeSpans] = useState<string[]>([]);
+  const [newQTarget, setNewQTarget]       = useState<"TEACHER" | "SCHOOL">("TEACHER");
   const [copyFromSlug, setCopyFromSlug] = useState<string>("");
 
   function slugify(s: string) {
@@ -2379,13 +2380,15 @@ export default function AdminPage() {
       newQName.trim(),
       newQGradeSpans.join(",") || undefined,
       copyFromSlug || undefined,
+      newQTarget,
     ),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
       setSelectedRubricSetSlug(created.slug);
       setShowNewRubricSetDialog(false);
       setNewQName("");
-      setNewQGradeSpan("");
+      setNewQGradeSpans([]);
+      setNewQTarget("TEACHER");
       setCopyFromSlug("");
     },
   });
@@ -2709,6 +2712,30 @@ export default function AdminPage() {
                   {newQGradeSpans.length > 0
                     ? `Scoped to: ${newQGradeSpans.join(", ")}`
                     : "Leave unchecked to apply to all grade spans."}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Rubric Target</label>
+                <div className="flex items-center gap-5 px-1 py-1">
+                  {(["TEACHER", "SCHOOL"] as const).map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                      <input
+                        type="radio"
+                        name="newQTarget"
+                        value={opt}
+                        checked={newQTarget === opt}
+                        onChange={() => setNewQTarget(opt)}
+                        className="accent-blue-600 w-4 h-4"
+                      />
+                      {opt === "TEACHER" ? "Teacher Rubric" : "School-Wide Rubric"}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {newQTarget === "SCHOOL"
+                    ? "School-Wide rubrics are scored per campus, not per teacher."
+                    : "Teacher rubrics are the standard — scored per teacher."}
                 </p>
               </div>
 

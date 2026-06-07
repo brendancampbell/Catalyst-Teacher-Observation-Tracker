@@ -2,12 +2,14 @@ import { pgTable, serial, text, integer, date, boolean, real, timestamp } from "
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachers } from "./teachers";
-import { rubricSets } from "./rubric";
+import { rubricSets, evaluationTargetEnum } from "./rubric";
 import { users } from "./users";
+import { schools } from "./schools";
 
 export const observations = pgTable("observations", {
   id:             serial("id").primaryKey(),
-  teacherId:      integer("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  teacherId:      integer("teacher_id").references(() => teachers.id, { onDelete: "cascade" }),
+  schoolId:       integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
   rubricSetId:    integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   observerId:     integer("observer_id").references(() => users.id, { onDelete: "set null" }),
   date:           date("date").notNull(),
@@ -20,6 +22,7 @@ export const observations = pgTable("observations", {
   editedById:     integer("edited_by_id").references(() => users.id, { onDelete: "set null" }),
   editedAt:       timestamp("edited_at", { withTimezone: true }),
   status:         text("status").notNull().default("published"),
+  target:         evaluationTargetEnum("target").notNull().default("TEACHER"),
 });
 
 export const observationScores = pgTable("observation_scores", {

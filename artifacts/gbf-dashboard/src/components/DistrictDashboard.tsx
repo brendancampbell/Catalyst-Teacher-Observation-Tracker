@@ -1,7 +1,8 @@
 import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchDistrictSummary, fetchRubricSets, fetchMyLatestRubricSlug, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
+import SchoolObservationModal from "@/components/SchoolObservationModal";
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { useUser } from "@/context/UserContext";
@@ -56,19 +57,23 @@ function computeOverall(catSubAvgs: Record<string, number | null>): number | nul
 
 /* Build the rows to display based on the current view-by setting */
 function buildDisplayRows(
-  schools:    DistrictSchoolRow[],
-  viewBy:     DistrictViewBy,
-  allSlugs:   string[],
-  categories: CategoryEntry[],
+  schools:        DistrictSchoolRow[],
+  viewBy:         DistrictViewBy,
+  allSlugs:       string[],
+  categories:     CategoryEntry[],
+  isSchoolTarget: boolean,
 ): DisplayRow[] {
   if (viewBy === "school") {
     return schools.map((s) => {
       const catSubAvgs = computeCatSubAvgs(s.domainAverages, categories);
+      const subLabel = isSchoolTarget
+        ? (s.observedCount > 0 ? "Observed" : "No observation yet")
+        : `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`;
       return {
         key:           String(s.id),
         label:         s.name,
-        subLabel:      `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`,
-        isClickable:   true,
+        subLabel,
+        isClickable:   !isSchoolTarget,
         schoolId:      s.id,
         domainAverages: s.domainAverages,
         catSubAvgs,
@@ -159,14 +164,17 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  const queryClient = useQueryClient();
+
   const [activeRubricSet, setActiveRubricSet] = useState("Q1");
   const didInitRubric = useRef(false);
-  const [viewBy,          setViewBy]          = useState<DistrictViewBy>("school");
-  const [scoreType,       setScoreType]       = useState<ScoreType>("recent");
-  const [filterRegion,      setFilterRegion]      = useState<string[]>([]);
-  const [filterGradeSpan,   setFilterGradeSpan]   = useState<string[]>([]);
-  const [filterProficiency, setFilterProficiency] = useState<string[]>([]);
-  const [domainTooltip,   setDomainTooltip]   = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
+  const [viewBy,              setViewBy]              = useState<DistrictViewBy>("school");
+  const [scoreType,           setScoreType]           = useState<ScoreType>("recent");
+  const [filterRegion,        setFilterRegion]        = useState<string[]>([]);
+  const [filterGradeSpan,     setFilterGradeSpan]     = useState<string[]>([]);
+  const [filterProficiency,   setFilterProficiency]   = useState<string[]>([]);
+  const [schoolObsModalOpen,  setSchoolObsModalOpen]  = useState(false);
+  const [domainTooltip,       setDomainTooltip]       = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
 
   function handleViewByChange(mode: DistrictViewBy) {
     setViewBy(mode);
@@ -217,8 +225,9 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     staleTime: 30_000,
   });
 
-  const allDomains = useMemo(() => (data?.categories ?? []).flatMap((c) => c.domains), [data]);
-  const allSlugs   = useMemo(() => allDomains.map((d) => d.id), [allDomains]);
+  const allDomains    = useMemo(() => (data?.categories ?? []).flatMap((c) => c.domains), [data]);
+  const allSlugs      = useMemo(() => allDomains.map((d) => d.id), [allDomains]);
+  const isSchoolTarget = data?.rubricSet?.target === "SCHOOL";
 
   /* Apply rubric grade span, then user region + gradeSpan filters */
   const filteredSchools = useMemo(() => {
@@ -232,8 +241,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
   const allCategories = useMemo(() => data?.categories ?? [], [data]);
 
   const displayRows = useMemo(
-    () => buildDisplayRows(filteredSchools, viewBy, allSlugs, allCategories),
-    [filteredSchools, viewBy, allSlugs, allCategories],
+    () => buildDisplayRows(filteredSchools, viewBy, allSlugs, allCategories, isSchoolTarget),
+    [filteredSchools, viewBy, allSlugs, allCategories, isSchoolTarget],
   );
 
   /* ── Proficiency filter (applied on top of region/gradeSpan) ── */
@@ -367,29 +376,43 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             </button>
           )}
 
-          {/* Divider before score toggle */}
+          {/* Divider before right controls */}
           <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} className="hidden sm:block" />
 
-          {/* Most Recent / Quarter Avg / Walkthroughs — right-aligned */}
-          <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
-            {(["recent", "average", "walkthroughs"] as ScoreType[]).map((mode, i, arr) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setScoreType(mode)}
-                className="px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
-                style={{
-                  backgroundColor: scoreType === mode ? NAVY : "transparent",
-                  color: scoreType === mode ? "white" : NAVY,
-                  letterSpacing: "0.02em",
-                  fontSize: 15,
-                  borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
-                }}
-              >
-                {mode === "recent" ? "Most Recent" : mode === "average" ? "Rubric Avg" : "Walkthroughs"}
-              </button>
-            ))}
-          </div>
+          {/* Most Recent / Quarter Avg / Walkthroughs — hidden for school-target rubrics */}
+          {!isSchoolTarget && (
+            <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
+              {(["recent", "average", "walkthroughs"] as ScoreType[]).map((mode, i, arr) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setScoreType(mode)}
+                  className="px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
+                  style={{
+                    backgroundColor: scoreType === mode ? NAVY : "transparent",
+                    color: scoreType === mode ? "white" : NAVY,
+                    letterSpacing: "0.02em",
+                    fontSize: 15,
+                    borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
+                  }}
+                >
+                  {mode === "recent" ? "Most Recent" : mode === "average" ? "Rubric Avg" : "Walkthroughs"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Add School Observation button — NETWORK_ADMIN + SCHOOL-target rubric only */}
+          {isSchoolTarget && currentUser?.role === "NETWORK_ADMIN" && (
+            <button
+              type="button"
+              onClick={() => setSchoolObsModalOpen(true)}
+              className="ml-auto flex items-center gap-2 px-4 py-1.5 rounded font-bold uppercase tracking-wide text-white transition-opacity hover:opacity-90 shrink-0"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
+            >
+              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add School Observation
+            </button>
+          )}
         </div>
 
         {/* ── Loading / Error ──────────────────────────────── */}
@@ -797,6 +820,21 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
       </footer>
 
     </div>
+
+    {/* ── School Observation Modal ──────────────────────────────── */}
+    {data && (
+      <SchoolObservationModal
+        open={schoolObsModalOpen}
+        onOpenChange={setSchoolObsModalOpen}
+        rubricSetId={data.rubricSet.id}
+        rubricSetName={data.rubricSet.name}
+        categories={data.categories}
+        onSaved={() => {
+          setSchoolObsModalOpen(false);
+          queryClient.invalidateQueries({ queryKey: ["district", activeRubricSet, scoreType] });
+        }}
+      />
+    )}
 
     {/* ── Domain tooltip overlay ─────────────────────────────── */}
     {domainTooltip && domainTooltip.description && (() => {

@@ -1,6 +1,8 @@
-import { pgTable, serial, text, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export const evaluationTargetEnum = pgEnum("evaluation_target", ["TEACHER", "SCHOOL"]);
 
 export const rubricSets = pgTable("rubric_sets", {
   id:           serial("id").primaryKey(),
@@ -11,6 +13,7 @@ export const rubricSets = pgTable("rubric_sets", {
   gradeSpan:    text("grade_span"),
   description:  text("description"),
   displayOrder: integer("display_order").notNull().default(0),
+  target:       evaluationTargetEnum("target").notNull().default("TEACHER"),
 });
 
 export const rubricCategories = pgTable("rubric_categories", {

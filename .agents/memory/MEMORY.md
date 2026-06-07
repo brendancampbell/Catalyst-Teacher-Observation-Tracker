@@ -1,0 +1,1 @@
+- [School-wide rubrics pattern](school-wide-rubrics.md) — target on rubricSets drives TEACHER vs SCHOOL observation routing; schoolId nullable on observations

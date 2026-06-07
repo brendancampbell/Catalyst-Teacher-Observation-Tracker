@@ -1,0 +1,27 @@
+We need to build a major new feature for our GBF Tracker: School-Wide Rubrics. This allows District Admins to evaluate an entire campus as a single entity, rather than rolling up individual teacher scores.
+
+Please implement this across the database, UI, and data fetching logic in the following steps:
+
+1. PRISMA SCHEMA UPDATES:
+- Create a new enum: `enum EvaluationTarget { TEACHER SCHOOL }`
+- Update the `RubricDomain` (or relevant parent Rubric model) to include a new field: `target EvaluationTarget @default(TEACHER)`.
+- Update the `Observation` model:
+  - Make `teacherId` optional (`String?` or `Int?` depending on our schema).
+  - Add a field: `target EvaluationTarget @default(TEACHER)`.
+- Run the necessary Prisma migration commands to apply this.
+
+2. UI: NETWORK HOMEPAGE / DISTRICT OVERVIEW:
+- Add an "Add School Observation" button to the top of the District Action Center / District Overview page. 
+- Ensure this button is only visible and accessible if the current user has the `DISTRICT_ADMIN` role.
+
+3. THE SCHOOL OBSERVATION FORM:
+- Create a specific form (or adapt the existing one) triggered by the new button.
+- Logic: When submitting a `SCHOOL` observation, the form must NOT ask for a Teacher. It should only ask the user to select the `School` and input the 1-4 scores for the domains associated with `SCHOOL` rubrics.
+- In the backend Server Action that saves this observation, verify the user is a `DISTRICT_ADMIN`. If so, save the `Observation` with `target: 'SCHOOL'` and leave `teacherId` as null.
+
+4. DISTRICT DASHBOARD DATA GRID LOGIC:
+- Update the District Data Grid component and its underlying data-fetching Server Action.
+- The grid's Rubric/Domain dropdown filter must now dictate how the data is calculated:
+  - SCENARIO A (Teacher Rubric Selected): If the selected rubric has `target: 'TEACHER'`, fetch observations where `target: 'TEACHER'` and return the mathematical average (rollup) of all teachers within each school.
+  - SCENARIO B (School Rubric Selected): If the selected rubric has `target: 'SCHOOL'`, fetch observations where `target: 'SCHOOL'`. Bypass the teacher rollup math entirely. Instead, just return the raw 1-4 scores from the most recent school-wide observation for each campus.
+- Ensure the data table columns and conditional formatting (1-4 color coding) still work seamlessly regardless of which scenario is selected.

@@ -6,8 +6,9 @@ import { rubricSets, rubricCategories, rubricDomains } from "./rubric";
 import { observations, observationScores } from "./observations";
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
-  teachers: many(teachers),
-  users:    many(users),
+  teachers:     many(teachers),
+  users:        many(users),
+  observations: many(observations),
 }));
 
 export const teachersRelations = relations(teachers, ({ one, many }) => ({
@@ -35,9 +36,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 export const observationsRelations = relations(observations, ({ one, many }) => ({
-  teacher:   one(teachers,   { fields: [observations.teacherId],    references: [teachers.id] }),
-  rubricSet: one(rubricSets, { fields: [observations.rubricSetId],  references: [rubricSets.id] }),
-  observer:  one(users,      { fields: [observations.observerId],   references: [users.id] }),
+  teacher:   one(teachers,   { fields: [observations.teacherId], references: [teachers.id] }),
+  school:    one(schools,    { fields: [observations.schoolId],  references: [schools.id] }),
+  rubricSet: one(rubricSets, { fields: [observations.rubricSetId], references: [rubricSets.id] }),
+  observer:  one(users,      { fields: [observations.observerId], references: [users.id] }),
   scores:    many(observationScores),
 }));
 
