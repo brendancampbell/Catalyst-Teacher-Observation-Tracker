@@ -38,27 +38,31 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-6">
           {/* Logo + divider + Catalyst */}
-          <div className="flex items-center gap-4">
-            <img
-              src="/uncommon-logo.png"
-              alt="Uncommon Schools"
-              className="h-16 w-auto object-contain"
-              style={{ filter: "none" }}
-            />
+          <div className="flex items-center w-full">
+            <div className="flex flex-1 justify-end pr-4">
+              <img
+                src="/uncommon-logo.png"
+                alt="Uncommon Schools"
+                className="h-16 w-auto object-contain"
+                style={{ filter: "none" }}
+              />
+            </div>
             <div style={{ width: 2, height: 64, backgroundColor: NAVY, borderRadius: 1, flexShrink: 0 }} />
-            <h1
-              className="uppercase"
-              style={{
-                color: NAVY,
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontWeight: 700,
-                fontSize: 52,
-                letterSpacing: "0.05em",
-                lineHeight: 1,
-              }}
-            >
-              Catalyst
-            </h1>
+            <div className="flex flex-1 pl-4">
+              <h1
+                className="uppercase"
+                style={{
+                  color: NAVY,
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 52,
+                  letterSpacing: "0.05em",
+                  lineHeight: 1,
+                }}
+              >
+                Catalyst
+              </h1>
+            </div>
           </div>
           {/* Subtitle — stretched to match the row above */}
           <p
