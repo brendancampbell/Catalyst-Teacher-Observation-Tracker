@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic, List, ListOrdered, IndentDecrease, IndentIncrease } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, IndentDecrease, IndentIncrease, Maximize2, Minimize2 } from "lucide-react";
 
 interface Props {
   value: string;
@@ -9,9 +9,20 @@ interface Props {
   placeholder?: string;
   focusBorderColor?: string;
   minHeight?: number;
+  expandedHeight?: number;
 }
 
-export function RichTextEditor({ value, onChange, placeholder, focusBorderColor = "#93c5fd", minHeight = 100 }: Props) {
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  focusBorderColor = "#93c5fd",
+  minHeight = 100,
+  expandedHeight = 320,
+}: Props) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const effectiveMinHeight = isExpanded ? expandedHeight : minHeight;
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: value || "",
@@ -20,10 +31,19 @@ export function RichTextEditor({ value, onChange, placeholder, focusBorderColor 
     },
     editorProps: {
       attributes: {
-        style: `min-height:${minHeight}px;outline:none;padding:8px 12px;font-size:13px;line-height:1.6;`,
+        style: `min-height:${effectiveMinHeight}px;outline:none;padding:8px 12px;font-size:13px;line-height:1.6;`,
       },
     },
   });
+
+  /* Sync min-height when expand state changes */
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dom.setAttribute(
+      "style",
+      `min-height:${effectiveMinHeight}px;outline:none;padding:8px 12px;font-size:13px;line-height:1.6;`,
+    );
+  }, [effectiveMinHeight, editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -72,10 +92,27 @@ export function RichTextEditor({ value, onChange, placeholder, focusBorderColor 
         <div style={{ width: 1, height: 18, backgroundColor: "#e2e8f0", margin: "0 4px" }} />
         {btn(false, () => editor.chain().focus().liftListItem("listItem").run(),  "Outdent", <IndentDecrease size={14} strokeWidth={2} />)}
         {btn(false, () => editor.chain().focus().sinkListItem("listItem").run(),  "Indent",  <IndentIncrease size={14} strokeWidth={2} />)}
+
+        {/* Spacer + expand toggle */}
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          title={isExpanded ? "Collapse" : "Expand editor"}
+          onMouseDown={(e) => { e.preventDefault(); setIsExpanded((v) => !v); }}
+          className="flex items-center justify-center w-7 h-7 rounded transition-colors"
+          style={{ color: "#94a3b8" }}
+        >
+          {isExpanded
+            ? <Minimize2 size={13} strokeWidth={2} />
+            : <Maximize2 size={13} strokeWidth={2} />}
+        </button>
       </div>
 
-      {/* Editor area */}
-      <div className="relative">
+      {/* Editor area — smooth height transition */}
+      <div
+        className="relative transition-[min-height] duration-200 ease-in-out"
+        style={{ minHeight: effectiveMinHeight }}
+      >
         {editor.isEmpty && placeholder && (
           <p
             className="absolute top-0 left-0 pointer-events-none select-none"

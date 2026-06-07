@@ -172,6 +172,32 @@ body {
   body { @apply font-sans antialiased bg-background text-foreground; }
 }
 
+/* ── Tiptap / ProseMirror rich-text editor content ─────────────────────────
+   Tailwind's preflight resets list-style to none and removes padding, which
+   makes bullet/numbered lists invisible inside the editor.  These rules
+   restore standard list rendering scoped to the .ProseMirror content area.  */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.2rem 0;
+}
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.2rem 0;
+}
+.ProseMirror li {
+  margin: 0.1rem 0;
+}
+.ProseMirror li > ul,
+.ProseMirror li > ol {
+  margin: 0;
+}
+.ProseMirror ul ul               { list-style-type: circle; }
+.ProseMirror ul ul ul            { list-style-type: square; }
+.ProseMirror ol ol               { list-style-type: lower-alpha; }
+.ProseMirror ol ol ol            { list-style-type: lower-roman; }
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
 
