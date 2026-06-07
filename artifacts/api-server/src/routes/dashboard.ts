@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   teachers, rubricSets, rubricCategories,
-  observations, observationScores, users,
+  observations, observationScores, users, schools,
 } from "@workspace/db/schema";
 import { eq, inArray, and, ne } from "drizzle-orm";
 
@@ -36,6 +36,13 @@ router.get("/", async (req, res) => {
         },
       },
     });
+
+    /* Fetch school gradeSpan when scoped to a specific school */
+    let schoolGradeSpan: string | null = null;
+    if (schoolIdParam != null) {
+      const school = await db.query.schools.findFirst({ where: eq(schools.id, schoolIdParam) });
+      schoolGradeSpan = school?.gradeSpan ?? null;
+    }
 
     const allTeachers = schoolIdParam != null
       ? await db.select().from(teachers).where(and(eq(teachers.isActive, true), eq(teachers.schoolId, schoolIdParam)))
@@ -102,7 +109,8 @@ router.get("/", async (req, res) => {
     }));
 
     res.json({
-      rubricSet: { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan },
+      rubricSet:       { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan },
+      schoolGradeSpan: schoolGradeSpan,
       categories: categories.map((cat) => ({
         id: `cat_${cat.id}`,
         label: cat.name,

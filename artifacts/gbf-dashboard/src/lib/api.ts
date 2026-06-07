@@ -202,9 +202,10 @@ export interface RubricSetInfo {
 }
 
 export interface DashboardData {
-  rubricSet:  RubricSetInfo;
-  categories: CategoryEntry[];
-  teachers:   Teacher[];
+  rubricSet:       RubricSetInfo;
+  schoolGradeSpan: string | null;
+  categories:      CategoryEntry[];
+  teachers:        Teacher[];
 }
 
 /* ── District ────────────────────────────────────────────────── */

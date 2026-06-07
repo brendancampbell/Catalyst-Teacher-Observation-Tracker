@@ -165,8 +165,9 @@ export default function Dashboard() {
   }, [searchParams]);
 
   /* ── School name from URL param (for drill-down label) */
-  const schoolName      = useMemo(() => searchParams.get("schoolName")      ?? null, [searchParams]);
-  const schoolGradeSpan = useMemo(() => searchParams.get("schoolGradeSpan") ?? null, [searchParams]);
+  const schoolName          = useMemo(() => searchParams.get("schoolName")      ?? null, [searchParams]);
+  /* Fallback: gradeSpan from URL param (set by drill-down nav before data loads) */
+  const schoolGradeSpanFromUrl = useMemo(() => searchParams.get("schoolGradeSpan") ?? null, [searchParams]);
 
   /* ── ?teacher=<id> — auto-open teacher profile on load */
   const urlTeacherId = useMemo(() => searchParams.get("teacher"), [searchParams]);
@@ -185,16 +186,6 @@ export default function Dashboard() {
     staleTime: 60_000,
   });
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
-
-  /* In a per-school view, only offer rubrics compatible with the school's grade span.
-     A rubric with no gradeSpan (null / empty) is compatible with all schools.
-     A rubric scoped to "ES,HS" is compatible with ES or HS schools only.           */
-  const compatibleRubricSets = useMemo(() => {
-    if (!schoolGradeSpan) return rubricSets;
-    return rubricSets.filter(
-      (r) => !r.gradeSpan || r.gradeSpan.split(",").filter(Boolean).includes(schoolGradeSpan),
-    );
-  }, [rubricSets, schoolGradeSpan]);
 
   const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
     queryKey: ["myLatestRubricSlug"],
@@ -219,15 +210,6 @@ export default function Dashboard() {
     }
     didInitRubric.current = true;
   }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
-
-  /* Auto-switch rubric when the current selection is incompatible with this school */
-  useEffect(() => {
-    if (!schoolGradeSpan || compatibleRubricSets.length === 0) return;
-    if (!compatibleRubricSets.find((r) => r.slug === activeRubricSet)) {
-      setActiveRubricSet(compatibleRubricSets[0].slug);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolGradeSpan, compatibleRubricSets]);
 
   /* ── API data ──────────────────────────────────────── */
   const isNetworkRole = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER";
@@ -255,10 +237,32 @@ export default function Dashboard() {
     enabled: !isDistrictHome,
   });
 
-  const teachers: Teacher[]       = data?.teachers   ?? [];
+  const teachers: Teacher[]         = data?.teachers   ?? [];
   const categories: CategoryEntry[] = data?.categories ?? [];
-  const allDomains: DomainEntry[] = categories.flatMap((c) => c.domains);
-  const rubricSetId: number       = data?.rubricSet.id ?? 0;
+  const allDomains: DomainEntry[]   = categories.flatMap((c) => c.domains);
+  const rubricSetId: number         = data?.rubricSet.id ?? 0;
+
+  /* ── Grade-span rubric filtering ───────────────────────────────────────
+     Prefer the school's gradeSpan from the API response (authoritative).
+     Fall back to the URL param while data is still loading.
+     A rubric with no gradeSpan (null / empty) is always compatible.      */
+  const schoolGradeSpan = data?.schoolGradeSpan ?? schoolGradeSpanFromUrl ?? null;
+
+  const compatibleRubricSets = useMemo(() => {
+    if (!schoolGradeSpan) return rubricSets;
+    return rubricSets.filter(
+      (r) => !r.gradeSpan || r.gradeSpan.split(",").filter(Boolean).includes(schoolGradeSpan),
+    );
+  }, [rubricSets, schoolGradeSpan]);
+
+  /* Auto-switch rubric when the current selection is incompatible with this school */
+  useEffect(() => {
+    if (!schoolGradeSpan || compatibleRubricSets.length === 0) return;
+    if (!compatibleRubricSets.find((r) => r.slug === activeRubricSet)) {
+      setActiveRubricSet(compatibleRubricSets[0].slug);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolGradeSpan, compatibleRubricSets]);
 
   /* ── Domain tooltip state ──────────────────────────── */
   const [domainTooltip, setDomainTooltip] = useState<{ slug: string; x: number; y: number; description: string } | null>(null);
