@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X, Plus } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   fetchAdminSchools,
@@ -11,11 +13,18 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 
-const SCORE_OPTIONS = [
-  { value: 0,   label: "0" },
-  { value: 0.5, label: "0.5" },
-  { value: 1,   label: "1" },
+const SCORE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0,   label: "Not Yet" },
+  { value: 0.5, label: "Developing" },
+  { value: 1,   label: "Proficient" },
 ];
+
+function scorePillClass(s: number, selected: boolean): string {
+  if (!selected) return "bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200";
+  if (s >= 1)   return "bg-green-600 text-white border-2 border-green-500 shadow-sm";
+  if (s >= 0.5) return "bg-yellow-300 text-yellow-900 border-2 border-yellow-400 shadow-sm";
+  return "bg-red-300 text-red-900 border-2 border-red-400 shadow-sm";
+}
 
 interface Props {
   open:          boolean;
@@ -40,8 +49,16 @@ export default function SchoolObservationModal({
   const [date,        setDate]        = useState(() => new Date().toISOString().split("T")[0]);
   const [strengths,   setStrengths]   = useState("");
   const [growthAreas, setGrowthAreas] = useState("");
-  const [scores,      setScores]      = useState<Record<string, number>>({});
+  const [scores,      setScores]      = useState<Record<string, number | undefined>>({});
   const [error,       setError]       = useState("");
+
+  const scoredCount = useMemo(
+    () => allDomains.filter((d) => scores[d.id] != null).length,
+    [allDomains, scores],
+  );
+
+  const inputBase =
+    "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   const { data: schools = [] } = useQuery<AdminSchool[]>({
     queryKey: ["adminSchools"],
@@ -62,7 +79,7 @@ export default function SchoolObservationModal({
         date,
         strengths:   strengths   || undefined,
         growthAreas: growthAreas || undefined,
-        scores,
+        scores:      scores as Record<string, number>,
         target:      "SCHOOL",
       });
     },
@@ -83,171 +100,198 @@ export default function SchoolObservationModal({
     setError("");
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
-    >
-      <div
-        className="bg-white rounded-lg shadow-2xl w-full flex flex-col"
-        style={{ maxWidth: 640, maxHeight: "90vh", fontFamily: "'Libre Franklin', sans-serif" }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between shrink-0 rounded-t-lg" style={{ backgroundColor: NAVY }}>
-          <div>
-            <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
-              Add School Observation
-            </h2>
-            <p className="text-white/70 text-xs mt-0.5">{rubricSetName}</p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="text-white/70 hover:text-white transition-colors text-2xl leading-none"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+    <DialogPrimitive.Root open={open} onOpenChange={(o) => { if (!o) handleClose(); onOpenChange(o); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed z-50 flex flex-col bg-white shadow-2xl overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 inset-x-2 inset-y-3 rounded-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-2xl sm:max-h-[74vh]">
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-5">
-
-          {/* School + Date row */}
-          <div className="flex gap-4">
-            <div className="flex-1 flex flex-col gap-1">
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>School</label>
-              <select
-                value={schoolId}
-                onChange={(e) => setSchoolId(e.target.value === "" ? "" : Number(e.target.value))}
-                className="rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ borderColor: "#dde3f0", focusRingColor: NAVY } as React.CSSProperties}
-              >
-                <option value="">Select school…</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1" style={{ width: 150 }}>
-              <label className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ borderColor: "#dde3f0" }}
-              />
-            </div>
-          </div>
-
-          {/* Domain Scores */}
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: NAVY }}>
-              Domain Scores
-            </h3>
-            <div className="flex flex-col gap-3">
-              {categories.map((cat) => (
-                <div key={cat.id}>
-                  <div
-                    className="text-xs font-bold uppercase tracking-wider mb-2 pb-1"
-                    style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}` }}
-                  >
-                    {cat.label}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {cat.domains.map((domain) => (
-                      <div key={domain.id} className="flex items-center gap-3">
-                        <span className="text-sm flex-1" style={{ color: "#333" }}>{domain.label}</span>
-                        <div className="flex rounded overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}` }}>
-                          {SCORE_OPTIONS.map((opt, i, arr) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setScores((prev) => ({ ...prev, [domain.id]: opt.value }))}
-                              className="px-3 py-1 text-xs font-bold transition-colors"
-                              style={{
-                                backgroundColor: scores[domain.id] === opt.value ? NAVY : "transparent",
-                                color: scores[domain.id] === opt.value ? "white" : NAVY,
-                                borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
-                                fontFamily: "'Bebas Neue', sans-serif",
-                                fontSize: 14,
-                                minWidth: 36,
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+          {/* ── Header ───────────────────────────────────── */}
+          <div className="shrink-0 px-6 py-4" style={{ backgroundColor: NAVY }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: YELLOW }}
+                >
+                  <Plus size={16} color={NAVY} strokeWidth={3} />
                 </div>
+                <DialogPrimitive.Title
+                  className="text-white font-bold uppercase tracking-wider"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.03em" }}
+                >
+                  Add School Observation
+                </DialogPrimitive.Title>
+              </div>
+              <DialogPrimitive.Close className="text-blue-300 hover:text-white transition-colors rounded p-1">
+                <X size={20} />
+                <span className="sr-only">Close</span>
+              </DialogPrimitive.Close>
+            </div>
+            <p className="text-white/60 text-xs mt-1 ml-11">{rubricSetName}</p>
+          </div>
+
+          {/* ── Body ─────────────────────────────────────── */}
+          <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+
+            {/* School + Date row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  School
+                </label>
+                <select
+                  value={schoolId}
+                  onChange={(e) => setSchoolId(e.target.value === "" ? "" : Number(e.target.value))}
+                  className={inputBase}
+                >
+                  <option value="">Select school…</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Observation Date
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputBase}
+                />
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: allDomains.length ? `${(scoredCount / allDomains.length) * 100}%` : "0%",
+                    backgroundColor: scoredCount === allDomains.length ? "#16a34a" : NAVY,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-semibold shrink-0" style={{ color: scoredCount === allDomains.length ? "#16a34a" : "#64748b" }}>
+                {scoredCount} / {allDomains.length} scored
+              </span>
+            </div>
+
+            {/* Score legend */}
+            <div className="flex items-center gap-3 flex-wrap text-xs font-semibold">
+              <span className="text-slate-400 uppercase tracking-wide mr-1">Scale:</span>
+              {SCORE_OPTIONS.map(({ value, label }) => (
+                <span key={value} className={`px-2.5 py-0.5 rounded ${scorePillClass(value, true)}`}>
+                  {value === 0 ? "0" : value === 1 ? "1" : "0.5"} · {label}
+                </span>
               ))}
             </div>
+
+            {/* Domain scores per category */}
+            {categories.map((cat) => (
+              <div key={cat.id}>
+                <div
+                  className="px-3 py-2 rounded-t font-bold uppercase tracking-wider text-white"
+                  style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}
+                >
+                  {cat.label}
+                </div>
+                <div className="border border-t-0 border-slate-200 rounded-b divide-y divide-slate-100">
+                  {cat.domains.map((domain) => (
+                    <div
+                      key={domain.id}
+                      className="flex items-start justify-between px-3 py-2.5 transition-colors gap-4"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-700">{domain.label}</p>
+                        {domain.description && (
+                          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{domain.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        {SCORE_OPTIONS.map(({ value, label }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            title={label}
+                            onClick={() => setScores((prev) => ({ ...prev, [domain.id]: prev[domain.id] === value ? undefined : value }))}
+                            className={`px-3 h-9 rounded font-bold text-sm transition-all whitespace-nowrap ${scorePillClass(value, scores[domain.id] === value)}`}
+                          >
+                            {value === 0 ? "0" : value === 1 ? "1" : "0.5"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Glows / Grows */}
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
+                  ✦ School Strengths (Glows)
+                </label>
+                <RichTextEditor
+                  value={strengths}
+                  onChange={setStrengths}
+                  placeholder="What is this school doing well?"
+                  focusBorderColor="#86efac"
+                  minHeight={90}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
+                  ↑ Growth Areas (Grows)
+                </label>
+                <RichTextEditor
+                  value={growthAreas}
+                  onChange={setGrowthAreas}
+                  placeholder="Where should this school focus next?"
+                  focusBorderColor="#fdba74"
+                  minHeight={90}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-600 font-medium">{error}</p>
+            )}
           </div>
 
-          {/* Glows / Grows */}
-          <div className="flex flex-col gap-3">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
-                ✦ School Strengths (Glows)
-              </label>
-              <RichTextEditor
-                value={strengths}
-                onChange={setStrengths}
-                placeholder="What is this school doing well?"
-                focusBorderColor="#86efac"
-                minHeight={90}
-              />
+          {/* ── Footer ───────────────────────────────────── */}
+          <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50">
+            <div className="flex items-center gap-3 order-2 sm:order-1 min-w-0">
+              <p className="text-xs text-slate-400 truncate">
+                {scoredCount === allDomains.length
+                  ? "✓ All domains scored."
+                  : `${scoredCount} of ${allDomains.length} domains scored`}
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
-                ↑ Growth Areas (Grows)
-              </label>
-              <RichTextEditor
-                value={growthAreas}
-                onChange={setGrowthAreas}
-                placeholder="Where should this school focus next?"
-                focusBorderColor="#fdba74"
-                minHeight={90}
-              />
+            <div className="flex gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
+              <DialogPrimitive.Close
+                className="px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
+              >
+                Close
+              </DialogPrimitive.Close>
+              <button
+                type="button"
+                onClick={() => { setError(""); mutation.mutate(); }}
+                disabled={mutation.isPending}
+                className="px-5 sm:px-7 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-60"
+                style={{ backgroundColor: NAVY }}
+              >
+                {mutation.isPending ? "Saving…" : "Submit"}
+              </button>
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600 font-medium">{error}</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 shrink-0 flex justify-end gap-3" style={{ borderTop: "1px solid #dde3f0" }}>
-          <button
-            onClick={handleClose}
-            disabled={mutation.isPending}
-            className="px-5 py-2 rounded font-semibold text-sm transition-colors"
-            style={{ border: `1.5px solid ${NAVY}`, color: NAVY, backgroundColor: "transparent" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { setError(""); mutation.mutate(); }}
-            disabled={mutation.isPending}
-            className="px-6 py-2 rounded font-bold text-sm text-white uppercase tracking-wide transition-opacity"
-            style={{
-              backgroundColor: NAVY,
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 16,
-              letterSpacing: "0.04em",
-              opacity: mutation.isPending ? 0.6 : 1,
-            }}
-          >
-            {mutation.isPending ? "Saving…" : "Save Observation"}
-          </button>
-        </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
