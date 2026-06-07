@@ -71,8 +71,6 @@ export default function SchoolObservationModal({
     mutationFn: () => {
       if (!schoolId) throw new Error("Please select a school");
       if (!date)     throw new Error("Please enter a date");
-      const missingDomains = allDomains.filter((d) => scores[d.id] == null);
-      if (missingDomains.length > 0) throw new Error("Please score all domains before saving");
       return createSchoolObservation({
         schoolId:    schoolId as number,
         rubricSetId,
@@ -258,19 +256,19 @@ export default function SchoolObservationModal({
               </div>
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 font-medium">{error}</p>
-            )}
           </div>
 
           {/* ── Footer ───────────────────────────────────── */}
           <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50">
             <div className="flex items-center gap-3 order-2 sm:order-1 min-w-0">
-              <p className="text-xs text-slate-400 truncate">
-                {scoredCount === allDomains.length
-                  ? "✓ All domains scored."
-                  : `${scoredCount} of ${allDomains.length} domains scored`}
-              </p>
+              {error
+                ? <p className="text-xs text-red-600 font-semibold truncate">{error}</p>
+                : <p className="text-xs text-slate-400 truncate">
+                    {scoredCount === allDomains.length
+                      ? "✓ All domains scored."
+                      : `${scoredCount} of ${allDomains.length} domains scored`}
+                  </p>
+              }
             </div>
             <div className="flex gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
               <DialogPrimitive.Close
