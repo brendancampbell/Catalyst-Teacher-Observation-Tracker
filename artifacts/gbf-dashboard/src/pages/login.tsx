@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
         {/* Logo */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-6">
           {/* Logo + divider + Catalyst */}
           <div className="flex items-center gap-4">
             <img
