@@ -6,6 +6,7 @@ import {
   type CategoryEntry,
   type AdminSchool,
 } from "@/lib/api";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -188,30 +189,32 @@ export default function SchoolObservationModal({
             </div>
           </div>
 
-          {/* Strengths */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>Strengths <span className="font-normal normal-case text-gray-400">(optional)</span></label>
-            <textarea
-              value={strengths}
-              onChange={(e) => setStrengths(e.target.value)}
-              rows={3}
-              placeholder="What went well school-wide…"
-              className="rounded border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ borderColor: "#dde3f0" }}
-            />
-          </div>
-
-          {/* Growth Areas */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>Growth Areas <span className="font-normal normal-case text-gray-400">(optional)</span></label>
-            <textarea
-              value={growthAreas}
-              onChange={(e) => setGrowthAreas(e.target.value)}
-              rows={3}
-              placeholder="Areas for school-wide growth…"
-              className="rounded border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ borderColor: "#dde3f0" }}
-            />
+          {/* Glows / Grows */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
+                ✦ School Strengths (Glows)
+              </label>
+              <RichTextEditor
+                value={strengths}
+                onChange={setStrengths}
+                placeholder="What is this school doing well?"
+                focusBorderColor="#86efac"
+                minHeight={90}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
+                ↑ Growth Areas (Grows)
+              </label>
+              <RichTextEditor
+                value={growthAreas}
+                onChange={setGrowthAreas}
+                placeholder="Where should this school focus next?"
+                focusBorderColor="#fdba74"
+                minHeight={90}
+              />
+            </div>
           </div>
 
           {error && (
