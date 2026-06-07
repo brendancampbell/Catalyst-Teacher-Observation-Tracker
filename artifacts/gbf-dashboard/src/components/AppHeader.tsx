@@ -95,6 +95,14 @@ export default function AppHeader({
               >
                 Catalyst
               </p>
+              {subtitle && (
+                <p
+                  className="uppercase leading-none truncate max-w-xs"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 20, letterSpacing: "0.04em", color: YELLOW, marginTop: 1 }}
+                >
+                  {subtitle}
+                </p>
+              )}
             </div>
           </div>
 
