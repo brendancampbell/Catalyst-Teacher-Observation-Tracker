@@ -11,7 +11,7 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
@@ -488,6 +488,15 @@ export default function Dashboard() {
       console.error("Failed to update observation:", err);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteObs(teacherId: string, observationId: string) {
+    try {
+      await deleteObservation(observationId);
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      console.error("Failed to delete observation:", err);
     }
   }
 
@@ -1156,6 +1165,7 @@ export default function Dashboard() {
         open={drillDown !== null}
         onOpenChange={(open) => { if (!open) setDrillDown(null); }}
         onUpdateObs={handleUpdateObs}
+        onDeleteObs={handleDeleteObs}
         onTeacherClick={() => {
           if (drillDown) {
             setTeacherProfileId(drillDown.teacherId);

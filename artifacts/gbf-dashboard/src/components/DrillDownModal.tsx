@@ -12,7 +12,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { type Teacher, type Observation } from "@/data/dummy";
-import { updateObservation, type CategoryEntry } from "@/lib/api";
+import { updateObservation, deleteObservation, type CategoryEntry } from "@/lib/api";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 
 const NAVY = "#1034B4";
@@ -126,12 +126,13 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdateObs: (teacherId: string, updated: Observation) => void;
+  onDeleteObs: (teacherId: string, observationId: string) => void;
   onTeacherClick?: () => void;
   categories: CategoryEntry[];
   canEdit: boolean;
 }
 
-export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onTeacherClick, categories, canEdit }: Props) {
+export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onDeleteObs, onTeacherClick, categories, canEdit }: Props) {
   const [detailObsId, setDetailObsId] = useState<string | null>(null);
   const [pendingGroup, setPendingGroup] = useState<ChartPoint | null>(null);
 
@@ -206,6 +207,12 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
       scores:      updated.scores,
     });
     onUpdateObs(teacher!.id, saved);
+  }
+
+  async function handleDelete(observationId: string) {
+    await deleteObservation(observationId);
+    onDeleteObs(teacher!.id, observationId);
+    setDetailObsId(null);
   }
 
   return (
@@ -425,6 +432,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
           open={detailObsId !== null}
           onOpenChange={(o) => { if (!o) setDetailObsId(null); }}
           onSave={handleSave}
+          onDelete={canEdit ? handleDelete : undefined}
         />
       )}
     </>
