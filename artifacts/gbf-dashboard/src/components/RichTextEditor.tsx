@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, List, ListOrdered, IndentDecrease, IndentIncrease, Maximize2, Minimize2 } from "lucide-react";
@@ -23,12 +23,19 @@ export function RichTextEditor({
   const [isExpanded, setIsExpanded] = useState(false);
   const effectiveMinHeight = isExpanded ? expandedHeight : minHeight;
 
+  /* Force a re-render on every editor transaction so toolbar active-states
+     (bold, italic, list) update immediately — including when no text is
+     selected and the user just toggles a mark at the cursor position.      */
+  const [, forceUpdate] = useState(0);
+  const handleTransaction = useCallback(() => forceUpdate((n) => n + 1), []);
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: value || "",
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    onTransaction: handleTransaction,
     editorProps: {
       attributes: {
         style: `min-height:${effectiveMinHeight}px;outline:none;padding:8px 12px;font-size:13px;line-height:1.6;`,
