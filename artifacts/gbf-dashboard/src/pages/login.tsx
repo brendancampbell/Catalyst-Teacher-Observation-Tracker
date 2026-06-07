@@ -36,33 +36,39 @@ export default function LoginPage() {
 
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
-          <img
-            src="/uncommon-logo.png"
-            alt="Uncommon Schools"
-            className="h-16 w-auto object-contain"
-            style={{ filter: "none" }}
-          />
-          <h1
-            className="uppercase tracking-widest text-center"
-            style={{
-              color: NAVY,
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontWeight: 700,
-              fontSize: 28,
-              letterSpacing: "0.06em",
-            }}
-          >
-            Catalyst
-          </h1>
+        <div className="flex flex-col items-center gap-2">
+          {/* Logo + divider + Catalyst */}
+          <div className="flex items-center gap-4">
+            <img
+              src="/uncommon-logo.png"
+              alt="Uncommon Schools"
+              className="h-16 w-auto object-contain"
+              style={{ filter: "none" }}
+            />
+            <div style={{ width: 2, height: 64, backgroundColor: NAVY, borderRadius: 1, flexShrink: 0 }} />
+            <h1
+              className="uppercase"
+              style={{
+                color: NAVY,
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontWeight: 700,
+                fontSize: 52,
+                letterSpacing: "0.05em",
+                lineHeight: 1,
+              }}
+            >
+              Catalyst
+            </h1>
+          </div>
+          {/* Subtitle — stretched to match the row above */}
           <p
-            className="uppercase text-center"
+            className="uppercase text-center w-full"
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 20,
-              letterSpacing: "0.08em",
-              marginTop: -4,
-              color: "#FFB500",
+              fontSize: 18,
+              letterSpacing: "0.3em",
+              color: YELLOW,
+              marginTop: 2,
             }}
           >
             Teacher Observation Tool
