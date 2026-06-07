@@ -77,7 +77,7 @@ export default function AppHeader({
                 style={{ filter: "brightness(0) invert(1)" }}
               />
             </a>
-            <div className="hidden sm:block" style={{ width: 1, height: 30, backgroundColor: "rgba(255,181,0,0.45)" }} />
+            <div className="hidden sm:block" style={{ width: 1, height: 40, backgroundColor: "rgba(255,181,0,0.45)" }} />
             <div className="hidden sm:block min-w-0">
               {backHref && (
                 <a
@@ -103,7 +103,7 @@ export default function AppHeader({
 
             {/* ── Rubric Dropdown ── */}
             {rubricSets && rubricSets.length > 0 && onRubricChange && (
-              <div ref={rubricRef} className="hidden sm:block relative">
+              <div ref={rubricRef} className="hidden sm:flex sm:items-center relative">
                 <button
                   type="button"
                   onClick={() => setRubricOpen((v) => !v)}
