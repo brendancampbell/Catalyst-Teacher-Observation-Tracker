@@ -439,7 +439,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                       className="font-bold uppercase tracking-wide"
                       style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                     >
-                      ✦ Strengths
+                      ✦ Teacher Strengths (Glows)
                     </h2>
                   </div>
                   <div className="px-4 py-4">
