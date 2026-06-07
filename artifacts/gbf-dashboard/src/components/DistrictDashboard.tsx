@@ -628,12 +628,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td
                                 key={domain.id}
                                 className="text-center py-1.5 text-xl font-bold tabular-nums"
-                                style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "transparent", color: getScoreTextColor(val) }}
+                                style={{ ...borderStyle, width: 68, minWidth: 68, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "transparent", color: getScoreTextColor(val) }}
                               >
                                 {val.toFixed(1)}
                               </td>
                             ) : (
-                              <td key={domain.id} className="text-center text-slate-300 py-1.5" style={{ ...borderStyle, backgroundColor: "transparent" }}>—</td>
+                              <td key={domain.id} className="text-center text-slate-300 py-1.5" style={{ ...borderStyle, width: 68, minWidth: 68, backgroundColor: "transparent" }}>—</td>
                             );
                           }),
                           /* SUB AVG cell — full-cell background coloring */
@@ -643,7 +643,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td
                                 key={`subavg-${cat.id}`}
                                 className={`text-center font-bold py-1 ${getScoreColor(sub)}`}
-                                style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
+                                style={{ borderLeft: `3px solid ${YELLOW}`, width: 62, minWidth: 62, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                               >
                                 {sub.toFixed(1)}
                               </td>
@@ -651,7 +651,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               <td
                                 key={`subavg-${cat.id}`}
                                 className="text-center text-slate-300 py-1"
-                                style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: "#f7f9fd" }}
+                                style={{ borderLeft: `3px solid ${YELLOW}`, width: 62, minWidth: 62, backgroundColor: "#f7f9fd" }}
                               >
                                 —
                               </td>
@@ -753,7 +753,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             <td
                               key={`subavg-${cat.id}`}
                               className={`text-center font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-400"}`}
-                              style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
+                              style={{ borderLeft: `3px solid ${YELLOW}`, width: 62, minWidth: 62, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                             >
                               {catAvg !== null ? catAvg.toFixed(1) : "—"}
                             </td>
