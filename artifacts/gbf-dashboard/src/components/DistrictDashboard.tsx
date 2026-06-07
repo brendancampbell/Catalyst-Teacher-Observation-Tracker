@@ -483,7 +483,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   </tr>
 
                   {/* Domain headers — vertical text */}
-                  <tr style={{ backgroundColor: "#ffffff", borderBottom: `2px solid ${NAVY}` }}>
+                  <tr style={{ backgroundColor: "#ffffff" }}>
                     {data.categories.flatMap((cat, catIdx) => {
                       const isFirstCatDomain = (domain: { id: string }) =>
                         cat.domains[0]?.id === domain.id;
@@ -494,7 +494,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             <th
                               key={domain.id}
                               style={{
-                                width: 68, minWidth: 68, height: 80,
+                                width: 68, minWidth: 68, height: 88,
                                 color: NAVY,
                                 borderLeft: isFirstCatDomain(domain) ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid #e8edf8",
                                 textAlign: "center",
@@ -518,7 +518,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                                   writingMode: "vertical-rl",
                                   transform: "rotate(180deg)",
                                   display: "inline-block",
-                                  height: "72px",
+                                  height: "80px",
                                   whiteSpace: "normal",
                                   wordBreak: "break-word",
                                   overflow: "visible",
@@ -536,7 +536,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         <th
                           key={`subavg-${cat.id}`}
                           style={{
-                            width: 62, minWidth: 62, height: 80,
+                            width: 62, minWidth: 62, height: 88,
                             backgroundColor: YELLOW,
                             color: NAVY,
                             borderLeft: "1px solid rgba(255,255,255,0.15)",
@@ -550,7 +550,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               writingMode: "vertical-rl",
                               transform: "rotate(180deg)",
                               display: "inline-block",
-                              height: "72px",
+                              height: "80px",
                               whiteSpace: "normal",
                               wordBreak: "break-word",
                               overflow: "visible",

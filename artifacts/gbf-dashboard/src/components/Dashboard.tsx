@@ -741,7 +741,7 @@ export default function Dashboard() {
                 </tr>
 
                 {/* Domain headers — vertical text, with sub-avg after each category */}
-                <tr style={{ backgroundColor: "#ffffff", borderBottom: `2px solid ${NAVY}` }}>
+                <tr style={{ backgroundColor: "#ffffff" }}>
                   {categories.map((cat, catIdx) => (
                     <Fragment key={cat.id}>
                       {cat.domains.map((domain, di) => {
@@ -751,7 +751,7 @@ export default function Dashboard() {
                           <th
                             key={domain.id}
                             style={{
-                              width: 60, minWidth: 60, height: 80,
+                              width: 60, minWidth: 60, height: 88,
                               color: NAVY,
                               borderLeft: di === 0 ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid #e8edf8",
                               textAlign: "center",
@@ -775,7 +775,7 @@ export default function Dashboard() {
                                 writingMode: "vertical-rl",
                                 transform: "rotate(180deg)",
                                 display: "inline-block",
-                                height: "72px",
+                                height: "80px",
                                 whiteSpace: "normal",
                                 wordBreak: "break-word",
                                 overflow: "visible",
@@ -793,7 +793,7 @@ export default function Dashboard() {
                       <th
                         key={`subt-${cat.id}`}
                         style={{
-                          width: 58, minWidth: 58, height: 80,
+                          width: 58, minWidth: 58, height: 88,
                           color: NAVY,
                           borderLeft: `3px solid ${YELLOW}`,
                           textAlign: "center",
@@ -808,7 +808,7 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             display: "inline-block",
-                            height: "72px",
+                            height: "80px",
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
