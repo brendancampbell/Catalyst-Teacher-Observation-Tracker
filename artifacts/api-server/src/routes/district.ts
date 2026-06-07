@@ -64,36 +64,60 @@ router.get("/summary", async (req, res) => {
         .where(and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, "SCHOOL"), isNotNull(observations.schoolId)))
         .orderBy(desc(observations.date));
 
-      /* Most-recent observation per school */
-      const latestBySchool = new Map<number, typeof schoolObs[0]>();
+      /* Group ALL observations by school */
+      const obsBySchool = new Map<number, typeof schoolObs>();
       for (const obs of schoolObs) {
-        if (obs.schoolId && !latestBySchool.has(obs.schoolId)) {
-          latestBySchool.set(obs.schoolId, obs);
-        }
+        if (!obs.schoolId) continue;
+        if (!obsBySchool.has(obs.schoolId)) obsBySchool.set(obs.schoolId, []);
+        obsBySchool.get(obs.schoolId)!.push(obs);
       }
 
-      const latestObsIds = [...latestBySchool.values()].map((o) => o.id);
-      const latestScores = latestObsIds.length > 0
-        ? await db.select().from(observationScores).where(inArray(observationScores.observationId, latestObsIds))
+      /* Fetch scores for every school observation */
+      const allSchoolObsIds = schoolObs.map((o) => o.id);
+      const allSchoolScores = allSchoolObsIds.length > 0
+        ? await db.select().from(observationScores).where(inArray(observationScores.observationId, allSchoolObsIds))
         : [];
 
       const scoresByObs = new Map<number, Record<string, number>>();
-      for (const s of latestScores) {
+      for (const s of allSchoolScores) {
         if (!scoresByObs.has(s.observationId)) scoresByObs.set(s.observationId, {});
         scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
       }
 
       const schoolRows = allSchools.map((school) => {
-        const obs = latestBySchool.get(school.id);
-        const scores = obs ? (scoresByObs.get(obs.id) ?? {}) : {};
+        const obsArr = obsBySchool.get(school.id) ?? [];
+
+        /* Average all observations per domain */
+        const domainSums:   Record<string, number> = {};
+        const domainCounts: Record<string, number> = {};
+        for (const obs of obsArr) {
+          const scores = scoresByObs.get(obs.id) ?? {};
+          for (const slug of allSlugs) {
+            const v = scores[slug];
+            if (v != null) {
+              domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
+              domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+            }
+          }
+        }
 
         const domainAverages: Record<string, number | null> = {};
         let totalSum = 0, totalCount = 0;
         for (const slug of allSlugs) {
-          const v = scores[slug] ?? null;
-          domainAverages[slug] = v;
-          if (v != null) { totalSum += v; totalCount++; }
+          const cnt = domainCounts[slug] ?? 0;
+          if (cnt > 0) {
+            const avg = domainSums[slug] / cnt;
+            domainAverages[slug] = Math.round(avg * 10) / 10;
+            totalSum   += avg;
+            totalCount += 1;
+          } else {
+            domainAverages[slug] = null;
+          }
         }
+
+        const mostRecentDate = obsArr.length > 0
+          ? obsArr.reduce((a, b) => a.date > b.date ? a : b).date
+          : null;
 
         return {
           id:            school.id,
@@ -101,10 +125,10 @@ router.get("/summary", async (req, res) => {
           region:        school.region ?? null,
           gradeSpan:     school.gradeSpan ?? null,
           teacherCount:  0,
-          observedCount: obs ? 1 : 0,
+          observedCount: obsArr.length,
           domainAverages,
           overall:       totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null,
-          lastObservedDate: obs?.date ?? null,
+          lastObservedDate: mostRecentDate,
         };
       });
 

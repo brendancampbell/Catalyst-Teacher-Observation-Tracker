@@ -115,8 +115,8 @@ router.post("/", async (req, res) => {
 
     /* ── SCHOOL target: different validation + permission ───────── */
     if (resolvedTarget === "SCHOOL") {
-      if (creator.role !== "NETWORK_ADMIN") {
-        res.status(403).json({ error: "Only Network Admins may create school-wide observations" });
+      if (creator.role !== "NETWORK_ADMIN" && creator.role !== "NETWORK_LEADER") {
+        res.status(403).json({ error: "Only Network Admins and Network Leaders may create school-wide observations" });
         return;
       }
       if (!schoolId || !resolvedRubricSetId || !date) {

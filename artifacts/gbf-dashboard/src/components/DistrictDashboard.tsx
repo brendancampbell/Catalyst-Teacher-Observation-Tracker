@@ -67,7 +67,7 @@ function buildDisplayRows(
     return schools.map((s) => {
       const catSubAvgs = computeCatSubAvgs(s.domainAverages, categories);
       const subLabel = isSchoolTarget
-        ? (s.observedCount > 0 ? "Observed" : "No observation yet")
+        ? (s.observedCount === 0 ? "No observations yet" : `${s.observedCount} observation${s.observedCount !== 1 ? "s" : ""} · avg`)
         : `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`;
       return {
         key:           String(s.id),
@@ -402,8 +402,8 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             </div>
           )}
 
-          {/* Add School Observation button — NETWORK_ADMIN + SCHOOL-target rubric only */}
-          {isSchoolTarget && currentUser?.role === "NETWORK_ADMIN" && (
+          {/* Add School Observation button — NETWORK_ADMIN/NETWORK_LEADER + SCHOOL-target rubric only */}
+          {isSchoolTarget && (currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER") && (
             <button
               type="button"
               onClick={() => setSchoolObsModalOpen(true)}
