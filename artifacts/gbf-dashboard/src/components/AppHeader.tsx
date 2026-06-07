@@ -73,7 +73,7 @@ export default function AppHeader({
               <img
                 src="/uncommon-logo.png"
                 alt="Uncommon Schools"
-                className="h-6 sm:h-9 w-auto object-contain"
+                className="h-9 sm:h-11 w-auto object-contain"
                 style={{ filter: "brightness(0) invert(1)" }}
               />
             </a>
@@ -94,15 +94,6 @@ export default function AppHeader({
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
               >
                 Catalyst
-              </p>
-              <p
-                className="text-blue-200 uppercase leading-tight"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.06em" }}
-              >
-                Teacher Observation Tool [Beta]
-              </p>
-              <p className="text-blue-200 font-medium truncate" style={{ fontSize: 12 }}>
-                {subtitle}
               </p>
             </div>
           </div>

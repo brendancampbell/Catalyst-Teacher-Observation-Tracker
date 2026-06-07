@@ -685,6 +685,11 @@ export default function Dashboard() {
                   >
                     <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                     {firstColLabel}
+                    {schoolName && (
+                      <div style={{ fontSize: 11, fontWeight: 400, fontFamily: "'Libre Franklin', sans-serif", letterSpacing: "0.01em", color: "rgba(255,255,255,0.7)", textTransform: "none", marginTop: 2 }}>
+                        {schoolName}
+                      </div>
+                    )}
                   </th>
 
                   {categories.map((cat, catIdx) => (
