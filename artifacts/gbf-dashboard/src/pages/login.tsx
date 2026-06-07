@@ -65,9 +65,9 @@ export default function LoginPage() {
             className="uppercase text-center w-full"
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 18,
-              letterSpacing: "0.3em",
-              color: YELLOW,
+              fontSize: 22,
+              letterSpacing: "0.1em",
+              color: NAVY,
               marginTop: 2,
             }}
           >
