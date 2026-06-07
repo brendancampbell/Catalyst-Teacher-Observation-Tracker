@@ -751,7 +751,7 @@ export default function Dashboard() {
                           <th
                             key={domain.id}
                             style={{
-                              width: 60, minWidth: 60, height: 66,
+                              width: 60, minWidth: 60, height: 80,
                               color: NAVY,
                               borderLeft: di === 0 ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid #e8edf8",
                               textAlign: "center",
@@ -775,7 +775,7 @@ export default function Dashboard() {
                                 writingMode: "vertical-rl",
                                 transform: "rotate(180deg)",
                                 display: "inline-block",
-                                height: "58px",
+                                height: "72px",
                                 whiteSpace: "normal",
                                 wordBreak: "break-word",
                                 overflow: "visible",
@@ -793,7 +793,7 @@ export default function Dashboard() {
                       <th
                         key={`subt-${cat.id}`}
                         style={{
-                          width: 58, minWidth: 58, height: 66,
+                          width: 58, minWidth: 58, height: 80,
                           color: NAVY,
                           borderLeft: `3px solid ${YELLOW}`,
                           textAlign: "center",
@@ -808,7 +808,7 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             display: "inline-block",
-                            height: "58px",
+                            height: "72px",
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
