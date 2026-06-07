@@ -539,7 +539,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             width: 62, minWidth: 62, height: 88,
                             backgroundColor: YELLOW,
                             color: NAVY,
-                            borderLeft: "1px solid rgba(255,255,255,0.15)",
+                            borderLeft: `3px solid ${YELLOW}`,
                             textAlign: "center",
                             verticalAlign: "top",
                             paddingTop: 6,
