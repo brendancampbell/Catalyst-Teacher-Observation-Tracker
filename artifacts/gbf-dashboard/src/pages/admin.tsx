@@ -2591,7 +2591,7 @@ export default function AdminPage() {
                 </span>
               )}
               <button
-                onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpan(""); setCopyFromSlug(""); } }}
+                onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpans([]); setNewQTarget("TEACHER"); setCopyFromSlug(""); } }}
                 disabled={atLimit}
                 title={atLimit ? "Archive a set before creating a new one (max 6)" : undefined}
                 className="flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 text-sm transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
