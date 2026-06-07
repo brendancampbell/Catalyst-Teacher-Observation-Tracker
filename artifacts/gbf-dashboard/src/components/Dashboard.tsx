@@ -855,7 +855,7 @@ export default function Dashboard() {
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isEven ? "#ffffff" : "#f7f9fd")}
                         >
                           <td
-                            className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
+                            className="pl-3 pr-2 py-1 sticky left-0 z-10"
                             style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
                             <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
@@ -884,7 +884,7 @@ export default function Dashboard() {
                                     <ScoreCell
                                       key={domain.id}
                                       score={score}
-                                      className="py-1.5"
+                                      className="py-1"
                                       style={borderStyle}
                                       onClick={score !== null ? () => openDrillDown(teacher, domain.id, domain.label) : undefined}
                                     />
@@ -892,7 +892,7 @@ export default function Dashboard() {
                                 })}
                                 {/* Sub-avg cell */}
                                 <td
-                                  className={`text-center font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  className={`text-center font-bold py-1 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
                                   style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: catAvg !== null ? undefined : "#f7f9fd", fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
@@ -903,14 +903,14 @@ export default function Dashboard() {
 
                           {/* Overall avg */}
                           <td
-                            className={`text-center font-bold py-1.5 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
+                            className={`text-center font-bold py-1 ${avg !== null ? getScoreColor(avg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                           >
                             {avg !== null ? avg.toFixed(1) : "—"}
                           </td>
 
                           {/* Proficient badge */}
-                          <td className="text-center py-1.5 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                          <td className="text-center py-1 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
                             {avg !== null ? (
                               <span
                                 className="inline-block px-2 py-0.5 rounded text-xs font-bold"
@@ -953,7 +953,7 @@ export default function Dashboard() {
                         >
                           {/* Group label cell */}
                           <td
-                            className="pl-3 pr-2 py-2 sticky left-0 z-10"
+                            className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
                             style={{ width: 180, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                           >
                             <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
@@ -976,7 +976,7 @@ export default function Dashboard() {
                                   return score !== null ? (
                                     <td
                                       key={domain.id}
-                                      className="text-center font-bold py-2"
+                                      className="text-center font-bold py-1.5"
                                       style={{ ...borderStyle, backgroundColor: "transparent", color: getScoreTextColor(score), fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                     >
                                       {score.toFixed(1)}
@@ -987,7 +987,7 @@ export default function Dashboard() {
                                 })}
                                 {/* Group category sub-avg */}
                                 <td
-                                  className={`text-center font-bold py-2 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
+                                  className={`text-center font-bold py-1.5 ${catAvg !== null ? getScoreColor(catAvg) : "text-slate-300"}`}
                                   style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                                 >
                                   {catAvg !== null ? catAvg.toFixed(1) : "—"}
@@ -998,14 +998,14 @@ export default function Dashboard() {
 
                           {/* Group overall avg */}
                           <td
-                            className={`text-center font-bold py-2 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
+                            className={`text-center font-bold py-1.5 ${groupAvg !== null ? getScoreColor(groupAvg) : "text-slate-300"}`}
                             style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                           >
                             {groupAvg !== null ? groupAvg.toFixed(1) : "—"}
                           </td>
 
                           {/* Proficient badge */}
-                          <td className="text-center py-2 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                          <td className="text-center py-1.5 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
                             {groupAvg !== null ? (
                               <span
                                 className="inline-block px-2 py-0.5 rounded text-xs font-bold"

@@ -587,7 +587,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                       >
                         {/* First column (school / region / grade span) */}
                         <td
-                          className="pl-3 pr-2 py-1.5 sticky left-0 z-10"
+                          className="pl-3 pr-2 py-1 sticky left-0 z-10"
                           style={{ width: 200, backgroundColor: isEven ? "#ffffff" : "#f7f9fd" }}
                         >
                           <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
@@ -627,13 +627,13 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             return val != null ? (
                               <td
                                 key={domain.id}
-                                className="text-center py-2 text-xl font-bold tabular-nums"
+                                className="text-center py-1.5 text-xl font-bold tabular-nums"
                                 style={{ ...borderStyle, fontFamily: "'Bebas Neue', sans-serif", backgroundColor: "transparent", color: getScoreTextColor(val) }}
                               >
                                 {val.toFixed(1)}
                               </td>
                             ) : (
-                              <td key={domain.id} className="text-center text-slate-300 py-2" style={{ ...borderStyle, backgroundColor: "transparent" }}>—</td>
+                              <td key={domain.id} className="text-center text-slate-300 py-1.5" style={{ ...borderStyle, backgroundColor: "transparent" }}>—</td>
                             );
                           }),
                           /* SUB AVG cell — full-cell background coloring */
@@ -642,7 +642,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             return sub != null ? (
                               <td
                                 key={`subavg-${cat.id}`}
-                                className={`text-center font-bold py-1.5 ${getScoreColor(sub)}`}
+                                className={`text-center font-bold py-1 ${getScoreColor(sub)}`}
                                 style={{ borderLeft: `3px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                               >
                                 {sub.toFixed(1)}
@@ -650,7 +650,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             ) : (
                               <td
                                 key={`subavg-${cat.id}`}
-                                className="text-center text-slate-300 py-1.5"
+                                className="text-center text-slate-300 py-1"
                                 style={{ borderLeft: `3px solid ${YELLOW}`, backgroundColor: "#f7f9fd" }}
                               >
                                 —
@@ -662,17 +662,17 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         {/* AVG column — full-cell coloring */}
                         {row.overall != null ? (
                           <td
-                            className={`text-center text-xl font-bold py-2 ${getScoreColor(row.overall)}`}
+                            className={`text-center text-xl font-bold py-1.5 ${getScoreColor(row.overall)}`}
                             style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif" }}
                           >
                             {row.overall.toFixed(1)}
                           </td>
                         ) : (
-                          <td className="text-center text-slate-300 py-2" style={{ borderLeft: `2px solid ${YELLOW}` }}>—</td>
+                          <td className="text-center text-slate-300 py-1.5" style={{ borderLeft: `2px solid ${YELLOW}` }}>—</td>
                         )}
 
                         {/* PROFICIENT column */}
-                        <td className="text-center py-1.5 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
+                        <td className="text-center py-1 px-1" style={{ borderLeft: `2px solid ${YELLOW}` }}>
                           {row.overall != null ? (
                             <span
                               className="inline-block px-2 py-0.5 rounded text-xs font-bold"
