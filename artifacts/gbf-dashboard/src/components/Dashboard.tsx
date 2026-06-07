@@ -709,7 +709,7 @@ export default function Dashboard() {
                     <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                     {firstColLabel}
                     {schoolName && (
-                      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Libre Franklin', sans-serif", letterSpacing: "0.01em", color: "rgba(255,255,255,0.85)", textTransform: "none", marginTop: 2 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Libre Franklin', sans-serif", letterSpacing: "0.01em", color: "white", textTransform: "none", marginTop: 3 }}>
                         {schoolName}
                       </div>
                     )}
