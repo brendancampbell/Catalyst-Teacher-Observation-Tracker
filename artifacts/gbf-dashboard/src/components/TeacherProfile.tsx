@@ -422,7 +422,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             </div>
           </div>
 
-          {/* RIGHT: Action Steps */}
+          {/* RIGHT: Growth Areas (Grows) */}
           <div className="lg:col-span-2 space-y-4">
             {recent && (
               <>
@@ -443,11 +443,11 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     </h2>
                   </div>
                   <div className="px-4 py-4">
-                    {recent.strengths ? (
-                      <p className="text-slate-700 leading-relaxed text-sm">{recent.strengths}</p>
-                    ) : (
-                      <p className="text-slate-400 italic text-sm">No strengths recorded for most recent observation.</p>
-                    )}
+                    <RichTextDisplay
+                      content={recent.strengths}
+                      className="text-slate-700"
+                      emptyNode={<p className="text-slate-400 italic text-sm">No strengths recorded for most recent observation.</p>}
+                    />
                     <p className="text-xs text-slate-400 mt-3">From observation on {formatDate(recent.date)}</p>
                   </div>
                 </div>
@@ -465,7 +465,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                       className="font-bold uppercase tracking-wide"
                       style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                     >
-                      ↑ Action Steps
+                      ↑ Growth Areas (Grows)
                     </h2>
                   </div>
                   <div className="px-4 py-4">
