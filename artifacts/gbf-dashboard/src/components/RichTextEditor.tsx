@@ -120,7 +120,7 @@ export function RichTextEditor({
         className="relative transition-[min-height] duration-200 ease-in-out"
         style={{ minHeight: effectiveMinHeight }}
       >
-        {editor.isEmpty && placeholder && (
+        {editor.isEmpty && !editor.isActive("bulletList") && !editor.isActive("orderedList") && placeholder && (
           <p
             className="absolute top-0 left-0 pointer-events-none select-none"
             style={{ padding: "8px 12px", fontSize: 13, color: "#94a3b8" }}
