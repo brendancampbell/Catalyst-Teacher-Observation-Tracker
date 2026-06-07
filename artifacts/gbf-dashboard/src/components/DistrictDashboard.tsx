@@ -1,6 +1,6 @@
-import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useState, useMemo, useLayoutEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchDistrictSummary, fetchRubricSets, fetchMyLatestRubricSlug, REGIONS, GRADE_SPANS } from "@/lib/api";
+import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
 import SchoolObservationModal from "@/components/SchoolObservationModal";
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
@@ -146,10 +146,12 @@ function buildDisplayRows(
    ═══════════════════════════════════════════════════════════════ */
 
 interface Props {
-  onDrillDown: (schoolId: number, schoolName: string, schoolGradeSpan?: string) => void;
+  onDrillDown:    (schoolId: number, schoolName: string, schoolGradeSpan?: string) => void;
+  activeRubricSet: string;
+  onRubricChange:  (slug: string) => void;
 }
 
-export default function DistrictDashboard({ onDrillDown }: Props) {
+export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubricChange }: Props) {
   const { currentUser } = useUser();
 
   /* ── Header height measurement for sticky rows ── */
@@ -166,10 +168,6 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const queryClient = useQueryClient();
 
-  const [activeRubricSet, setActiveRubricSet] = useState(
-    () => localStorage.getItem("catalyst:activeRubricSet") || "Q1"
-  );
-  const didInitRubric = useRef(false);
   const [viewBy,              setViewBy]              = useState<DistrictViewBy>("school");
   const [scoreType,           setScoreType]           = useState<ScoreType>("recent");
   const [filterRegion,        setFilterRegion]        = useState<string[]>([]);
@@ -201,34 +199,6 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     return obj?.gradeSpan ? obj.gradeSpan.split(",").filter(Boolean) : [];
   }, [rubricSets, activeRubricSet]);
 
-  const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
-    queryKey: ["myLatestRubricSlug"],
-    queryFn: fetchMyLatestRubricSlug,
-    staleTime: Infinity,
-  });
-
-  /* Persist rubric selection to localStorage whenever it changes */
-  useEffect(() => {
-    if (activeRubricSet) localStorage.setItem("catalyst:activeRubricSet", activeRubricSet);
-  }, [activeRubricSet]);
-
-  /* Set the default rubric once on load — only if the saved/current slug
-     isn't already valid. Priority: localStorage → latest obs → first rubric */
-  useEffect(() => {
-    if (didInitRubric.current) return;
-    if (rubricSets.length === 0) return;
-    if (!latestRubricFetched) return;
-    didInitRubric.current = true;
-    if (rubricSets.find((r) => r.slug === activeRubricSet)) return; // already valid
-    const savedSlug = localStorage.getItem("catalyst:activeRubricSet");
-    const targetSlug =
-      (savedSlug && rubricSets.find((r) => r.slug === savedSlug))
-        ? savedSlug
-        : myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
-          ? myLatestRubricSlug
-          : rubricSets[0].slug;
-    setActiveRubricSet(targetSlug);
-  }, [rubricSets, myLatestRubricSlug, latestRubricFetched, activeRubricSet]);
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
     queryKey: ["district", activeRubricSet, scoreType],
@@ -290,7 +260,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
             canAdmin={currentUser.role !== "COACH"}
             rubricSets={rubricSets}
             activeRubricSet={activeRubricSet}
-            onRubricChange={setActiveRubricSet}
+            onRubricChange={onRubricChange}
           />
         </div>
       )}

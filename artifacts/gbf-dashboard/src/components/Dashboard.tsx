@@ -415,11 +415,10 @@ export default function Dashboard() {
   if (isDistrictHome) {
     return (
       <DistrictDashboard
+        activeRubricSet={activeRubricSet}
+        onRubricChange={setActiveRubricSet}
         onDrillDown={(id, name, gradeSpan) => {
-          // Read from localStorage so we get DistrictDashboard's current rubric
-          // (it has its own state that Dashboard's closure can't see directly).
-          const rubric = localStorage.getItem("catalyst:activeRubricSet") || activeRubricSet;
-          const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric };
+          const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric: activeRubricSet };
           if (gradeSpan) p.schoolGradeSpan = gradeSpan;
           window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
         }}
