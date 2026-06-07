@@ -263,7 +263,7 @@ function buildHtmlEmail(params: {
       <!-- Footer -->
       <tr>
         <td style="padding:24px 28px;border-top:1px solid #e2e8f0;">
-          <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">&copy; ${new Date().getFullYear()} Uncommon Schools, Inc.</p>
+          <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">&copy; ${new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved.</p>
         </td>
       </tr>
 
