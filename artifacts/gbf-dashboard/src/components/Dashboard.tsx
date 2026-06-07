@@ -676,7 +676,7 @@ export default function Dashboard() {
                       width: 180, minWidth: 180,
                       backgroundColor: NAVY,
                       color: "white",
-                      paddingTop: 8, paddingBottom: 8,
+                      paddingTop: 5, paddingBottom: 5,
                       fontFamily: "'Bebas Neue', sans-serif",
                       fontWeight: 700,
                       fontSize: 18,
@@ -697,7 +697,7 @@ export default function Dashboard() {
                         fontSize: 18,
                         letterSpacing: "0.02em",
                         borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}`,
-                        paddingTop: 8, paddingBottom: 8,
+                        paddingTop: 5, paddingBottom: 5,
                         backgroundColor: NAVY,
                       }}
                     >
@@ -716,7 +716,7 @@ export default function Dashboard() {
                       letterSpacing: "0.02em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
-                      paddingTop: 8, paddingBottom: 8,
+                      paddingTop: 5, paddingBottom: 5,
                     }}
                   >
                     AVG
@@ -733,7 +733,7 @@ export default function Dashboard() {
                       letterSpacing: "0.02em",
                       borderLeft: `2px solid ${YELLOW}`,
                       backgroundColor: NAVY,
-                      paddingTop: 8, paddingBottom: 8,
+                      paddingTop: 5, paddingBottom: 5,
                     }}
                   >
                     Proficient
@@ -741,7 +741,7 @@ export default function Dashboard() {
                 </tr>
 
                 {/* Domain headers — vertical text, with sub-avg after each category */}
-                <tr style={{ backgroundColor: "#0d2990" }}>
+                <tr style={{ backgroundColor: "#ffffff", borderBottom: `2px solid ${NAVY}` }}>
                   {categories.map((cat, catIdx) => (
                     <Fragment key={cat.id}>
                       {cat.domains.map((domain, di) => {
@@ -751,12 +751,12 @@ export default function Dashboard() {
                           <th
                             key={domain.id}
                             style={{
-                              width: 60, minWidth: 60, height: 88,
-                              color: "#c8d4f5",
-                              borderLeft: di === 0 ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid rgba(255,255,255,0.08)",
+                              width: 60, minWidth: 60, height: 66,
+                              color: NAVY,
+                              borderLeft: di === 0 ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid #e8edf8",
                               textAlign: "center",
                               verticalAlign: "top",
-                              paddingTop: 8,
+                              paddingTop: 6,
                               overflow: "visible",
                               cursor: hasDesc ? "help" : undefined,
                             }}
@@ -775,7 +775,7 @@ export default function Dashboard() {
                                 writingMode: "vertical-rl",
                                 transform: "rotate(180deg)",
                                 display: "inline-block",
-                                height: "80px",
+                                height: "58px",
                                 whiteSpace: "normal",
                                 wordBreak: "break-word",
                                 overflow: "visible",
@@ -793,12 +793,12 @@ export default function Dashboard() {
                       <th
                         key={`subt-${cat.id}`}
                         style={{
-                          width: 58, minWidth: 58, height: 88,
+                          width: 58, minWidth: 58, height: 66,
                           color: NAVY,
                           borderLeft: `3px solid ${YELLOW}`,
                           textAlign: "center",
                           verticalAlign: "top",
-                          paddingTop: 8,
+                          paddingTop: 6,
                           backgroundColor: YELLOW,
                           overflow: "visible",
                         }}
@@ -808,7 +808,7 @@ export default function Dashboard() {
                             writingMode: "vertical-rl",
                             transform: "rotate(180deg)",
                             display: "inline-block",
-                            height: "80px",
+                            height: "58px",
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflow: "visible",
@@ -1033,7 +1033,7 @@ export default function Dashboard() {
                     style={{ backgroundColor: NAVY, boxShadow: `0 -2px 0 0 ${YELLOW}` }}
                   >
                     <td
-                      className="pl-3 pr-2 py-2 sticky left-0 z-30 uppercase tracking-wide"
+                      className="pl-3 pr-2 py-1 sticky left-0 z-30 uppercase tracking-wide"
                       style={{
                         color: YELLOW,
                         backgroundColor: NAVY,

@@ -418,7 +418,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         width: 200, minWidth: 200,
                         backgroundColor: NAVY,
                         color: "white",
-                        paddingTop: 8, paddingBottom: 8,
+                        paddingTop: 5, paddingBottom: 5,
                         fontFamily: "'Bebas Neue', sans-serif",
                         fontWeight: 700,
                         fontSize: 18,
@@ -439,7 +439,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                           fontSize: 18,
                           letterSpacing: "0.02em",
                           borderLeft: catIdx === 0 ? "none" : `2px solid ${YELLOW}`,
-                          paddingTop: 8, paddingBottom: 8,
+                          paddingTop: 5, paddingBottom: 5,
                           backgroundColor: NAVY,
                         }}
                       >
@@ -458,7 +458,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         letterSpacing: "0.02em",
                         borderLeft: `2px solid ${YELLOW}`,
                         backgroundColor: NAVY,
-                        paddingTop: 8, paddingBottom: 8,
+                        paddingTop: 5, paddingBottom: 5,
                       }}
                     >
                       AVG
@@ -475,7 +475,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         letterSpacing: "0.02em",
                         borderLeft: `2px solid ${YELLOW}`,
                         backgroundColor: NAVY,
-                        paddingTop: 8, paddingBottom: 8,
+                        paddingTop: 5, paddingBottom: 5,
                       }}
                     >
                       Proficient
@@ -483,7 +483,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                   </tr>
 
                   {/* Domain headers — vertical text */}
-                  <tr style={{ backgroundColor: "#0d2990" }}>
+                  <tr style={{ backgroundColor: "#ffffff", borderBottom: `2px solid ${NAVY}` }}>
                     {data.categories.flatMap((cat, catIdx) => {
                       const isFirstCatDomain = (domain: { id: string }) =>
                         cat.domains[0]?.id === domain.id;
@@ -494,12 +494,12 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                             <th
                               key={domain.id}
                               style={{
-                                width: 68, minWidth: 68, height: 88,
-                                color: "#c8d4f5",
-                                borderLeft: isFirstCatDomain(domain) ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid rgba(255,255,255,0.08)",
+                                width: 68, minWidth: 68, height: 66,
+                                color: NAVY,
+                                borderLeft: isFirstCatDomain(domain) ? (catIdx === 0 ? "none" : `2px solid ${YELLOW}`) : "1px solid #e8edf8",
                                 textAlign: "center",
                                 verticalAlign: "top",
-                                paddingTop: 8,
+                                paddingTop: 6,
                                 overflow: "visible",
                                 cursor: hasDesc ? "help" : undefined,
                               }}
@@ -518,7 +518,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                                   writingMode: "vertical-rl",
                                   transform: "rotate(180deg)",
                                   display: "inline-block",
-                                  height: "80px",
+                                  height: "58px",
                                   whiteSpace: "normal",
                                   wordBreak: "break-word",
                                   overflow: "visible",
@@ -536,13 +536,13 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                         <th
                           key={`subavg-${cat.id}`}
                           style={{
-                            width: 62, minWidth: 62, height: 88,
+                            width: 62, minWidth: 62, height: 66,
                             backgroundColor: YELLOW,
                             color: NAVY,
                             borderLeft: "1px solid rgba(255,255,255,0.15)",
                             textAlign: "center",
                             verticalAlign: "top",
-                            paddingTop: 8,
+                            paddingTop: 6,
                           }}
                         >
                           <div
@@ -550,7 +550,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                               writingMode: "vertical-rl",
                               transform: "rotate(180deg)",
                               display: "inline-block",
-                              height: "80px",
+                              height: "58px",
                               whiteSpace: "normal",
                               wordBreak: "break-word",
                               overflow: "visible",
@@ -708,7 +708,7 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
                       style={{ backgroundColor: NAVY, boxShadow: `0 -2px 0 0 ${YELLOW}` }}
                     >
                       <td
-                        className="pl-3 pr-2 py-2 sticky left-0 z-30 uppercase tracking-wide"
+                        className="pl-3 pr-2 py-1 sticky left-0 z-30 uppercase tracking-wide"
                         style={{
                           color: YELLOW,
                           backgroundColor: NAVY,
