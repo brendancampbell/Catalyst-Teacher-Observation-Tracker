@@ -249,11 +249,13 @@ export default function Dashboard() {
   const schoolGradeSpan = data?.schoolGradeSpan ?? schoolGradeSpanFromUrl ?? null;
 
   const compatibleRubricSets = useMemo(() => {
-    if (!schoolGradeSpan) return rubricSets;
-    return rubricSets.filter(
+    let sets = rubricSets;
+    if (!isDistrictHome) sets = sets.filter((r) => r.target !== "SCHOOL");
+    if (!schoolGradeSpan) return sets;
+    return sets.filter(
       (r) => !r.gradeSpan || r.gradeSpan.split(",").filter(Boolean).includes(schoolGradeSpan),
     );
-  }, [rubricSets, schoolGradeSpan]);
+  }, [rubricSets, schoolGradeSpan, isDistrictHome]);
 
   /* Auto-switch rubric when the current selection is incompatible with this school */
   useEffect(() => {
