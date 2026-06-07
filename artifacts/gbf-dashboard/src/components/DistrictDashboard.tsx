@@ -166,7 +166,9 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
 
   const queryClient = useQueryClient();
 
-  const [activeRubricSet, setActiveRubricSet] = useState("Q1");
+  const [activeRubricSet, setActiveRubricSet] = useState(
+    () => localStorage.getItem("catalyst:activeRubricSet") || "Q1"
+  );
   const didInitRubric = useRef(false);
   const [viewBy,              setViewBy]              = useState<DistrictViewBy>("school");
   const [scoreType,           setScoreType]           = useState<ScoreType>("recent");
@@ -205,19 +207,28 @@ export default function DistrictDashboard({ onDrillDown }: Props) {
     staleTime: Infinity,
   });
 
-  /* Set the default rubric once on load: prefer the rubric with the
-     user's most recent observation; fall back to the first rubric.  */
+  /* Persist rubric selection to localStorage whenever it changes */
+  useEffect(() => {
+    if (activeRubricSet) localStorage.setItem("catalyst:activeRubricSet", activeRubricSet);
+  }, [activeRubricSet]);
+
+  /* Set the default rubric once on load — only if the saved/current slug
+     isn't already valid. Priority: localStorage → latest obs → first rubric */
   useEffect(() => {
     if (didInitRubric.current) return;
     if (rubricSets.length === 0) return;
     if (!latestRubricFetched) return;
-    const targetSlug =
-      myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
-        ? myLatestRubricSlug
-        : rubricSets[0].slug;
-    setActiveRubricSet(targetSlug);
     didInitRubric.current = true;
-  }, [rubricSets, myLatestRubricSlug, latestRubricFetched]);
+    if (rubricSets.find((r) => r.slug === activeRubricSet)) return; // already valid
+    const savedSlug = localStorage.getItem("catalyst:activeRubricSet");
+    const targetSlug =
+      (savedSlug && rubricSets.find((r) => r.slug === savedSlug))
+        ? savedSlug
+        : myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
+          ? myLatestRubricSlug
+          : rubricSets[0].slug;
+    setActiveRubricSet(targetSlug);
+  }, [rubricSets, myLatestRubricSlug, latestRubricFetched, activeRubricSet]);
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
     queryKey: ["district", activeRubricSet, scoreType],

@@ -173,9 +173,11 @@ export default function Dashboard() {
   const urlTeacherId = useMemo(() => searchParams.get("teacher"), [searchParams]);
 
   /* ── Rubric set selection ──────────────────────────── */
-  const [activeRubricSet, setActiveRubricSet] = useState<string>(() =>
-    new URLSearchParams(window.location.search).get("rubric") || "Q1"
-  );
+  const [activeRubricSet, setActiveRubricSet] = useState<string>(() => {
+    const urlRubric = new URLSearchParams(window.location.search).get("rubric");
+    if (urlRubric) return urlRubric;
+    return localStorage.getItem("catalyst:activeRubricSet") || "Q1";
+  });
   const didInitRubric = useRef(false);
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
@@ -193,6 +195,11 @@ export default function Dashboard() {
     staleTime: Infinity,
   });
 
+  /* Persist rubric selection to localStorage whenever it changes */
+  useEffect(() => {
+    if (activeRubricSet) localStorage.setItem("catalyst:activeRubricSet", activeRubricSet);
+  }, [activeRubricSet]);
+
   /* Set the default rubric once on load: prefer the rubric with the
      user's most recent observation; fall back to the first rubric.  */
   useEffect(() => {
@@ -202,10 +209,13 @@ export default function Dashboard() {
     const urlRubric = new URLSearchParams(window.location.search).get("rubric");
     const urlRubricValid = urlRubric && rubricSets.find((r) => r.slug === urlRubric);
     if (!urlRubricValid) {
+      const savedSlug = localStorage.getItem("catalyst:activeRubricSet");
       const targetSlug =
-        myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
-          ? myLatestRubricSlug
-          : rubricSets[0]!.slug;
+        (savedSlug && rubricSets.find((r) => r.slug === savedSlug))
+          ? savedSlug
+          : myLatestRubricSlug && rubricSets.find((r) => r.slug === myLatestRubricSlug)
+            ? myLatestRubricSlug
+            : rubricSets[0]!.slug;
       setActiveRubricSet(targetSlug);
     }
     didInitRubric.current = true;
@@ -406,7 +416,7 @@ export default function Dashboard() {
     return (
       <DistrictDashboard
         onDrillDown={(id, name, gradeSpan) => {
-          const p: Record<string, string> = { schoolId: String(id), schoolName: name };
+          const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric: activeRubricSet };
           if (gradeSpan) p.schoolGradeSpan = gradeSpan;
           window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
         }}
