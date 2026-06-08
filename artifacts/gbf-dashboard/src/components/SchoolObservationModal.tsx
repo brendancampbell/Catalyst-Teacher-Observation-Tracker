@@ -8,7 +8,6 @@ import {
   type CategoryEntry,
   type AdminSchool,
 } from "@/lib/api";
-import { RichTextEditor } from "@/components/RichTextEditor";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -47,8 +46,6 @@ export default function SchoolObservationModal({
 
   const [schoolId,    setSchoolId]    = useState<number | "">("");
   const [date,        setDate]        = useState(() => new Date().toISOString().split("T")[0]);
-  const [strengths,   setStrengths]   = useState("");
-  const [growthAreas, setGrowthAreas] = useState("");
   const [scores,      setScores]      = useState<Record<string, number | undefined>>({});
   const [error,       setError]       = useState("");
 
@@ -75,8 +72,6 @@ export default function SchoolObservationModal({
         schoolId:    schoolId as number,
         rubricSetId,
         date,
-        strengths:   strengths   || undefined,
-        growthAreas: growthAreas || undefined,
         scores:      scores as Record<string, number>,
         target:      "SCHOOL",
       });
@@ -227,34 +222,6 @@ export default function SchoolObservationModal({
                 </div>
               </div>
             ))}
-
-            {/* Glows / Grows */}
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
-                  ✦ School Strengths (Glows)
-                </label>
-                <RichTextEditor
-                  value={strengths}
-                  onChange={setStrengths}
-                  placeholder="What is this school doing well?"
-                  focusBorderColor="#86efac"
-                  minHeight={90}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
-                  ↑ Growth Areas (Grows)
-                </label>
-                <RichTextEditor
-                  value={growthAreas}
-                  onChange={setGrowthAreas}
-                  placeholder="Where should this school focus next?"
-                  focusBorderColor="#fdba74"
-                  minHeight={90}
-                />
-              </div>
-            </div>
 
           </div>
 
