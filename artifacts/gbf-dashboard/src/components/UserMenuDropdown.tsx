@@ -49,7 +49,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
       >
         {/* Avatar */}
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+          className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold shrink-0"
           style={{ backgroundColor: YELLOW, color: NAVY }}
         >
           {initials}
