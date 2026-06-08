@@ -178,7 +178,7 @@ export default function AppHeader({
                   style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
                 >
                   <Plus size={14} strokeWidth={3} />
-                  <span>Add Observation</span>
+                  <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
                 </button>
               )}
 
