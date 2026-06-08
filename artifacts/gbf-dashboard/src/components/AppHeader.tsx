@@ -118,7 +118,7 @@ export default function AppHeader({
                   <div className="h-8 flex items-center gap-1.5">
                     <span
                       className="font-bold uppercase"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em", color: YELLOW }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em", color: YELLOW, paddingTop: 2, lineHeight: 1 }}
                     >
                       {activeRubricName}
                     </span>
@@ -150,6 +150,8 @@ export default function AppHeader({
                               fontFamily: "'Bebas Neue', sans-serif",
                               fontSize: 16,
                               letterSpacing: "0.03em",
+                              paddingTop: 10,
+                              paddingBottom: 6,
                             }}
                           >
                             {q.name}
