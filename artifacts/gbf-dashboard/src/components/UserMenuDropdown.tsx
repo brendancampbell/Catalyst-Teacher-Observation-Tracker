@@ -39,7 +39,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
       {/* ── Trigger ── */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded px-2 sm:px-3 py-1.5 transition-colors"
+        className="flex items-center gap-2 rounded px-2 py-1.5 transition-colors"
         style={{
           backgroundColor: "rgba(255,255,255,0.1)",
           border: "1px solid rgba(255,255,255,0.15)",
