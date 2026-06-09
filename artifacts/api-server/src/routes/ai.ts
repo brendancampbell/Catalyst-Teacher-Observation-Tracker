@@ -95,67 +95,117 @@ async function buildCalibrationFlags(
 ): Promise<CalibrationFlag[]> {
   if (!teacherIds.length) return [];
 
-  /* Scope to observations of relevant teachers, non-walkthrough only */
-  const baseWhere = rubricSetId != null
-    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId), eq(observations.isWalkthrough, false))
-    : and(inArray(observations.teacherId, teacherIds), eq(observations.isWalkthrough, false));
+  /* Pull ALL observations (school-coach + network walkthrough) for the scoped teachers */
+  const whereClause = rubricSetId != null
+    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.teacherId, teacherIds);
 
   const rows = await db
     .select({
-      observerId:   observations.observerId,
-      observerName: users.name,
-      domainSlug:   observationScores.domainSlug,
-      score:        observationScores.score,
+      teacherId:     observations.teacherId,
+      observerId:    observations.observerId,
+      observerName:  users.name,
+      isWalkthrough: observations.isWalkthrough,
+      domainSlug:    observationScores.domainSlug,
+      score:         observationScores.score,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
     .leftJoin(users, eq(users.id, observations.observerId))
-    .where(baseWhere);
+    .where(whereClause);
 
   if (!rows.length) return [];
 
-  /* Network average per domain (all observers in scope) */
-  const domainAllScores = new Map<string, number[]>();
+  /*
+   * For each teacher+domain, collect school-coach scores and network scores separately.
+   * "School coach" = non-walkthrough; "Network" = walkthrough.
+   * We also track which school-coach observers contributed to each teacher+domain.
+   */
+  type TeacherDomainKey = string;
+  const tdMap = new Map<TeacherDomainKey, {
+    domain: string;
+    coachScores: number[];
+    networkScores: number[];
+    /* observerId → scores they personally gave this teacher on this domain */
+    observerScores: Map<number, { name: string; scores: number[] }>;
+  }>();
+
   for (const r of rows) {
-    const arr = domainAllScores.get(r.domainSlug) ?? [];
-    arr.push(r.score);
-    domainAllScores.set(r.domainSlug, arr);
-  }
-  const domainNetAvg = new Map<string, number>();
-  for (const [slug, scores] of domainAllScores) {
-    domainNetAvg.set(slug, scores.reduce((s, v) => s + v, 0) / scores.length);
+    if (!r.teacherId) continue;
+    const key: TeacherDomainKey = `${r.teacherId}|${r.domainSlug}`;
+    const entry = tdMap.get(key) ?? {
+      domain:         r.domainSlug,
+      coachScores:    [],
+      networkScores:  [],
+      observerScores: new Map(),
+    };
+
+    if (r.isWalkthrough) {
+      entry.networkScores.push(r.score);
+    } else {
+      entry.coachScores.push(r.score);
+      if (r.observerId) {
+        const obs = entry.observerScores.get(r.observerId) ?? {
+          name:   r.observerName ?? `Observer ${r.observerId}`,
+          scores: [],
+        };
+        obs.scores.push(r.score);
+        entry.observerScores.set(r.observerId, obs);
+      }
+    }
+
+    tdMap.set(key, entry);
   }
 
-  /* Group by observer + domain */
-  type Key = string;
-  const observerMap = new Map<Key, { observerName: string; domain: string; scores: number[] }>();
-  for (const r of rows) {
-    if (!r.observerId) continue;
-    const key: Key = `${r.observerId}|${r.domainSlug}`;
-    const entry = observerMap.get(key) ?? {
-      observerName: r.observerName ?? `Observer ${r.observerId}`,
-      domain:       r.domainSlug,
-      scores:       [],
-    };
-    entry.scores.push(r.score);
-    observerMap.set(key, entry);
+  /*
+   * For each teacher+domain that has BOTH school-coach and network scores,
+   * check if there's a discrepancy (≥ 0.5).  If so, attribute it to each
+   * school-coach observer who contributed scores for that teacher+domain.
+   * Accumulate per (observer, domain): their scores and the paired network scores.
+   */
+  type ObsDomainKey = string;
+  const flagMap = new Map<ObsDomainKey, {
+    observerName: string;
+    domain:       string;
+    coachScores:  number[];
+    networkScores: number[];
+  }>();
+
+  for (const entry of tdMap.values()) {
+    if (!entry.coachScores.length || !entry.networkScores.length) continue;
+    const coachAvg   = entry.coachScores.reduce((s, v) => s + v, 0) / entry.coachScores.length;
+    const networkAvg = entry.networkScores.reduce((s, v) => s + v, 0) / entry.networkScores.length;
+    if (Math.abs(coachAvg - networkAvg) < 0.5) continue;
+
+    /* Credit this discrepancy to each school-coach who observed this teacher on this domain */
+    for (const [observerId, obs] of entry.observerScores) {
+      const key: ObsDomainKey = `${observerId}|${entry.domain}`;
+      const flagEntry = flagMap.get(key) ?? {
+        observerName:  obs.name,
+        domain:        entry.domain,
+        coachScores:   [],
+        networkScores: [],
+      };
+      flagEntry.coachScores.push(...obs.scores);
+      flagEntry.networkScores.push(networkAvg); // network avg for this teacher+domain
+      flagMap.set(key, flagEntry);
+    }
   }
 
   const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
   const names = await slugNameMap(allSlugs);
 
   const flags: CalibrationFlag[] = [];
-  for (const entry of observerMap.values()) {
-    if (entry.scores.length < 2) continue; // need ≥2 observations to flag
-    const netAvg  = domainNetAvg.get(entry.domain) ?? 0;
-    const obsAvg  = entry.scores.reduce((s, v) => s + v, 0) / entry.scores.length;
-    const delta   = Math.abs(obsAvg - netAvg);
+  for (const entry of flagMap.values()) {
+    const coachAvg   = entry.coachScores.reduce((s, v) => s + v, 0) / entry.coachScores.length;
+    const networkAvg = entry.networkScores.reduce((s, v) => s + v, 0) / entry.networkScores.length;
+    const delta      = Math.abs(coachAvg - networkAvg);
     if (delta >= 0.5) {
       flags.push({
-        teacher:      entry.observerName, // observer name in teacher field
+        teacher:      entry.observerName, // the school-based coach
         domain:       names.get(entry.domain) ?? entry.domain,
-        schoolScore:  obsAvg,             // observer's avg (reusing field)
-        networkScore: netAvg,             // network avg for that domain
+        schoolScore:  coachAvg,           // coach's average
+        networkScore: networkAvg,         // network's average for same teachers
         delta,
       });
     }

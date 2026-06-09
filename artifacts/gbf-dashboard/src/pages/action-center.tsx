@@ -528,7 +528,7 @@ export default function ActionCenterPage() {
                   Calibration Flags
                 </h2>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  Observers whose average scores diverge ≥ 0.5 pts from the school average on any domain.
+                  School-based coaches whose scores diverge ≥ 0.5 pts from the network's score on the same teachers — a sign their lens may not be calibrated to the network bar.
                 </p>
               </div>
               {calibrationFlags.length === 0 ? (
@@ -545,7 +545,7 @@ export default function ActionCenterPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr style={{ backgroundColor: NAVY }}>
-                          {["Observer", "Domain", "Observer Avg", "Network Avg", "Delta"].map((h, i) => (
+                          {["Coach", "Domain", "Coach Score", "Network Score", "Delta"].map((h, i) => (
                             <th
                               key={i}
                               className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
