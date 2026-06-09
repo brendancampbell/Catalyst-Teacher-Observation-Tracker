@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
-  Bot, User2, Flame, ShieldAlert, Activity,
+  Bot, User2, ShieldAlert, Activity, Globe2,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -11,6 +11,7 @@ import {
   fetchRescoreQueue,
   fetchOverdueObservations,
   fetchDashboard,
+  fetchDistrictSummary,
   fetchQuarters,
   createObservation,
   fetchAIInsights,
@@ -23,7 +24,6 @@ import {
   type AICalibrationFlag,
   type AIPlateauAlert,
   type AIInsightsResponse,
-  type AITrendingStep,
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
@@ -65,7 +65,10 @@ export default function ActionCenterPage() {
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   const searchParams = new URLSearchParams(window.location.search);
-  const rubricFromUrl = searchParams.get("rubric") ?? undefined;
+  const rubricFromUrl    = searchParams.get("rubric") ?? undefined;
+  const schoolIdFromUrl  = searchParams.get("schoolId");
+  const schoolId         = schoolIdFromUrl ? parseInt(schoolIdFromUrl, 10) : null;
+  const schoolNameFromUrl = searchParams.get("schoolName") ?? "This School";
 
   const returnTo = safeReturnTo(
     searchParams.get("returnTo"),
@@ -124,6 +127,14 @@ export default function ActionCenterPage() {
     queryKey: ["ai-plateau-alerts", activeQuarter],
     queryFn:  () => fetchAIPlateauAlerts(activeQuarter),
     staleTime: 60_000,
+  });
+
+  /* ── District summary (for network comparison) ──────────── */
+  const { data: districtData } = useQuery({
+    queryKey: ["district-summary", activeQuarter],
+    queryFn:  () => fetchDistrictSummary(activeQuarter),
+    staleTime: 60_000,
+    enabled:  !!activeQuarter,
   });
 
   /* ── Compute real school avg ─────────────────────────── */
@@ -212,6 +223,19 @@ export default function ActionCenterPage() {
 
     return { schoolAvgs, depts, deptAvgs, grades, gradeAvgs, sortedDomains, belowThreshold };
   }, [allTeachers, allDomains]);
+
+  /* ── Network comparison memo ─────────────────────────── */
+  const networkCompData = useMemo(() => {
+    if (!districtData?.schools?.length || !allDomains.length) return null;
+    const networkAvgs: Record<string, number | null> = {};
+    for (const d of allDomains) {
+      const vals = districtData.schools
+        .map((s) => s.domainAverages[d.id])
+        .filter((v): v is number => v !== null && v !== undefined);
+      networkAvgs[d.id] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    }
+    return { networkAvgs };
+  }, [districtData, allDomains]);
 
   /* ── Add-Observation modal state ────────────────────── */
   const [addObsTeacherId,     setAddObsTeacherId]     = useState<string | null>(null);
@@ -443,10 +467,10 @@ export default function ActionCenterPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
-              {/* ── Domain Comparison — left 3 cols ─────────────── */}
-              <Card className="lg:col-span-3 border-slate-200 shadow-sm">
+              {/* ── Domain Comparison — left half ─────────────────── */}
+              <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
@@ -584,32 +608,65 @@ export default function ActionCenterPage() {
                 </CardContent>
               </Card>
 
-              {/* ── Trending Action Steps — right 2 cols ─────────── */}
-              <Card className="lg:col-span-2 border-slate-200 shadow-sm">
+              {/* ── Network Comparison — right half ───────────────── */}
+              <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
                   <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <Flame size={17} style={{ color: YELLOW }} />
-                    Trending Action Steps
+                    <Globe2 size={17} style={{ color: YELLOW }} />
+                    Network Comparison
                   </CardTitle>
-                  <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                    <Sparkles size={10} /> High-priority growth domains · live data
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {schoolNameFromUrl} vs. all schools in the network · by domain
                   </p>
                 </CardHeader>
-                <CardContent className="px-5 pb-5 space-y-3">
-                  {(insights?.trendingSteps ?? []).length > 0 ? (
-                    (insights!.trendingSteps as AITrendingStep[]).map((step, i) => (
-                      <div key={i} className="flex items-start gap-3">
-                        <div className="shrink-0 w-11 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                          style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
-                          {step.pct}%
-                        </div>
-                        <p className="text-sm text-slate-600 leading-snug">
-                          <strong>{step.domain}</strong> — avg <strong style={{ color: "#B91C1C" }}>{step.avg.toFixed(2)}</strong>
-                        </p>
-                      </div>
-                    ))
+                <CardContent className="px-5 pb-5">
+                  {!networkCompData || !domainCompData ? (
+                    <p className="text-sm text-slate-400 italic text-center py-6">Network data unavailable.</p>
                   ) : (
-                    <p className="text-sm text-slate-400 italic">No high-priority growth domains identified yet.</p>
+                    <>
+                      {/* Column headers */}
+                      <div className="grid grid-cols-[1fr_52px_52px_52px] gap-x-2 mb-2">
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Domain</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">School</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Network</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Δ</span>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {domainCompData.sortedDomains.map((d) => {
+                          const schoolVal   = domainCompData.schoolAvgs[d.id];
+                          const networkVal  = networkCompData.networkAvgs[d.id];
+                          const delta       = schoolVal !== null && networkVal !== null ? schoolVal - networkVal : null;
+
+                          function chip(val: number | null) {
+                            if (val === null) return <span className="text-slate-300 text-xs">—</span>;
+                            const bg  = val >= 0.7 ? "#dcfce7" : val >= 0.5 ? "#fef3c7" : "#fee2e2";
+                            const clr = val >= 0.7 ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
+                            return (
+                              <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", backgroundColor:bg, color:clr, fontSize:11, fontWeight:700, minWidth:44, height:22, borderRadius:5 }}>
+                                {val.toFixed(2)}
+                              </span>
+                            );
+                          }
+
+                          const deltaColor = delta === null ? "#94a3b8" : delta > 0.02 ? "#15803d" : delta < -0.02 ? "#b91c1c" : "#64748b";
+                          const deltaLabel = delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}`;
+
+                          return (
+                            <div key={d.id} className="grid grid-cols-[1fr_52px_52px_52px] gap-x-2 py-2 items-center hover:bg-slate-50/60 transition-colors -mx-1 px-1 rounded">
+                              <span className="text-xs text-slate-600 font-medium truncate" title={d.label}>{d.label}</span>
+                              <span className="flex justify-center">{chip(schoolVal)}</span>
+                              <span className="flex justify-center">{chip(networkVal)}</span>
+                              <span className="flex justify-center">
+                                <span style={{ fontSize:11, fontWeight:700, color:deltaColor }}>{deltaLabel}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
+                        Δ = {schoolNameFromUrl} avg minus network avg · positive means above network
+                      </p>
+                    </>
                   )}
                 </CardContent>
               </Card>
