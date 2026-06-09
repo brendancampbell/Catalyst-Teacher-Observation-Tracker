@@ -419,7 +419,7 @@ export default function ActionCenterPage() {
               {(
                 [
                   { key: "rescore",     label: "Rescore Queue",       count: queue.length },
-                  { key: "overdue",     label: "Overdue",             count: overdueTeachers.length },
+                  { key: "overdue",     label: "Overdue Observations", count: overdueTeachers.length },
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
