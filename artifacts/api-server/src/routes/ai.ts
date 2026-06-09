@@ -21,6 +21,11 @@ import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError } from "../
 
 const router = Router();
 
+async function assertSchoolExists(id: number): Promise<boolean> {
+  const rows = await db.select({ id: schools.id }).from(schools).where(eq(schools.id, id)).limit(1);
+  return rows.length > 0;
+}
+
 /* ── helpers ────────────────────────────────────────────────────── */
 
 function weeksBetween(a: string, b: string): number {
@@ -376,6 +381,10 @@ router.get("/insights", async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" });
       return;
     }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
+      return;
+    }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
@@ -440,6 +449,10 @@ router.get("/calibration-flags", async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" });
       return;
     }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
+      return;
+    }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
@@ -465,6 +478,10 @@ router.get("/plateau-alerts", async (req, res) => {
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
       return;
     }
     const scopedSchoolId = resolveSchoolId(user, requested);

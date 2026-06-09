@@ -6,6 +6,11 @@ import { requireNetworkScope, effectiveSchoolId, NoSchoolAssignedError } from ".
 
 const router = Router();
 
+async function assertSchoolExists(id: number): Promise<boolean> {
+  const rows = await db.select({ id: schools.id }).from(schools).where(eq(schools.id, id)).limit(1);
+  return rows.length > 0;
+}
+
 /* ── GET /api/action-center/network ──────────────────────────────
    Network action center — NETWORK_LEADER and NETWORK_ADMIN only.   */
 router.get("/network", requireNetworkScope, async (_req, res) => {
@@ -46,6 +51,10 @@ router.get("/rescore-queue", async (req, res) => {
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
       return;
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
@@ -94,6 +103,10 @@ router.get("/overdue-observations", async (req, res) => {
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
       return;
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
