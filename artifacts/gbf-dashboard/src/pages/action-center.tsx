@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, CheckCircle2, Clock, Plus,
@@ -144,6 +144,74 @@ export default function ActionCenterPage() {
 
   /* ── Intervention sub-tab ───────────────────────────── */
   const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
+
+  /* ── Domain comparison ───────────────────────────────── */
+  const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
+
+  const domainCompData = useMemo(() => {
+    if (!allTeachers.length || !allDomains.length) return null;
+
+    type TD = { subject: string; grades: string[]; scores: Record<string, number> };
+    const teacherData: TD[] = [];
+    for (const t of allTeachers) {
+      if (!t.observations?.length) continue;
+      const last = t.observations[t.observations.length - 1];
+      if (!last?.scores) continue;
+      teacherData.push({
+        subject: t.subject || "Other",
+        grades:  Array.isArray(t.gradeLevel) ? t.gradeLevel : [],
+        scores:  last.scores as Record<string, number>,
+      });
+    }
+    if (!teacherData.length) return null;
+
+    function avgForGroup(members: TD[]): Record<string, number | null> {
+      const out: Record<string, number | null> = {};
+      for (const d of allDomains) {
+        const vals = members.map((m) => m.scores[d.id]).filter((v) => v !== undefined && v !== null) as number[];
+        out[d.id] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      }
+      return out;
+    }
+
+    const schoolAvgs = avgForGroup(teacherData);
+
+    /* departments */
+    const deptMap: Record<string, TD[]> = {};
+    for (const td of teacherData) {
+      if (!deptMap[td.subject]) deptMap[td.subject] = [];
+      deptMap[td.subject].push(td);
+    }
+    const depts = Object.keys(deptMap).sort();
+    const deptAvgs: Record<string, Record<string, number | null>> = {};
+    for (const dept of depts) deptAvgs[dept] = avgForGroup(deptMap[dept]);
+
+    /* grades */
+    const gradeMap: Record<string, TD[]> = {};
+    for (const td of teacherData) {
+      for (const g of td.grades) {
+        if (!gradeMap[g]) gradeMap[g] = [];
+        gradeMap[g].push(td);
+      }
+    }
+    const grades = Object.keys(gradeMap).sort((a, b) => {
+      const na = parseInt(a, 10), nb = parseInt(b, 10);
+      return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+    });
+    const gradeAvgs: Record<string, Record<string, number | null>> = {};
+    for (const g of grades) gradeAvgs[g] = avgForGroup(gradeMap[g]);
+
+    /* sort domains lowest → highest by school avg */
+    const sortedDomains = [...allDomains].sort((a, b) => {
+      const sa = schoolAvgs[a.id] ?? Infinity;
+      const sb = schoolAvgs[b.id] ?? Infinity;
+      return sa - sb;
+    });
+
+    const belowThreshold = Object.values(schoolAvgs).filter((v) => v !== null && (v as number) < 0.7).length;
+
+    return { schoolAvgs, depts, deptAvgs, grades, gradeAvgs, sortedDomains, belowThreshold };
+  }, [allTeachers, allDomains]);
 
   /* ── Add-Observation modal state ────────────────────── */
   const [addObsTeacherId,     setAddObsTeacherId]     = useState<string | null>(null);
@@ -375,9 +443,149 @@ export default function ActionCenterPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-5">
-              {/* Trending Action Steps — live from AI insights */}
-              <Card className="border-slate-200 shadow-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+
+              {/* ── Domain Comparison — left 3 cols ─────────────── */}
+              <Card className="lg:col-span-3 border-slate-200 shadow-sm">
+                <CardHeader className="px-5 pt-5 pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                      <BarChart2 size={17} style={{ color: YELLOW }} />
+                      Domain Comparison
+                    </CardTitle>
+                    {/* Segmentation toggle */}
+                    <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: "#f1f5f9" }}>
+                      {([
+                        { key: "school", label: "School" },
+                        { key: "dept",   label: "By Dept" },
+                        { key: "grade",  label: "By Grade" },
+                      ] as { key: "school" | "dept" | "grade"; label: string }[]).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => setDomainSeg(key)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+                          style={{
+                            backgroundColor: domainSeg === key ? "white" : "transparent",
+                            color:           domainSeg === key ? NAVY : "#64748b",
+                            boxShadow:       domainSeg === key ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-5 pb-5">
+                  {!domainCompData ? (
+                    <p className="text-sm text-slate-400 italic text-center py-6">No observation data yet.</p>
+                  ) : domainSeg === "school" ? (
+                    /* ── School view: horizontal bar rows ─── */
+                    <div className="space-y-2">
+                      {domainCompData.sortedDomains.map((d) => {
+                        const avg = domainCompData.schoolAvgs[d.id];
+                        const color = avg === null ? "#94a3b8"
+                                    : avg >= 0.7  ? "#15803d"
+                                    : avg >= 0.5  ? "#b45309"
+                                    : "#b91c1c";
+                        const barBg = avg === null ? "#e2e8f0"
+                                    : avg >= 0.7  ? "#dcfce7"
+                                    : avg >= 0.5  ? "#fef3c7"
+                                    : "#fee2e2";
+                        const fillBg = avg === null ? "#94a3b8"
+                                     : avg >= 0.7  ? "#16a34a"
+                                     : avg >= 0.5  ? "#d97706"
+                                     : "#dc2626";
+                        return (
+                          <div key={d.id} className="flex items-center gap-3">
+                            <span className="text-xs text-slate-600 font-medium shrink-0" style={{ width: 140, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} title={d.label}>{d.label}</span>
+                            <div className="flex-1 rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: barBg }}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${(avg ?? 0) * 100}%`, backgroundColor: fillBg }} />
+                            </div>
+                            <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color, width: 32, textAlign: "right" }}>
+                              {avg !== null ? avg.toFixed(2) : "—"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* ── By Dept / By Grade: heatmap grid ─── */
+                    (() => {
+                      const segments = domainSeg === "dept" ? domainCompData.depts : domainCompData.grades;
+                      const segAvgs  = domainSeg === "dept" ? domainCompData.deptAvgs : domainCompData.gradeAvgs;
+                      const segLabel = domainSeg === "dept" ? "Subject" : "Grade";
+
+                      function scoreChip(val: number | null | undefined, schoolAvg: number | null | undefined) {
+                        if (val === null || val === undefined) return <span className="text-slate-300 text-xs">—</span>;
+                        const isGap = schoolAvg !== null && schoolAvg !== undefined && (schoolAvg - val) >= 0.3;
+                        const bg   = val >= 0.7 ? "#dcfce7" : val >= 0.5 ? "#fef3c7" : "#fee2e2";
+                        const clr  = val >= 0.7 ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
+                        return (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            backgroundColor: bg, color: clr,
+                            fontSize: 11, fontWeight: 700,
+                            minWidth: 40, height: 22, borderRadius: 5, padding: "0 6px",
+                            border: isGap ? "1.5px solid #ef4444" : `1px solid ${bg}`,
+                          }}>
+                            {val.toFixed(2)}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div className="overflow-x-auto -mx-1">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr>
+                                <th className="text-left py-2 pr-3 font-semibold text-slate-500 whitespace-nowrap" style={{ width: 140 }}>Domain</th>
+                                <th className="py-2 px-2 font-semibold text-slate-500 whitespace-nowrap text-center" style={{ minWidth: 52 }}>
+                                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f1f5f9" }}>School</span>
+                                </th>
+                                {segments.map((s) => (
+                                  <th key={s} className="py-2 px-2 font-semibold text-slate-500 whitespace-nowrap text-center" style={{ minWidth: 52 }}>
+                                    <span className="text-xs" title={`${segLabel}: ${s}`}>
+                                      {domainSeg === "grade" ? `Gr ${s}` : s.length > 8 ? s.slice(0, 7) + "…" : s}
+                                    </span>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {domainCompData.sortedDomains.map((d) => {
+                                const schoolAvg = domainCompData.schoolAvgs[d.id];
+                                return (
+                                  <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="py-2 pr-3 text-slate-600 font-medium" style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={d.label}>{d.label}</td>
+                                    <td className="py-2 px-2 text-center">{scoreChip(schoolAvg, undefined)}</td>
+                                    {segments.map((s) => (
+                                      <td key={s} className="py-2 px-2 text-center">{scoreChip(segAvgs[s]?.[d.id], schoolAvg)}</td>
+                                    ))}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  )}
+                  {/* Footer */}
+                  {domainCompData && (
+                    <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
+                      <span className="font-semibold text-slate-500">{domainCompData.belowThreshold}</span> of{" "}
+                      <span className="font-semibold text-slate-500">{allDomains.length}</span> domains below proficiency threshold (0.70)
+                      {domainSeg !== "school" && (
+                        <span className="ml-2 text-red-400">· Red border = gap ≥ 0.3 below school avg</span>
+                      )}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* ── Trending Action Steps — right 2 cols ─────────── */}
+              <Card className="lg:col-span-2 border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
                   <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
                     <Flame size={17} style={{ color: YELLOW }} />
@@ -405,6 +613,7 @@ export default function ActionCenterPage() {
                   )}
                 </CardContent>
               </Card>
+
             </div>
 
           </TabsContent>
