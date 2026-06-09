@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, GraduationCap } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
@@ -293,7 +293,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                         <button
                           key={rs.slug}
                           onClick={() => setSelectedRubricSlug(rs.slug)}
-                          className="px-3 py-1 rounded-full transition-all"
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-full transition-all"
                           style={{
                             fontFamily: "'Bebas Neue', sans-serif",
                             fontSize: 13,
@@ -305,6 +305,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                             opacity: altFetching && !isActive ? 0.5 : 1,
                           }}
                         >
+                          {rs.target === "SCHOOL" ? <School size={11} /> : <GraduationCap size={11} />}
                           {rs.name}
                         </button>
                       );

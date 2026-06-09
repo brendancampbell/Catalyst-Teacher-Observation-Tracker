@@ -35,6 +35,7 @@ export interface RubricSet {
   name: string;
   isArchived?: boolean;
   displayOrder?: number;
+  target?: "TEACHER" | "SCHOOL";
 }
 
 export interface RubricDomain {

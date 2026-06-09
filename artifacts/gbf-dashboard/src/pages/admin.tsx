@@ -2751,7 +2751,9 @@ export default function AdminPage() {
                 >
                   <option value="">— Start blank —</option>
                   {rubricSets.map((q) => (
-                    <option key={q.slug} value={q.slug}>{q.name}</option>
+                    <option key={q.slug} value={q.slug}>
+                      {q.target === "SCHOOL" ? "🏫 " : "🎓 "}{q.name}
+                    </option>
                   ))}
                 </select>
                 <p className="text-xs text-slate-400">

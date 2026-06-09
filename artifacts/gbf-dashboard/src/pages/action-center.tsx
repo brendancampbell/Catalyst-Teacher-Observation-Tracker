@@ -382,7 +382,7 @@ export default function ActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
-              rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name }))}
+              rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name, target: q.target }))}
               activeRubricSet={activeQuarter}
               onRubricChange={(slug) => {
                 const sp = new URLSearchParams(window.location.search);

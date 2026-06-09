@@ -160,7 +160,7 @@ export default function DistrictActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
-              rubricSets={quarters.map((q) => ({ slug: q.slug, name: q.name }))}
+              rubricSets={quarters.map((q) => ({ slug: q.slug, name: q.name, target: q.target }))}
               activeRubricSet={activeRubric}
               onRubricChange={(slug) => {
                 const sp = new URLSearchParams(window.location.search);

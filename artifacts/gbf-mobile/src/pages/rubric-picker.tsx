@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, RubricSet } from "@/lib/api";
-import { ChevronRight, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronRight, FileText, AlertCircle, Loader2, School, GraduationCap } from "lucide-react";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -107,11 +107,10 @@ export default function RubricPickerPage() {
                   className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: NAVY }}
                 >
-                  <span
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: YELLOW, fontSize: 14, letterSpacing: 1 }}
-                  >
-                    {r.slug}
-                  </span>
+                  {r.target === "SCHOOL"
+                    ? <School size={18} color={YELLOW} />
+                    : <GraduationCap size={18} color={YELLOW} />
+                  }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-800 text-sm">{r.name}</p>

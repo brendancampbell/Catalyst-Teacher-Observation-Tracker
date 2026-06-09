@@ -1,4 +1,4 @@
-import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit, School, GraduationCap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
@@ -8,6 +8,13 @@ const YELLOW = "#FFB500";
 interface RubricOption {
   slug: string;
   name: string;
+  target?: "TEACHER" | "SCHOOL";
+}
+
+function RubricIcon({ target, size = 13 }: { target?: "TEACHER" | "SCHOOL"; size?: number }) {
+  return target === "SCHOOL"
+    ? <School size={size} />
+    : <GraduationCap size={size} />;
 }
 
 interface AppHeaderProps {
@@ -59,7 +66,8 @@ export default function AppHeader({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [rubricOpen]);
 
-  const activeRubricName = rubricSets?.find((r) => r.slug === activeRubricSet)?.name ?? activeRubricSet ?? "Rubric";
+  const activeRubric     = rubricSets?.find((r) => r.slug === activeRubricSet);
+  const activeRubricName = activeRubric?.name ?? activeRubricSet ?? "Rubric";
 
   return (
     <>
@@ -116,6 +124,9 @@ export default function AppHeader({
                   }}
                 >
                   <div className="h-8 flex items-center gap-1.5">
+                    <span style={{ color: YELLOW, display: "flex", alignItems: "center" }}>
+                      <RubricIcon target={activeRubric?.target} size={13} />
+                    </span>
                     <span
                       className="font-bold uppercase"
                       style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em", color: YELLOW, paddingTop: 2, lineHeight: 1 }}
@@ -154,6 +165,9 @@ export default function AppHeader({
                               paddingBottom: 6,
                             }}
                           >
+                            <span style={{ display: "flex", alignItems: "center", opacity: 0.6 }}>
+                              <RubricIcon target={q.target} size={13} />
+                            </span>
                             {q.name}
                           </button>
                         );
