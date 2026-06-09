@@ -500,91 +500,97 @@ export default function ActionCenterPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="px-5 pb-5">
+                <CardContent className="px-0 pb-4">
                   {!domainCompData ? (
                     <p className="text-sm text-slate-400 italic text-center py-6">No observation data yet.</p>
                   ) : domainSeg === "school" ? (
-                    /* ── School view: horizontal bar rows ─── */
-                    <div className="space-y-2">
-                      {domainCompData.sortedDomains.map((d) => {
-                        const avg = domainCompData.schoolAvgs[d.id];
-                        const color = avg === null ? "#94a3b8"
-                                    : avg >= 0.7  ? "#15803d"
-                                    : avg >= 0.5  ? "#b45309"
-                                    : "#b91c1c";
-                        const barBg = avg === null ? "#e2e8f0"
-                                    : avg >= 0.7  ? "#dcfce7"
-                                    : avg >= 0.5  ? "#fef3c7"
-                                    : "#fee2e2";
-                        const fillBg = avg === null ? "#94a3b8"
-                                     : avg >= 0.7  ? "#16a34a"
-                                     : avg >= 0.5  ? "#d97706"
-                                     : "#dc2626";
-                        return (
-                          <div key={d.id} className="flex items-center gap-3">
-                            <span className="text-xs text-slate-600 font-medium shrink-0" style={{ width: 140, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }} title={d.label}>{d.label}</span>
-                            <div className="flex-1 rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: barBg }}>
-                              <div className="h-full rounded-full transition-all" style={{ width: `${(avg ?? 0) * 100}%`, backgroundColor: fillBg }} />
-                            </div>
-                            <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color, width: 32, textAlign: "right" }}>
-                              {avg !== null ? avg.toFixed(2) : "—"}
-                            </span>
-                          </div>
-                        );
-                      })}
+                    /* ── School view: proper table with bar column ─── */
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr style={{ backgroundColor: NAVY }}>
+                            {["Domain", "Score", ""].map((h, i) => (
+                              <th key={i} className={`px-4 py-2.5 text-white font-bold uppercase tracking-wider text-xs${i > 0 ? " text-right" : " text-left"}`}
+                                style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", width: i === 1 ? 56 : i === 2 ? "40%" : undefined }}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                          <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={3} style={{ padding: 0, height: 3 }} /></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {domainCompData.sortedDomains.map((d) => {
+                            const avg    = domainCompData.schoolAvgs[d.id];
+                            const color  = avg === null ? "#94a3b8" : avg >= 0.7 ? "#15803d" : avg >= 0.5 ? "#b45309" : "#b91c1c";
+                            const fillBg = avg === null ? "#cbd5e1" : avg >= 0.7 ? "#16a34a" : avg >= 0.5 ? "#d97706" : "#dc2626";
+                            return (
+                              <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-2.5 text-slate-700 text-sm font-medium">{d.label}</td>
+                                <td className="px-4 py-2.5 text-right">
+                                  <span className="font-bold tabular-nums text-sm" style={{ color }}>
+                                    {avg !== null ? avg.toFixed(2) : "—"}
+                                  </span>
+                                </td>
+                                <td className="pr-4 py-2.5">
+                                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${(avg ?? 0) * 100}%`, backgroundColor: fillBg }} />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
-                    /* ── By Dept / By Grade: heatmap grid ─── */
+                    /* ── By Dept / By Grade: proper table ─── */
                     (() => {
                       const segments = domainSeg === "dept" ? domainCompData.depts : domainCompData.grades;
                       const segAvgs  = domainSeg === "dept" ? domainCompData.deptAvgs : domainCompData.gradeAvgs;
                       const segLabel = domainSeg === "dept" ? "Subject" : "Grade";
 
-                      function scoreChip(val: number | null | undefined, schoolAvg: number | null | undefined) {
-                        if (val === null || val === undefined) return <span className="text-slate-300 text-xs">—</span>;
+                      function scoreCell(val: number | null | undefined, schoolAvg: number | null | undefined) {
+                        if (val === null || val === undefined) return <span className="text-slate-300">—</span>;
                         const isGap = schoolAvg !== null && schoolAvg !== undefined && (schoolAvg - val) >= 0.3;
-                        const bg   = val >= 0.7 ? "#dcfce7" : val >= 0.5 ? "#fef3c7" : "#fee2e2";
-                        const clr  = val >= 0.7 ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
+                        const clr   = val >= 0.7 ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
                         return (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            backgroundColor: bg, color: clr,
-                            fontSize: 11, fontWeight: 700,
-                            minWidth: 40, height: 22, borderRadius: 5, padding: "0 6px",
-                            border: isGap ? "1.5px solid #ef4444" : `1px solid ${bg}`,
-                          }}>
+                          <span className="font-bold tabular-nums text-xs" style={{ color: isGap ? "#dc2626" : clr }}>
+                            {isGap && <span className="mr-0.5 text-red-500">▼</span>}
                             {val.toFixed(2)}
                           </span>
                         );
                       }
 
                       return (
-                        <div className="overflow-x-auto -mx-1">
-                          <table className="w-full text-xs border-collapse">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
                             <thead>
-                              <tr>
-                                <th className="text-left py-2 pr-3 font-semibold text-slate-500 whitespace-nowrap" style={{ width: 140 }}>Domain</th>
-                                <th className="py-2 px-2 font-semibold text-slate-500 whitespace-nowrap text-center" style={{ minWidth: 52 }}>
-                                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f1f5f9" }}>School</span>
-                                </th>
+                              <tr style={{ backgroundColor: NAVY }}>
+                                <th className="text-left px-4 py-2.5 text-white font-bold uppercase tracking-wider text-xs"
+                                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 120 }}>Domain</th>
+                                <th className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-xs text-center"
+                                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 52 }}>School</th>
                                 {segments.map((s) => (
-                                  <th key={s} className="py-2 px-2 font-semibold text-slate-500 whitespace-nowrap text-center" style={{ minWidth: 52 }}>
-                                    <span className="text-xs" title={`${segLabel}: ${s}`}>
-                                      {domainSeg === "grade" ? `Gr ${s}` : s.length > 8 ? s.slice(0, 7) + "…" : s}
-                                    </span>
+                                  <th key={s} className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-xs text-center"
+                                    style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 52 }}
+                                    title={`${segLabel}: ${s}`}>
+                                    {domainSeg === "grade" ? `Gr ${s}` : s.length > 7 ? s.slice(0, 6) + "…" : s}
                                   </th>
                                 ))}
                               </tr>
+                              <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                                <td colSpan={2 + segments.length} style={{ padding: 0, height: 3 }} />
+                              </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                               {domainCompData.sortedDomains.map((d) => {
                                 const schoolAvg = domainCompData.schoolAvgs[d.id];
                                 return (
-                                  <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
-                                    <td className="py-2 pr-3 text-slate-600 font-medium" style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={d.label}>{d.label}</td>
-                                    <td className="py-2 px-2 text-center">{scoreChip(schoolAvg, undefined)}</td>
+                                  <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-4 py-2.5 text-slate-700 font-medium text-xs truncate" style={{ maxWidth: 130 }} title={d.label}>{d.label}</td>
+                                    <td className="px-3 py-2.5 text-center">{scoreCell(schoolAvg, undefined)}</td>
                                     {segments.map((s) => (
-                                      <td key={s} className="py-2 px-2 text-center">{scoreChip(segAvgs[s]?.[d.id], schoolAvg)}</td>
+                                      <td key={s} className="px-3 py-2.5 text-center">{scoreCell(segAvgs[s]?.[d.id], schoolAvg)}</td>
                                     ))}
                                   </tr>
                                 );
@@ -597,11 +603,11 @@ export default function ActionCenterPage() {
                   )}
                   {/* Footer */}
                   {domainCompData && (
-                    <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
+                    <p className="text-xs text-slate-400 mt-3 px-5 pt-3 border-t border-slate-100">
                       <span className="font-semibold text-slate-500">{domainCompData.belowThreshold}</span> of{" "}
-                      <span className="font-semibold text-slate-500">{allDomains.length}</span> domains below proficiency threshold (0.70)
+                      <span className="font-semibold text-slate-500">{allDomains.length}</span> domains below proficiency (0.70)
                       {domainSeg !== "school" && (
-                        <span className="ml-2 text-red-400">· Red border = gap ≥ 0.3 below school avg</span>
+                        <span className="ml-2 text-red-500">· ▼ = gap ≥ 0.3 below school avg</span>
                       )}
                     </p>
                   )}
@@ -619,52 +625,54 @@ export default function ActionCenterPage() {
                     {schoolNameFromUrl} vs. all schools in the network · by domain
                   </p>
                 </CardHeader>
-                <CardContent className="px-5 pb-5">
+                <CardContent className="px-0 pb-4">
                   {!networkCompData || !domainCompData ? (
                     <p className="text-sm text-slate-400 italic text-center py-6">Network data unavailable.</p>
                   ) : (
                     <>
-                      {/* Column headers */}
-                      <div className="grid grid-cols-[1fr_52px_52px_52px] gap-x-2 mb-2">
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Domain</span>
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">School</span>
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Network</span>
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide text-center">Δ</span>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr style={{ backgroundColor: NAVY }}>
+                              {["Domain", "School", "Network", "Δ"].map((h, i) => (
+                                <th key={i}
+                                  className={`py-2.5 text-white font-bold uppercase tracking-wider text-xs${i === 0 ? " text-left px-4" : " text-center px-3"}`}
+                                  style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: i === 0 ? 90 : 44 }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                              <td colSpan={4} style={{ padding: 0, height: 3 }} />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {domainCompData.sortedDomains.map((d) => {
+                              const schoolVal  = domainCompData.schoolAvgs[d.id];
+                              const networkVal = networkCompData.networkAvgs[d.id];
+                              const delta      = schoolVal !== null && networkVal !== null ? schoolVal - networkVal : null;
+                              const schoolClr  = schoolVal  === null ? "#94a3b8" : schoolVal  >= 0.7 ? "#15803d" : schoolVal  >= 0.5 ? "#92400e" : "#b91c1c";
+                              const networkClr = networkVal === null ? "#94a3b8" : networkVal >= 0.7 ? "#15803d" : networkVal >= 0.5 ? "#92400e" : "#b91c1c";
+                              const deltaClr   = delta === null ? "#94a3b8" : delta > 0.02 ? "#15803d" : delta < -0.02 ? "#b91c1c" : "#64748b";
+                              const deltaLabel = delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}`;
+                              return (
+                                <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-2.5 text-slate-700 font-medium text-xs truncate" style={{ maxWidth: 100 }} title={d.label}>{d.label}</td>
+                                  <td className="px-3 py-2.5 text-center font-bold tabular-nums" style={{ color: schoolClr }}>
+                                    {schoolVal !== null ? schoolVal.toFixed(2) : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center font-bold tabular-nums text-slate-500">
+                                    <span style={{ color: networkClr }}>{networkVal !== null ? networkVal.toFixed(2) : "—"}</span>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center font-bold tabular-nums" style={{ color: deltaClr }}>{deltaLabel}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                      <div className="divide-y divide-slate-50">
-                        {domainCompData.sortedDomains.map((d) => {
-                          const schoolVal   = domainCompData.schoolAvgs[d.id];
-                          const networkVal  = networkCompData.networkAvgs[d.id];
-                          const delta       = schoolVal !== null && networkVal !== null ? schoolVal - networkVal : null;
-
-                          function chip(val: number | null) {
-                            if (val === null) return <span className="text-slate-300 text-xs">—</span>;
-                            const bg  = val >= 0.7 ? "#dcfce7" : val >= 0.5 ? "#fef3c7" : "#fee2e2";
-                            const clr = val >= 0.7 ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
-                            return (
-                              <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", backgroundColor:bg, color:clr, fontSize:11, fontWeight:700, minWidth:44, height:22, borderRadius:5 }}>
-                                {val.toFixed(2)}
-                              </span>
-                            );
-                          }
-
-                          const deltaColor = delta === null ? "#94a3b8" : delta > 0.02 ? "#15803d" : delta < -0.02 ? "#b91c1c" : "#64748b";
-                          const deltaLabel = delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}`;
-
-                          return (
-                            <div key={d.id} className="grid grid-cols-[1fr_52px_52px_52px] gap-x-2 py-2 items-center hover:bg-slate-50/60 transition-colors -mx-1 px-1 rounded">
-                              <span className="text-xs text-slate-600 font-medium truncate" title={d.label}>{d.label}</span>
-                              <span className="flex justify-center">{chip(schoolVal)}</span>
-                              <span className="flex justify-center">{chip(networkVal)}</span>
-                              <span className="flex justify-center">
-                                <span style={{ fontSize:11, fontWeight:700, color:deltaColor }}>{deltaLabel}</span>
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">
-                        Δ = {schoolNameFromUrl} avg minus network avg · positive means above network
+                      <p className="text-xs text-slate-400 mt-3 px-4 pt-3 border-t border-slate-100">
+                        Δ = school minus network · <span className="text-green-700 font-semibold">+above</span> / <span className="text-red-600 font-semibold">−below</span>
                       </p>
                     </>
                   )}
