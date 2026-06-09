@@ -406,7 +406,7 @@ export default function ActionCenterPage() {
               <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <div>
                   <h2
-                    className="text-xl font-bold uppercase tracking-wider"
+                    className="text-3xl font-bold uppercase tracking-wider"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
                   >
                     Walkthrough Rescore Queue
@@ -522,7 +522,7 @@ export default function ActionCenterPage() {
             <section>
               <div className="mb-4">
                 <h2
-                  className="text-xl font-bold uppercase tracking-wider"
+                  className="text-3xl font-bold uppercase tracking-wider"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
                 >
                   Calibration Flags
