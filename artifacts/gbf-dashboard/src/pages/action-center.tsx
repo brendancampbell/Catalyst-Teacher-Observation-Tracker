@@ -384,8 +384,8 @@ export default function ActionCenterPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <BarChart2 size={14} /> Current School Average
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                    <BarChart2 size={15} /> Current School Average
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
@@ -410,14 +410,14 @@ export default function ActionCenterPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Across all domains, most recent observations</p>
+                  <p className="text-sm text-slate-500 mt-1">Across all domains, most recent observations</p>
                 </CardContent>
               </Card>
 
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <TrendingUp size={14} className="text-green-500" /> Top Domain Strength
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                    <TrendingUp size={15} className="text-green-600" /> Top Domain Strength
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
@@ -426,15 +426,15 @@ export default function ActionCenterPage() {
                       <p className="text-2xl font-bold leading-tight" style={{ color: "#15803D", fontFamily: "'Bebas Neue', sans-serif" }}>
                         {insights.topStrength.domain}
                       </p>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Avg score <span className="font-bold text-green-600">{insights.topStrength.avg.toFixed(2)}</span> across {insights.topStrength.count} observation{insights.topStrength.count !== 1 ? "s" : ""}
+                      <p className="text-sm text-slate-600 mt-1">
+                        Avg score <span className="font-bold text-green-700">{insights.topStrength.avg.toFixed(2)}</span> across {insights.topStrength.count} observation{insights.topStrength.count !== 1 ? "s" : ""}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
+                      <p className="text-xs text-slate-500 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
                     </>
                   ) : (
                     <>
                       <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
-                      <p className="text-sm text-slate-400 mt-1">No observation data yet</p>
+                      <p className="text-sm text-slate-500 mt-1">No observation data yet</p>
                     </>
                   )}
                 </CardContent>
@@ -442,8 +442,8 @@ export default function ActionCenterPage() {
 
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <TrendingDown size={14} className="text-red-500" /> Top Area for Growth
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                    <TrendingDown size={15} className="text-red-600" /> Top Area for Growth
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
@@ -452,15 +452,15 @@ export default function ActionCenterPage() {
                       <p className="text-2xl font-bold leading-tight" style={{ color: "#B91C1C", fontFamily: "'Bebas Neue', sans-serif" }}>
                         {insights.topGrowth.domain}
                       </p>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Avg score <span className="font-bold text-red-600">{insights.topGrowth.avg.toFixed(2)}</span> across {insights.topGrowth.count} observation{insights.topGrowth.count !== 1 ? "s" : ""}
+                      <p className="text-sm text-slate-600 mt-1">
+                        Avg score <span className="font-bold text-red-700">{insights.topGrowth.avg.toFixed(2)}</span> across {insights.topGrowth.count} observation{insights.topGrowth.count !== 1 ? "s" : ""}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
+                      <p className="text-xs text-slate-500 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
                     </>
                   ) : (
                     <>
                       <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
-                      <p className="text-sm text-slate-400 mt-1">No observation data yet</p>
+                      <p className="text-sm text-slate-500 mt-1">No observation data yet</p>
                     </>
                   )}
                 </CardContent>
