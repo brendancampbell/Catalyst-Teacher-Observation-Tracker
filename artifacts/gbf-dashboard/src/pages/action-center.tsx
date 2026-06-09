@@ -415,11 +415,11 @@ export default function ActionCenterPage() {
           <TabsContent value="intervention" className="flex-1 flex flex-col overflow-hidden mt-0">
 
             {/* ── Secondary sub-tab bar ─────────────────────── */}
-            <div style={{ backgroundColor: "#EDF0F9", borderBottom: "2px solid #C8D2E8" }} className="px-4 sm:px-6 flex gap-1 pt-2">
+            <div style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }} className="px-4 sm:px-6 flex gap-6">
               {(
                 [
                   { key: "rescore",     label: "Rescore Queue",       count: queue.length },
-                  { key: "overdue",     label: "Overdue",              count: overdueTeachers.length },
+                  { key: "overdue",     label: "Overdue",             count: overdueTeachers.length },
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
@@ -430,22 +430,30 @@ export default function ActionCenterPage() {
                   <button
                     key={key}
                     onClick={() => setInterventionTab(key)}
-                    className="relative flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors rounded-t-md"
+                    className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
                     style={{
-                      fontFamily: "'Bebas Neue', sans-serif",
-                      letterSpacing: "0.05em",
-                      fontSize: 15,
-                      backgroundColor: active ? "white" : "transparent",
-                      color:           active ? NAVY : "#64748b",
-                      borderBottom:    active ? "2px solid white" : "2px solid transparent",
-                      marginBottom:    active ? -2 : 0,
+                      color:        active ? NAVY : "#94a3b8",
+                      borderBottom: active ? `2px solid ${YELLOW}` : "2px solid transparent",
+                      marginBottom: -1,
                     }}
                   >
                     {label}
                     {count > 0 && (
                       <span
-                        className="inline-flex items-center justify-center rounded-full text-white font-bold"
-                        style={{ backgroundColor: "#DC2626", fontSize: 11, minWidth: 20, height: 20, padding: "0 5px", lineHeight: 1 }}
+                        style={{
+                          display:         "flex",
+                          alignItems:      "center",
+                          justifyContent:  "center",
+                          backgroundColor: "#DC2626",
+                          color:           "white",
+                          fontSize:        11,
+                          fontWeight:      700,
+                          width:           20,
+                          height:          20,
+                          borderRadius:    "50%",
+                          lineHeight:      1,
+                          flexShrink:      0,
+                        }}
                       >
                         {count}
                       </span>
