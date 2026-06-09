@@ -1,4 +1,4 @@
-import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit, School, GraduationCap } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit, School, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
@@ -14,7 +14,7 @@ interface RubricOption {
 function RubricIcon({ target, size = 13 }: { target?: "TEACHER" | "SCHOOL"; size?: number }) {
   return target === "SCHOOL"
     ? <School size={size} />
-    : <GraduationCap size={size} />;
+    : <User size={size} />;
 }
 
 interface AppHeaderProps {

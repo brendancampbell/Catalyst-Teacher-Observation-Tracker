@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, RubricSet } from "@/lib/api";
-import { ChevronRight, FileText, AlertCircle, Loader2, School, GraduationCap } from "lucide-react";
+import { ChevronRight, FileText, AlertCircle, Loader2, School, User } from "lucide-react";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -109,7 +109,7 @@ export default function RubricPickerPage() {
                 >
                   {r.target === "SCHOOL"
                     ? <School size={18} color={YELLOW} />
-                    : <GraduationCap size={18} color={YELLOW} />
+                    : <User size={18} color={YELLOW} />
                   }
                 </div>
                 <div className="flex-1 min-w-0">

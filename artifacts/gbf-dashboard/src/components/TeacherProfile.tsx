@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, GraduationCap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
@@ -305,7 +305,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                             opacity: altFetching && !isActive ? 0.5 : 1,
                           }}
                         >
-                          {rs.target === "SCHOOL" ? <School size={11} /> : <GraduationCap size={11} />}
+                          {rs.target === "SCHOOL" ? <School size={11} /> : <User size={11} />}
                           {rs.name}
                         </button>
                       );
