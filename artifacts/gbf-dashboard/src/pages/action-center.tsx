@@ -540,11 +540,11 @@ export default function ActionCenterPage() {
                   </div>
                 </Card>
               ) : (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #fde68a" }}>
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr style={{ backgroundColor: "#92400E" }}>
+                        <tr style={{ backgroundColor: NAVY }}>
                           {["Teacher", "Domain", "School Score", "Network Score", "Delta"].map((h, i) => (
                             <th
                               key={i}
@@ -559,9 +559,9 @@ export default function ActionCenterPage() {
                           <td colSpan={5} style={{ padding: 0, height: 3 }} />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-amber-50">
+                      <tbody className="divide-y divide-slate-100">
                         {calibrationFlags.map((flag, i) => (
-                          <tr key={i} className="hover:bg-amber-50 transition-colors">
+                          <tr key={i} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3 font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</td>
                             <td className="px-4 py-3 text-slate-600">{flag.domain}</td>
                             <td className="px-4 py-3 font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</td>
