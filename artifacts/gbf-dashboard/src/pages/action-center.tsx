@@ -516,9 +516,9 @@ export default function ActionCenterPage() {
               )}
             </section>
 
-            <Separator />
-
-            {/* ── Calibration Flags ──────────────────────────── */}
+            {/* ── Calibration Flags — visible to leaders only ─── */}
+            {currentUser && currentUser.role !== "COACH" && (
+            <><Separator />
             <section>
               <div className="mb-4">
                 <h2
@@ -528,7 +528,7 @@ export default function ActionCenterPage() {
                   Calibration Flags
                 </h2>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough observations.
+                  Observers whose average scores diverge ≥ 0.5 pts from the school average on any domain.
                 </p>
               </div>
               {calibrationFlags.length === 0 ? (
@@ -545,7 +545,7 @@ export default function ActionCenterPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr style={{ backgroundColor: NAVY }}>
-                          {["Teacher", "Domain", "School Score", "Network Score", "Delta"].map((h, i) => (
+                          {["Observer", "Domain", "Observer Avg", "Network Avg", "Delta"].map((h, i) => (
                             <th
                               key={i}
                               className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
@@ -582,6 +582,8 @@ export default function ActionCenterPage() {
                 </div>
               )}
             </section>
+            </>
+            )}
 
           </TabsContent>
 

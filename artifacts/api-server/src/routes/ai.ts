@@ -7,6 +7,7 @@ import {
   schools,
   rubricDomains,
   rubricSets,
+  users,
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -94,107 +95,67 @@ async function buildCalibrationFlags(
 ): Promise<CalibrationFlag[]> {
   if (!teacherIds.length) return [];
 
-  const whereClause = rubricSetId != null
-    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.teacherId, teacherIds);
+  /* Scope to observations of relevant teachers, non-walkthrough only */
+  const baseWhere = rubricSetId != null
+    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId), eq(observations.isWalkthrough, false))
+    : and(inArray(observations.teacherId, teacherIds), eq(observations.isWalkthrough, false));
 
   const rows = await db
     .select({
-      teacherId:      observations.teacherId,
-      teacherFirst:   teachers.firstName,
-      teacherLast:    teachers.lastName,
-      schoolId:       teachers.schoolId,
-      schoolName:     schools.name,
-      domainSlug:     observationScores.domainSlug,
-      score:          observationScores.score,
-      isWalkthrough:  observations.isWalkthrough,
-      rubricSetId:    observations.rubricSetId,
+      observerId:   observations.observerId,
+      observerName: users.name,
+      domainSlug:   observationScores.domainSlug,
+      score:        observationScores.score,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .innerJoin(teachers, eq(teachers.id, observations.teacherId))
-    .leftJoin(schools, eq(schools.id, teachers.schoolId))
-    .where(whereClause);
+    .leftJoin(users, eq(users.id, observations.observerId))
+    .where(baseWhere);
 
-  if (scope === "school") {
-    /* Per-teacher discrepancy within the school ──────────────────── */
-    type Key = string;
-    const groupMap = new Map<
-      Key,
-      { coachScores: number[]; walkthroughScores: number[]; teacherName: string; domain: string }
-    >();
+  if (!rows.length) return [];
 
-    for (const r of rows) {
-      const key: Key = `${r.teacherId}|${r.domainSlug}|${r.rubricSetId}`;
-      const entry = groupMap.get(key) ?? {
-        coachScores:       [],
-        walkthroughScores: [],
-        teacherName:       `${r.teacherFirst} ${r.teacherLast}`.trim(),
-        domain:            r.domainSlug,
-      };
-      if (r.isWalkthrough) entry.walkthroughScores.push(r.score);
-      else                  entry.coachScores.push(r.score);
-      groupMap.set(key, entry);
-    }
-
-    const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
-    const names = await slugNameMap(allSlugs);
-
-    const flags: CalibrationFlag[] = [];
-    for (const entry of groupMap.values()) {
-      if (!entry.coachScores.length || !entry.walkthroughScores.length) continue;
-      const coachAvg    = entry.coachScores.reduce((s, v) => s + v, 0) / entry.coachScores.length;
-      const networkAvg  = entry.walkthroughScores.reduce((s, v) => s + v, 0) / entry.walkthroughScores.length;
-      const delta = Math.abs(coachAvg - networkAvg);
-      if (delta >= 0.5) {
-        flags.push({
-          teacher:     entry.teacherName,
-          domain:      names.get(entry.domain) ?? entry.domain,
-          schoolScore: coachAvg,
-          networkScore: networkAvg,
-          delta,
-        });
-      }
-    }
-    return flags.sort((a, b) => b.delta - a.delta);
+  /* Network average per domain (all observers in scope) */
+  const domainAllScores = new Map<string, number[]>();
+  for (const r of rows) {
+    const arr = domainAllScores.get(r.domainSlug) ?? [];
+    arr.push(r.score);
+    domainAllScores.set(r.domainSlug, arr);
+  }
+  const domainNetAvg = new Map<string, number>();
+  for (const [slug, scores] of domainAllScores) {
+    domainNetAvg.set(slug, scores.reduce((s, v) => s + v, 0) / scores.length);
   }
 
-  /* Network scope: aggregate coach scores per school+domain+rubricSet ── */
-  type NetKey = string;
-  const schoolMap = new Map<
-    NetKey,
-    { coachScores: number[]; walkthroughScores: number[]; schoolName: string; domain: string }
-  >();
-
+  /* Group by observer + domain */
+  type Key = string;
+  const observerMap = new Map<Key, { observerName: string; domain: string; scores: number[] }>();
   for (const r of rows) {
-    const schoolLabel = r.schoolName ?? `school-${r.schoolId}`;
-    const key: NetKey = `${r.schoolId}|${r.domainSlug}|${r.rubricSetId}`;
-    const entry = schoolMap.get(key) ?? {
-      coachScores:       [],
-      walkthroughScores: [],
-      schoolName:        schoolLabel,
-      domain:            r.domainSlug,
+    if (!r.observerId) continue;
+    const key: Key = `${r.observerId}|${r.domainSlug}`;
+    const entry = observerMap.get(key) ?? {
+      observerName: r.observerName ?? `Observer ${r.observerId}`,
+      domain:       r.domainSlug,
+      scores:       [],
     };
-    if (r.isWalkthrough) entry.walkthroughScores.push(r.score);
-    else                  entry.coachScores.push(r.score);
-    schoolMap.set(key, entry);
+    entry.scores.push(r.score);
+    observerMap.set(key, entry);
   }
 
   const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
   const names = await slugNameMap(allSlugs);
 
   const flags: CalibrationFlag[] = [];
-  for (const entry of schoolMap.values()) {
-    if (!entry.coachScores.length || !entry.walkthroughScores.length) continue;
-    const coachAvg   = entry.coachScores.reduce((s, v) => s + v, 0) / entry.coachScores.length;
-    const networkAvg = entry.walkthroughScores.reduce((s, v) => s + v, 0) / entry.walkthroughScores.length;
-    const delta = Math.abs(coachAvg - networkAvg);
+  for (const entry of observerMap.values()) {
+    if (entry.scores.length < 2) continue; // need ≥2 observations to flag
+    const netAvg  = domainNetAvg.get(entry.domain) ?? 0;
+    const obsAvg  = entry.scores.reduce((s, v) => s + v, 0) / entry.scores.length;
+    const delta   = Math.abs(obsAvg - netAvg);
     if (delta >= 0.5) {
       flags.push({
-        school:      entry.schoolName,
-        domain:      names.get(entry.domain) ?? entry.domain,
-        schoolScore: coachAvg,
-        networkScore: networkAvg,
+        teacher:      entry.observerName, // observer name in teacher field
+        domain:       names.get(entry.domain) ?? entry.domain,
+        schoolScore:  obsAvg,             // observer's avg (reusing field)
+        networkScore: netAvg,             // network avg for that domain
         delta,
       });
     }
