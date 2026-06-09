@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
-  Bot, User2, ShieldAlert, Activity, Globe2,
+  Bot, User2, ShieldAlert, Activity, Globe2, FileText,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -358,6 +358,9 @@ export default function ActionCenterPage() {
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
                 { value: "analysis",     label: "Analysis",      icon: <TrendingUp  size={15} /> },
+                ...(currentUser?.role === "DISTRICT_ADMIN"
+                  ? [{ value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> }]
+                  : []),
               ].map(({ value, label, icon }) => (
                 <TabsTrigger
                   key={value}
@@ -1053,6 +1056,31 @@ export default function ActionCenterPage() {
               </div>
             )}
 
+          </TabsContent>
+
+          {/* ════════════════════════════════════════════════════
+              TAB 4 — WALKTHROUGH REPORT GENERATOR (DISTRICT_ADMIN only)
+          ════════════════════════════════════════════════════ */}
+          <TabsContent value="report-generator" className="flex-1 flex flex-col overflow-hidden mt-0">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <div
+                  className="mx-auto mb-4 flex items-center justify-center rounded-full w-16 h-16"
+                  style={{ backgroundColor: "#EEF2FF" }}
+                >
+                  <FileText size={28} style={{ color: NAVY }} />
+                </div>
+                <h2
+                  className="text-xl font-bold mb-2"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
+                >
+                  Walkthrough Report Generator
+                </h2>
+                <p className="text-sm text-slate-500" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                  This feature is coming soon. Generate school-wide walkthrough summary reports for sharing with principals and leadership teams.
+                </p>
+              </div>
+            </div>
           </TabsContent>
 
         </Tabs>
