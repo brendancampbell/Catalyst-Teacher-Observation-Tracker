@@ -372,6 +372,10 @@ router.get("/insights", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
@@ -432,6 +436,10 @@ router.get("/calibration-flags", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
@@ -455,6 +463,10 @@ router.get("/plateau-alerts", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;

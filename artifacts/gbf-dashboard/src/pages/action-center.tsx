@@ -68,7 +68,8 @@ export default function ActionCenterPage() {
   const searchParams = new URLSearchParams(window.location.search);
   const rubricFromUrl    = searchParams.get("rubric") ?? undefined;
   const schoolIdFromUrl  = searchParams.get("schoolId");
-  const schoolId         = schoolIdFromUrl ? parseInt(schoolIdFromUrl, 10) : null;
+  const _parsedSchoolId  = schoolIdFromUrl ? parseInt(schoolIdFromUrl, 10) : null;
+  const schoolId         = _parsedSchoolId !== null && isNaN(_parsedSchoolId) ? null : _parsedSchoolId;
   const schoolNameFromUrl = searchParams.get("schoolName") ?? "This School";
 
   const returnTo = safeReturnTo(

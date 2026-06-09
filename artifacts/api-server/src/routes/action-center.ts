@@ -44,6 +44,10 @@ router.get("/rescore-queue", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 
     const rows = await db
@@ -88,6 +92,10 @@ router.get("/overdue-observations", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 
     const schoolFilter = scopedSchoolId !== null
