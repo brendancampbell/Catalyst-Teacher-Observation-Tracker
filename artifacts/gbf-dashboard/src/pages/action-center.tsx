@@ -142,6 +142,9 @@ export default function ActionCenterPage() {
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
+  /* ── Intervention sub-tab ───────────────────────────── */
+  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
+
   /* ── Add-Observation modal state ────────────────────── */
   const [addObsTeacherId,     setAddObsTeacherId]     = useState<string | null>(null);
   const [newObsOpen,          setNewObsOpen]           = useState(false);
@@ -409,281 +412,241 @@ export default function ActionCenterPage() {
           {/* ═══════════════════════════════════════════════════
               TAB 2 — INTERVENTION WORKFLOWS
           ════════════════════════════════════════════════════ */}
-          <TabsContent value="intervention" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-8 mt-0">
+          <TabsContent value="intervention" className="flex-1 flex flex-col overflow-hidden mt-0">
 
-            {/* ── Rescore Queue ─────────────────────────────── */}
-            <section>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                <div>
-                  <h2
-                    className="text-2xl font-bold uppercase tracking-wider"
-                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+            {/* ── Secondary sub-tab bar ─────────────────────── */}
+            <div style={{ backgroundColor: "#EDF0F9", borderBottom: "2px solid #C8D2E8" }} className="px-4 sm:px-6 flex gap-1 pt-2">
+              {(
+                [
+                  { key: "rescore",     label: "Rescore Queue",       count: queue.length },
+                  { key: "overdue",     label: "Overdue",              count: overdueTeachers.length },
+                  ...(currentUser?.role !== "COACH"
+                    ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
+                    : []),
+                ] as { key: "rescore" | "overdue" | "calibration"; label: string; count: number }[]
+              ).map(({ key, label, count }) => {
+                const active = interventionTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setInterventionTab(key)}
+                    className="relative flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors rounded-t-md"
+                    style={{
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      letterSpacing: "0.05em",
+                      fontSize: 15,
+                      backgroundColor: active ? "white" : "transparent",
+                      color:           active ? NAVY : "#64748b",
+                      borderBottom:    active ? "2px solid white" : "2px solid transparent",
+                      marginBottom:    active ? -2 : 0,
+                    }}
                   >
-                    Walkthrough Rescore Queue
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Teachers who received a walkthrough score below 0.7 and require a rescore within 14 days.
-                  </p>
-                </div>
-                {!isLoading && (
-                  <div
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm"
-                    style={{ backgroundColor: queue.length > 0 ? "#FEF3C7" : "#F0FDF4", color: queue.length > 0 ? "#92400E" : "#166534", border: `1.5px solid ${queue.length > 0 ? "#FCD34D" : "#86EFAC"}` }}
-                  >
-                    {queue.length > 0
-                      ? <><AlertTriangle size={16} /> {queue.length} teacher{queue.length !== 1 ? "s" : ""} need rescoring</>
-                      : <><CheckCircle2 size={16} /> Queue is clear</>
-                    }
-                  </div>
-                )}
-              </div>
+                    {label}
+                    {count > 0 && (
+                      <span
+                        className="inline-flex items-center justify-center rounded-full text-white font-bold"
+                        style={{ backgroundColor: "#DC2626", fontSize: 11, minWidth: 20, height: 20, padding: "0 5px", lineHeight: 1 }}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-              {isLoading ? (
-                <div className="flex items-center justify-center py-14">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: NAVY }} />
-                </div>
-              ) : isError ? (
-                <div className="text-center py-14 text-red-500 font-semibold">Failed to load rescore queue. Please refresh.</div>
-              ) : queue.length === 0 ? (
-                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-14 gap-3">
-                  <CheckCircle2 size={48} className="text-green-400" />
-                  <div className="text-center">
-                    <p className="font-bold text-lg" style={{ color: NAVY }}>All clear!</p>
-                    <p className="text-slate-500 text-sm mt-1">No teachers currently require rescoring.</p>
+            {/* ── Sub-tab content ───────────────────────────── */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+
+              {/* RESCORE QUEUE */}
+              {interventionTab === "rescore" && (
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
+                      Walkthrough Rescore Queue
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Teachers who received a walkthrough score below 0.7 and require a rescore within 14 days.
+                    </p>
                   </div>
-                </Card>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: NAVY }}>
-                          {["Teacher", "School", "Subject / Grade", "Due Date", "Status", ""].map((h, i) => (
-                            <th
-                              key={i}
-                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                          <td colSpan={6} style={{ padding: 0, height: 3 }} />
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {queue.map((item) => {
-                          const status = getDueStatus(item.rescoreDueDate);
-                          return (
-                            <tr key={item.teacherId} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 font-semibold">
-                                <a
-                                  href={`${baseUrl}/?teacher=${item.teacherId}`}
-                                  className="hover:underline underline-offset-2"
-                                  style={{ color: NAVY }}
-                                >
-                                  {item.teacherName}
-                                </a>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {item.subject}
-                                <span className="text-slate-400 ml-1.5">
-                                  {item.gradeLevel.length > 0 ? `· Gr. ${item.gradeLevel.join(", ")}` : ""}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {item.rescoreDueDate
-                                  ? new Date(item.rescoreDueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                                  : "—"}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs"
-                                  style={{ backgroundColor: status.urgent ? "#FEF2F2" : "#F0FDF4", color: status.color }}
-                                >
-                                  <Clock size={12} />
-                                  {status.label}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <button
-                                  onClick={() => handleAddObsClick(item.teacherId, true)}
-                                  className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90"
-                                  style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", fontSize: 13 }}
-                                >
-                                  <Plus size={13} /> Score Rescore
-                                </button>
-                              </td>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-14">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: NAVY }} />
+                    </div>
+                  ) : isError ? (
+                    <div className="text-center py-14 text-red-500 font-semibold">Failed to load rescore queue. Please refresh.</div>
+                  ) : queue.length === 0 ? (
+                    <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-14 gap-3">
+                      <CheckCircle2 size={48} className="text-green-400" />
+                      <div className="text-center">
+                        <p className="font-bold text-lg" style={{ color: NAVY }}>All clear!</p>
+                        <p className="text-slate-500 text-sm mt-1">No teachers currently require rescoring.</p>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: NAVY }}>
+                              {["Teacher", "School", "Subject / Grade", "Due Date", "Status", ""].map((h, i) => (
+                                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
+                              ))}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={6} style={{ padding: 0, height: 3 }} /></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {queue.map((item) => {
+                              const status = getDueStatus(item.rescoreDueDate);
+                              return (
+                                <tr key={item.teacherId} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 font-semibold">
+                                    <a href={`${baseUrl}/?teacher=${item.teacherId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {item.subject}<span className="text-slate-400 ml-1.5">{item.gradeLevel.length > 0 ? `· Gr. ${item.gradeLevel.join(", ")}` : ""}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {item.rescoreDueDate ? new Date(item.rescoreDueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: status.urgent ? "#FEF2F2" : "#F0FDF4", color: status.color }}>
+                                      <Clock size={12} />{status.label}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <button onClick={() => handleAddObsClick(item.teacherId, true)} className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90" style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", fontSize: 13 }}>
+                                      <Plus size={13} /> Score Rescore
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
 
-            <Separator />
-
-            {/* ── Overdue Observations ────────────────────────── */}
-            <section>
-              <div className="mb-4">
-                <h2
-                  className="text-2xl font-bold uppercase tracking-wider"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
-                >
-                  Overdue Observations
-                </h2>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  Teachers who have not been observed in the last 14 days.
-                </p>
-              </div>
-              {overdueTeachers.length === 0 ? (
-                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
-                  <CheckCircle2 size={40} className="text-green-400" />
-                  <div className="text-center">
-                    <p className="font-bold text-base" style={{ color: NAVY }}>All teachers observed recently</p>
-                    <p className="text-slate-500 text-sm mt-1">No one is overdue for an observation.</p>
+              {/* OVERDUE OBSERVATIONS */}
+              {interventionTab === "overdue" && (
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
+                      Overdue Observations
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Teachers who have not been observed in the last 14 days.
+                    </p>
                   </div>
-                </Card>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: NAVY }}>
-                          {["Teacher", "Subject / Grade", "Last Observed", "Days Since", ""].map((h, i) => (
-                            <th
-                              key={i}
-                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                          <td colSpan={5} style={{ padding: 0, height: 3 }} />
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {overdueTeachers.map((t) => {
-                          const subjectGrade = [t.subject, t.gradeLevel].filter(Boolean).join(" · ") || "—";
-                          const daysLabel = t.daysSince === null
-                            ? "Never"
-                            : `${t.daysSince}d ago`;
-                          const urgency = t.daysSince === null || t.daysSince > 30
-                            ? { bg: "#FEF2F2", color: "#991B1B" }
-                            : { bg: "#FEF3C7", color: "#92400E" };
-                          return (
-                            <tr key={t.teacherId} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 font-semibold text-slate-700">{t.teacherName}</td>
-                              <td className="px-4 py-3 text-slate-600">{subjectGrade}</td>
-                              <td className="px-4 py-3 text-slate-600">
-                                {t.lastObserved
-                                  ? new Date(t.lastObserved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                                  : <span className="text-slate-400 italic">No observations</span>
-                                }
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs"
-                                  style={{ backgroundColor: urgency.bg, color: urgency.color }}
-                                >
-                                  {daysLabel}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  onClick={() => handleAddObsClick(t.teacherId)}
-                                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-colors"
-                                  style={{ backgroundColor: NAVY, color: "white" }}
-                                >
-                                  <Plus size={13} /> Observe Now
-                                </button>
-                              </td>
+                  {overdueTeachers.length === 0 ? (
+                    <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                      <CheckCircle2 size={40} className="text-green-400" />
+                      <div className="text-center">
+                        <p className="font-bold text-base" style={{ color: NAVY }}>All teachers observed recently</p>
+                        <p className="text-slate-500 text-sm mt-1">No one is overdue for an observation.</p>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: NAVY }}>
+                              {["Teacher", "Subject / Grade", "Last Observed", "Days Since", ""].map((h, i) => (
+                                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
+                              ))}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={5} style={{ padding: 0, height: 3 }} /></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {overdueTeachers.map((t) => {
+                              const subjectGrade = [t.subject, t.gradeLevel].filter(Boolean).join(" · ") || "—";
+                              const daysLabel = t.daysSince === null ? "Never" : `${t.daysSince}d ago`;
+                              const urgency = t.daysSince === null || t.daysSince > 30 ? { bg: "#FEF2F2", color: "#991B1B" } : { bg: "#FEF3C7", color: "#92400E" };
+                              return (
+                                <tr key={t.teacherId} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 font-semibold text-slate-700">{t.teacherName}</td>
+                                  <td className="px-4 py-3 text-slate-600">{subjectGrade}</td>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    {t.lastObserved ? new Date(t.lastObserved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : <span className="text-slate-400 italic">No observations</span>}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: urgency.bg, color: urgency.color }}>{daysLabel}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <button onClick={() => handleAddObsClick(t.teacherId)} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-colors" style={{ backgroundColor: NAVY, color: "white" }}>
+                                      <Plus size={13} /> Observe Now
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
 
-            {/* ── Calibration Flags — visible to leaders only ─── */}
-            {currentUser && currentUser.role !== "COACH" && (
-            <><Separator />
-            <section>
-              <div className="mb-4">
-                <h2
-                  className="text-2xl font-bold uppercase tracking-wider"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
-                >
-                  Calibration Flags
-                </h2>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  School-based coaches whose scores diverge ≥ 0.5 pts from the network's score on the same teachers — a sign their lens may not be calibrated to the network bar.
-                </p>
-              </div>
-              {calibrationFlags.length === 0 ? (
-                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
-                  <CheckCircle2 size={40} className="text-green-400" />
-                  <div className="text-center">
-                    <p className="font-bold text-base" style={{ color: NAVY }}>No calibration discrepancies</p>
-                    <p className="text-slate-500 text-sm mt-1">School Coach and Network Walkthrough scores are aligned.</p>
+              {/* CALIBRATION FLAGS */}
+              {interventionTab === "calibration" && currentUser?.role !== "COACH" && (
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
+                      Calibration Flags
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      School-based coaches whose scores diverge ≥ 0.5 pts from the network's score on the same teachers — a sign their lens may not be calibrated to the network bar.
+                    </p>
                   </div>
-                </Card>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ backgroundColor: NAVY }}>
-                          {["Coach", "Domain", "Coach Score", "Network Score", "Delta"].map((h, i) => (
-                            <th
-                              key={i}
-                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
-                          <td colSpan={5} style={{ padding: 0, height: 3 }} />
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {calibrationFlags.map((flag, i) => (
-                          <tr key={i} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</td>
-                            <td className="px-4 py-3 text-slate-600">{flag.domain}</td>
-                            <td className="px-4 py-3 font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</td>
-                            <td className="px-4 py-3 font-bold text-amber-700">{flag.networkScore.toFixed(1)}</td>
-                            <td className="px-4 py-3">
-                              <span
-                                className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs"
-                                style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}
-                              >
-                                Δ {flag.delta.toFixed(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                  {calibrationFlags.length === 0 ? (
+                    <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                      <CheckCircle2 size={40} className="text-green-400" />
+                      <div className="text-center">
+                        <p className="font-bold text-base" style={{ color: NAVY }}>No calibration discrepancies</p>
+                        <p className="text-slate-500 text-sm mt-1">School Coach and Network Walkthrough scores are aligned.</p>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: NAVY }}>
+                              {["Coach", "Domain", "Coach Score", "Network Score", "Delta"].map((h, i) => (
+                                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
+                              ))}
+                            </tr>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={5} style={{ padding: 0, height: 3 }} /></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {calibrationFlags.map((flag, i) => (
+                              <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</td>
+                                <td className="px-4 py-3 text-slate-600">{flag.domain}</td>
+                                <td className="px-4 py-3 font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</td>
+                                <td className="px-4 py-3 font-bold text-amber-700">{flag.networkScore.toFixed(1)}</td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                                    Δ {flag.delta.toFixed(1)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
-            </>
-            )}
 
+            </div>
           </TabsContent>
 
           {/* ═══════════════════════════════════════════════════
