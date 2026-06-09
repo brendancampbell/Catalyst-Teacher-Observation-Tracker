@@ -235,6 +235,13 @@ export default function ActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
+              rubricSets={quarters.map((q) => ({ slug: q.slug, name: q.name }))}
+              activeRubricSet={activeQuarter}
+              onRubricChange={(slug) => {
+                const sp = new URLSearchParams(window.location.search);
+                sp.set("rubric", slug);
+                window.location.replace(`${window.location.pathname}?${sp.toString()}`);
+              }}
             />
           )}
 

@@ -13,11 +13,13 @@ import {
   fetchAICalibrationFlags,
   fetchAIPlateauAlerts,
   fetchAIChat,
+  fetchQuarters,
   type RescoreQueueItem,
   type AICalibrationFlag,
   type AIPlateauAlert,
   type AIInsightsResponse,
   type AITrendingStep,
+  type RubricQuarterRow,
 } from "@/lib/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +48,15 @@ export default function DistrictActionCenterPage() {
     searchParams.get("returnTo"),
     baseUrl + "/",
   );
+
+  /* ── Rubric sets ─────────────────────────────────────── */
+  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
+    queryKey: ["quarters"],
+    queryFn:  () => fetchQuarters(),
+    staleTime: 60_000,
+  });
+
+  const activeRubric = rubricFromUrl ?? quarters[0]?.slug ?? "";
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
@@ -149,6 +160,13 @@ export default function DistrictActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
+              rubricSets={quarters.map((q) => ({ slug: q.slug, name: q.name }))}
+              activeRubricSet={activeRubric}
+              onRubricChange={(slug) => {
+                const sp = new URLSearchParams(window.location.search);
+                sp.set("rubric", slug);
+                window.location.replace(`${window.location.pathname}?${sp.toString()}`);
+              }}
             />
           )}
 
