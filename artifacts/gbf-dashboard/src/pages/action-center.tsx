@@ -362,54 +362,7 @@ export default function ActionCenterPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Calibration Flags */}
-              <Card className="border-amber-200 shadow-sm" style={{ backgroundColor: "#FFFBEB" }}>
-                <CardHeader className="px-5 pt-5 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold text-amber-800">
-                    <ShieldAlert size={17} className="text-amber-500" />
-                    Calibration Flags
-                  </CardTitle>
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough · live data
-                  </p>
-                </CardHeader>
-                <CardContent className="px-5 pb-5 space-y-3">
-                  {calibrationFlags.length === 0 ? (
-                    <div className="flex items-center gap-2 py-2">
-                      <CheckCircle2 size={16} className="text-green-500" />
-                      <p className="text-sm text-slate-500">No calibration discrepancies detected.</p>
-                    </div>
-                  ) : (
-                    calibrationFlags.map((flag, i) => (
-                      <div key={i} className="bg-white rounded-lg px-4 py-3 border border-amber-100 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{flag.domain}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-center">
-                            <p className="text-xs text-slate-400">School</p>
-                            <p className="text-sm font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</p>
-                          </div>
-                          <div className="text-slate-300 font-light">vs</div>
-                          <div className="text-center">
-                            <p className="text-xs text-slate-400">Network</p>
-                            <p className="text-sm font-bold text-amber-700">{flag.networkScore.toFixed(1)}</p>
-                          </div>
-                          <Badge
-                            className="text-xs font-bold ml-1"
-                            style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "none" }}
-                          >
-                            Δ {flag.delta.toFixed(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-
+            <div className="grid grid-cols-1 gap-5">
               {/* Trending Action Steps — live from AI insights */}
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
@@ -556,6 +509,73 @@ export default function ActionCenterPage() {
                             </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <Separator />
+
+            {/* ── Calibration Flags ──────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2
+                  className="text-xl font-bold uppercase tracking-wider"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+                >
+                  Calibration Flags
+                </h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Score discrepancies (≥ 0.5 pts) between School Coach and Network Walkthrough observations.
+                </p>
+              </div>
+              {calibrationFlags.length === 0 ? (
+                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                  <CheckCircle2 size={40} className="text-green-400" />
+                  <div className="text-center">
+                    <p className="font-bold text-base" style={{ color: NAVY }}>No calibration discrepancies</p>
+                    <p className="text-slate-500 text-sm mt-1">School Coach and Network Walkthrough scores are aligned.</p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #fde68a" }}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ backgroundColor: "#92400E" }}>
+                          {["Teacher", "Domain", "School Score", "Network Score", "Delta"].map((h, i) => (
+                            <th
+                              key={i}
+                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-xs"
+                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                          <td colSpan={5} style={{ padding: 0, height: 3 }} />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-50">
+                        {calibrationFlags.map((flag, i) => (
+                          <tr key={i} className="hover:bg-amber-50 transition-colors">
+                            <td className="px-4 py-3 font-semibold text-slate-700">{flag.teacher ?? flag.school ?? "—"}</td>
+                            <td className="px-4 py-3 text-slate-600">{flag.domain}</td>
+                            <td className="px-4 py-3 font-bold" style={{ color: NAVY }}>{flag.schoolScore.toFixed(1)}</td>
+                            <td className="px-4 py-3 font-bold text-amber-700">{flag.networkScore.toFixed(1)}</td>
+                            <td className="px-4 py-3">
+                              <span
+                                className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs"
+                                style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}
+                              >
+                                Δ {flag.delta.toFixed(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
