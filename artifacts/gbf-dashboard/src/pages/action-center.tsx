@@ -77,15 +77,15 @@ export default function ActionCenterPage() {
 
   /* ── Rescore queue ─────────────────────────────────── */
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({
-    queryKey: ["rescoreQueue"],
-    queryFn:  fetchRescoreQueue,
+    queryKey: ["rescoreQueue", schoolId],
+    queryFn:  () => fetchRescoreQueue(schoolId),
     staleTime: 30_000,
   });
 
   /* ── Overdue observations ───────────────────────────── */
   const { data: overdueTeachers = [] } = useQuery<OverdueTeacher[]>({
-    queryKey: ["overdueObservations"],
-    queryFn:  fetchOverdueObservations,
+    queryKey: ["overdueObservations", schoolId],
+    queryFn:  () => fetchOverdueObservations(schoolId),
     staleTime: 60_000,
   });
 
@@ -100,8 +100,8 @@ export default function ActionCenterPage() {
   const activeQuarterId = quarters.find((q) => q.slug === activeQuarter)?.id ?? quarters[0]?.id ?? 0;
 
   const { data: dashData } = useQuery({
-    queryKey: ["dashboard", activeQuarter, null],
-    queryFn:  () => fetchDashboard(activeQuarter, null),
+    queryKey: ["dashboard", activeQuarter, schoolId],
+    queryFn:  () => fetchDashboard(activeQuarter, schoolId),
     staleTime: 60_000,
     enabled:  !!activeQuarter,
   });
@@ -112,20 +112,20 @@ export default function ActionCenterPage() {
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
-    queryKey: ["ai-insights", activeQuarter],
-    queryFn:  () => fetchAIInsights(activeQuarter),
+    queryKey: ["ai-insights", activeQuarter, schoolId],
+    queryFn:  () => fetchAIInsights(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
   const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
-    queryKey: ["ai-calibration-flags", activeQuarter],
-    queryFn:  () => fetchAICalibrationFlags(activeQuarter),
+    queryKey: ["ai-calibration-flags", activeQuarter, schoolId],
+    queryFn:  () => fetchAICalibrationFlags(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
   const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
-    queryKey: ["ai-plateau-alerts", activeQuarter],
-    queryFn:  () => fetchAIPlateauAlerts(activeQuarter),
+    queryKey: ["ai-plateau-alerts", activeQuarter, schoolId],
+    queryFn:  () => fetchAIPlateauAlerts(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
@@ -307,7 +307,7 @@ export default function ActionCenterPage() {
     setChatInput("");
     setChatTyping(true);
     try {
-      const { reply } = await fetchAIChat(text);
+      const { reply } = await fetchAIChat(text, schoolId);
       setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
     } catch {
       setChatMsgs((prev) => [

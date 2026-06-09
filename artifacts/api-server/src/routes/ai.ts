@@ -17,6 +17,7 @@ import {
   type PlateauAlert,
   type DomainAvg,
 } from "../services/ai-service";
+import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
 
 const router = Router();
 
@@ -32,11 +33,11 @@ async function getRubricSetId(slug: string): Promise<number | null> {
   return rows[0]?.id ?? null;
 }
 
-async function getTeacherIds(isNetworkScope: boolean, schoolId: number | null): Promise<number[]> {
-  const rows = isNetworkScope
+async function getTeacherIds(scopedSchoolId: number | null): Promise<number[]> {
+  const rows = scopedSchoolId === null
     ? await db.select({ id: teachers.id }).from(teachers).where(eq(teachers.isActive, true))
     : await db.select({ id: teachers.id }).from(teachers).where(
-        and(eq(teachers.isActive, true), eq(teachers.schoolId, schoolId!)),
+        and(eq(teachers.isActive, true), eq(teachers.schoolId, scopedSchoolId)),
       );
   return rows.map((r) => r.id);
 }
@@ -311,24 +312,24 @@ async function buildPlateauAlerts(teacherIds: number[], rubricSetId?: number | n
 router.post("/chat", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const { message } = req.body as { message?: string };
+    const { message, schoolId: reqSchoolId } = req.body as { message?: string; schoolId?: number | null };
 
     if (!message?.trim()) {
       res.status(400).json({ error: "message is required" });
       return;
     }
 
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
-    const scope: "school" | "network" = isNetworkScope ? "network" : "school";
+    const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
-    const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
+    const teacherIds = await getTeacherIds(scopedSchoolId);
 
     const rescoreRows = teacherIds.length
-      ? isNetworkScope
-        ? await db.select({ id: teachers.id }).from(teachers).where(eq(teachers.needsRescore, true))
-        : await db.select({ id: teachers.id }).from(teachers).where(
-            and(eq(teachers.needsRescore, true), eq(teachers.schoolId, user.schoolId!)),
+      ? scopedSchoolId !== null
+        ? await db.select({ id: teachers.id }).from(teachers).where(
+            and(eq(teachers.needsRescore, true), eq(teachers.schoolId, scopedSchoolId)),
           )
+        : await db.select({ id: teachers.id }).from(teachers).where(eq(teachers.needsRescore, true))
       : [];
 
     const [domainAverages, calibrationFlags, plateauAlerts] = await Promise.all([
@@ -357,6 +358,10 @@ router.post("/chat", async (req, res) => {
     const reply = generateAIResponse(message, context);
     res.json({ reply });
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("POST /ai/chat error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -366,11 +371,12 @@ router.post("/chat", async (req, res) => {
 router.get("/insights", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
+    const teacherIds = await getTeacherIds(scopedSchoolId);
     const domainAverages = await buildDomainAverages(teacherIds, rubricSetId);
 
     if (!domainAverages.length) {
@@ -412,6 +418,10 @@ router.get("/insights", async (req, res) => {
       trendingSteps,
     });
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("GET /ai/insights error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -421,15 +431,20 @@ router.get("/insights", async (req, res) => {
 router.get("/calibration-flags", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
-    const scope: "school" | "network" = isNetworkScope ? "network" : "school";
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    const scopedSchoolId = resolveSchoolId(user, requested);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
+    const teacherIds = await getTeacherIds(scopedSchoolId);
     const flags = await buildCalibrationFlags(teacherIds, scope, rubricSetId);
     res.json(flags);
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("GET /ai/calibration-flags error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -439,14 +454,19 @@ router.get("/calibration-flags", async (req, res) => {
 router.get("/plateau-alerts", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
+    const teacherIds = await getTeacherIds(scopedSchoolId);
     const alerts = await buildPlateauAlerts(teacherIds, rubricSetId);
     res.json(alerts);
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("GET /ai/plateau-alerts error:", err);
     res.status(500).json({ error: "Internal server error" });
   }

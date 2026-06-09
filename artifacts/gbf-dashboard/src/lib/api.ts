@@ -296,8 +296,9 @@ export interface RescoreQueueItem {
   needsRescore:   boolean;
 }
 
-export async function fetchRescoreQueue(): Promise<RescoreQueueItem[]> {
-  return apiFetch<RescoreQueueItem[]>("/action-center/rescore-queue");
+export async function fetchRescoreQueue(schoolId?: number | null): Promise<RescoreQueueItem[]> {
+  const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
+  return apiFetch<RescoreQueueItem[]>(`/action-center/rescore-queue${qs}`);
 }
 
 export interface OverdueTeacher {
@@ -310,8 +311,9 @@ export interface OverdueTeacher {
   daysSince:    number | null;
 }
 
-export async function fetchOverdueObservations(): Promise<OverdueTeacher[]> {
-  return apiFetch<OverdueTeacher[]>("/action-center/overdue-observations");
+export async function fetchOverdueObservations(schoolId?: number | null): Promise<OverdueTeacher[]> {
+  const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
+  return apiFetch<OverdueTeacher[]>(`/action-center/overdue-observations${qs}`);
 }
 
 /* ── Observations ──────────────────────────────────────────────── */
@@ -543,25 +545,34 @@ export interface AIPlateauAlert {
   weekRange:   string;
 }
 
-export async function fetchAIChat(message: string): Promise<AIChatResponse> {
+export async function fetchAIChat(message: string, schoolId?: number | null): Promise<AIChatResponse> {
   return apiFetch<AIChatResponse>("/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, ...(schoolId != null ? { schoolId } : {}) }),
   });
 }
 
-export async function fetchAIInsights(rubricSlug?: string): Promise<AIInsightsResponse> {
-  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+export async function fetchAIInsights(rubricSlug?: string, schoolId?: number | null): Promise<AIInsightsResponse> {
+  const params = new URLSearchParams();
+  if (rubricSlug) params.set("rubric", rubricSlug);
+  if (schoolId != null) params.set("schoolId", String(schoolId));
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<AIInsightsResponse>(`/ai/insights${qs}`);
 }
 
-export async function fetchAICalibrationFlags(rubricSlug?: string): Promise<AICalibrationFlag[]> {
-  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+export async function fetchAICalibrationFlags(rubricSlug?: string, schoolId?: number | null): Promise<AICalibrationFlag[]> {
+  const params = new URLSearchParams();
+  if (rubricSlug) params.set("rubric", rubricSlug);
+  if (schoolId != null) params.set("schoolId", String(schoolId));
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
 }
 
-export async function fetchAIPlateauAlerts(rubricSlug?: string): Promise<AIPlateauAlert[]> {
-  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+export async function fetchAIPlateauAlerts(rubricSlug?: string, schoolId?: number | null): Promise<AIPlateauAlert[]> {
+  const params = new URLSearchParams();
+  if (rubricSlug) params.set("rubric", rubricSlug);
+  if (schoolId != null) params.set("schoolId", String(schoolId));
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<AIPlateauAlert[]>(`/ai/plateau-alerts${qs}`);
 }
 

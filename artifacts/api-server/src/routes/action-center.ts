@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { teachers, schools, observations } from "@workspace/db/schema";
 import { eq, and, max, sql } from "drizzle-orm";
-import { requireNetworkScope } from "../middleware/auth";
+import { requireNetworkScope, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
 
 const router = Router();
 
@@ -38,11 +38,13 @@ router.get("/network", requireNetworkScope, async (_req, res) => {
 
 /* ── GET /api/action-center/rescore-queue ───────────────────────────
    Returns teachers in rescore queue. School-scoped users see only
-   their school; network-scoped users see all schools.               */
+   their school; network-scoped users see all schools (or a specific
+   school when ?schoolId= is provided).                              */
 router.get("/rescore-queue", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    const scopedSchoolId = effectiveSchoolId(user, requested);
 
     const rows = await db
       .select({
@@ -58,9 +60,9 @@ router.get("/rescore-queue", async (req, res) => {
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
       .where(
-        isNetworkScope
-          ? eq(teachers.needsRescore, true)
-          : and(eq(teachers.needsRescore, true), eq(teachers.schoolId, user.schoolId!)),
+        scopedSchoolId !== null
+          ? and(eq(teachers.needsRescore, true), eq(teachers.schoolId, scopedSchoolId))
+          : eq(teachers.needsRescore, true),
       )
       .orderBy(teachers.rescoreDueDate);
 
@@ -69,6 +71,10 @@ router.get("/rescore-queue", async (req, res) => {
       teacherName: `${r.teacherFirst} ${r.teacherLast}`.trim(),
     })));
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("GET /action-center/rescore-queue error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -76,15 +82,17 @@ router.get("/rescore-queue", async (req, res) => {
 
 /* ── GET /api/action-center/overdue-observations ────────────────────
    Teachers not observed in the last 14 days (or never observed).
-   School users see only their school; network users see all.         */
+   School users see only their school; network users see all (or a
+   specific school when ?schoolId= is provided).                     */
 router.get("/overdue-observations", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    const scopedSchoolId = effectiveSchoolId(user, requested);
 
-    const schoolFilter = isNetworkScope
-      ? sql`1=1`
-      : sql`${teachers.schoolId} = ${user.schoolId!}`;
+    const schoolFilter = scopedSchoolId !== null
+      ? sql`${teachers.schoolId} = ${scopedSchoolId}`
+      : sql`1=1`;
 
     const rows = await db
       .select({
@@ -118,6 +126,10 @@ router.get("/overdue-observations", async (req, res) => {
         : null,
     })));
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
     console.error("GET /action-center/overdue-observations error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
