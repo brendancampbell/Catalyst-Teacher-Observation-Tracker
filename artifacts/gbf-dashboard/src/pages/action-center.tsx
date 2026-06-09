@@ -621,9 +621,6 @@ export default function ActionCenterPage() {
                     <Globe2 size={17} style={{ color: YELLOW }} />
                     Network Comparison
                   </CardTitle>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {schoolNameFromUrl} vs. all schools in the network · by domain
-                  </p>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
                   {!networkCompData || !domainCompData ? (
