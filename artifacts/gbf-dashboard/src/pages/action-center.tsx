@@ -357,7 +357,6 @@ export default function ActionCenterPage() {
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
                 { value: "analysis",     label: "Analysis",      icon: <TrendingUp  size={15} /> },
-                { value: "chat",         label: "Data Assistant", icon: <Sparkles   size={15} /> },
               ].map(({ value, label, icon }) => (
                 <TabsTrigger
                   key={value}
@@ -931,123 +930,127 @@ export default function ActionCenterPage() {
           </TabsContent>
 
           {/* ═══════════════════════════════════════════════════
-              TAB 3 — ANALYSIS
+              TAB 3 — ANALYSIS (with sub-tabs)
           ════════════════════════════════════════════════════ */}
-          <TabsContent value="analysis" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 mt-0">
-            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-              <TrendingUp size={48} className="text-slate-300" />
-              <p className="text-lg font-bold text-slate-400">Analysis coming soon</p>
-              <p className="text-sm text-slate-400 max-w-sm">This tab will surface deep rubric analysis for your school.</p>
-            </div>
-          </TabsContent>
+          <TabsContent value="analysis" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+            <Tabs defaultValue="analysis-summary" className="flex-1 flex flex-col min-h-0">
 
-          {/* ═══════════════════════════════════════════════════
-              TAB 4 — DATA ASSISTANT (CHAT)
-          ════════════════════════════════════════════════════ */}
-          <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
-            <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
-
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4 shrink-0">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                  style={{ backgroundColor: NAVY }}
-                >
-                  <Sparkles size={18} color={YELLOW} />
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
-                  <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
-                </div>
-                <Badge
-                  className="ml-auto text-xs font-bold px-2.5 py-1"
-                  style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}
-                >
-                  Live Data
-                </Badge>
-              </div>
-
-              {/* Message area */}
-              <ScrollArea className="flex-1 min-h-0 pr-1">
-                <div className="space-y-4 pb-2">
-                  {chatMsgs.map((msg, i) => (
-                    <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                      {/* Avatar */}
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                        style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
-                      >
-                        {msg.role === "ai"
-                          ? <Bot size={15} color="white" />
-                          : <User2 size={15} color="#64748B" />}
-                      </div>
-                      {/* Bubble */}
-                      <div
-                        className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
-                        style={{
-                          backgroundColor: msg.role === "ai" ? "white" : NAVY,
-                          color: msg.role === "ai" ? "#1e293b" : "white",
-                          border: msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                          borderRadius: msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
-                        }}
-                      >
-                        {msg.text.split("**").map((part, pi) =>
-                          pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                        )}
-                      </div>
-                    </div>
+              {/* Sub-tab bar */}
+              <div className="bg-white border-b border-slate-100 px-4 sm:px-6">
+                <TabsList className="h-auto bg-transparent gap-0 p-0 rounded-none">
+                  {[
+                    { value: "analysis-summary", label: "Analysis Summary", icon: <TrendingUp size={13} /> },
+                    { value: "data-assistant",   label: "Data Assistant",   icon: <Sparkles   size={13} /> },
+                  ].map(({ value, label, icon }) => (
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className="flex items-center gap-1.5 px-4 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent rounded-none bg-transparent transition-colors
+                        data-[state=active]:text-[#1034B4] data-[state=active]:border-[#1034B4] data-[state=active]:bg-transparent
+                        hover:text-slate-600"
+                    >
+                      {icon}{label}
+                    </TabsTrigger>
                   ))}
-
-                  {/* Typing indicator */}
-                  {chatTyping && (
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: NAVY }}
-                      >
-                        <Bot size={15} color="white" />
-                      </div>
-                      <div
-                        className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200"
-                        style={{ borderRadius: "4px 18px 18px 18px" }}
-                      >
-                        <div className="flex gap-1 items-center h-4">
-                          {[0, 1, 2].map((d) => (
-                            <div
-                              key={d}
-                              className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce"
-                              style={{ animationDelay: `${d * 0.15}s` }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* Input bar */}
-              <div className="shrink-0 mt-4 flex items-center gap-2">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
-                  placeholder="Ask about your school's observation data…"
-                  className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
-                  style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
-                />
-                <Button
-                  onClick={handleSendChat}
-                  disabled={!chatInput.trim() || chatTyping}
-                  className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: NAVY }}
-                >
-                  <Send size={16} color="white" />
-                </Button>
+                </TabsList>
               </div>
 
-            </div>
+              {/* ── Analysis Summary — blank ── */}
+              <TabsContent value="analysis-summary" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 mt-0">
+              </TabsContent>
+
+              {/* ── Data Assistant ── */}
+              <TabsContent value="data-assistant" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+                <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
+
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4 shrink-0">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                      style={{ backgroundColor: NAVY }}
+                    >
+                      <Sparkles size={18} color={YELLOW} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
+                      <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
+                    </div>
+                    <Badge
+                      className="ml-auto text-xs font-bold px-2.5 py-1"
+                      style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}
+                    >
+                      Live Data
+                    </Badge>
+                  </div>
+
+                  {/* Message area */}
+                  <ScrollArea className="flex-1 min-h-0 pr-1">
+                    <div className="space-y-4 pb-2">
+                      {chatMsgs.map((msg, i) => (
+                        <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
+                            style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
+                          >
+                            {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
+                          </div>
+                          <div
+                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                            style={{
+                              backgroundColor: msg.role === "ai" ? "white" : NAVY,
+                              color: msg.role === "ai" ? "#1e293b" : "white",
+                              border: msg.role === "ai" ? "1px solid #e2e8f0" : "none",
+                              borderRadius: msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+                            }}
+                          >
+                            {msg.text.split("**").map((part, pi) =>
+                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {chatTyping && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+                            <Bot size={15} color="white" />
+                          </div>
+                          <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
+                            <div className="flex gap-1 items-center h-4">
+                              {[0, 1, 2].map((d) => (
+                                <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+                  </ScrollArea>
+
+                  {/* Input bar */}
+                  <div className="shrink-0 mt-4 flex items-center gap-2">
+                    <Input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+                      placeholder="Ask about your school's observation data…"
+                      className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
+                      style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
+                    />
+                    <Button
+                      onClick={handleSendChat}
+                      disabled={!chatInput.trim() || chatTyping}
+                      className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: NAVY }}
+                    >
+                      <Send size={16} color="white" />
+                    </Button>
+                  </div>
+
+                </div>
+              </TabsContent>
+
+            </Tabs>
           </TabsContent>
 
         </Tabs>
