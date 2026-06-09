@@ -12,9 +12,21 @@ async function assertSchoolExists(id: number): Promise<boolean> {
 }
 
 /* ── GET /api/action-center/network ──────────────────────────────
-   Network action center — NETWORK_LEADER and NETWORK_ADMIN only.   */
-router.get("/network", requireNetworkScope, async (_req, res) => {
+   Network action center — NETWORK_LEADER and NETWORK_ADMIN only.
+   Accepts an optional ?schoolId= query param to filter by school;
+   returns 400 for non-numeric values and 404 for unknown IDs.     */
+router.get("/network", requireNetworkScope, async (req, res) => {
   try {
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" });
+      return;
+    }
+    if (requested !== null && !(await assertSchoolExists(requested))) {
+      res.status(404).json({ error: "School not found" });
+      return;
+    }
+
     const rows = await db
       .select({
         teacherId:      teachers.id,
@@ -28,7 +40,11 @@ router.get("/network", requireNetworkScope, async (_req, res) => {
       })
       .from(teachers)
       .leftJoin(schools, eq(teachers.schoolId, schools.id))
-      .where(eq(teachers.needsRescore, true))
+      .where(
+        requested !== null
+          ? and(eq(teachers.needsRescore, true), eq(teachers.schoolId, requested))
+          : eq(teachers.needsRescore, true),
+      )
       .orderBy(teachers.rescoreDueDate);
 
     res.json(rows.map((r) => ({
