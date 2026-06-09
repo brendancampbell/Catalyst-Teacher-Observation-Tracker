@@ -500,12 +500,12 @@ export default function ActionCenterPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="px-0 pb-4">
+                <CardContent className="px-5 pb-5">
                   {!domainCompData ? (
                     <p className="text-sm text-slate-400 italic text-center py-6">No observation data yet.</p>
                   ) : domainSeg === "school" ? (
                     /* ── School view: proper table with bar column ─── */
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto rounded-lg border border-slate-200">
                       <table className="w-full text-sm">
                         <thead>
                           <tr style={{ backgroundColor: NAVY }}>
@@ -562,7 +562,7 @@ export default function ActionCenterPage() {
                       }
 
                       return (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
                           <table className="w-full text-xs">
                             <thead>
                               <tr style={{ backgroundColor: NAVY }}>
@@ -625,12 +625,12 @@ export default function ActionCenterPage() {
                     {schoolNameFromUrl} vs. all schools in the network · by domain
                   </p>
                 </CardHeader>
-                <CardContent className="px-0 pb-4">
+                <CardContent className="px-5 pb-5">
                   {!networkCompData || !domainCompData ? (
                     <p className="text-sm text-slate-400 italic text-center py-6">Network data unavailable.</p>
                   ) : (
                     <>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto rounded-lg border border-slate-200">
                         <table className="w-full text-xs">
                           <thead>
                             <tr style={{ backgroundColor: NAVY }}>
