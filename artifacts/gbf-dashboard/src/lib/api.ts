@@ -300,6 +300,20 @@ export async function fetchRescoreQueue(): Promise<RescoreQueueItem[]> {
   return apiFetch<RescoreQueueItem[]>("/action-center/rescore-queue");
 }
 
+export interface OverdueTeacher {
+  teacherId:    number;
+  teacherName:  string;
+  subject:      string | null;
+  gradeLevel:   string | null;
+  schoolName:   string | null;
+  lastObserved: string | null;
+  daysSince:    number | null;
+}
+
+export async function fetchOverdueObservations(): Promise<OverdueTeacher[]> {
+  return apiFetch<OverdueTeacher[]>("/action-center/overdue-observations");
+}
+
 /* ── Observations ──────────────────────────────────────────────── */
 
 export interface CreateObservationPayload {

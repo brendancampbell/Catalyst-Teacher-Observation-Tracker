@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { teachers, schools } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { teachers, schools, observations } from "@workspace/db/schema";
+import { eq, and, max, sql } from "drizzle-orm";
 import { requireNetworkScope } from "../middleware/auth";
 
 const router = Router();
@@ -70,6 +70,55 @@ router.get("/rescore-queue", async (req, res) => {
     })));
   } catch (err) {
     console.error("GET /action-center/rescore-queue error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── GET /api/action-center/overdue-observations ────────────────────
+   Teachers not observed in the last 14 days (or never observed).
+   School users see only their school; network users see all.         */
+router.get("/overdue-observations", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+
+    const schoolFilter = isNetworkScope
+      ? sql`1=1`
+      : sql`${teachers.schoolId} = ${user.schoolId!}`;
+
+    const rows = await db
+      .select({
+        teacherId:    teachers.id,
+        teacherFirst: teachers.firstName,
+        teacherLast:  teachers.lastName,
+        subject:      teachers.subject,
+        gradeLevel:   teachers.gradeLevel,
+        schoolName:   schools.name,
+        lastObserved: max(observations.date),
+      })
+      .from(teachers)
+      .leftJoin(schools, eq(teachers.schoolId, schools.id))
+      .leftJoin(observations, eq(observations.teacherId, teachers.id))
+      .where(and(eq(teachers.isActive ?? sql`true`, true), schoolFilter))
+      .groupBy(teachers.id, teachers.firstName, teachers.lastName, teachers.subject, teachers.gradeLevel, schools.name)
+      .having(
+        sql`MAX(${observations.date}) < CURRENT_DATE - INTERVAL '14 days' OR MAX(${observations.date}) IS NULL`,
+      )
+      .orderBy(sql`MAX(${observations.date}) ASC NULLS FIRST`);
+
+    res.json(rows.map((r) => ({
+      teacherId:    r.teacherId,
+      teacherName:  `${r.teacherFirst} ${r.teacherLast}`.trim(),
+      subject:      r.subject,
+      gradeLevel:   r.gradeLevel,
+      schoolName:   r.schoolName,
+      lastObserved: r.lastObserved ?? null,
+      daysSince:    r.lastObserved
+        ? Math.floor((Date.now() - new Date(r.lastObserved).getTime()) / 86_400_000)
+        : null,
+    })));
+  } catch (err) {
+    console.error("GET /action-center/overdue-observations error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

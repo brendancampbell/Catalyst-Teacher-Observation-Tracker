@@ -9,6 +9,7 @@ import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import {
   fetchRescoreQueue,
+  fetchOverdueObservations,
   fetchDashboard,
   fetchQuarters,
   createObservation,
@@ -17,6 +18,7 @@ import {
   fetchAIPlateauAlerts,
   fetchAIChat,
   type RescoreQueueItem,
+  type OverdueTeacher,
   type RubricQuarterRow,
   type AICalibrationFlag,
   type AIPlateauAlert,
@@ -75,6 +77,13 @@ export default function ActionCenterPage() {
     queryKey: ["rescoreQueue"],
     queryFn:  fetchRescoreQueue,
     staleTime: 30_000,
+  });
+
+  /* ── Overdue observations ───────────────────────────── */
+  const { data: overdueTeachers = [] } = useQuery<OverdueTeacher[]>({
+    queryKey: ["overdueObservations"],
+    queryFn:  fetchOverdueObservations,
+    staleTime: 60_000,
   });
 
   /* ── Dashboard data ──────────────────────────────────── */
@@ -171,6 +180,7 @@ export default function ActionCenterPage() {
         isWalkthrough,
       });
       queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
+      queryClient.invalidateQueries({ queryKey: ["overdueObservations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["ai-plateau-alerts"] });
       queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
@@ -504,6 +514,95 @@ export default function ActionCenterPage() {
                                   style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", fontSize: 13 }}
                                 >
                                   <Plus size={13} /> Score Rescore
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <Separator />
+
+            {/* ── Overdue Observations ────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2
+                  className="text-2xl font-bold uppercase tracking-wider"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+                >
+                  Overdue Observations
+                </h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Teachers who have not been observed in the last 14 days.
+                </p>
+              </div>
+              {overdueTeachers.length === 0 ? (
+                <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-10 gap-3">
+                  <CheckCircle2 size={40} className="text-green-400" />
+                  <div className="text-center">
+                    <p className="font-bold text-base" style={{ color: NAVY }}>All teachers observed recently</p>
+                    <p className="text-slate-500 text-sm mt-1">No one is overdue for an observation.</p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ backgroundColor: NAVY }}>
+                          {["Teacher", "Subject / Grade", "Last Observed", "Days Since", ""].map((h, i) => (
+                            <th
+                              key={i}
+                              className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base"
+                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                        <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                          <td colSpan={5} style={{ padding: 0, height: 3 }} />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {overdueTeachers.map((t) => {
+                          const subjectGrade = [t.subject, t.gradeLevel].filter(Boolean).join(" · ") || "—";
+                          const daysLabel = t.daysSince === null
+                            ? "Never"
+                            : `${t.daysSince}d ago`;
+                          const urgency = t.daysSince === null || t.daysSince > 30
+                            ? { bg: "#FEF2F2", color: "#991B1B" }
+                            : { bg: "#FEF3C7", color: "#92400E" };
+                          return (
+                            <tr key={t.teacherId} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 font-semibold text-slate-700">{t.teacherName}</td>
+                              <td className="px-4 py-3 text-slate-600">{subjectGrade}</td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {t.lastObserved
+                                  ? new Date(t.lastObserved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                  : <span className="text-slate-400 italic">No observations</span>
+                                }
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs"
+                                  style={{ backgroundColor: urgency.bg, color: urgency.color }}
+                                >
+                                  {daysLabel}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleAddObsClick(t.teacherId)}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-colors"
+                                  style={{ backgroundColor: NAVY, color: "white" }}
+                                >
+                                  <Plus size={13} /> Observe Now
                                 </button>
                               </td>
                             </tr>
