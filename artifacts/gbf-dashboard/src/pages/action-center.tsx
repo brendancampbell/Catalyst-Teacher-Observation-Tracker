@@ -472,33 +472,35 @@ export default function ActionCenterPage() {
               {/* ── Domain Comparison — left two thirds ───────────── */}
               <Card className="lg:col-span-2 border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <BarChart2 size={17} style={{ color: YELLOW }} />
-                    Domain Comparison
-                  </CardTitle>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                      <BarChart2 size={17} style={{ color: YELLOW }} />
+                      Domain Comparison
+                    </CardTitle>
+                    {/* Segmentation toggle */}
+                    <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: "#f1f5f9" }}>
+                      {([
+                        { key: "school", label: "School" },
+                        { key: "dept",   label: "By Dept" },
+                        { key: "grade",  label: "By Grade" },
+                      ] as { key: "school" | "dept" | "grade"; label: string }[]).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => setDomainSeg(key)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+                          style={{
+                            backgroundColor: domainSeg === key ? "white" : "transparent",
+                            color:           domainSeg === key ? NAVY : "#64748b",
+                            boxShadow:       domainSeg === key ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
-                  {/* Segmentation toggle */}
-                  <div className="flex items-center gap-0.5 rounded-lg p-0.5 mb-4 self-start" style={{ backgroundColor: "#f1f5f9" }}>
-                    {([
-                      { key: "school", label: "School" },
-                      { key: "dept",   label: "By Dept" },
-                      { key: "grade",  label: "By Grade" },
-                    ] as { key: "school" | "dept" | "grade"; label: string }[]).map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => setDomainSeg(key)}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
-                        style={{
-                          backgroundColor: domainSeg === key ? "white" : "transparent",
-                          color:           domainSeg === key ? NAVY : "#64748b",
-                          boxShadow:       domainSeg === key ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
                   {!domainCompData ? (
                     <p className="text-sm text-slate-400 italic text-center py-6">No observation data yet.</p>
                   ) : domainSeg === "school" ? (
@@ -615,10 +617,14 @@ export default function ActionCenterPage() {
               {/* ── Network Comparison — right half ───────────────── */}
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <Globe2 size={17} style={{ color: YELLOW }} />
-                    Network Comparison
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                      <Globe2 size={17} style={{ color: YELLOW }} />
+                      Network Comparison
+                    </CardTitle>
+                    {/* spacer — matches toggle pill height in Domain Comparison header */}
+                    <div className="h-8" />
+                  </div>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
                   {!networkCompData || !domainCompData ? (
