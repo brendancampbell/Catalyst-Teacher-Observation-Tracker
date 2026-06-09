@@ -536,16 +536,19 @@ export async function fetchAIChat(message: string): Promise<AIChatResponse> {
   });
 }
 
-export async function fetchAIInsights(): Promise<AIInsightsResponse> {
-  return apiFetch<AIInsightsResponse>("/ai/insights");
+export async function fetchAIInsights(rubricSlug?: string): Promise<AIInsightsResponse> {
+  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+  return apiFetch<AIInsightsResponse>(`/ai/insights${qs}`);
 }
 
-export async function fetchAICalibrationFlags(): Promise<AICalibrationFlag[]> {
-  return apiFetch<AICalibrationFlag[]>("/ai/calibration-flags");
+export async function fetchAICalibrationFlags(rubricSlug?: string): Promise<AICalibrationFlag[]> {
+  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+  return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
 }
 
-export async function fetchAIPlateauAlerts(): Promise<AIPlateauAlert[]> {
-  return apiFetch<AIPlateauAlert[]>("/ai/plateau-alerts");
+export async function fetchAIPlateauAlerts(rubricSlug?: string): Promise<AIPlateauAlert[]> {
+  const qs = rubricSlug ? `?rubric=${encodeURIComponent(rubricSlug)}` : "";
+  return apiFetch<AIPlateauAlert[]>(`/ai/plateau-alerts${qs}`);
 }
 
 /* ── Email ──────────────────────────────────────────────────────── */

@@ -39,27 +39,30 @@ export default function DistrictActionCenterPage() {
   const { currentUser } = useUser();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const rubricFromUrl = searchParams.get("rubric") ?? undefined;
+
   const returnTo = safeReturnTo(
-    new URLSearchParams(window.location.search).get("returnTo"),
+    searchParams.get("returnTo"),
     baseUrl + "/",
   );
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
-    queryKey: ["ai-insights-network"],
-    queryFn:  fetchAIInsights,
+    queryKey: ["ai-insights-network", rubricFromUrl],
+    queryFn:  () => fetchAIInsights(rubricFromUrl),
     staleTime: 60_000,
   });
 
   const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
-    queryKey: ["ai-calibration-flags-network"],
-    queryFn:  fetchAICalibrationFlags,
+    queryKey: ["ai-calibration-flags-network", rubricFromUrl],
+    queryFn:  () => fetchAICalibrationFlags(rubricFromUrl),
     staleTime: 60_000,
   });
 
   const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
-    queryKey: ["ai-plateau-alerts-network"],
-    queryFn:  fetchAIPlateauAlerts,
+    queryKey: ["ai-plateau-alerts-network", rubricFromUrl],
+    queryFn:  () => fetchAIPlateauAlerts(rubricFromUrl),
     staleTime: 60_000,
   });
 

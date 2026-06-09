@@ -6,6 +6,7 @@ import {
   teachers,
   schools,
   rubricDomains,
+  rubricSets,
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -23,6 +24,11 @@ const router = Router();
 function weeksBetween(a: string, b: string): number {
   const msPerWeek = 1000 * 60 * 60 * 24 * 7;
   return Math.round(Math.abs(new Date(b).getTime() - new Date(a).getTime()) / msPerWeek);
+}
+
+async function getRubricSetId(slug: string): Promise<number | null> {
+  const rows = await db.select({ id: rubricSets.id }).from(rubricSets).where(eq(rubricSets.slug, slug)).limit(1);
+  return rows[0]?.id ?? null;
 }
 
 async function getTeacherIds(isNetworkScope: boolean, schoolId: number | null): Promise<number[]> {
@@ -48,8 +54,12 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
   return m;
 }
 
-async function buildDomainAverages(teacherIds: number[]): Promise<DomainAvg[]> {
+async function buildDomainAverages(teacherIds: number[], rubricSetId?: number | null): Promise<DomainAvg[]> {
   if (!teacherIds.length) return [];
+
+  const whereClause = rubricSetId != null
+    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.teacherId, teacherIds);
 
   const rows = await db
     .select({
@@ -58,7 +68,7 @@ async function buildDomainAverages(teacherIds: number[]): Promise<DomainAvg[]> {
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .where(inArray(observations.teacherId, teacherIds));
+    .where(whereClause);
 
   const byDomain = new Map<string, number[]>();
   for (const r of rows) {
@@ -80,8 +90,13 @@ async function buildDomainAverages(teacherIds: number[]): Promise<DomainAvg[]> {
 async function buildCalibrationFlags(
   teacherIds: number[],
   scope: "school" | "network",
+  rubricSetId?: number | null,
 ): Promise<CalibrationFlag[]> {
   if (!teacherIds.length) return [];
+
+  const whereClause = rubricSetId != null
+    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.teacherId, teacherIds);
 
   const rows = await db
     .select({
@@ -99,7 +114,7 @@ async function buildCalibrationFlags(
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
     .innerJoin(teachers, eq(teachers.id, observations.teacherId))
     .leftJoin(schools, eq(schools.id, teachers.schoolId))
-    .where(inArray(observations.teacherId, teacherIds));
+    .where(whereClause);
 
   if (scope === "school") {
     /* Per-teacher discrepancy within the school ──────────────────── */
@@ -187,8 +202,12 @@ async function buildCalibrationFlags(
   return flags.sort((a, b) => b.delta - a.delta);
 }
 
-async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]> {
+async function buildPlateauAlerts(teacherIds: number[], rubricSetId?: number | null): Promise<PlateauAlert[]> {
   if (!teacherIds.length) return [];
+
+  const whereClause = rubricSetId != null
+    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.teacherId, teacherIds);
 
   const rows = await db
     .select({
@@ -204,7 +223,7 @@ async function buildPlateauAlerts(teacherIds: number[]): Promise<PlateauAlert[]>
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
     .innerJoin(teachers, eq(teachers.id, observations.teacherId))
-    .where(inArray(observations.teacherId, teacherIds))
+    .where(whereClause)
     .orderBy(observations.date);
 
   type SeriesKey = string;
@@ -337,9 +356,11 @@ router.get("/insights", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
+    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
-    const domainAverages = await buildDomainAverages(teacherIds);
+    const domainAverages = await buildDomainAverages(teacherIds, rubricSetId);
 
     if (!domainAverages.length) {
       res.json({ topStrength: null, topGrowth: null, trendingSteps: [] });
@@ -391,9 +412,11 @@ router.get("/calibration-flags", async (req, res) => {
     const user = req.user as Express.User;
     const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
     const scope: "school" | "network" = isNetworkScope ? "network" : "school";
+    const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
+    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
-    const flags = await buildCalibrationFlags(teacherIds, scope);
+    const flags = await buildCalibrationFlags(teacherIds, scope, rubricSetId);
     res.json(flags);
   } catch (err) {
     console.error("GET /ai/calibration-flags error:", err);
@@ -406,9 +429,11 @@ router.get("/plateau-alerts", async (req, res) => {
   try {
     const user = req.user as Express.User;
     const isNetworkScope = user.role === "NETWORK_LEADER" || user.role === "NETWORK_ADMIN";
+    const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
+    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const teacherIds = await getTeacherIds(isNetworkScope, user.schoolId ?? null);
-    const alerts = await buildPlateauAlerts(teacherIds);
+    const alerts = await buildPlateauAlerts(teacherIds, rubricSetId);
     res.json(alerts);
   } catch (err) {
     console.error("GET /ai/plateau-alerts error:", err);

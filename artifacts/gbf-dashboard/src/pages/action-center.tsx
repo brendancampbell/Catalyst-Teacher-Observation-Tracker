@@ -62,8 +62,11 @@ export default function ActionCenterPage() {
   const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const rubricFromUrl = searchParams.get("rubric") ?? undefined;
+
   const returnTo = safeReturnTo(
-    new URLSearchParams(window.location.search).get("returnTo"),
+    searchParams.get("returnTo"),
     baseUrl + "/",
   );
 
@@ -77,14 +80,12 @@ export default function ActionCenterPage() {
   /* ── Dashboard data ──────────────────────────────────── */
   const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
     queryKey: ["quarters"],
-    // fetchQuarters takes (includeArchived?: boolean); React Query would pass its
-    // QueryFunctionContext as that arg, so wrap in an arrow to call with no args.
     queryFn:  () => fetchQuarters(),
     staleTime: 60_000,
   });
 
-  const activeQuarter   = quarters[0]?.slug ?? "Q1";
-  const activeQuarterId = quarters[0]?.id   ?? 0;
+  const activeQuarter   = rubricFromUrl ?? quarters[0]?.slug ?? "Q1";
+  const activeQuarterId = quarters.find((q) => q.slug === activeQuarter)?.id ?? quarters[0]?.id ?? 0;
 
   const { data: dashData } = useQuery({
     queryKey: ["dashboard", activeQuarter, null],
@@ -99,20 +100,20 @@ export default function ActionCenterPage() {
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
-    queryKey: ["ai-insights"],
-    queryFn:  fetchAIInsights,
+    queryKey: ["ai-insights", activeQuarter],
+    queryFn:  () => fetchAIInsights(activeQuarter),
     staleTime: 60_000,
   });
 
   const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
-    queryKey: ["ai-calibration-flags"],
-    queryFn:  fetchAICalibrationFlags,
+    queryKey: ["ai-calibration-flags", activeQuarter],
+    queryFn:  () => fetchAICalibrationFlags(activeQuarter),
     staleTime: 60_000,
   });
 
   const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
-    queryKey: ["ai-plateau-alerts"],
-    queryFn:  fetchAIPlateauAlerts,
+    queryKey: ["ai-plateau-alerts", activeQuarter],
+    queryFn:  () => fetchAIPlateauAlerts(activeQuarter),
     staleTime: 60_000,
   });
 
