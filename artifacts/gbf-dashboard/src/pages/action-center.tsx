@@ -467,10 +467,10 @@ export default function ActionCenterPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-              {/* ── Domain Comparison — left half ─────────────────── */}
-              <Card className="border-slate-200 shadow-sm">
+              {/* ── Domain Comparison — left two thirds ───────────── */}
+              <Card className="lg:col-span-2 border-slate-200 shadow-sm">
                 <CardHeader className="px-5 pt-5 pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
