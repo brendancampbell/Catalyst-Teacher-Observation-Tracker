@@ -155,6 +155,7 @@ export default function ActionCenterPage() {
 
   /* ── Intervention sub-tab ───────────────────────────── */
   const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
+  const [analysisTab, setAnalysisTab] = useState<"analysis-summary" | "data-assistant">("analysis-summary");
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -932,53 +933,54 @@ export default function ActionCenterPage() {
           {/* ═══════════════════════════════════════════════════
               TAB 3 — ANALYSIS (with sub-tabs)
           ════════════════════════════════════════════════════ */}
-          <TabsContent value="analysis" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
-            <Tabs defaultValue="analysis-summary" className="flex-1 flex flex-col min-h-0">
+          <TabsContent value="analysis" className="flex-1 flex flex-col overflow-hidden mt-0">
 
-              {/* Sub-tab bar */}
-              <div className="bg-white border-b border-slate-100 px-4 sm:px-6">
-                <TabsList className="h-auto bg-transparent gap-0 p-0 rounded-none">
-                  {[
-                    { value: "analysis-summary", label: "Analysis Summary", icon: <TrendingUp size={13} /> },
-                    { value: "data-assistant",   label: "Data Assistant",   icon: <Sparkles   size={13} /> },
-                  ].map(({ value, label, icon }) => (
-                    <TabsTrigger
-                      key={value}
-                      value={value}
-                      className="flex items-center gap-1.5 px-4 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent rounded-none bg-transparent transition-colors
-                        data-[state=active]:text-[#1034B4] data-[state=active]:border-[#1034B4] data-[state=active]:bg-transparent
-                        hover:text-slate-600"
-                    >
-                      {icon}{label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </div>
+            {/* ── Secondary sub-tab bar — matches Intervention style ── */}
+            <div style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }} className="px-4 sm:px-6 flex gap-6">
+              {(
+                [
+                  { key: "analysis-summary", label: "Analysis Summary" },
+                  { key: "data-assistant",   label: "Data Assistant"   },
+                ] as { key: "analysis-summary" | "data-assistant"; label: string }[]
+              ).map(({ key, label }) => {
+                const active = analysisTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setAnalysisTab(key)}
+                    className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
+                    style={{
+                      color:        active ? NAVY : "#94a3b8",
+                      borderBottom: active ? `2px solid ${YELLOW}` : "2px solid transparent",
+                      marginBottom: -1,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-              {/* ── Analysis Summary — blank ── */}
-              <TabsContent value="analysis-summary" className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 mt-0">
-              </TabsContent>
+            {/* ── Analysis Summary — blank ── */}
+            {analysisTab === "analysis-summary" && (
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6" />
+            )}
 
-              {/* ── Data Assistant ── */}
-              <TabsContent value="data-assistant" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+            {/* ── Data Assistant ── */}
+            {analysisTab === "data-assistant" && (
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
 
                   {/* Header */}
                   <div className="flex items-center gap-3 mb-4 shrink-0">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-                      style={{ backgroundColor: NAVY }}
-                    >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
                       <Sparkles size={18} color={YELLOW} />
                     </div>
                     <div>
                       <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
                       <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
                     </div>
-                    <Badge
-                      className="ml-auto text-xs font-bold px-2.5 py-1"
-                      style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}
-                    >
+                    <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
                       Live Data
                     </Badge>
                   </div>
@@ -1048,9 +1050,9 @@ export default function ActionCenterPage() {
                   </div>
 
                 </div>
-              </TabsContent>
+              </div>
+            )}
 
-            </Tabs>
           </TabsContent>
 
         </Tabs>
