@@ -705,7 +705,7 @@ export default function ActionCenterPage() {
                     onClick={() => setInterventionTab(key)}
                     className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
                     style={{
-                      color:        active ? NAVY : "#94a3b8",
+                      color:        active ? NAVY : "#64748b",
                       borderBottom: active ? `2px solid ${YELLOW}` : "2px solid transparent",
                       marginBottom: -1,
                     }}
@@ -950,7 +950,7 @@ export default function ActionCenterPage() {
                     onClick={() => setAnalysisTab(key)}
                     className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
                     style={{
-                      color:        active ? NAVY : "#94a3b8",
+                      color:        active ? NAVY : "#64748b",
                       borderBottom: active ? `2px solid ${YELLOW}` : "2px solid transparent",
                       marginBottom: -1,
                     }}
