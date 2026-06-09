@@ -87,8 +87,6 @@ export default function SchoolObservationModal({
     onOpenChange(false);
     setSchoolId("");
     setDate(new Date().toISOString().split("T")[0]);
-    setStrengths("");
-    setGrowthAreas("");
     setScores({});
     setError("");
   }
