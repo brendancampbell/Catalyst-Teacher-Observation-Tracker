@@ -575,7 +575,7 @@ export default function Dashboard() {
             basePath={BASE_PATH}
             onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
             draftsHref={`${BASE_PATH}/drafts?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-            actionCenterHref={`${BASE_PATH}/action-center?rubric=${encodeURIComponent(activeRubricSet)}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+            actionCenterHref={`${BASE_PATH}/action-center?rubric=${encodeURIComponent(activeRubricSet)}${schoolId != null ? `&schoolId=${schoolId}` : ""}${searchParams.get("schoolName") ? `&schoolName=${encodeURIComponent(searchParams.get("schoolName")!)}` : ""}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}
             userRole={currentUser.role}
