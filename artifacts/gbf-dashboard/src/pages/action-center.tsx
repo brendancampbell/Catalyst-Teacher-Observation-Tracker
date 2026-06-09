@@ -4,6 +4,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, ShieldAlert, Activity, Globe2, FileText,
+  Download, ChevronRight, RefreshCw, X,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -156,6 +157,46 @@ export default function ActionCenterPage() {
   /* ── Intervention sub-tab ───────────────────────────── */
   const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
   const [analysisTab, setAnalysisTab] = useState<"analysis-summary" | "data-assistant">("analysis-summary");
+
+  /* ── Analysis Summary docs ───────────────────────────── */
+  type AnalysisDoc = {
+    id: string;
+    title: string;
+    generatedAt: string;
+    rubricSet: string;
+    status: "complete" | "generating";
+  };
+
+  const [analysisDocs, setAnalysisDocs] = useState<AnalysisDoc[]>([
+    { id: "mock-1", title: "Q2 Analysis",      generatedAt: "2026-05-28T09:15:00Z", rubricSet: "Q2", status: "complete" },
+    { id: "mock-2", title: "Q1 Mid-Year Analysis", generatedAt: "2026-03-14T14:30:00Z", rubricSet: "Q1", status: "complete" },
+    { id: "mock-3", title: "Q1 Analysis",      generatedAt: "2026-01-22T11:00:00Z", rubricSet: "Q1", status: "complete" },
+  ]);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>("mock-1");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  function handleGenerateAnalysis() {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    const pendingId = `gen-${Date.now()}`;
+    setAnalysisDocs((prev) => [
+      { id: pendingId, title: `${activeQuarter} Analysis`, generatedAt: new Date().toISOString(), rubricSet: activeQuarter, status: "generating" },
+      ...prev,
+    ]);
+    setSelectedAnalysisId(pendingId);
+    setTimeout(() => {
+      setAnalysisDocs((prev) =>
+        prev.map((d) => d.id === pendingId ? { ...d, status: "complete" } : d)
+      );
+      setIsGenerating(false);
+    }, 2500);
+  }
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  const selectedDoc = analysisDocs.find((d) => d.id === selectedAnalysisId) ?? null;
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -964,9 +1005,201 @@ export default function ActionCenterPage() {
               })}
             </div>
 
-            {/* ── Analysis Summary — blank ── */}
+            {/* ── Analysis Summary ── */}
             {analysisTab === "analysis-summary" && (
-              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6" />
+              <div className="flex-1 overflow-hidden flex min-h-0">
+
+                {/* ── Left panel: list ── */}
+                <div
+                  className="flex flex-col shrink-0 overflow-hidden"
+                  style={{ width: 300, borderRight: "1px solid #e2e8f0" }}
+                >
+                  {/* Generate button */}
+                  <div className="p-4 shrink-0" style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    <button
+                      onClick={handleGenerateAnalysis}
+                      disabled={isGenerating}
+                      className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-opacity disabled:opacity-60"
+                      style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          Generating…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} color={YELLOW} />
+                          Generate New Analysis
+                        </>
+                      )}
+                    </button>
+                    <p className="text-xs text-slate-400 mt-2 text-center leading-snug" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                      Creates an AI-generated summary of current observation data
+                    </p>
+                  </div>
+
+                  {/* Doc list */}
+                  <div className="flex-1 overflow-y-auto">
+                    {analysisDocs.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center px-6 py-10">
+                        <FileText size={28} style={{ color: "#cbd5e1" }} className="mb-3" />
+                        <p className="text-sm text-slate-400" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                          No analyses yet. Generate your first one above.
+                        </p>
+                      </div>
+                    ) : (
+                      analysisDocs.map((doc) => {
+                        const isSelected = doc.id === selectedAnalysisId;
+                        return (
+                          <button
+                            key={doc.id}
+                            onClick={() => setSelectedAnalysisId(doc.id)}
+                            className="w-full text-left flex items-start gap-3 px-4 py-3.5 transition-colors"
+                            style={{
+                              backgroundColor: isSelected ? "#EEF2FF" : "transparent",
+                              borderBottom: "1px solid #f1f5f9",
+                            }}
+                          >
+                            <div
+                              className="mt-0.5 shrink-0 flex items-center justify-center rounded-lg w-8 h-8"
+                              style={{ backgroundColor: isSelected ? NAVY : "#f1f5f9" }}
+                            >
+                              {doc.status === "generating"
+                                ? <RefreshCw size={13} className="animate-spin" style={{ color: isSelected ? YELLOW : "#94a3b8" }} />
+                                : <FileText size={13} style={{ color: isSelected ? YELLOW : "#64748b" }} />
+                              }
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="text-sm font-semibold leading-tight truncate"
+                                style={{ color: isSelected ? NAVY : "#1e293b", fontFamily: "'Libre Franklin', sans-serif" }}
+                              >
+                                {doc.title}
+                              </p>
+                              <p className="text-xs mt-0.5" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>
+                                {fmtDate(doc.generatedAt)}
+                              </p>
+                              {doc.status === "generating" && (
+                                <span
+                                  className="inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+                                  style={{ backgroundColor: "#FEF9C3", color: "#A16207" }}
+                                >
+                                  Generating…
+                                </span>
+                              )}
+                            </div>
+                            <ChevronRight size={14} style={{ color: isSelected ? NAVY : "#cbd5e1", flexShrink: 0, marginTop: 2 }} />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Right panel: reader ── */}
+                <div className="flex-1 overflow-y-auto">
+                  {!selectedDoc ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#EEF2FF" }}>
+                        <FileText size={24} style={{ color: NAVY }} />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-600">Select an analysis to view</p>
+                      <p className="text-xs text-slate-400 mt-1">Or generate a new one from the panel on the left.</p>
+                    </div>
+                  ) : selectedDoc.status === "generating" ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
+                      <RefreshCw size={28} className="animate-spin mb-4" style={{ color: NAVY }} />
+                      <p className="text-sm font-semibold text-slate-700">Generating analysis…</p>
+                      <p className="text-xs text-slate-400 mt-1">The AI is reviewing your observation data. This will only take a moment.</p>
+                    </div>
+                  ) : (
+                    <div className="max-w-2xl mx-auto px-6 py-6">
+
+                      {/* Doc header */}
+                      <div className="flex items-start justify-between gap-4 mb-6">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+                              style={{ backgroundColor: "#EEF2FF", color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 13 }}
+                            >
+                              {selectedDoc.rubricSet}
+                            </span>
+                            <span
+                              className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                              style={{ backgroundColor: "#DCFCE7", color: "#15803D" }}
+                            >
+                              Complete
+                            </span>
+                          </div>
+                          <h2
+                            className="text-xl font-bold"
+                            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
+                          >
+                            {selectedDoc.title}
+                          </h2>
+                          <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                            Generated {fmtDate(selectedDoc.generatedAt)}
+                          </p>
+                        </div>
+                        <button
+                          className="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
+                          style={{ border: "1.5px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
+                          title="Download (coming soon)"
+                        >
+                          <Download size={13} />
+                          Export
+                        </button>
+                      </div>
+
+                      {/* Placeholder sections */}
+                      {[
+                        {
+                          label: "Executive Summary",
+                          body: "AI-generated narrative summarizing the school's overall performance this period, key trends, and notable changes since the last observation cycle.",
+                        },
+                        {
+                          label: "Domain Highlights",
+                          body: "A breakdown of each rubric domain — identifying top-performing areas, domains with the most growth, and areas of persistent concern across the teacher population.",
+                        },
+                        {
+                          label: "Teacher Growth Trends",
+                          body: "Analysis of individual teacher trajectories, highlighting teachers who have crossed the 0.7 proficiency threshold, those plateauing, and those showing accelerated improvement.",
+                        },
+                        {
+                          label: "Recommended Actions",
+                          body: "Prioritized coaching and intervention recommendations based on the data patterns above, tailored to the school's current context and goals.",
+                        },
+                      ].map(({ label, body }) => (
+                        <div key={label} className="mb-6">
+                          <div
+                            className="flex items-center gap-2 mb-2 pb-2"
+                            style={{ borderBottom: `2px solid ${YELLOW}` }}
+                          >
+                            <h3
+                              className="text-sm font-bold uppercase tracking-wide"
+                              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 15, letterSpacing: "0.06em" }}
+                            >
+                              {label}
+                            </h3>
+                          </div>
+                          <div
+                            className="rounded-lg px-4 py-3 text-sm leading-relaxed"
+                            style={{ backgroundColor: "#f8fafc", color: "#94a3b8", fontStyle: "italic", fontFamily: "'Libre Franklin', sans-serif", border: "1.5px dashed #e2e8f0" }}
+                          >
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold mb-1 not-italic" style={{ color: "#cbd5e1" }}>
+                              <Sparkles size={11} /> AI-generated content
+                            </span>
+                            <p>{body}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
             )}
 
             {/* ── Data Assistant ── */}
