@@ -383,7 +383,7 @@ export default function ActionCenterPage() {
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5">
+                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                     <BarChart2 size={15} /> Current School Average
                   </CardTitle>
@@ -415,7 +415,7 @@ export default function ActionCenterPage() {
               </Card>
 
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5">
+                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                     <TrendingUp size={15} className="text-green-600" /> Top Domain Strength
                   </CardTitle>
@@ -440,7 +440,7 @@ export default function ActionCenterPage() {
               </Card>
 
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5">
+                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
                     <TrendingDown size={15} className="text-red-600" /> Top Area for Growth
                   </CardTitle>
