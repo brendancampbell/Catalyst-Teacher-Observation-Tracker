@@ -286,8 +286,8 @@ export default function ActionCenterPage() {
   const [newObsIsWalkthrough, setNewObsIsWalkthrough]  = useState(false);
   const [saving, setSaving]                            = useState(false);
 
-  function handleAddObsClick(teacherId: number, asWalkthrough = false) {
-    setAddObsTeacherId(String(teacherId));
+  function handleAddObsClick(employeeId: string, asWalkthrough = false) {
+    setAddObsTeacherId(employeeId);
     setNewObsIsWalkthrough(asWalkthrough);
     setNewObsOpen(true);
   }
@@ -825,13 +825,13 @@ export default function ActionCenterPage() {
                             {queue.map((item) => {
                               const status = getDueStatus(item.rescoreDueDate);
                               return (
-                                <tr key={item.teacherId} className="hover:bg-slate-50 transition-colors">
+                                <tr key={item.employeeId} className="hover:bg-slate-50 transition-colors">
                                   <td className="px-4 py-3 font-semibold">
-                                    <a href={`${baseUrl}/?teacher=${item.teacherId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
+                                    <a href={`${baseUrl}/?teacher=${item.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
                                   <td className="px-4 py-3 text-slate-600">
-                                    {item.subject}<span className="text-slate-400 ml-1.5">{item.gradeLevel.length > 0 ? `· Gr. ${item.gradeLevel.join(", ")}` : ""}</span>
+                                    {item.department}<span className="text-slate-400 ml-1.5">{item.gradeLevel.length > 0 ? `· Gr. ${item.gradeLevel.join(", ")}` : ""}</span>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">
                                     {item.rescoreDueDate ? new Date(item.rescoreDueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
@@ -842,7 +842,7 @@ export default function ActionCenterPage() {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <button onClick={() => handleAddObsClick(item.teacherId, true)} className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90" style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", fontSize: 13 }}>
+                                    <button onClick={() => handleAddObsClick(item.employeeId, true)} className="inline-flex items-center gap-1.5 font-bold px-3 py-1.5 rounded-md text-xs transition-colors hover:opacity-90" style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", fontSize: 13 }}>
                                       <Plus size={13} /> Score Rescore
                                     </button>
                                   </td>
@@ -894,7 +894,7 @@ export default function ActionCenterPage() {
                               const daysLabel = t.daysSince === null ? "Never" : `${t.daysSince}d ago`;
                               const urgency = t.daysSince === null || t.daysSince > 30 ? { bg: "#FEF2F2", color: "#991B1B" } : { bg: "#FEF3C7", color: "#92400E" };
                               return (
-                                <tr key={t.teacherId} className="hover:bg-slate-50 transition-colors">
+                                <tr key={t.employeeId} className="hover:bg-slate-50 transition-colors">
                                   <td className="px-4 py-3 font-semibold text-slate-700">{t.teacherName}</td>
                                   <td className="px-4 py-3 text-slate-600">{subjectGrade}</td>
                                   <td className="px-4 py-3 text-slate-600">
@@ -904,7 +904,7 @@ export default function ActionCenterPage() {
                                     <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: urgency.bg, color: urgency.color }}>{daysLabel}</span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    <button onClick={() => handleAddObsClick(t.teacherId)} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-colors" style={{ backgroundColor: NAVY, color: "white" }}>
+                                    <button onClick={() => handleAddObsClick(t.employeeId)} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-colors" style={{ backgroundColor: NAVY, color: "white" }}>
                                       <Plus size={13} /> Observe Now
                                     </button>
                                   </td>

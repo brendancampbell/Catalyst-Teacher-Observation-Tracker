@@ -3,7 +3,7 @@ import "express-session";
 declare module "express-session" {
   interface SessionData {
     returnTo?: string;
-    impersonatingUserId?: number;
-    realUserId?: number;
+    impersonatingEmployeeId?: string;
+    realEmployeeId?: string;
   }
 }

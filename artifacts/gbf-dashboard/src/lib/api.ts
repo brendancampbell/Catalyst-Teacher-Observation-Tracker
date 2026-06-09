@@ -1,27 +1,44 @@
 import type { Score, Teacher, Observation } from "../data/dummy";
 
-/* ── Users ─────────────────────────────────────────────────────── */
+/* ── People (unified) ──────────────────────────────────────────── */
 
-export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
+export type UserRole   = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
+export type PersonRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";
 
-export interface UserRow {
-  id:         number;
-  email:      string;
-  name:       string;
-  role:       UserRole;
-  schoolId:   number | null;
-  schoolName: string | null;
-  isActive:   boolean;
+export interface PersonRow {
+  employeeId:                  string;
+  email:                       string;
+  firstName:                   string;
+  lastName:                    string;
+  name:                        string;
+  role:                        PersonRole;
+  schoolId:                    number | null;
+  schoolName:                  string | null;
+  isActive:                    boolean;
+  includeInFeedbackTracker:    boolean;
+  department:                  string | null;
+  gradeLevel:                  string[];
+  primaryInstructionalLeaderId: string | null;
 }
 
-export async function fetchUsers(): Promise<UserRow[]> {
-  return apiFetch<UserRow[]>("/users");
+/** @deprecated Use PersonRow */
+export type UserRow = PersonRow;
+
+export async function fetchPeople(params?: { includeInFeedbackTracker?: boolean; includeInactive?: boolean }): Promise<PersonRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.includeInFeedbackTracker != null) qs.set("includeInFeedbackTracker", String(params.includeInFeedbackTracker));
+  if (params?.includeInactive) qs.set("includeInactive", "true");
+  const q = qs.toString();
+  return apiFetch<PersonRow[]>(`/people${q ? `?${q}` : ""}`);
 }
 
-export async function startImpersonation(userId: number): Promise<void> {
+/** @deprecated Use fetchPeople */
+export const fetchUsers = () => fetchPeople({ includeInactive: true });
+
+export async function startImpersonation(employeeId: string): Promise<void> {
   await apiFetch<{ ok: boolean }>("/auth/impersonate", {
     method: "POST",
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ employeeId }),
   });
 }
 
@@ -29,40 +46,74 @@ export async function stopImpersonation(): Promise<void> {
   await apiFetch<{ ok: boolean }>("/auth/stop-impersonating", { method: "POST" });
 }
 
-export async function createUser(payload: { email: string; name: string; role: UserRole; schoolId?: number | null }): Promise<UserRow> {
-  return apiFetch<UserRow>("/users", { method: "POST", body: JSON.stringify(payload) });
+export async function createPerson(payload: {
+  employeeId?:                    string;
+  email:                          string;
+  firstName:                      string;
+  lastName:                       string;
+  role:                           PersonRole;
+  schoolId?:                      number | null;
+  department?:                    string | null;
+  gradeLevel?:                    string[];
+  includeInFeedbackTracker?:      boolean;
+  primaryInstructionalLeaderId?:  string | null;
+}): Promise<PersonRow> {
+  return apiFetch<PersonRow>("/people", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function updateUser(id: number, payload: Partial<{ email: string; name: string; role: UserRole; schoolId: number | null }>): Promise<UserRow> {
-  return apiFetch<UserRow>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+export async function updatePerson(employeeId: string, payload: Partial<{
+  email:                          string;
+  firstName:                      string;
+  lastName:                       string;
+  role:                           PersonRole;
+  schoolId:                       number | null;
+  department:                     string | null;
+  gradeLevel:                     string[];
+  includeInFeedbackTracker:       boolean;
+  isActive:                       boolean;
+  primaryInstructionalLeaderId:   string | null;
+}>): Promise<PersonRow> {
+  return apiFetch<PersonRow>(`/people/${encodeURIComponent(employeeId)}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
-export async function toggleUserActive(id: number): Promise<UserRow> {
-  return apiFetch<UserRow>(`/users/${id}/toggle-active`, { method: "PATCH" });
+export async function togglePersonActive(employeeId: string): Promise<PersonRow> {
+  return apiFetch<PersonRow>(`/people/${encodeURIComponent(employeeId)}/toggle-active`, { method: "PATCH" });
 }
 
-export interface BulkImportRowResult {
-  row:    number;
-  status: "created" | "skipped" | "error";
-  email?: string;
-  name?:  string;
+export interface BulkImportPersonPayload {
+  firstName:                      string;
+  lastName:                       string;
+  employeeId:                     string;
+  email:                          string;
+  role:                           string;
+  department:                     string;
+  gradeLevel:                     string;
+  school:                         string;
+  includeInFeedbackTracker?:      string;
+  primaryInstructionalLeaderId?:  string;
+}
+
+export interface BulkImportPersonRowResult {
+  row:     number;
+  status:  "created" | "skipped" | "error";
+  name?:   string;
+  email?:  string;
   reason?: string;
 }
 
-export interface BulkImportResult {
-  results: BulkImportRowResult[];
+export interface BulkImportPersonResult {
+  results: BulkImportPersonRowResult[];
 }
 
-export interface BulkImportUserPayload {
-  name:   string;
-  email:  string;
-  role:   string;
-  school: string;
+export async function bulkImportPeople(people: BulkImportPersonPayload[]): Promise<BulkImportPersonResult> {
+  return apiFetch<BulkImportPersonResult>("/people/bulk", { method: "POST", body: JSON.stringify(people) });
 }
 
-export async function bulkImportUsers(users: BulkImportUserPayload[]): Promise<BulkImportResult> {
-  return apiFetch<BulkImportResult>("/users/bulk", { method: "POST", body: JSON.stringify(users) });
-}
+/** @deprecated aliases kept for any remaining callers */
+export type BulkImportRowResult    = BulkImportPersonRowResult;
+export type BulkImportResult       = BulkImportPersonResult;
+export type BulkImportUserPayload  = BulkImportPersonPayload;
+export const bulkImportUsers       = bulkImportPeople;
 
 /* ── Admin: Schools ─────────────────────────────────────────────── */
 
@@ -101,42 +152,37 @@ export async function deleteAdminSchool(id: number): Promise<void> {
   await apiFetch<void>(`/admin/schools/${id}`, { method: "DELETE" });
 }
 
-/* ── Admin: Teachers ────────────────────────────────────────────── */
+/* ── Admin: Teachers (deprecated — use people functions) ────────── */
 
-export interface AdminTeacher {
-  id:         number;
-  firstName:  string;
-  lastName:   string;
-  name:       string;
-  employeeId: string | null;
-  email:      string | null;
-  subject:    string;
-  gradeLevel: string[];
-  isActive:   boolean;
-  schoolId:   number | null;
-  schoolName: string | null;
-}
+/** @deprecated Use PersonRow */
+export type AdminTeacher = PersonRow & { subject: string };
 
-export async function fetchAdminTeachers(): Promise<AdminTeacher[]> {
-  return apiFetch<AdminTeacher[]>("/admin/teachers");
-}
+/** @deprecated Use fetchPeople({ includeInFeedbackTracker: true }) */
+export const fetchAdminTeachers = () =>
+  fetchPeople({ includeInactive: true }) as Promise<AdminTeacher[]>;
 
+/** @deprecated Use createPerson */
 export async function createAdminTeacher(payload: {
   firstName:   string;
   lastName:    string;
   employeeId?: string | null;
   email:       string;
-  subject:     string;
-  gradeLevel:  string[];
+  subject?:    string;
+  gradeLevel?: string[];
   schoolId?:   number | null;
 }): Promise<AdminTeacher> {
-  return apiFetch<AdminTeacher>("/admin/teachers", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return createPerson({
+    ...payload,
+    employeeId:              payload.employeeId ?? undefined,
+    role:                    "COACH",
+    department:              payload.subject ?? null,
+    gradeLevel:              payload.gradeLevel ?? [],
+    includeInFeedbackTracker: true,
+  }) as Promise<AdminTeacher>;
 }
 
-export async function updateAdminTeacher(id: number, payload: {
+/** @deprecated Use updatePerson */
+export async function updateAdminTeacher(id: number | string, payload: {
   firstName?:  string;
   lastName?:   string;
   employeeId?: string | null;
@@ -145,40 +191,26 @@ export async function updateAdminTeacher(id: number, payload: {
   gradeLevel?: string[];
   schoolId?:   number | null;
 }): Promise<AdminTeacher> {
-  return apiFetch<AdminTeacher>(`/admin/teachers/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  const empId = String(id);
+  return updatePerson(empId, {
+    ...payload,
+    department: payload.subject,
+  }) as Promise<AdminTeacher>;
 }
 
-export async function toggleTeacherActive(id: number): Promise<AdminTeacher> {
-  return apiFetch<AdminTeacher>(`/admin/teachers/${id}/toggle-active`, { method: "PATCH" });
-}
+/** @deprecated Use togglePersonActive */
+export const toggleTeacherActive = (id: number | string) =>
+  togglePersonActive(String(id)) as Promise<AdminTeacher>;
 
-export interface BulkImportTeacherPayload {
-  firstName:  string;
-  lastName:   string;
-  employeeId: string;
-  subject:    string;
-  gradeLevel: string;
-  school:     string;
-  email:      string;
-}
+/** @deprecated Use BulkImportPersonPayload */
+export type BulkImportTeacherPayload = BulkImportPersonPayload;
+/** @deprecated Use BulkImportPersonRowResult */
+export type BulkImportTeacherRowResult = BulkImportPersonRowResult;
+/** @deprecated Use BulkImportPersonResult */
+export type BulkImportTeacherResult = BulkImportPersonResult;
 
-export interface BulkImportTeacherRowResult {
-  row:     number;
-  status:  "created" | "skipped" | "error";
-  name?:   string;
-  reason?: string;
-}
-
-export interface BulkImportTeacherResult {
-  results: BulkImportTeacherRowResult[];
-}
-
-export async function bulkImportTeachers(teachers: BulkImportTeacherPayload[]): Promise<BulkImportTeacherResult> {
-  return apiFetch<BulkImportTeacherResult>("/admin/teachers/bulk", { method: "POST", body: JSON.stringify(teachers) });
-}
+/** @deprecated Use bulkImportPeople */
+export const bulkImportTeachers = bulkImportPeople;
 
 export interface DomainEntry {
   id:          string;
@@ -287,9 +319,9 @@ export async function fetchDashboard(rubricSetSlug = "Q1", schoolId?: number | n
 /* ── Action Center ─────────────────────────────────────────────── */
 
 export interface RescoreQueueItem {
-  teacherId:      number;
+  employeeId:     string;
   teacherName:    string;
-  subject:        string;
+  department:     string;
   gradeLevel:     string[];
   schoolName:     string | null;
   rescoreDueDate: string | null;
@@ -302,10 +334,10 @@ export async function fetchRescoreQueue(schoolId?: number | null): Promise<Resco
 }
 
 export interface OverdueTeacher {
-  teacherId:    number;
+  employeeId:   string;
   teacherName:  string;
   subject:      string | null;
-  gradeLevel:   string | null;
+  gradeLevel:   string[] | null;
   schoolName:   string | null;
   lastObserved: string | null;
   daysSince:    number | null;
@@ -363,9 +395,9 @@ export async function deleteObservation(id: string): Promise<{ ok: boolean; id: 
 }
 
 export interface DraftObservation {
-  id:             string;
-  teacherId:      string;
-  teacherName?:   string;
+  id:                  string;
+  observedEmployeeId:  string;
+  teacherName?:        string;
   rubricSetId:    number;
   rubricSetSlug?: string;
   rubricSetName?: string;

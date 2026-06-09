@@ -113,7 +113,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     if (!forTeacherId || !rubricSetId) return;
     try {
       const allDrafts = await fetchMyDrafts();
-      const match = allDrafts.find((d) => d.teacherId === forTeacherId && d.rubricSetId === rubricSetId);
+      const match = allDrafts.find((d) => d.observedEmployeeId === forTeacherId && d.rubricSetId === rubricSetId);
       if (match) {
         draftJustLoaded.current = true;
         setDate(match.date);

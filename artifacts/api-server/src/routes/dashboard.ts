@@ -1,16 +1,15 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  teachers, rubricSets, rubricCategories,
-  observations, observationScores, users, schools,
+  people, rubricSets, rubricCategories,
+  observations, observationScores, schools,
 } from "@workspace/db/schema";
 import { eq, inArray, and, ne } from "drizzle-orm";
 
 const router = Router();
 
 /* ── GET /api/dashboard?rubricSet=Q1&schoolId=2&walkthroughsOnly=true ──
-   Accepts legacy param `quarter` as fallback for backward compat.
-   Returns rubric + teachers with full observation history.
+   Returns rubric + observable people with full observation history.
    When walkthroughsOnly=true, only observations where isWalkthrough
    is true are included in the response.                                  */
 router.get("/", async (req, res) => {
@@ -44,9 +43,17 @@ router.get("/", async (req, res) => {
       schoolGradeSpan = school?.gradeSpan ?? null;
     }
 
-    const allTeachers = schoolIdParam != null
-      ? await db.select().from(teachers).where(and(eq(teachers.isActive, true), eq(teachers.schoolId, schoolIdParam)))
-      : await db.select().from(teachers).where(eq(teachers.isActive, true));
+    /* Fetch observable people (includeInFeedbackTracker=true) */
+    const allPeople = schoolIdParam != null
+      ? await db.select().from(people).where(and(
+          eq(people.isActive, true),
+          eq(people.includeInFeedbackTracker, true),
+          eq(people.schoolId, schoolIdParam),
+        ))
+      : await db.select().from(people).where(and(
+          eq(people.isActive, true),
+          eq(people.includeInFeedbackTracker, true),
+        ));
 
     const obsWhere = walkthroughsOnly
       ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"))
@@ -55,11 +62,14 @@ router.get("/", async (req, res) => {
     const allObs = await db.select().from(observations).where(obsWhere);
 
     /* ── Fetch editor names for audit trail ───────────────────────── */
-    const editorIds = [...new Set(allObs.map((o) => o.editedById).filter((id): id is number => id != null))];
-    const editorMap = new Map<number, string>();
+    const editorIds = [...new Set(allObs.map((o) => o.editedByEmployeeId).filter((id): id is string => id != null))];
+    const editorMap = new Map<string, string>();
     if (editorIds.length > 0) {
-      const editors = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, editorIds));
-      for (const e of editors) editorMap.set(e.id, e.name);
+      const editors = await db
+        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName })
+        .from(people)
+        .where(inArray(people.employeeId, editorIds));
+      for (const e of editors) editorMap.set(e.employeeId, `${e.firstName} ${e.lastName}`.trim());
     }
 
     const obsIds = allObs.map((o) => o.id);
@@ -73,25 +83,26 @@ router.get("/", async (req, res) => {
       scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
     }
 
-    const obsByTeacher = new Map<number, typeof allObs>();
+    const obsByPerson = new Map<string, typeof allObs>();
     for (const o of allObs) {
-      if (!obsByTeacher.has(o.teacherId)) obsByTeacher.set(o.teacherId, []);
-      obsByTeacher.get(o.teacherId)!.push(o);
+      if (!o.observedEmployeeId) continue;
+      if (!obsByPerson.has(o.observedEmployeeId)) obsByPerson.set(o.observedEmployeeId, []);
+      obsByPerson.get(o.observedEmployeeId)!.push(o);
     }
 
-    const teacherData = allTeachers.map((t) => ({
-      id:             String(t.id),
-      name:           `${t.firstName} ${t.lastName}`.trim(),
-      firstName:      t.firstName,
-      lastName:       t.lastName,
-      employeeId:     t.employeeId,
-      email:          t.email,
-      subject:        t.subject,
-      gradeLevel:     t.gradeLevel,
-      schoolId:       t.schoolId,
-      needsRescore:   t.needsRescore,
-      rescoreDueDate: t.rescoreDueDate,
-      observations:   (obsByTeacher.get(t.id) ?? [])
+    const teacherData = allPeople.map((p) => ({
+      id:             p.employeeId,
+      name:           `${p.firstName} ${p.lastName}`.trim(),
+      firstName:      p.firstName,
+      lastName:       p.lastName,
+      employeeId:     p.employeeId,
+      email:          p.email,
+      subject:        p.department ?? null,
+      gradeLevel:     p.gradeLevel ?? [],
+      schoolId:       p.schoolId,
+      needsRescore:   p.needsRescore,
+      rescoreDueDate: p.rescoreDueDate,
+      observations:   (obsByPerson.get(p.employeeId) ?? [])
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({
           id:            String(o.id),
@@ -102,7 +113,7 @@ router.get("/", async (req, res) => {
           strengths:     o.strengths ?? undefined,
           growthAreas:   o.growthAreas ?? undefined,
           observer:      o.observer,
-          editedBy:      o.editedById ? (editorMap.get(o.editedById) ?? undefined) : undefined,
+          editedBy:      o.editedByEmployeeId ? (editorMap.get(o.editedByEmployeeId) ?? undefined) : undefined,
           editedAt:      o.editedAt?.toISOString() ?? undefined,
           scores:        scoresByObs.get(o.id) ?? {},
         })),

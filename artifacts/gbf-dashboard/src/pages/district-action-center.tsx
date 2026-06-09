@@ -79,7 +79,7 @@ export default function DistrictActionCenterPage() {
 
   const { data: rescoreQueue = [] } = useQuery<RescoreQueueItem[]>({
     queryKey: ["rescoreQueue-network"],
-    queryFn:  fetchRescoreQueue,
+    queryFn:  () => fetchRescoreQueue(),
     staleTime: 30_000,
   });
 

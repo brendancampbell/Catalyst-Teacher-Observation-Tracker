@@ -3,11 +3,10 @@ import { db } from "@workspace/db";
 import {
   observations,
   observationScores,
-  teachers,
+  people,
   schools,
   rubricDomains,
   rubricSets,
-  users,
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -26,8 +25,6 @@ async function assertSchoolExists(id: number): Promise<boolean> {
   return rows.length > 0;
 }
 
-/* ── helpers ────────────────────────────────────────────────────── */
-
 function weeksBetween(a: string, b: string): number {
   const msPerWeek = 1000 * 60 * 60 * 24 * 7;
   return Math.round(Math.abs(new Date(b).getTime() - new Date(a).getTime()) / msPerWeek);
@@ -38,16 +35,20 @@ async function getRubricSetId(slug: string): Promise<number | null> {
   return rows[0]?.id ?? null;
 }
 
-async function getTeacherIds(scopedSchoolId: number | null): Promise<number[]> {
+async function getPersonIds(scopedSchoolId: number | null): Promise<string[]> {
+  const baseConditions = [
+    eq(people.isActive, true),
+    eq(people.includeInFeedbackTracker, true),
+  ];
   const rows = scopedSchoolId === null
-    ? await db.select({ id: teachers.id }).from(teachers).where(eq(teachers.isActive, true))
-    : await db.select({ id: teachers.id }).from(teachers).where(
-        and(eq(teachers.isActive, true), eq(teachers.schoolId, scopedSchoolId)),
-      );
-  return rows.map((r) => r.id);
+    ? await db.select({ employeeId: people.employeeId }).from(people).where(and(...baseConditions as [ReturnType<typeof eq>, ReturnType<typeof eq>]))
+    : await db.select({ employeeId: people.employeeId }).from(people).where(and(
+        ...baseConditions as [ReturnType<typeof eq>, ReturnType<typeof eq>],
+        eq(people.schoolId, scopedSchoolId),
+      ));
+  return rows.map((r) => r.employeeId);
 }
 
-/** Fetch a slug→label map for the given slugs from rubric_domains. */
 async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
   if (!slugs.length) return new Map();
   const rows = await db
@@ -61,12 +62,12 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
   return m;
 }
 
-async function buildDomainAverages(teacherIds: number[], rubricSetId?: number | null): Promise<DomainAvg[]> {
-  if (!teacherIds.length) return [];
+async function buildDomainAverages(personIds: string[], rubricSetId?: number | null): Promise<DomainAvg[]> {
+  if (!personIds.length) return [];
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.teacherId, teacherIds);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.observedEmployeeId, personIds);
 
   const rows = await db
     .select({
@@ -95,80 +96,68 @@ async function buildDomainAverages(teacherIds: number[], rubricSetId?: number | 
 }
 
 async function buildCalibrationFlags(
-  teacherIds: number[],
+  personIds: string[],
   scope: "school" | "network",
   rubricSetId?: number | null,
 ): Promise<CalibrationFlag[]> {
-  if (!teacherIds.length) return [];
+  if (!personIds.length) return [];
 
-  /* Pull ALL observations (school-coach + network walkthrough) for the scoped teachers */
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.teacherId, teacherIds);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.observedEmployeeId, personIds);
 
   const rows = await db
     .select({
-      teacherId:     observations.teacherId,
-      observerId:    observations.observerId,
-      observerName:  users.name,
-      isWalkthrough: observations.isWalkthrough,
-      domainSlug:    observationScores.domainSlug,
-      score:         observationScores.score,
+      observedEmployeeId: observations.observedEmployeeId,
+      observerEmployeeId: observations.observerEmployeeId,
+      observerFirst:      people.firstName,
+      observerLast:       people.lastName,
+      isWalkthrough:      observations.isWalkthrough,
+      domainSlug:         observationScores.domainSlug,
+      score:              observationScores.score,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .leftJoin(users, eq(users.id, observations.observerId))
+    .leftJoin(people, eq(people.employeeId, observations.observerEmployeeId))
     .where(whereClause);
 
   if (!rows.length) return [];
 
-  /*
-   * For each teacher+domain, collect school-coach scores and network scores separately.
-   * "School coach" = non-walkthrough; "Network" = walkthrough.
-   * We also track which school-coach observers contributed to each teacher+domain.
-   */
   type TeacherDomainKey = string;
   const tdMap = new Map<TeacherDomainKey, {
     domain: string;
     coachScores: number[];
     networkScores: number[];
-    /* observerId → scores they personally gave this teacher on this domain */
-    observerScores: Map<number, { name: string; scores: number[] }>;
+    observerScores: Map<string, { name: string; scores: number[] }>;
   }>();
 
   for (const r of rows) {
-    if (!r.teacherId) continue;
-    const key: TeacherDomainKey = `${r.teacherId}|${r.domainSlug}`;
+    if (!r.observedEmployeeId) continue;
+    const key: TeacherDomainKey = `${r.observedEmployeeId}|${r.domainSlug}`;
     const entry = tdMap.get(key) ?? {
       domain:         r.domainSlug,
-      coachScores:    [],
-      networkScores:  [],
-      observerScores: new Map(),
+      coachScores:    [] as number[],
+      networkScores:  [] as number[],
+      observerScores: new Map<string, { name: string; scores: number[] }>(),
     };
 
     if (r.isWalkthrough) {
       entry.networkScores.push(r.score);
     } else {
       entry.coachScores.push(r.score);
-      if (r.observerId) {
-        const obs = entry.observerScores.get(r.observerId) ?? {
-          name:   r.observerName ?? `Observer ${r.observerId}`,
+      if (r.observerEmployeeId) {
+        const obsEntry = entry.observerScores.get(r.observerEmployeeId) ?? {
+          name:   r.observerFirst ? `${r.observerFirst} ${r.observerLast ?? ""}`.trim() : `Observer ${r.observerEmployeeId}`,
           scores: [],
         };
-        obs.scores.push(r.score);
-        entry.observerScores.set(r.observerId, obs);
+        obsEntry.scores.push(r.score);
+        entry.observerScores.set(r.observerEmployeeId, obsEntry);
       }
     }
 
     tdMap.set(key, entry);
   }
 
-  /*
-   * For each teacher+domain that has BOTH school-coach and network scores,
-   * check if there's a discrepancy (≥ 0.5).  If so, attribute it to each
-   * school-coach observer who contributed scores for that teacher+domain.
-   * Accumulate per (observer, domain): their scores and the paired network scores.
-   */
   type ObsDomainKey = string;
   const flagMap = new Map<ObsDomainKey, {
     observerName: string;
@@ -183,7 +172,6 @@ async function buildCalibrationFlags(
     const networkAvg = entry.networkScores.reduce((s, v) => s + v, 0) / entry.networkScores.length;
     if (Math.abs(coachAvg - networkAvg) < 0.5) continue;
 
-    /* Credit this discrepancy to each school-coach who observed this teacher on this domain */
     for (const [observerId, obs] of entry.observerScores) {
       const key: ObsDomainKey = `${observerId}|${entry.domain}`;
       const flagEntry = flagMap.get(key) ?? {
@@ -193,7 +181,7 @@ async function buildCalibrationFlags(
         networkScores: [],
       };
       flagEntry.coachScores.push(...obs.scores);
-      flagEntry.networkScores.push(networkAvg); // network avg for this teacher+domain
+      flagEntry.networkScores.push(networkAvg);
       flagMap.set(key, flagEntry);
     }
   }
@@ -208,10 +196,10 @@ async function buildCalibrationFlags(
     const delta      = Math.abs(coachAvg - networkAvg);
     if (delta >= 0.5) {
       flags.push({
-        teacher:      entry.observerName, // the school-based coach
+        teacher:      entry.observerName,
         domain:       names.get(entry.domain) ?? entry.domain,
-        schoolScore:  coachAvg,           // coach's average
-        networkScore: networkAvg,         // network's average for same teachers
+        schoolScore:  coachAvg,
+        networkScore: networkAvg,
         delta,
       });
     }
@@ -219,27 +207,27 @@ async function buildCalibrationFlags(
   return flags.sort((a, b) => b.delta - a.delta);
 }
 
-async function buildPlateauAlerts(teacherIds: number[], rubricSetId?: number | null): Promise<PlateauAlert[]> {
-  if (!teacherIds.length) return [];
+async function buildPlateauAlerts(personIds: string[], rubricSetId?: number | null): Promise<PlateauAlert[]> {
+  if (!personIds.length) return [];
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.teacherId, teacherIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.teacherId, teacherIds);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.observedEmployeeId, personIds);
 
   const rows = await db
     .select({
-      teacherId:    observations.teacherId,
-      teacherFirst: teachers.firstName,
-      teacherLast:  teachers.lastName,
-      subject:      teachers.subject,
-      gradeLevel:   teachers.gradeLevel,
-      domainSlug:   observationScores.domainSlug,
-      score:        observationScores.score,
-      obsDate:      observations.date,
+      observedEmployeeId: observations.observedEmployeeId,
+      personFirst:        people.firstName,
+      personLast:         people.lastName,
+      department:         people.department,
+      gradeLevel:         people.gradeLevel,
+      domainSlug:         observationScores.domainSlug,
+      score:              observationScores.score,
+      obsDate:            observations.date,
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .innerJoin(teachers, eq(teachers.id, observations.teacherId))
+    .innerJoin(people, eq(people.employeeId, observations.observedEmployeeId))
     .where(whereClause)
     .orderBy(observations.date);
 
@@ -247,16 +235,17 @@ async function buildPlateauAlerts(teacherIds: number[], rubricSetId?: number | n
   type ScorePoint = { date: string; score: number };
   const seriesMap = new Map<
     SeriesKey,
-    { teacherName: string; subject: string; gradeLevel: string[]; domain: string; points: ScorePoint[] }
+    { teacherName: string; subject: string | null; gradeLevel: string[] | null; domain: string; points: ScorePoint[] }
   >();
 
   for (const r of rows) {
-    const key: SeriesKey = `${r.teacherId}|${r.domainSlug}`;
+    if (!r.observedEmployeeId) continue;
+    const key: SeriesKey = `${r.observedEmployeeId}|${r.domainSlug}`;
     if (!seriesMap.has(key)) {
       seriesMap.set(key, {
-        teacherName: `${r.teacherFirst} ${r.teacherLast}`.trim(),
-        subject:     r.subject,
-        gradeLevel:  r.gradeLevel as string[],
+        teacherName: `${r.personFirst} ${r.personLast ?? ""}`.trim(),
+        subject:     r.department ?? null,
+        gradeLevel:  r.gradeLevel as string[] | null,
         domain:      r.domainSlug,
         points:      [],
       });
@@ -293,14 +282,13 @@ async function buildPlateauAlerts(teacherIds: number[], rubricSetId?: number | n
     }
 
     if (bestStreak < 3) continue;
-
     const weeks = weeksBetween(bestStart.date, bestEnd.date);
     if (weeks < 4) continue;
 
     alerts.push({
       teacherName: entry.teacherName,
-      subject:     entry.subject,
-      gradeLevel:  entry.gradeLevel,
+      subject:     entry.subject ?? "",
+      gradeLevel:  entry.gradeLevel ?? [],
       domain:      names.get(entry.domain) ?? entry.domain,
       score:       bestEnd.score,
       obsCount:    bestStreak,
@@ -320,40 +308,39 @@ router.post("/chat", async (req, res) => {
     const { message, schoolId: reqSchoolId } = req.body as { message?: string; schoolId?: number | null };
 
     if (!message?.trim()) {
-      res.status(400).json({ error: "message is required" });
-      return;
+      res.status(400).json({ error: "message is required" }); return;
     }
 
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
-    const teacherIds = await getTeacherIds(scopedSchoolId);
+    const personIds = await getPersonIds(scopedSchoolId);
 
-    const rescoreRows = teacherIds.length
-      ? scopedSchoolId !== null
-        ? await db.select({ id: teachers.id }).from(teachers).where(
-            and(eq(teachers.needsRescore, true), eq(teachers.schoolId, scopedSchoolId)),
-          )
-        : await db.select({ id: teachers.id }).from(teachers).where(eq(teachers.needsRescore, true))
+    const rescoreRows = personIds.length
+      ? await db.select({ employeeId: people.employeeId }).from(people).where(
+          scopedSchoolId !== null
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+        )
       : [];
 
     const [domainAverages, calibrationFlags, plateauAlerts] = await Promise.all([
-      buildDomainAverages(teacherIds),
-      buildCalibrationFlags(teacherIds, scope),
-      buildPlateauAlerts(teacherIds),
+      buildDomainAverages(personIds),
+      buildCalibrationFlags(personIds, scope),
+      buildPlateauAlerts(personIds),
     ]);
 
-    const obsCountResult = teacherIds.length
+    const obsCountResult = personIds.length
       ? await db
           .select({ count: sql<number>`count(*)::int` })
           .from(observations)
-          .where(inArray(observations.teacherId, teacherIds))
+          .where(inArray(observations.observedEmployeeId, personIds))
       : [{ count: 0 }];
 
     const context: AIContext = {
       scope,
       domainAverages,
-      totalTeachers:     teacherIds.length,
+      totalTeachers:     personIds.length,
       totalObservations: obsCountResult[0]?.count ?? 0,
       rescoreQueueCount: rescoreRows.length,
       calibrationFlags,
@@ -364,8 +351,7 @@ router.post("/chat", async (req, res) => {
     res.json({ reply });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
-      res.status(403).json({ error: err.message });
-      return;
+      res.status(403).json({ error: err.message }); return;
     }
     console.error("POST /ai/chat error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -378,31 +364,26 @@ router.get("/insights", async (req, res) => {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
-      res.status(400).json({ error: "Invalid schoolId" });
-      return;
+      res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" });
-      return;
+      res.status(404).json({ error: "School not found" }); return;
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(scopedSchoolId);
-    const domainAverages = await buildDomainAverages(teacherIds, rubricSetId);
+    const personIds = await getPersonIds(scopedSchoolId);
+    const domainAverages = await buildDomainAverages(personIds, rubricSetId);
 
     if (!domainAverages.length) {
-      res.json({ topStrength: null, topGrowth: null, trendingSteps: [] });
-      return;
+      res.json({ topStrength: null, topGrowth: null, trendingSteps: [] }); return;
     }
 
     const sorted = [...domainAverages].sort((a, b) => b.avg - a.avg);
     const topStrength = sorted[0]!;
     const topGrowth   = sorted[sorted.length - 1]!;
 
-    /* trendingSteps: bottom-quartile domains ranked by observation count
-       (most observed low-scoring domains = highest coaching focus need) */
     const lowThreshold = 0.7;
     const belowThreshold = sorted
       .filter((d) => d.avg < lowThreshold)
@@ -418,22 +399,13 @@ router.get("/insights", async (req, res) => {
     }));
 
     res.json({
-      topStrength: {
-        domain: topStrength.domainName,
-        avg:    topStrength.avg,
-        count:  topStrength.count,
-      },
-      topGrowth: {
-        domain: topGrowth.domainName,
-        avg:    topGrowth.avg,
-        count:  topGrowth.count,
-      },
+      topStrength: { domain: topStrength.domainName, avg: topStrength.avg, count: topStrength.count },
+      topGrowth:   { domain: topGrowth.domainName,   avg: topGrowth.avg,   count: topGrowth.count },
       trendingSteps,
     });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
-      res.status(403).json({ error: err.message });
-      return;
+      res.status(403).json({ error: err.message }); return;
     }
     console.error("GET /ai/insights error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -446,25 +418,22 @@ router.get("/calibration-flags", async (req, res) => {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
-      res.status(400).json({ error: "Invalid schoolId" });
-      return;
+      res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" });
-      return;
+      res.status(404).json({ error: "School not found" }); return;
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(scopedSchoolId);
-    const flags = await buildCalibrationFlags(teacherIds, scope, rubricSetId);
+    const personIds = await getPersonIds(scopedSchoolId);
+    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId);
     res.json(flags);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
-      res.status(403).json({ error: err.message });
-      return;
+      res.status(403).json({ error: err.message }); return;
     }
     console.error("GET /ai/calibration-flags error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -477,24 +446,21 @@ router.get("/plateau-alerts", async (req, res) => {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
-      res.status(400).json({ error: "Invalid schoolId" });
-      return;
+      res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" });
-      return;
+      res.status(404).json({ error: "School not found" }); return;
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
-    const teacherIds = await getTeacherIds(scopedSchoolId);
-    const alerts = await buildPlateauAlerts(teacherIds, rubricSetId);
+    const personIds = await getPersonIds(scopedSchoolId);
+    const alerts = await buildPlateauAlerts(personIds, rubricSetId);
     res.json(alerts);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
-      res.status(403).json({ error: err.message });
-      return;
+      res.status(403).json({ error: err.message }); return;
     }
     console.error("GET /ai/plateau-alerts error:", err);
     res.status(500).json({ error: "Internal server error" });

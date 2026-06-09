@@ -54,13 +54,14 @@ export interface RubricCategory {
 }
 
 export interface Teacher {
-  id: number;
+  id: string;
   name: string;
-  subject: string;
+  department: string | null;
   gradeLevel: string[];
   isActive: boolean;
   schoolId: number | null;
   schoolName?: string | null;
+  includeInFeedbackTracker: boolean;
 }
 
 export type Score = 0 | 0.5 | 1;

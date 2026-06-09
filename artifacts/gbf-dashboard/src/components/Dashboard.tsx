@@ -90,7 +90,7 @@ function buildGroups(filteredTeachers: Teacher[], viewBy: ViewBy): GroupRow[] {
   const map = new Map<string, Teacher[]>();
   for (const t of filteredTeachers) {
     if (viewBy === "subject") {
-      const k = t.subject;
+      const k = t.subject ?? "";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(t);
     } else {
@@ -281,7 +281,7 @@ export default function Dashboard() {
 
   /* ── Dynamic filter options (derived from actual teachers) ── */
   const availableSubjects = useMemo(
-    () => [...new Set(teachers.map((t) => t.subject))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(teachers.map((t) => t.subject).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b)),
     [teachers],
   );
 
@@ -354,7 +354,7 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     return teachers
       .filter((t) => {
-        if (subject.length  && !subject.includes(t.subject)) return false;
+        if (subject.length  && !subject.includes(t.subject ?? "")) return false;
         if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
         return true;
       })

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, teachers, users, rubricSets, schools } from "@workspace/db/schema";
+import { observations, observationScores, people, rubricSets, schools } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -15,7 +15,7 @@ router.get("/my-latest-rubric", async (req, res) => {
     .select({ slug: rubricSets.slug })
     .from(observations)
     .innerJoin(rubricSets, eq(rubricSets.id, observations.rubricSetId))
-    .where(and(eq(observations.observerId, currentUser.id), ne(observations.status, "draft")))
+    .where(and(eq(observations.observerEmployeeId, currentUser.employeeId), ne(observations.status, "draft")))
     .orderBy(desc(observations.date))
     .limit(1);
 
@@ -31,26 +31,30 @@ router.get("/drafts", async (req, res) => {
 
     const drafts = await db
       .select({
-        id:            observations.id,
-        teacherId:     observations.teacherId,
-        teacherFirst:  teachers.firstName,
-        teacherLast:   teachers.lastName,
-        rubricSetId:   observations.rubricSetId,
-        rubricSetSlug: rubricSets.slug,
-        rubricSetName: rubricSets.name,
-        date:          observations.date,
-        time:          observations.time,
-        course:        observations.course,
-        isWalkthrough: observations.isWalkthrough,
-        strengths:     observations.strengths,
-        growthAreas:   observations.growthAreas,
-        observer:      observations.observer,
-        status:        observations.status,
+        id:                  observations.id,
+        observedEmployeeId:  observations.observedEmployeeId,
+        personFirst:         people.firstName,
+        personLast:          people.lastName,
+        rubricSetId:         observations.rubricSetId,
+        rubricSetSlug:       rubricSets.slug,
+        rubricSetName:       rubricSets.name,
+        date:                observations.date,
+        time:                observations.time,
+        course:              observations.course,
+        isWalkthrough:       observations.isWalkthrough,
+        strengths:           observations.strengths,
+        growthAreas:         observations.growthAreas,
+        observer:            observations.observer,
+        status:              observations.status,
       })
       .from(observations)
-      .innerJoin(teachers,   eq(teachers.id,   observations.teacherId))
-      .innerJoin(rubricSets, eq(rubricSets.id,  observations.rubricSetId))
-      .where(and(eq(observations.observerId, currentUser.id), eq(observations.status, "draft"), eq(observations.target, "TEACHER")))
+      .leftJoin(people,     eq(people.employeeId, observations.observedEmployeeId))
+      .innerJoin(rubricSets, eq(rubricSets.id,    observations.rubricSetId))
+      .where(and(
+        eq(observations.observerEmployeeId, currentUser.employeeId),
+        eq(observations.status, "draft"),
+        eq(observations.target, "TEACHER"),
+      ))
       .orderBy(desc(observations.date));
 
     if (drafts.length === 0) {
@@ -71,9 +75,11 @@ router.get("/drafts", async (req, res) => {
     }
 
     res.json(drafts.map((d) => ({
-      id:            String(d.id),
-      teacherId:     d.teacherId ? String(d.teacherId) : undefined,
-      teacherName:   [d.teacherFirst, d.teacherLast].filter(Boolean).join(" ") || undefined,
+      id:                String(d.id),
+      observedEmployeeId: d.observedEmployeeId ?? undefined,
+      teacherName:       d.personFirst
+        ? [d.personFirst, d.personLast].filter(Boolean).join(" ") || undefined
+        : undefined,
       rubricSetId:   d.rubricSetId,
       rubricSetSlug: d.rubricSetSlug,
       rubricSetName: d.rubricSetName,
@@ -94,26 +100,29 @@ router.get("/drafts", async (req, res) => {
 });
 
 /* ── POST /api/observations ─────────────────────────────────────────
-   Body: { teacherId, rubricSetId, date, strengths?, growthAreas?,
+   Body: { observedEmployeeId, rubricSetId, date, strengths?, growthAreas?,
            observer?, scores, isWalkthrough?, status?, target?,
            schoolId? }
-   For target=SCHOOL: schoolId required, teacherId ignored,
+   For target=SCHOOL: schoolId required, observedEmployeeId ignored,
    caller must be NETWORK_ADMIN.
-   observerId is ALWAYS derived from the authenticated session.        */
+   observerEmployeeId is ALWAYS derived from the authenticated session. */
 router.post("/", async (req, res) => {
   try {
     const {
-      teacherId, rubricSetId, quarterId, date, time, course, strengths, growthAreas,
+      observedEmployeeId, teacherId,
+      rubricSetId, quarterId, date, time, course, strengths, growthAreas,
       observer, scores, isWalkthrough, status, target, schoolId,
     } = req.body;
 
+    /* Legacy support: teacherId (old field) falls back to observedEmployeeId */
+    const resolvedObservedId: string | undefined = observedEmployeeId ?? teacherId;
     const resolvedRubricSetId = rubricSetId ?? quarterId;
     const resolvedStatus: string = status === "draft" ? "draft" : "published";
     const resolvedTarget: "TEACHER" | "SCHOOL" = target === "SCHOOL" ? "SCHOOL" : "TEACHER";
 
     const creator = req.user as Express.User;
 
-    /* ── SCHOOL target: different validation + permission ───────── */
+    /* ── SCHOOL target ─────────────────────────────────────────────── */
     if (resolvedTarget === "SCHOOL") {
       if (creator.role !== "NETWORK_ADMIN" && creator.role !== "NETWORK_LEADER") {
         res.status(403).json({ error: "Only Network Admins and Network Leaders may create school-wide observations" });
@@ -128,7 +137,6 @@ router.post("/", async (req, res) => {
         return;
       }
 
-      /* Verify school exists */
       const school = await db.query.schools.findFirst({ where: eq(schools.id, Number(schoolId)) });
       if (!school) {
         res.status(404).json({ error: "School not found" });
@@ -136,19 +144,19 @@ router.post("/", async (req, res) => {
       }
 
       const [obs] = await db.insert(observations).values({
-        teacherId:     null,
-        schoolId:      Number(schoolId),
-        rubricSetId:   Number(resolvedRubricSetId),
+        observedEmployeeId:  null,
+        schoolId:            Number(schoolId),
+        rubricSetId:         Number(resolvedRubricSetId),
         date,
-        time:          time || null,
-        course:        course || null,
-        strengths:     strengths || null,
-        growthAreas:   growthAreas || null,
-        observer:      observer || creator.name,
-        observerId:    creator.id,
-        isWalkthrough: false,
-        status:        resolvedStatus,
-        target:        "SCHOOL",
+        time:                time || null,
+        course:              course || null,
+        strengths:           strengths || null,
+        growthAreas:         growthAreas || null,
+        observer:            observer || creator.name,
+        observerEmployeeId:  creator.employeeId,
+        isWalkthrough:       false,
+        status:              resolvedStatus,
+        target:              "SCHOOL",
       }).returning();
 
       const scoreRows = scores
@@ -164,22 +172,22 @@ router.post("/", async (req, res) => {
         .where(eq(observationScores.observationId, obs.id));
 
       res.status(201).json({
-        id:            String(obs.id),
-        schoolId:      obs.schoolId,
-        target:        obs.target,
-        date:          obs.date,
-        strengths:     obs.strengths ?? undefined,
-        growthAreas:   obs.growthAreas ?? undefined,
-        observer:      obs.observer,
-        status:        obs.status,
-        scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+        id:          String(obs.id),
+        schoolId:    obs.schoolId,
+        target:      obs.target,
+        date:        obs.date,
+        strengths:   obs.strengths ?? undefined,
+        growthAreas: obs.growthAreas ?? undefined,
+        observer:    obs.observer,
+        status:      obs.status,
+        scores:      Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
       });
       return;
     }
 
-    /* ── TEACHER target: existing logic ─────────────────────────── */
-    if (!teacherId || !resolvedRubricSetId || !date) {
-      res.status(400).json({ error: "teacherId, rubricSetId, and date are required" });
+    /* ── TEACHER target ──────────────────────────────────────────── */
+    if (!resolvedObservedId || !resolvedRubricSetId || !date) {
+      res.status(400).json({ error: "observedEmployeeId, rubricSetId, and date are required" });
       return;
     }
     if (resolvedStatus === "published" && !scores) {
@@ -187,32 +195,30 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    /* ── School-scope enforcement on create ─────────────────────────
-       COACH and SCHOOL_LEADER may only observe teachers at their
-       own school. NETWORK_LEADER / NETWORK_ADMIN have no restriction. */
+    /* ── School-scope enforcement on create ─────────────────────── */
     const isSchoolScoped = creator.role === "COACH" || creator.role === "SCHOOL_LEADER";
     if (isSchoolScoped) {
-      const target = await db.query.teachers.findFirst({ where: eq(teachers.id, Number(teacherId)) });
+      const target = await db.query.people.findFirst({ where: eq(people.employeeId, resolvedObservedId) });
       if (!target || target.schoolId !== creator.schoolId) {
-        res.status(403).json({ error: "Cannot create an observation for a teacher outside your school" });
+        res.status(403).json({ error: "Cannot create an observation for a person outside your school" });
         return;
       }
     }
 
     const [obs] = await db.insert(observations).values({
-      teacherId:     Number(teacherId),
-      schoolId:      null,
-      rubricSetId:   Number(resolvedRubricSetId),
+      observedEmployeeId:  resolvedObservedId,
+      schoolId:            null,
+      rubricSetId:         Number(resolvedRubricSetId),
       date,
-      time:          time || null,
-      course:        course || null,
-      strengths:     strengths || null,
-      growthAreas:   growthAreas || null,
-      observer:      observer || creator.name,
-      observerId:    creator.id,
-      isWalkthrough: !!isWalkthrough,
-      status:        resolvedStatus,
-      target:        "TEACHER",
+      time:                time || null,
+      course:              course || null,
+      strengths:           strengths || null,
+      growthAreas:         growthAreas || null,
+      observer:            observer || creator.name,
+      observerEmployeeId:  creator.employeeId,
+      isWalkthrough:       !!isWalkthrough,
+      status:              resolvedStatus,
+      target:              "TEACHER",
     }).returning();
 
     const scoreRows = scores
@@ -227,10 +233,8 @@ router.post("/", async (req, res) => {
       await db.insert(observationScores).values(scoreRows);
     }
 
-    /* ── Walkthrough / Rescore queue logic ───────────────────────────
-       Only runs for PUBLISHED observations.
-       Applies when isWalkthrough === true.                            */
-    if (obs.isWalkthrough && obs.status === "published" && obs.teacherId) {
+    /* ── Walkthrough / Rescore queue logic ───────────────────────── */
+    if (obs.isWalkthrough && obs.status === "published" && obs.observedEmployeeId) {
       const canTriggerRescore =
         creator.role === "NETWORK_ADMIN" ||
         creator.role === "NETWORK_LEADER" ||
@@ -238,18 +242,16 @@ router.post("/", async (req, res) => {
 
       if (canTriggerRescore && scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
-
         if (avg < 0.7) {
           const due = new Date(date);
           due.setDate(due.getDate() + 14);
-          const dueDateStr = due.toISOString().split("T")[0];
-          await db.update(teachers)
-            .set({ needsRescore: true, rescoreDueDate: dueDateStr })
-            .where(eq(teachers.id, obs.teacherId));
+          await db.update(people)
+            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0] })
+            .where(eq(people.employeeId, obs.observedEmployeeId));
         } else {
-          await db.update(teachers)
+          await db.update(people)
             .set({ needsRescore: false, rescoreDueDate: null })
-            .where(eq(teachers.id, obs.teacherId));
+            .where(eq(people.employeeId, obs.observedEmployeeId));
         }
       }
     }
@@ -276,11 +278,8 @@ router.post("/", async (req, res) => {
 });
 
 /* ── PUT /api/observations/:id ──────────────────────────────────────
-   For PUBLISHED observations: requires SCHOOL_LEADER, NETWORK_LEADER,
-   or NETWORK_ADMIN.
-   For DRAFT observations: the original creator (any role) may edit or
-   publish their own draft.
-   Stores editedById + editedAt for the audit trail on published edits. */
+   Draft creators (any role) may edit/publish their own draft.
+   Published observations require SCHOOL_LEADER+.                    */
 router.put("/:id", async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
@@ -292,11 +291,8 @@ router.put("/:id", async (req, res) => {
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const isDraftEdit = existing.status === "draft" && existing.observerId === currentUser.id;
+    const isDraftEdit = existing.status === "draft" && existing.observerEmployeeId === currentUser.employeeId;
 
-    /* ── Role gate ──────────────────────────────────────────────────
-       Draft creators (any role) may edit/publish their own drafts.
-       Published observations require SCHOOL_LEADER+.               */
     if (!isDraftEdit) {
       const isSchoolLeader   = currentUser.role === "SCHOOL_LEADER";
       const isNetworkLeader  = currentUser.role === "NETWORK_LEADER";
@@ -307,11 +303,10 @@ router.put("/:id", async (req, res) => {
         return;
       }
 
-      /* ── School-scope for School Leaders (teacher observations only) */
-      if (currentUser.role === "SCHOOL_LEADER" && existing.teacherId) {
-        const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
-        if (!teacher || teacher.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot edit observations for teachers outside your school" });
+      if (currentUser.role === "SCHOOL_LEADER" && existing.observedEmployeeId) {
+        const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
+        if (!person || person.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot edit observations for people outside your school" });
           return;
         }
       }
@@ -320,9 +315,8 @@ router.put("/:id", async (req, res) => {
     const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
     const isPublishing = existing.status === "draft" && resolvedStatus === "published";
 
-    /* Stamp editedBy only for edits to already-published observations */
     const auditFields = !isDraftEdit
-      ? { editedById: currentUser.id, editedAt: new Date() }
+      ? { editedByEmployeeId: currentUser.employeeId, editedAt: new Date() }
       : {};
 
     const [updated] = await db.update(observations)
@@ -346,8 +340,8 @@ router.put("/:id", async (req, res) => {
       if (scoreRows.length > 0) await db.insert(observationScores).values(scoreRows);
     }
 
-    /* ── Walkthrough / Rescore queue logic on publish (teacher obs only) */
-    if (isPublishing && updated.isWalkthrough && updated.teacherId) {
+    /* ── Rescore on publish ──────────────────────────────────────── */
+    if (isPublishing && updated.isWalkthrough && updated.observedEmployeeId) {
       const canTriggerRescore =
         currentUser.role === "NETWORK_ADMIN" ||
         currentUser.role === "NETWORK_LEADER" ||
@@ -361,13 +355,13 @@ router.put("/:id", async (req, res) => {
           if (avg < 0.7) {
             const due = new Date(updated.date);
             due.setDate(due.getDate() + 14);
-            await db.update(teachers)
+            await db.update(people)
               .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0] })
-              .where(eq(teachers.id, updated.teacherId));
+              .where(eq(people.employeeId, updated.observedEmployeeId));
           } else {
-            await db.update(teachers)
+            await db.update(people)
               .set({ needsRescore: false, rescoreDueDate: null })
-              .where(eq(teachers.id, updated.teacherId));
+              .where(eq(people.employeeId, updated.observedEmployeeId));
           }
         }
       }
@@ -376,11 +370,10 @@ router.put("/:id", async (req, res) => {
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obsId));
 
-    /* ── Look up editor's name for the response ─────────────────── */
     let editedByName: string | undefined;
-    if (updated.editedById) {
-      const editor = await db.query.users.findFirst({ where: eq(users.id, updated.editedById) });
-      editedByName = editor?.name ?? undefined;
+    if (updated.editedByEmployeeId) {
+      const editor = await db.query.people.findFirst({ where: eq(people.employeeId, updated.editedByEmployeeId) });
+      editedByName = editor ? `${editor.firstName} ${editor.lastName}`.trim() : undefined;
     }
 
     res.json({
@@ -404,11 +397,8 @@ router.put("/:id", async (req, res) => {
 });
 
 /* ── DELETE /api/observations/:id ───────────────────────────────────
-   Permitted roles: SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
    Draft creators (any role) may delete their own drafts.
-   School Leaders are restricted to teachers in their own school.
-   observation_scores are removed automatically by the FK ON DELETE
-   CASCADE defined in the schema.                                     */
+   School Leaders: restricted to their own school's people.           */
 router.delete("/:id", async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
@@ -424,7 +414,7 @@ router.delete("/:id", async (req, res) => {
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const isDraftOwner = existing.status === "draft" && existing.observerId === currentUser.id;
+    const isDraftOwner = existing.status === "draft" && existing.observerEmployeeId === currentUser.employeeId;
 
     if (!isDraftOwner) {
       const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
@@ -436,18 +426,16 @@ router.delete("/:id", async (req, res) => {
         return;
       }
 
-      /* School Leaders scoped to their own school (teacher obs only) */
-      if (currentUser.role === "SCHOOL_LEADER" && existing.teacherId) {
-        const teacher = await db.query.teachers.findFirst({ where: eq(teachers.id, existing.teacherId) });
-        if (!teacher || teacher.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot delete observations for teachers outside your school" });
+      if (currentUser.role === "SCHOOL_LEADER" && existing.observedEmployeeId) {
+        const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
+        if (!person || person.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot delete observations for people outside your school" });
           return;
         }
       }
     }
 
     await db.delete(observations).where(eq(observations.id, obsId));
-
     res.json({ ok: true, id: String(obsId) });
   } catch (err) {
     console.error("DELETE /observations/:id error:", err);

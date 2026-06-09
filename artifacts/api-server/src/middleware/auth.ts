@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 
-export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
+export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";
 
 /* ── requireAuth ─────────────────────────────────────────────────
    Rejects unauthenticated requests with 401.                       */

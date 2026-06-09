@@ -52,8 +52,10 @@ export default function ObservationPage() {
   const { data: teachers, isLoading: loadingTeachers, isError: errorTeachers } = useQuery<Teacher[]>({
     queryKey: ["teachers", effectiveSchoolId],
     queryFn: async () => {
-      const all = await apiFetch<Teacher[]>("/api/admin/teachers");
-      return all.filter((t) => t.isActive && (effectiveSchoolId == null || t.schoolId === effectiveSchoolId));
+      const params = new URLSearchParams({ includeInFeedbackTracker: "true" });
+      if (effectiveSchoolId != null) params.set("schoolId", String(effectiveSchoolId));
+      const all = await apiFetch<(Teacher & { employeeId: string })[]>(`/api/people?${params}`);
+      return all.filter((t) => t.isActive).map((t) => ({ ...t, id: t.employeeId }));
     },
     enabled: !!user,
   });
@@ -78,7 +80,7 @@ export default function ObservationPage() {
 
   useEffect(() => {
     if (teachers && teachers.length > 0 && !teacherId) {
-      setTeacherId(String(teachers[0].id));
+      setTeacherId(teachers[0].id);
     }
   }, [teachers]);
 
@@ -86,7 +88,7 @@ export default function ObservationPage() {
   const scoredCount = allDomains.filter((d) => scores[d.slug] !== undefined).length;
 
   function resetForm() {
-    setTeacherId(teachers?.[0] ? String(teachers[0].id) : "");
+    setTeacherId(teachers?.[0]?.id ?? "");
     setDate(new Date().toISOString().split("T")[0]);
     setCourse("");
     setScores({});
@@ -105,7 +107,7 @@ export default function ObservationPage() {
       await apiFetch("/api/observations", {
         method: "POST",
         body: JSON.stringify({
-          teacherId: Number(teacherId),
+          observedEmployeeId: teacherId,
           rubricSetId: selectedRubric.id,
           date,
           course: course || null,
@@ -192,7 +194,7 @@ export default function ObservationPage() {
                     <option value="" disabled>Select a teacher…</option>
                     {teachers.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name} ({t.subject}{t.gradeLevel?.length ? `, Gr. ${t.gradeLevel.join("/")}` : ""})
+                        {t.name} ({t.department ?? ""}{ t.department && t.gradeLevel?.length ? ", " : ""}{t.gradeLevel?.length ? `Gr. ${t.gradeLevel.join("/")}` : ""})
                       </option>
                     ))}
                   </select>

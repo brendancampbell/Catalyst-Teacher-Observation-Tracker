@@ -21,7 +21,7 @@ export interface Teacher {
   lastName: string;
   employeeId?: string | null;
   email?: string | null;
-  subject: string;
+  subject?: string | null;
   gradeLevel: string[];
   observations: Observation[];
   needsRescore?: boolean;

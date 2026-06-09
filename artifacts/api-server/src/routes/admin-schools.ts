@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { schools, teachers } from "@workspace/db/schema";
+import { schools, people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 
@@ -83,9 +83,9 @@ router.patch("/:id", requireNetworkAdmin, async (req, res) => {
 router.delete("/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const teacherCount = (await db.select().from(teachers).where(eq(teachers.schoolId, id))).length;
+    const teacherCount = (await db.select().from(people).where(eq(people.schoolId, id))).length;
     if (teacherCount > 0) {
-      res.status(409).json({ error: `Cannot delete: ${teacherCount} teacher(s) are assigned to this school.` });
+      res.status(409).json({ error: `Cannot delete: ${teacherCount} person/people are assigned to this school.` });
       return;
     }
     await db.delete(schools).where(eq(schools.id, id));

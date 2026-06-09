@@ -269,9 +269,16 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     >
                       {teacher.name}
                     </h1>
-                    <p className="text-blue-200 text-sm font-medium">
-                      {teacher.subject} · Grade{teacher.gradeLevel.length !== 1 ? "s" : ""} {teacher.gradeLevel.join(", ")}
-                    </p>
+                    {(teacher.subject || teacher.gradeLevel.length > 0) && (
+                      <p className="text-blue-200 text-sm font-medium">
+                        {[
+                          teacher.subject || null,
+                          teacher.gradeLevel.length > 0
+                            ? `Grade${teacher.gradeLevel.length !== 1 ? "s" : ""} ${teacher.gradeLevel.join(", ")}`
+                            : null,
+                        ].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                     {teacher.email && (
                       <a
                         href={`mailto:${teacher.email}`}

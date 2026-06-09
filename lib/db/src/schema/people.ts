@@ -1,0 +1,63 @@
+import { pgTable, text, pgEnum, integer, boolean, date } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { schools } from "./schools";
+
+export const personRoleEnum = pgEnum("person_role", [
+  "COACH",
+  "SCHOOL_LEADER",
+  "NETWORK_LEADER",
+  "NETWORK_ADMIN",
+  "NO_ACCESS",
+]);
+
+export const departmentEnum = pgEnum("department_enum", [
+  "English",
+  "Math",
+  "Science",
+  "History",
+  "Spanish",
+  "Physical Education",
+  "Comp Sci/Engineering",
+  "Visual Arts",
+  "College",
+  "Other",
+]);
+
+export const DEPARTMENT_VALUES = [
+  "English",
+  "Math",
+  "Science",
+  "History",
+  "Spanish",
+  "Physical Education",
+  "Comp Sci/Engineering",
+  "Visual Arts",
+  "College",
+  "Other",
+] as const;
+
+export type Department = typeof DEPARTMENT_VALUES[number];
+
+export const people = pgTable("people", {
+  employeeId:                  text("employee_id").primaryKey(),
+  firstName:                   text("first_name").notNull(),
+  lastName:                    text("last_name").notNull(),
+  email:                       text("email").notNull().unique(),
+  googleId:                    text("google_id").unique(),
+  role:                        personRoleEnum("role").notNull().default("NO_ACCESS"),
+  isActive:                    boolean("is_active").notNull().default(true),
+  includeInFeedbackTracker:    boolean("include_in_feedback_tracker").notNull().default(false),
+  schoolId:                    integer("school_id").references(() => schools.id, { onDelete: "set null" }),
+  primaryInstructionalLeaderId: text("primary_instructional_leader_id"),
+  department:                  departmentEnum("department"),
+  gradeLevel:                  text("grade_level").array(),
+  needsRescore:                boolean("needs_rescore").notNull().default(false),
+  rescoreDueDate:              date("rescore_due_date"),
+});
+
+export const insertPersonSchema = createInsertSchema(people).omit({ employeeId: true });
+export type InsertPerson = z.infer<typeof insertPersonSchema>;
+export type Person = typeof people.$inferSelect;
+
+export type PersonRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";

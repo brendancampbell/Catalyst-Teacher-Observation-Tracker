@@ -1,28 +1,27 @@
 import { pgTable, serial, text, integer, date, boolean, real, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { teachers } from "./teachers";
+import { people } from "./people";
 import { rubricSets, evaluationTargetEnum } from "./rubric";
-import { users } from "./users";
 import { schools } from "./schools";
 
 export const observations = pgTable("observations", {
-  id:             serial("id").primaryKey(),
-  teacherId:      integer("teacher_id").references(() => teachers.id, { onDelete: "cascade" }),
-  schoolId:       integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
-  rubricSetId:    integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
-  observerId:     integer("observer_id").references(() => users.id, { onDelete: "set null" }),
-  date:           date("date").notNull(),
-  course:         text("course"),
-  strengths:      text("strengths"),
-  growthAreas:    text("growth_areas"),
-  observer:       text("observer").notNull().default("Principal Rivera"),
-  time:           text("time"),
-  isWalkthrough:  boolean("is_walkthrough").notNull().default(false),
-  editedById:     integer("edited_by_id").references(() => users.id, { onDelete: "set null" }),
-  editedAt:       timestamp("edited_at", { withTimezone: true }),
-  status:         text("status").notNull().default("published"),
-  target:         evaluationTargetEnum("target").notNull().default("TEACHER"),
+  id:                  serial("id").primaryKey(),
+  observedEmployeeId:  text("observed_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
+  schoolId:            integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
+  observerEmployeeId:  text("observer_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
+  date:                date("date").notNull(),
+  course:              text("course"),
+  strengths:           text("strengths"),
+  growthAreas:         text("growth_areas"),
+  observer:            text("observer").notNull().default("Principal Rivera"),
+  time:                text("time"),
+  isWalkthrough:       boolean("is_walkthrough").notNull().default(false),
+  editedByEmployeeId:  text("edited_by_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
+  editedAt:            timestamp("edited_at", { withTimezone: true }),
+  status:              text("status").notNull().default("published"),
+  target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
 });
 
 export const observationScores = pgTable("observation_scores", {

@@ -17,41 +17,38 @@ import {
   createDomain,
   updateDomain,
   deleteDomain,
-  fetchAdminTeachers,
-  createAdminTeacher,
-  updateAdminTeacher,
-  toggleTeacherActive,
-  toggleUserActive,
+  fetchPeople,
+  createPerson,
+  updatePerson,
+  togglePersonActive,
+  startImpersonation,
+  bulkImportPeople,
   fetchAdminSchools,
   createAdminSchool,
   updateAdminSchool,
   deleteAdminSchool,
-  fetchUsers,
-  createUser,
-  updateUser,
-  startImpersonation,
-  bulkImportUsers,
-  bulkImportTeachers,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
   type RubricCategoryRow,
   type RubricDomainRow,
   type RubricSetRow,
-  type AdminTeacher,
+  type PersonRow,
+  type PersonRole,
   type AdminSchool,
-  type UserRow,
-  type UserRole,
-  type BulkImportRowResult,
-  type BulkImportUserPayload,
-  type BulkImportTeacherPayload,
-  type BulkImportTeacherRowResult,
+  type BulkImportPersonPayload,
+  type BulkImportPersonRowResult,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
+
+const DEPARTMENTS = [
+  "English", "Math", "Science", "History", "Spanish",
+  "Physical Education", "Comp Sci/Engineering", "Visual Arts", "College", "Other",
+] as const;
 
 /* ════════════════════════════════════════════════════════════════
    RUBRIC SETTINGS TAB
@@ -440,122 +437,168 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   TEACHER ROSTER TAB
+   PEOPLE MANAGEMENT TAB (unified people + bulk import)
    ════════════════════════════════════════════════════════════════ */
 
-function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: boolean; canBulkImport: boolean }) {
+const ALL_ROLES_MAP: Record<PersonRole, string> = {
+  COACH:          "Coach",
+  SCHOOL_LEADER:  "School Leader",
+  NETWORK_LEADER: "Network Leader",
+  NETWORK_ADMIN:  "Network Admin",
+  NO_ACCESS:      "No Access",
+};
+
+function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: boolean; canBulkImport: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "teachers"] as const;
-  const [rosterView, setRosterView] = useState<"list" | "bulk">("list");
+  const [view, setView] = useState<"list" | "bulk">("list");
+  const { refetch: refetchUser } = useUser();
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
 
-  const { data: teachers = [], isLoading } = useQuery<AdminTeacher[]>({
+  const { data: people = [], isLoading } = useQuery<PersonRow[]>({
     queryKey: qKey,
-    queryFn: fetchAdminTeachers,
+    queryFn: () => fetchPeople({ includeInactive: true }),
   });
 
   const { data: schools = [] } = useQuery<AdminSchool[]>({
     queryKey: ["admin", "schools"],
     queryFn: fetchAdminSchools,
-    enabled: isDistrictAdmin,
+    enabled: isNetworkAdmin,
   });
 
-  /* Add form */
-  const [adding, setAdding]               = useState(false);
-  const [newFirstName, setNewFirstName]   = useState("");
-  const [newLastName,  setNewLastName]    = useState("");
-  const [newEmployeeId, setNewEmployeeId] = useState("");
-  const [newEmail, setNewEmail]           = useState("");
-  const [newSubject, setNewSubject]       = useState("");
-  const [newGrades, setNewGrades]         = useState<string[]>([]);
-  const [newSchoolId, setNewSchoolId]     = useState<number | null>(null);
+  /* Add form state */
+  const [adding, setAdding]             = useState(false);
+  const [addFirstName, setAddFirstName] = useState("");
+  const [addLastName,  setAddLastName]  = useState("");
+  const [addEmpId,     setAddEmpId]     = useState("");
+  const [addEmail,     setAddEmail]     = useState("");
+  const [addRole,      setAddRole]      = useState<PersonRole>("COACH");
+  const [addSchoolId,  setAddSchoolId]  = useState<number | null>(null);
+  const [addDept,      setAddDept]      = useState("");
+  const [addGrades,    setAddGrades]    = useState<string[]>([]);
+  const [addObservable, setAddObservable] = useState(true);
+  const [addPilId,     setAddPilId]     = useState<string | null>(null);
 
-  /* Edit form */
-  const [editId, setEditId]                 = useState<number | null>(null);
-  const [editFirstName, setEditFirstName]   = useState("");
-  const [editLastName,  setEditLastName]    = useState("");
-  const [editEmployeeId, setEditEmployeeId] = useState("");
-  const [editEmail, setEditEmail]           = useState("");
-  const [editSubject, setEditSubject]       = useState("");
-  const [editGrades, setEditGrades]         = useState<string[]>([]);
-  const [editSchoolId, setEditSchoolId]     = useState<number | null>(null);
+  /* Edit form state */
+  const [editId,          setEditId]          = useState<string | null>(null);
+  const [editFirstName,   setEditFirstName]   = useState("");
+  const [editLastName,    setEditLastName]    = useState("");
+  const [editEmail,       setEditEmail]       = useState("");
+  const [editRole,        setEditRole]        = useState<PersonRole>("COACH");
+  const [editSchoolId,    setEditSchoolId]    = useState<number | null>(null);
+  const [editDept,        setEditDept]        = useState("");
+  const [editGrades,      setEditGrades]      = useState<string[]>([]);
+  const [editObservable,  setEditObservable]  = useState(false);
+  const [editPilId,       setEditPilId]       = useState<string | null>(null);
 
-  const [showInactive,   setShowInactive]   = useState(false);
-  const [teacherSearch,  setTeacherSearch]  = useState("");
-  const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
-  const [filterSchools,  setFilterSchools]  = useState<string[]>([]);
+  /* Filter state */
+  const [showInactive,    setShowInactive]    = useState(false);
+  const [search,          setSearch]          = useState("");
+  const [filterRoles,     setFilterRoles]     = useState<string[]>([]);
+  const [filterSchools,   setFilterSchools]   = useState<string[]>([]);
+  const [filterObservable, setFilterObservable] = useState(false);
+
+  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+  const selCls   = `${inputCls} cursor-pointer`;
+
+  const availableRoles: PersonRole[] = isNetworkAdmin
+    ? ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN", "NO_ACCESS"]
+    : ["COACH", "SCHOOL_LEADER", "NO_ACCESS"];
 
   const createMut = useMutation({
-    mutationFn: () => createAdminTeacher({
-      firstName:  newFirstName.trim(),
-      lastName:   newLastName.trim(),
-      employeeId: newEmployeeId.trim() || null,
-      email:      newEmail.trim(),
-      subject:    newSubject,
-      gradeLevel: newGrades,
-      schoolId:   newSchoolId,
+    mutationFn: () => createPerson({
+      employeeId:              addEmpId.trim() || undefined,
+      email:                   addEmail.trim(),
+      firstName:               addFirstName.trim(),
+      lastName:                addLastName.trim(),
+      role:                    addRole,
+      schoolId:                addSchoolId,
+      department:              addDept.trim() || null,
+      gradeLevel:              addGrades,
+      includeInFeedbackTracker: addObservable,
+      primaryInstructionalLeaderId: addPilId,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
       setAdding(false);
-      setNewFirstName(""); setNewLastName(""); setNewEmployeeId(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null);
+      setAddFirstName(""); setAddLastName(""); setAddEmpId(""); setAddEmail(""); setAddRole("COACH"); setAddSchoolId(null); setAddDept(""); setAddGrades([]); setAddObservable(true); setAddPilId(null);
     },
+    onError: (err: Error) => alert(err.message),
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminTeacher(editId!, {
-      firstName:  editFirstName.trim(),
-      lastName:   editLastName.trim(),
-      employeeId: editEmployeeId.trim() || null,
-      email:      editEmail.trim(),
-      subject:    editSubject,
-      gradeLevel: editGrades,
-      schoolId:   editSchoolId,
+    mutationFn: () => updatePerson(editId!, {
+      email:                   editEmail.trim(),
+      firstName:               editFirstName.trim(),
+      lastName:                editLastName.trim(),
+      role:                    editRole,
+      schoolId:                editSchoolId,
+      department:              editDept.trim() || null,
+      gradeLevel:              editGrades,
+      includeInFeedbackTracker: editObservable,
+      primaryInstructionalLeaderId: editPilId,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
+    onError: (err: Error) => alert(err.message),
   });
 
   const toggleMut = useMutation({
-    mutationFn: (id: number) => toggleTeacherActive(id),
+    mutationFn: (employeeId: string) => togglePersonActive(employeeId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+    onError: (err: Error) => alert(err.message),
   });
 
-  function startEdit(t: AdminTeacher) {
-    setEditId(t.id);
-    setEditFirstName(t.firstName);
-    setEditLastName(t.lastName);
-    setEditEmployeeId(t.employeeId ?? "");
-    setEditEmail(t.email ?? "");
-    setEditSubject(t.subject);
-    setEditGrades(t.gradeLevel);
-    setEditSchoolId(t.schoolId);
+  function startEdit(p: PersonRow) {
+    setEditId(p.employeeId);
+    setEditFirstName(p.firstName);
+    setEditLastName(p.lastName);
+    setEditEmail(p.email);
+    setEditRole(p.role);
+    setEditSchoolId(p.schoolId);
+    setEditDept(p.department ?? "");
+    setEditGrades(p.gradeLevel);
+    setEditObservable(p.includeInFeedbackTracker);
+    setEditPilId(p.primaryInstructionalLeaderId ?? null);
+    setAdding(false);
   }
 
-  function toggleGrade(g: string, arr: string[], setArr: (v: string[]) => void) {
-    setArr(arr.includes(g) ? arr.filter((x) => x !== g) : [...arr, g]);
-  }
-
-  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
-
-  const allSubjects = Array.from(new Set(teachers.map((t) => t.subject).filter(Boolean))).sort();
-  const allSchoolOptions = schools.map((s) => s.name);
-
-  const shown = teachers.filter((t) => {
-    if (!showInactive && !t.isActive) return false;
-    if (teacherSearch) {
-      const q = teacherSearch.toLowerCase();
-      if (!t.name.toLowerCase().includes(q) && !t.subject.toLowerCase().includes(q)) return false;
+  async function handleImpersonate(p: PersonRow) {
+    setImpersonatingId(p.employeeId);
+    try {
+      await startImpersonation(p.employeeId);
+      await refetchUser();
+      window.location.href = "/";
+    } catch (err) {
+      alert((err as Error).message ?? "Failed to start impersonation");
+      setImpersonatingId(null);
     }
-    if (filterSubjects.length > 0 && !filterSubjects.includes(t.subject)) return false;
+  }
+
+  function toggleAddGrade(g: string) { setAddGrades((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]); }
+  function toggleEditGrade(g: string) { setEditGrades((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]); }
+
+  const schoolNameOptions = schools.map((s) => s.name);
+  const filtersActive = filterRoles.length > 0 || filterSchools.length > 0 || filterObservable;
+
+  const shown = people.filter((p) => {
+    if (!showInactive && !p.isActive) return false;
+    if (filterObservable && !p.includeInFeedbackTracker) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!p.name.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q)) return false;
+    }
+    if (filterRoles.length > 0) {
+      const matchedEnums = filterRoles.map((label) =>
+        (Object.entries(ALL_ROLES_MAP) as [string, string][]).find(([, v]) => v === label)?.[0] ?? ""
+      );
+      if (!matchedEnums.includes(p.role)) return false;
+    }
     if (filterSchools.length > 0) {
-      const schoolName = schools.find((s) => s.id === t.schoolId)?.name ?? "";
+      const schoolName = schools.find((s) => s.id === p.schoolId)?.name ?? "";
       if (!filterSchools.includes(schoolName)) return false;
     }
     return true;
   });
-
-  const teacherFiltersActive = filterSubjects.length > 0 || filterSchools.length > 0;
-
-  const colSpanTotal = isDistrictAdmin ? 6 : 5;
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
@@ -563,128 +606,138 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
     </div>
   );
 
-  if (rosterView === "bulk" && canBulkImport) {
+  if (view === "bulk" && canBulkImport) {
     return (
       <div className="flex flex-col gap-4">
-        {/* Sub-tab bar */}
         <div className="flex gap-1 border-b border-slate-200 pb-0">
-          <button
-            onClick={() => setRosterView("list")}
-            className="px-4 py-2 text-sm font-semibold transition-colors"
-            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
-          >
-            Roster
-          </button>
-          <button
-            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
-            style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
-          >
-            <Upload size={13} />
-            Bulk Import
+          <button onClick={() => setView("list")} className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>People</button>
+          <button className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>
+            <Upload size={13} />Bulk Import
           </button>
         </div>
-        <BulkImportTeachers isDistrictAdmin={isDistrictAdmin} />
+        <PeopleBulkImport isNetworkAdmin={isNetworkAdmin} onDone={() => { setView("list"); queryClient.invalidateQueries({ queryKey: qKey }); }} />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Sub-tab bar */}
       <div className="flex gap-1 border-b border-slate-200 pb-0">
-        <button
-          className="px-4 py-2 text-sm font-semibold transition-colors"
-          style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
-        >
-          Roster
-        </button>
+        <button className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>People</button>
         {canBulkImport && (
-          <button
-            onClick={() => setRosterView("bulk")}
-            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
-            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
-          >
-            <Upload size={13} />
-            Bulk Import
+          <button onClick={() => setView("bulk")} className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>
+            <Upload size={13} />Bulk Import
           </button>
         )}
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Search */}
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-52"
-            placeholder="Search name or subject…"
-            value={teacherSearch}
-            onChange={(e) => setTeacherSearch(e.target.value)}
+            placeholder="Search name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          {teacherSearch && (
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setTeacherSearch("")}><X size={12} /></button>
-          )}
+          {search && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setSearch("")}><X size={12} /></button>}
         </div>
 
-        {/* Divider */}
         <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} />
+        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>Filters</span>
 
-        {/* Filters label */}
-        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
-          Filters
-        </span>
-
-        {allSubjects.length > 0 && (
-          <FilterMultiSelect label="Subject" values={filterSubjects} onChange={setFilterSubjects} options={allSubjects} />
+        <FilterMultiSelect label="Role" values={filterRoles} onChange={setFilterRoles} options={availableRoles.map((r) => ALL_ROLES_MAP[r])} />
+        {isNetworkAdmin && schoolNameOptions.length > 0 && (
+          <FilterMultiSelect label="School" values={filterSchools} onChange={setFilterSchools} options={schoolNameOptions} />
         )}
-        {isDistrictAdmin && allSchoolOptions.length > 0 && (
-          <FilterMultiSelect label="School" values={filterSchools} onChange={setFilterSchools} options={allSchoolOptions} />
-        )}
+        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
+          <input type="checkbox" checked={filterObservable} onChange={(e) => setFilterObservable(e.target.checked)} className="accent-blue-700" />
+          Observable only
+        </label>
         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
           Show inactive
         </label>
-        {(teacherFiltersActive || teacherSearch) && (
-          <button
-            onClick={() => { setFilterSubjects([]); setFilterSchools([]); setTeacherSearch(""); }}
-            className="font-semibold underline underline-offset-2 text-sm"
-            style={{ color: NAVY }}
-          >
+        {(filtersActive || search) && (
+          <button onClick={() => { setFilterRoles([]); setFilterSchools([]); setSearch(""); setFilterObservable(false); }} className="font-semibold underline underline-offset-2 text-sm" style={{ color: NAVY }}>
             Clear all
           </button>
         )}
 
-        {/* Add button — pushed to far right */}
         <div className="ml-auto">
           <button
             onClick={() => { setAdding(true); setEditId(null); }}
             className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
             style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
           >
-            <Plus size={14} />
-            Add Teacher
+            <Plus size={14} />Add Person
           </button>
         </div>
       </div>
 
-      {/* Add teacher form */}
+      {/* Add person form */}
       {adding && (
-        <TeacherForm
-          title="Add New Teacher"
-          firstName={newFirstName} setFirstName={setNewFirstName}
-          lastName={newLastName} setLastName={setNewLastName}
-          employeeId={newEmployeeId} setEmployeeId={setNewEmployeeId}
-          email={newEmail} setEmail={setNewEmail}
-          subject={newSubject} setSubject={setNewSubject}
-          grades={newGrades}
-          onToggleGrade={(g) => toggleGrade(g, newGrades, setNewGrades)}
-          schools={isDistrictAdmin ? schools : null}
-          schoolId={newSchoolId} setSchoolId={setNewSchoolId}
-          onSave={() => createMut.mutate()}
-          onCancel={() => { setAdding(false); setNewFirstName(""); setNewLastName(""); setNewEmployeeId(""); setNewEmail(""); setNewSubject(""); setNewGrades([]); setNewSchoolId(null); }}
-          saving={createMut.isPending}
-          inputCls={inputCls}
-        />
+        <div className="bg-white rounded-lg p-4 flex flex-col gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
+          <p className="font-bold text-slate-700 text-sm">Add New Person</p>
+          <div className="flex flex-wrap gap-3">
+            <input className={`${inputCls} flex-1 min-w-[130px]`} value={addFirstName} onChange={(e) => setAddFirstName(e.target.value)} placeholder="First name *" autoFocus />
+            <input className={`${inputCls} flex-1 min-w-[130px]`} value={addLastName} onChange={(e) => setAddLastName(e.target.value)} placeholder="Last name *" />
+            <input className={`${inputCls} flex-1 min-w-[120px]`} value={addEmpId} onChange={(e) => setAddEmpId(e.target.value)} placeholder="Employee ID *" />
+            <input type="email" className={`${inputCls} flex-1 min-w-[200px]`} value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="Email *" />
+            <select className={`${selCls} min-w-[150px]`} value={addRole} onChange={(e) => setAddRole(e.target.value as PersonRole)}>
+              {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
+            </select>
+            {isNetworkAdmin && (
+              <select className={`${selCls} min-w-[160px]`} value={addSchoolId ?? ""} onChange={(e) => setAddSchoolId(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">— School —</option>
+                {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+            <select className={`${selCls} min-w-[180px]`} value={addDept} onChange={(e) => setAddDept(e.target.value)}>
+              <option value="">— Department —</option>
+              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            {(() => {
+              const pilOptions = people.filter((p) =>
+                p.isActive &&
+                (p.role === "COACH" || p.role === "SCHOOL_LEADER") &&
+                p.schoolId === addSchoolId &&
+                p.schoolId !== null,
+              );
+              if (pilOptions.length === 0) return null;
+              return (
+                <select className={`${selCls} min-w-[200px]`} value={addPilId ?? ""} onChange={(e) => setAddPilId(e.target.value || null)}>
+                  <option value="">— Primary Instructional Leader —</option>
+                  {pilOptions.map((p) => <option key={p.employeeId} value={p.employeeId}>{p.name}</option>)}
+                </select>
+              );
+            })()}
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {GRADE_LEVELS.map((g) => (
+                <button key={g} type="button" onClick={() => toggleAddGrade(g)} className="px-2.5 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                  style={addGrades.includes(g) ? { backgroundColor: NAVY, color: "white", borderColor: NAVY } : { backgroundColor: "white", color: NAVY, borderColor: "#c7d2e8" }}>
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+            <input type="checkbox" checked={addObservable} onChange={(e) => setAddObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
+            Include in Feedback Tracker (observable subject)
+          </label>
+          <div className="flex gap-2">
+            <button className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }}
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending || !addFirstName.trim() || !addLastName.trim() || !addEmpId.trim() || !addEmail.trim()}>
+              {createMut.isPending ? "Adding…" : "Add Person"}
+            </button>
+            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setAdding(false)}>Cancel</button>
+          </div>
+        </div>
       )}
 
       {/* Table */}
@@ -693,81 +746,132 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
           <thead>
             <tr style={{ backgroundColor: NAVY, color: "white" }}>
               <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Name</th>
-              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Subject</th>
-              <th className="text-left px-4 py-2.5 font-semibold hidden md:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Grades</th>
-              {isDistrictAdmin && (
+              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Email</th>
+              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Role</th>
+              {isNetworkAdmin && (
                 <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>
               )}
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
+              <th className="text-left px-4 py-2.5 font-semibold hidden md:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {shown.length === 0 && (
-              <tr><td colSpan={colSpanTotal} className="text-center py-8 text-slate-400">No teachers found.</td></tr>
+            {people.length === 0 && (
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people found.</td></tr>
             )}
-            {shown.map((t) => (
-              <tr key={t.id}>
-                {editId === t.id ? (
-                  <td colSpan={colSpanTotal} className="px-4 py-3 bg-blue-50">
-                    <TeacherForm
-                      title={`Editing: ${t.name}`}
-                      firstName={editFirstName} setFirstName={setEditFirstName}
-                      lastName={editLastName} setLastName={setEditLastName}
-                      employeeId={editEmployeeId} setEmployeeId={setEditEmployeeId}
-                      email={editEmail} setEmail={setEditEmail}
-                      subject={editSubject} setSubject={setEditSubject}
-                      grades={editGrades}
-                      onToggleGrade={(g) => toggleGrade(g, editGrades, setEditGrades)}
-                      schools={isDistrictAdmin ? schools : null}
-                      schoolId={editSchoolId} setSchoolId={setEditSchoolId}
-                      onSave={() => updateMut.mutate()}
-                      onCancel={() => setEditId(null)}
-                      saving={updateMut.isPending}
-                      inputCls={inputCls}
-                      compact
-                    />
+            {people.length > 0 && shown.length === 0 && (
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people match your filters.</td></tr>
+            )}
+            {shown.map((p) => (
+              <tr key={p.employeeId}>
+                {editId === p.employeeId ? (
+                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap gap-3 items-start">
+                        <input className={`${inputCls} flex-1 min-w-[130px]`} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="First name" autoFocus />
+                        <input className={`${inputCls} flex-1 min-w-[130px]`} value={editLastName} onChange={(e) => setEditLastName(e.target.value)} placeholder="Last name" />
+                        <input type="email" className={`${inputCls} flex-1 min-w-[200px]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" />
+                        <select className={`${selCls} min-w-[150px]`} value={editRole} onChange={(e) => setEditRole(e.target.value as PersonRole)}>
+                          {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
+                        </select>
+                        {isNetworkAdmin && (
+                          <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
+                            <option value="">— No school —</option>
+                            {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        )}
+                        <select className={`${selCls} min-w-[180px]`} value={editDept} onChange={(e) => setEditDept(e.target.value)}>
+                          <option value="">— Department —</option>
+                          {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        {(() => {
+                          const pilOptions = people.filter((p) =>
+                            p.isActive &&
+                            (p.role === "COACH" || p.role === "SCHOOL_LEADER") &&
+                            p.schoolId === editSchoolId &&
+                            p.schoolId !== null &&
+                            p.employeeId !== editId,
+                          );
+                          if (pilOptions.length === 0) return null;
+                          return (
+                            <select className={`${selCls} min-w-[200px]`} value={editPilId ?? ""} onChange={(e) => setEditPilId(e.target.value || null)}>
+                              <option value="">— Primary Instructional Leader —</option>
+                              {pilOptions.map((p) => <option key={p.employeeId} value={p.employeeId}>{p.name}</option>)}
+                            </select>
+                          );
+                        })()}
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {GRADE_LEVELS.map((g) => (
+                            <button key={g} type="button" onClick={() => toggleEditGrade(g)} className="px-2.5 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                              style={editGrades.includes(g) ? { backgroundColor: NAVY, color: "white", borderColor: NAVY } : { backgroundColor: "white", color: NAVY, borderColor: "#c7d2e8" }}>
+                              {g}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                        <input type="checkbox" checked={editObservable} onChange={(e) => setEditObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
+                        Include in Feedback Tracker (observable subject)
+                      </label>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending}>{updateMut.isPending ? "Saving…" : "Save"}</button>
+                        <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
+                      </div>
+                    </div>
                   </td>
                 ) : (
                   <>
-                    <td className="px-4 py-2.5 font-medium text-slate-800" style={{ opacity: t.isActive ? 1 : 0.5 }}>{t.name}</td>
-                    <td className="px-4 py-2.5 text-slate-600 hidden sm:table-cell" style={{ opacity: t.isActive ? 1 : 0.5 }}>{t.subject}</td>
-                    <td className="px-4 py-2.5 text-slate-500 hidden md:table-cell" style={{ opacity: t.isActive ? 1 : 0.5 }}>
-                      {t.gradeLevel.length ? t.gradeLevel.map((g) => `Gr ${g}`).join(", ") : "—"}
+                    <td className="px-4 py-2.5" style={{ opacity: p.isActive ? 1 : 0.5 }}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-slate-800">{p.name}</span>
+                        {p.includeInFeedbackTracker && (
+                          <span className="text-xs font-bold rounded-full px-2 py-0.5 hidden sm:inline" style={{ backgroundColor: "#fef9c3", color: "#854d0e" }}>Observable</span>
+                        )}
+                      </div>
                     </td>
-                    {isDistrictAdmin && (
-                      <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: t.isActive ? 1 : 0.5 }}>
-                        {t.schoolName ?? <span className="text-slate-300 italic">Unassigned</span>}
+                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell" style={{ opacity: p.isActive ? 1 : 0.5 }}>{p.email}</td>
+                    <td className="px-4 py-2.5" style={{ opacity: p.isActive ? 1 : 0.5 }}>
+                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
+                        {ALL_ROLES_MAP[p.role] ?? p.role}
+                      </span>
+                    </td>
+                    {isNetworkAdmin && (
+                      <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: p.isActive ? 1 : 0.5 }}>
+                        {p.schoolName ?? <span className="text-slate-300 italic">None</span>}
                       </td>
                     )}
-                    <td className="px-4 py-2.5">
-                      <span
-                        className="text-xs font-bold rounded-full px-2.5 py-1"
-                        style={t.isActive
-                          ? { backgroundColor: "#dcfce7", color: "#15803d" }
-                          : { backgroundColor: "#fee2e2", color: "#b91c1c" }
-                        }
-                      >
-                        {t.isActive ? "Active" : "Inactive"}
+                    <td className="px-4 py-2.5 hidden md:table-cell">
+                      <span className="text-xs font-bold rounded-full px-2.5 py-1"
+                        style={p.isActive ? { backgroundColor: "#dcfce7", color: "#15803d" } : { backgroundColor: "#fee2e2", color: "#b91c1c" }}>
+                        {p.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1 justify-end">
-                        <button
-                          className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
-                          title="Edit"
-                          onClick={() => startEdit(t)}
-                        >
+                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
                           <Pencil size={13} />
                         </button>
                         <button
-                          className={`p-1.5 rounded transition-colors ${t.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
-                          title={t.isActive ? "Deactivate" : "Reactivate"}
-                          onClick={() => toggleMut.mutate(t.id)}
+                          className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
+                          title={p.isActive ? "Deactivate" : "Reactivate"}
+                          onClick={() => toggleMut.mutate(p.employeeId)}
                           disabled={toggleMut.isPending}
                         >
-                          {t.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
+                          {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
                         </button>
+                        {isNetworkAdmin && (
+                          <button
+                            className="text-slate-400 hover:text-indigo-600 p-1.5 rounded transition-colors disabled:opacity-50"
+                            title={`Impersonate ${p.name}`}
+                            onClick={() => handleImpersonate(p)}
+                            disabled={impersonatingId === p.employeeId}
+                          >
+                            <Users size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </>
@@ -779,500 +883,8 @@ function TeacherRoster({ isDistrictAdmin, canBulkImport }: { isDistrictAdmin: bo
       </div>
 
       <p className="text-center text-slate-400 text-xs pb-2">
-        Inactive teachers are hidden from the dashboard but their observations are preserved.
+        Inactive people are hidden from the dashboard but their data is preserved. Observable people appear as subjects in observations.
       </p>
-    </div>
-  );
-}
-
-/* Shared form component */
-function TeacherForm({
-  title, firstName, setFirstName, lastName, setLastName, employeeId, setEmployeeId,
-  email, setEmail, subject, setSubject, grades, onToggleGrade,
-  schools, schoolId, setSchoolId,
-  onSave, onCancel, saving, inputCls, compact = false,
-}: {
-  title: string;
-  firstName: string; setFirstName: (v: string) => void;
-  lastName: string; setLastName: (v: string) => void;
-  employeeId: string; setEmployeeId: (v: string) => void;
-  email: string; setEmail: (v: string) => void;
-  subject: string; setSubject: (v: string) => void;
-  grades: string[]; onToggleGrade: (g: string) => void;
-  schools: AdminSchool[] | null;
-  schoolId: number | null; setSchoolId: (v: number | null) => void;
-  onSave: () => void; onCancel: () => void; saving: boolean;
-  inputCls: string; compact?: boolean;
-}) {
-  return (
-    <div className={`bg-white rounded-lg p-4 flex flex-col gap-3 ${compact ? "" : "shadow-sm"}`} style={{ border: `2px solid ${NAVY}` }}>
-      {!compact && <p className="font-bold text-slate-700 text-sm">{title}</p>}
-      <div className="flex flex-wrap gap-3">
-        <input
-          className={`${inputCls} flex-1 min-w-[130px]`}
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          placeholder="First name *"
-          autoFocus
-        />
-        <input
-          className={`${inputCls} flex-1 min-w-[130px]`}
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          placeholder="Last name *"
-        />
-        <input
-          className={`${inputCls} flex-1 min-w-[120px]`}
-          value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value)}
-          placeholder="Employee ID (optional)"
-        />
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Email <span className="text-red-600" aria-hidden="true">*</span>
-            <span className="sr-only">(required)</span>
-          </label>
-          <input
-            type="email"
-            required
-            aria-invalid={email.length > 0 && !email.includes("@")}
-            className={`${inputCls} w-full ${email.length > 0 && !email.includes("@") ? "border-red-500 focus:border-red-500" : ""}`}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@school.org"
-          />
-          {email.length > 0 && !email.includes("@") && (
-            <p className="mt-1 text-xs text-red-600">Please enter a valid email address.</p>
-          )}
-          {email.length === 0 && (
-            <p className="mt-1 text-xs text-slate-500">Email is required.</p>
-          )}
-        </div>
-        <select
-          className={`${inputCls} flex-1 min-w-[140px]`}
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-        >
-          <option value="">— Subject —</option>
-          {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        {schools !== null && (
-          <select
-            className={`${inputCls} flex-1 min-w-[160px]`}
-            value={schoolId ?? ""}
-            onChange={(e) => setSchoolId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">— School —</option>
-            {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        )}
-      </div>
-      <div>
-        <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
-        <div className="flex flex-wrap gap-1.5">
-          {GRADE_LEVELS.map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => onToggleGrade(g)}
-              className="px-2.5 py-0.5 rounded-full text-xs font-bold border transition-colors"
-              style={grades.includes(g)
-                ? { backgroundColor: NAVY, color: "white", borderColor: NAVY }
-                : { backgroundColor: "white", color: NAVY, borderColor: "#c7d2e8" }
-              }
-            >
-              {g === "K" ? "K" : g}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button
-          className="px-4 py-1.5 rounded font-bold text-white text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: NAVY }}
-          onClick={onSave}
-          disabled={saving || !firstName.trim() || !lastName.trim() || !subject || !email.trim() || !email.includes("@")}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════
-   TEACHER BULK IMPORT
-   ════════════════════════════════════════════════════════════════ */
-
-const TEACHER_CSV_TEMPLATE = `firstName,lastName,employeeId,subject,gradeLevel,school,email
-Jane,Smith,EMP001,Math,"K,1,2",Lincoln Elementary,jane.smith@uncommonschools.org
-John,Doe,,ELA,"3,4",Lincoln Elementary,john.doe@uncommonschools.org
-`;
-
-function parseTeacherCSV(text: string): BulkImportTeacherPayload[] {
-  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = normalized.split("\n");
-  const results: BulkImportTeacherPayload[] = [];
-  if (lines.length < 2) return results;
-
-  const headers       = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim());
-  const firstNameIdx  = headers.indexOf("firstname");
-  const lastNameIdx   = headers.indexOf("lastname");
-  const nameIdx       = headers.indexOf("name");  /* legacy fallback */
-  const employeeIdIdx = headers.indexOf("employeeid");
-  const subjectIdx    = headers.indexOf("subject");
-  const gradeIdx      = headers.indexOf("gradelevel");
-  const schoolIdx     = headers.indexOf("school");
-  const emailIdx      = headers.indexOf("email");
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const cols = parseCSVLine(line);
-
-    let firstName = "";
-    let lastName  = "";
-    if (firstNameIdx >= 0) {
-      firstName = cols[firstNameIdx] ?? "";
-      lastName  = lastNameIdx >= 0 ? (cols[lastNameIdx] ?? "") : "";
-    } else if (nameIdx >= 0) {
-      const full = cols[nameIdx] ?? "";
-      const parts = full.trim().split(/\s+/);
-      firstName = parts[0] ?? "";
-      lastName  = parts.slice(1).join(" ");
-    }
-
-    results.push({
-      firstName,
-      lastName,
-      employeeId: employeeIdIdx >= 0 ? (cols[employeeIdIdx] ?? "") : "",
-      subject:    subjectIdx    >= 0 ? (cols[subjectIdx]    ?? "") : "",
-      gradeLevel: gradeIdx      >= 0 ? (cols[gradeIdx]      ?? "") : "",
-      school:     schoolIdx     >= 0 ? (cols[schoolIdx]     ?? "") : "",
-      email:      emailIdx      >= 0 ? (cols[emailIdx]      ?? "") : "",
-    });
-  }
-  return results;
-}
-
-function downloadTeacherTemplate() {
-  const blob = new Blob([TEACHER_CSV_TEMPLATE], { type: "text/csv" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = "teacher_import_template.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function BulkImportTeachers({ isDistrictAdmin }: { isDistrictAdmin: boolean }) {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview]           = useState<BulkImportTeacherPayload[] | null>(null);
-  const [fileName, setFileName]         = useState<string>("");
-  const [importResult, setImportResult] = useState<BulkImportTeacherRowResult[] | null>(null);
-  const [submitting, setSubmitting]     = useState(false);
-  const [submitError, setSubmitError]   = useState<string | null>(null);
-
-  function handleFile(file: File) {
-    if (!file.name.endsWith(".csv")) { alert("Please upload a .csv file."); return; }
-    setFileName(file.name);
-    setImportResult(null);
-    setSubmitError(null);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      setPreview(parseTeacherCSV(text));
-    };
-    reader.readAsText(file);
-  }
-
-  async function handleSubmit() {
-    if (!preview || preview.length === 0) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const result = await bulkImportTeachers(preview);
-      setImportResult(result.results);
-      setPreview(null);
-      setFileName("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      queryClient.invalidateQueries({ queryKey: ["admin", "teachers"] });
-    } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function resetAll() {
-    setPreview(null);
-    setFileName("");
-    setImportResult(null);
-    setSubmitError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  const created = importResult?.filter((r) => r.status === "created") ?? [];
-  const skipped = importResult?.filter((r) => r.status === "skipped") ?? [];
-  const errors  = importResult?.filter((r) => r.status === "error")   ?? [];
-
-  return (
-    <div className="flex flex-col gap-5">
-
-      {/* Format guide */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-        <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-          <FileText size={15} className="text-yellow-300" />
-          <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-            CSV Format Guide
-          </span>
-        </div>
-        <div className="px-4 py-4 flex flex-col gap-3">
-          <p className="text-sm text-slate-600">
-            Upload a <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">.csv</code> file with the following columns.
-            The first row must be the header row. Column names are case-insensitive.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Column</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Required</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[
-                  { col: "firstName",  req: true,            desc: "Teacher's first name" },
-                  { col: "lastName",   req: true,            desc: "Teacher's last name" },
-                  { col: "employeeId", req: false,           desc: "Unique employee / staff ID — used to detect duplicates during re-imports" },
-                  { col: "subject",    req: true,            desc: "Subject area (e.g. Math, ELA, Science)" },
-                  { col: "gradeLevel", req: true,            desc: 'Comma-separated grade values within the cell, e.g. "K,1,2"' },
-                  { col: "school",     req: isDistrictAdmin, desc: isDistrictAdmin ? "Exact school name (required for Network Admin)" : "School name (ignored — your school is used automatically)" },
-                  { col: "email",      req: true,            desc: "Teacher's email address — used to send observation feedback" },
-                ].map(({ col, req, desc }) => (
-                  <tr key={col}>
-                    <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
-                    <td className="px-3 py-2">
-                      {req
-                        ? <span className="text-xs font-bold text-red-600">Required</span>
-                        : <span className="text-xs text-slate-400">Optional</span>
-                      }
-                    </td>
-                    <td className="px-3 py-2 text-slate-600 text-xs">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button
-            onClick={downloadTeacherTemplate}
-            className="self-start flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"
-            style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
-          >
-            <Download size={14} />
-            Download Template
-          </button>
-        </div>
-      </div>
-
-      {/* File picker */}
-      {!importResult && (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-            <Upload size={15} className="text-yellow-300" />
-            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-              Upload CSV
-            </span>
-          </div>
-          <div className="px-4 py-4 flex flex-col gap-3">
-            <div
-              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50"
-              style={{ borderColor: "#c7d2e8" }}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
-            >
-              <Upload size={28} className="text-slate-300" />
-              <p className="text-sm text-slate-500 text-center">
-                <span className="font-semibold" style={{ color: NAVY }}>Click to browse</span> or drag and drop a CSV file here
-              </p>
-              {fileName && (
-                <span className="text-xs text-green-700 font-semibold bg-green-100 px-2.5 py-1 rounded-full">{fileName}</span>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Preview table */}
-      {preview && preview.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-              Preview — {preview.length} row{preview.length !== 1 ? "s" : ""}
-            </span>
-            <button onClick={resetAll} className="text-blue-300 hover:text-white p-1"><X size={16} /></button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">First Name</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Last Name</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Emp. ID</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Subject</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade Level</th>
-                  {isDistrictAdmin && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">School</th>
-                  )}
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {preview.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{row.firstName || <span className="text-red-400 italic">missing</span>}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{row.lastName || <span className="text-slate-400 italic">—</span>}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{row.employeeId || <span className="text-slate-300 italic">—</span>}</td>
-                    <td className="px-3 py-2 text-slate-600">{row.subject || <span className="text-red-400 italic">missing</span>}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{row.gradeLevel || <span className="text-red-400 italic">missing</span>}</td>
-                    {isDistrictAdmin && (
-                      <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-red-400 italic">missing</span>}</td>
-                    )}
-                    <td className="px-3 py-2 text-slate-500 text-xs">{row.email || <span className="text-red-400 italic">missing</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {submitError && (
-            <div className="px-4 py-3 bg-red-50 border-t border-red-200 flex items-start gap-2 text-sm text-red-700">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              {submitError}
-            </div>
-          )}
-          <div className="px-4 py-3 border-t border-slate-100 flex gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
-            >
-              {submitting ? "Importing…" : `Import ${preview.length} Teacher${preview.length !== 1 ? "s" : ""}`}
-            </button>
-            <button
-              onClick={resetAll}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Results summary */}
-      {importResult && (
-        <div className="flex flex-col gap-3">
-          <div className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-4" style={{ border: "1px solid #dde3f0" }}>
-            <span className="font-bold text-slate-700 text-sm">Import complete:</span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-green-700">
-              <CheckCircle2 size={15} />{created.length} created
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
-              <SkipForward size={15} />{skipped.length} skipped
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600">
-              <AlertCircle size={15} />{errors.length} error{errors.length !== 1 ? "s" : ""}
-            </span>
-            <button
-              onClick={resetAll}
-              className="ml-auto px-4 py-1.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
-            >
-              Import Another File
-            </button>
-          </div>
-
-          {created.length > 0 && (
-            <TeacherResultSection
-              title={`Created (${created.length})`}
-              rows={created}
-              headerStyle={{ backgroundColor: "#16a34a" }}
-              statusBadge={() => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">Created</span>}
-            />
-          )}
-          {skipped.length > 0 && (
-            <TeacherResultSection
-              title={`Skipped — Duplicate (${skipped.length})`}
-              rows={skipped}
-              headerStyle={{ backgroundColor: "#d97706" }}
-              statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "Skipped"}</span>}
-            />
-          )}
-          {errors.length > 0 && (
-            <TeacherResultSection
-              title={`Errors (${errors.length})`}
-              rows={errors}
-              headerStyle={{ backgroundColor: "#dc2626" }}
-              statusBadge={(r) => <span className="text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5">{r.reason ?? "Error"}</span>}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TeacherResultSection({
-  title,
-  rows,
-  headerStyle,
-  statusBadge,
-}: {
-  title: string;
-  rows: BulkImportTeacherRowResult[];
-  headerStyle: React.CSSProperties;
-  statusBadge: (r: BulkImportTeacherRowResult) => React.ReactNode;
-}) {
-  return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-      <div className="px-4 py-2.5" style={{ ...headerStyle, borderBottom: `2px solid ${YELLOW}` }}>
-        <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}>
-          {title}
-        </span>
-      </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
-            <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((r) => (
-            <tr key={r.row}>
-              <td className="px-3 py-2 text-slate-400 text-xs">{r.row}</td>
-              <td className="px-3 py-2 font-medium text-slate-800">{r.name ?? "—"}</td>
-              <td className="px-3 py-2">{statusBadge(r)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -1554,389 +1166,25 @@ function SchoolSettings() {
     </div>
   );
 }
-
 /* ════════════════════════════════════════════════════════════════
-   USER MANAGEMENT TAB
+   PEOPLE BULK IMPORT
    ════════════════════════════════════════════════════════════════ */
 
-const ALL_ROLES_MAP: Record<UserRole, string> = {
-  COACH: "Coach",
-  SCHOOL_LEADER: "School Leader",
-  NETWORK_LEADER: "Network Leader",
-  NETWORK_ADMIN: "Network Admin",
-};
-
-function UserManagement({ isNetworkAdmin, currentUserSchoolId, canBulkImport }: { isNetworkAdmin: boolean; currentUserSchoolId: number | null; canBulkImport: boolean }) {
-  const queryClient = useQueryClient();
-  const qKey = ["admin", "users"] as const;
-  const [userView, setUserView] = useState<"list" | "bulk">("list");
-  const { isImpersonating, refetch: refetchUser } = useUser();
-  const [impersonatingId, setImpersonatingId] = useState<number | null>(null);
-
-  const { data: userList = [], isLoading } = useQuery<UserRow[]>({
-    queryKey: qKey,
-    queryFn: fetchUsers,
-  });
-
-  const { data: schools = [] } = useQuery<AdminSchool[]>({
-    queryKey: ["admin", "schools"],
-    queryFn: fetchAdminSchools,
-    enabled: isNetworkAdmin,
-  });
-
-  const [adding, setAdding]     = useState(false);
-  const [editId, setEditId]     = useState<number | null>(null);
-
-  const [newEmail, setNewEmail] = useState("");
-  const [newName,  setNewName]  = useState("");
-  const [newRole,  setNewRole]  = useState<UserRole>("COACH");
-  const [newSchoolId, setNewSchoolId] = useState<number | null>(null);
-
-  const [editEmail, setEditEmail] = useState("");
-  const [editName,  setEditName]  = useState("");
-  const [editRole,  setEditRole]  = useState<UserRole>("COACH");
-  const [editSchoolId, setEditSchoolId] = useState<number | null>(null);
-
-  /* Filters */
-  const [userSearch,    setUserSearch]    = useState("");
-  const [filterRoles,   setFilterRoles]   = useState<string[]>([]);
-  const [filterUserSchools, setFilterUserSchools] = useState<string[]>([]);
-  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
-
-  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
-  const selCls   = `${inputCls} cursor-pointer`;
-
-  const availableRoles: UserRole[] = isNetworkAdmin
-    ? ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"]
-    : ["COACH", "SCHOOL_LEADER"];
-
-  const createMut = useMutation({
-    mutationFn: () => createUser({ email: newEmail.trim(), name: newName.trim(), role: newRole, schoolId: newSchoolId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qKey });
-      setAdding(false); setNewEmail(""); setNewName(""); setNewRole("COACH"); setNewSchoolId(null);
-    },
-    onError: (err: Error) => alert(err.message),
-  });
-
-  const updateMut = useMutation({
-    mutationFn: () => updateUser(editId!, { email: editEmail.trim(), name: editName.trim(), role: editRole, schoolId: editSchoolId }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
-    onError: (err: Error) => alert(err.message),
-  });
-
-  const toggleUserMut = useMutation({
-    mutationFn: (id: number) => toggleUserActive(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
-    onError: (err: Error) => alert(err.message),
-  });
-
-  function startEdit(u: UserRow) {
-    setEditId(u.id);
-    setEditEmail(u.email);
-    setEditName(u.name);
-    setEditRole(u.role);
-    setEditSchoolId(u.schoolId);
-    setAdding(false);
-  }
-
-  async function handleImpersonate(u: UserRow) {
-    setImpersonatingId(u.id);
-    try {
-      await startImpersonation(u.id);
-      await refetchUser();
-      window.location.href = "/";
-    } catch (err) {
-      alert((err as Error).message ?? "Failed to start impersonation");
-      setImpersonatingId(null);
-    }
-  }
-
-  const userSchoolOptions = schools.map((s) => s.name);
-  const userFiltersActive = filterRoles.length > 0 || filterUserSchools.length > 0;
-
-  const shownUsers = userList.filter((u) => {
-    if (!showInactiveUsers && !u.isActive) return false;
-    if (userSearch) {
-      const q = userSearch.toLowerCase();
-      if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
-    }
-    if (filterRoles.length > 0) {
-      const matchedEnums = filterRoles.map((label) =>
-        (Object.entries(ALL_ROLES_MAP) as [string, string][]).find(([, v]) => v === label)?.[0] ?? ""
-      );
-      if (!matchedEnums.includes(u.role)) return false;
-    }
-    if (filterUserSchools.length > 0) {
-      const schoolName = schools.find((s) => s.id === u.schoolId)?.name ?? "";
-      if (!filterUserSchools.includes(schoolName)) return false;
-    }
-    return true;
-  });
-
-  if (isLoading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="inline-block w-10 h-10 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
-    </div>
-  );
-
-  if (userView === "bulk" && canBulkImport) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-1 border-b border-slate-200 pb-0">
-          <button
-            onClick={() => setUserView("list")}
-            className="px-4 py-2 text-sm font-semibold transition-colors"
-            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
-          >
-            Users
-          </button>
-          <button
-            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
-            style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
-          >
-            <Upload size={13} />
-            Bulk Import
-          </button>
-        </div>
-        <BulkImport />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Sub-tab bar */}
-      <div className="flex gap-1 border-b border-slate-200 pb-0">
-        <button
-          className="px-4 py-2 text-sm font-semibold transition-colors"
-          style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}
-        >
-          Users
-        </button>
-        {canBulkImport && (
-          <button
-            onClick={() => setUserView("bulk")}
-            className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5"
-            style={{ color: "#64748b", borderBottom: "3px solid transparent" }}
-          >
-            <Upload size={13} />
-            Bulk Import
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Search */}
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            className="pl-8 pr-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-52"
-            placeholder="Search name or email…"
-            value={userSearch}
-            onChange={(e) => setUserSearch(e.target.value)}
-          />
-          {userSearch && (
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setUserSearch("")}><X size={12} /></button>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, backgroundColor: "#dde3f0" }} />
-
-        {/* Filters label */}
-        <span className="font-bold uppercase tracking-widest shrink-0" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
-          Filters
-        </span>
-
-        <FilterMultiSelect label="Role" values={filterRoles} onChange={setFilterRoles} options={availableRoles.map((r) => ALL_ROLES_MAP[r])} />
-        {isNetworkAdmin && userSchoolOptions.length > 0 && (
-          <FilterMultiSelect label="School" values={filterUserSchools} onChange={setFilterUserSchools} options={userSchoolOptions} />
-        )}
-        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" checked={showInactiveUsers} onChange={(e) => setShowInactiveUsers(e.target.checked)} className="accent-blue-700" />
-          Show inactive
-        </label>
-
-        {(userFiltersActive || userSearch) && (
-          <button
-            onClick={() => { setFilterRoles([]); setFilterUserSchools([]); setUserSearch(""); }}
-            className="font-semibold underline underline-offset-2 text-sm"
-            style={{ color: NAVY }}
-          >
-            Clear all
-          </button>
-        )}
-
-        <div className="ml-auto">
-          <button
-            onClick={() => { setAdding(true); setEditId(null); }}
-            className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
-            style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
-          >
-            <Plus size={14} />
-            Add User
-          </button>
-        </div>
-      </div>
-
-      {adding && (
-        <div className="bg-white rounded-lg p-4 flex flex-col gap-3 shadow-sm" style={{ border: `2px solid ${NAVY}` }}>
-          <p className="font-bold text-slate-700 text-sm">Add New User</p>
-          <div className="flex flex-wrap gap-3">
-            <input
-              className={`${inputCls} flex-1 min-w-[200px]`}
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="Email address"
-              type="email"
-              autoFocus
-            />
-            <input
-              className={`${inputCls} flex-1 min-w-[160px]`}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Full name"
-            />
-            <select className={`${selCls} min-w-[140px]`} value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)}>
-              {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
-            </select>
-            {isNetworkAdmin && (
-              <select className={`${selCls} min-w-[160px]`} value={newSchoolId ?? ""} onChange={(e) => setNewSchoolId(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">— School (optional) —</option>
-                {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
-              style={{ backgroundColor: NAVY }}
-              onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !newEmail.trim() || !newName.trim()}
-            >
-              {createMut.isPending ? "Adding…" : "Add User"}
-            </button>
-            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => { setAdding(false); }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ backgroundColor: NAVY, color: "white" }}>
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Name</th>
-              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Email</th>
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Role</th>
-              {isNetworkAdmin && <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>}
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
-              <th className="px-4 py-2.5" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {userList.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No users found.</td></tr>
-            )}
-            {userList.length > 0 && shownUsers.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No users match your filters.</td></tr>
-            )}
-            {shownUsers.map((u) => (
-              <tr key={u.id}>
-                {editId === u.id ? (
-                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
-                    <div className="flex flex-wrap gap-3 items-start">
-                      <input className={`${inputCls} flex-1 min-w-[160px]`} value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name" autoFocus />
-                      <input className={`${inputCls} flex-1 min-w-[200px]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" type="email" />
-                      <select className={`${selCls} min-w-[140px]`} value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)}>
-                        {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
-                      </select>
-                      {isNetworkAdmin && (
-                        <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
-                          <option value="">— No school —</option>
-                          {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                      )}
-                      <div className="flex gap-2">
-                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending}>{updateMut.isPending ? "Saving…" : "Save"}</button>
-                        <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  </td>
-                ) : (
-                  <>
-                    <td className="px-4 py-2.5 font-medium text-slate-800" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.name}</td>
-                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.email}</td>
-                    <td className="px-4 py-2.5" style={{ opacity: u.isActive ? 1 : 0.5 }}>
-                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
-                        {ALL_ROLES_MAP[u.role] ?? u.role}
-                      </span>
-                    </td>
-                    {isNetworkAdmin && <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: u.isActive ? 1 : 0.5 }}>{u.schoolName ?? <span className="text-slate-300 italic">None</span>}</td>}
-                    <td className="px-4 py-2.5">
-                      <span
-                        className="text-xs font-bold rounded-full px-2.5 py-1"
-                        style={u.isActive
-                          ? { backgroundColor: "#dcfce7", color: "#15803d" }
-                          : { backgroundColor: "#fee2e2", color: "#b91c1c" }
-                        }
-                      >
-                        {u.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {isNetworkAdmin && !isImpersonating && u.role !== "NETWORK_ADMIN" && u.isActive && (
-                          <button
-                            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-colors hover:bg-purple-50 hover:text-purple-700 disabled:opacity-40"
-                            style={{ color: "#7c3aed", border: "1px solid #ede9fe" }}
-                            onClick={() => handleImpersonate(u)}
-                            disabled={impersonatingId === u.id}
-                            title={`View app as ${u.name}`}
-                          >
-                            <UserCheck size={12} />
-                            {impersonatingId === u.id ? "Starting…" : "View As"}
-                          </button>
-                        )}
-                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" onClick={() => startEdit(u)} title="Edit">
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          className={`p-1.5 rounded transition-colors ${u.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
-                          title={u.isActive ? "Deactivate" : "Reactivate"}
-                          onClick={() => toggleUserMut.mutate(u.id)}
-                          disabled={toggleUserMut.isPending}
-                        >
-                          {u.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
-                        </button>
-                      </div>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="text-center text-slate-400 text-xs pb-2">
-        Only provisioned users can sign in. Add a user here before they attempt to log in.
-      </p>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════
-   BULK IMPORT TAB (Network Admin only)
-   ════════════════════════════════════════════════════════════════ */
-
-const CSV_TEMPLATE_ROWS = [
-  "name,email,role,school",
-  "Jane Smith,jane.smith@example.org,COACH,Lincoln Middle School",
-  "Carlos Rivera,c.rivera@example.org,SCHOOL_LEADER,Jefferson High School",
+const PEOPLE_CSV_TEMPLATE = [
+  "firstName,lastName,employeeId,email,role,school,department,gradeLevel,includeInFeedbackTracker,primaryInstructionalLeaderId",
+  "Jane,Smith,EMP001,jane.smith@school.org,COACH,Lincoln Middle School,Math,6-7-8,true,",
+  "Carlos,Rivera,EMP002,c.rivera@school.org,SCHOOL_LEADER,Jefferson High School,,9-10-11-12,false,EMP001",
 ].join("\n");
+
+function downloadPeopleTemplate() {
+  const blob = new Blob([PEOPLE_CSV_TEMPLATE], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "people_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function parseCSVLine(line: string): string[] {
   const fields: string[] = [];
@@ -1971,62 +1219,63 @@ function parseCSVLine(line: string): string[] {
   return fields;
 }
 
-function parseCSV(text: string): BulkImportUserPayload[] {
+function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
   const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalized.split("\n");
-  const results: BulkImportUserPayload[] = [];
+  const results: BulkImportPersonPayload[] = [];
   if (lines.length < 2) return results;
 
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
-  const nameIdx   = headers.indexOf("name");
-  const emailIdx  = headers.indexOf("email");
-  const roleIdx   = headers.indexOf("role");
-  const schoolIdx = headers.indexOf("school");
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, ""));
+  const idx = (n: string) => headers.indexOf(n);
+  const firstNameIdx = idx("firstname");
+  const lastNameIdx  = idx("lastname");
+  const empIdIdx     = idx("employeeid");
+  const emailIdx     = idx("email");
+  const roleIdx      = idx("role");
+  const schoolIdx    = idx("school");
+  const deptIdx      = idx("department");
+  const gradeIdx     = idx("gradelevel");
+  const obsIdx       = idx("includeinfeedbacktracker");
+  const pilIdx       = idx("primaryinstructionalleaderid");
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     const cols = parseCSVLine(line);
+    const gradRaw = gradeIdx >= 0 ? (cols[gradeIdx] ?? "") : "";
     results.push({
-      name:   nameIdx   >= 0 ? (cols[nameIdx]   ?? "") : "",
-      email:  emailIdx  >= 0 ? (cols[emailIdx]  ?? "") : "",
-      role:   roleIdx   >= 0 ? (cols[roleIdx]   ?? "") : "",
-      school: schoolIdx >= 0 ? (cols[schoolIdx] ?? "") : "",
+      firstName:  firstNameIdx >= 0 ? (cols[firstNameIdx] ?? "") : "",
+      lastName:   lastNameIdx  >= 0 ? (cols[lastNameIdx]  ?? "") : "",
+      employeeId: empIdIdx     >= 0 ? (cols[empIdIdx]     ?? "") : "",
+      email:      emailIdx     >= 0 ? (cols[emailIdx]     ?? "") : "",
+      role:       roleIdx      >= 0 ? (cols[roleIdx]      ?? "") : "",
+      school:     schoolIdx    >= 0 ? (cols[schoolIdx]    ?? "") : "",
+      department: deptIdx      >= 0 ? (cols[deptIdx]      ?? "") : "",
+      gradeLevel: gradRaw,
+      includeInFeedbackTracker: obsIdx >= 0 ? (cols[obsIdx] ?? "true") : "true",
+      primaryInstructionalLeaderId: pilIdx >= 0 ? (cols[pilIdx] ?? "") : "",
     });
   }
   return results;
 }
 
-function downloadTemplate() {
-  const blob = new Blob([CSV_TEMPLATE_ROWS], { type: "text/csv" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = "user_import_template.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function BulkImport() {
+function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean; onDone: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<BulkImportUserPayload[] | null>(null);
+  const [preview, setPreview] = useState<BulkImportPersonPayload[] | null>(null);
   const [fileName, setFileName] = useState<string>("");
-  const [importResult, setImportResult] = useState<BulkImportRowResult[] | null>(null);
+  const [importResult, setImportResult] = useState<BulkImportPersonRowResult[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   function handleFile(file: File) {
-    if (!file.name.endsWith(".csv")) {
-      alert("Please upload a .csv file.");
-      return;
-    }
+    if (!file.name.endsWith(".csv")) { alert("Please upload a .csv file."); return; }
     setFileName(file.name);
     setImportResult(null);
     setSubmitError(null);
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      setPreview(parseCSV(text));
+      setPreview(parsePeopleCSV(text));
     };
     reader.readAsText(file);
   }
@@ -2036,244 +1285,134 @@ function BulkImport() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const result = await bulkImportUsers(preview);
+      const result = await bulkImportPeople(preview);
       setImportResult(result.results);
       setPreview(null);
       setFileName("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : "Unknown error");
+    } catch (err) {
+      setSubmitError((err as Error).message ?? "Import failed");
     } finally {
       setSubmitting(false);
     }
   }
 
-  function resetAll() {
-    setPreview(null);
-    setFileName("");
-    setImportResult(null);
-    setSubmitError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  const created = importResult?.filter((r) => r.status === "created")  ?? [];
-  const skipped = importResult?.filter((r) => r.status === "skipped")  ?? [];
-  const errors  = importResult?.filter((r) => r.status === "error")    ?? [];
-
-  const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
+  const succeeded = importResult?.filter((r) => r.status === "created") ?? [];
+  const skipped   = importResult?.filter((r) => r.status === "skipped") ?? [];
+  const errors    = importResult?.filter((r) => r.status === "error") ?? [];
 
   return (
-    <div className="flex flex-col gap-5">
-
-      {/* Format guide */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-        <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-          <FileText size={15} className="text-yellow-300" />
-          <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-            CSV Format Guide
-          </span>
-        </div>
-        <div className="px-4 py-4 flex flex-col gap-3">
-          <p className="text-sm text-slate-600">
-            Upload a <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">.csv</code> file with the following columns.
-            The first row must be the header row. Column names are case-insensitive.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Column</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Required</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600 text-xs uppercase tracking-wide">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[
-                  { col: "name",   req: true,  desc: "Full name of the user" },
-                  { col: "email",  req: true,  desc: "Email address (must be unique)" },
-                  { col: "role",   req: true,  desc: "COACH, SCHOOL_LEADER, or NETWORK_LEADER" },
-                  { col: "school", req: false, desc: "Exact school name — required for COACH and SCHOOL_LEADER; leave blank for NETWORK_LEADER" },
-                ].map(({ col, req, desc }) => (
-                  <tr key={col}>
-                    <td className="px-3 py-2"><code className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">{col}</code></td>
-                    <td className="px-3 py-2">
-                      {req
-                        ? <span className="text-xs font-bold text-red-600">Required</span>
-                        : <span className="text-xs text-slate-400">Optional</span>
-                      }
-                    </td>
-                    <td className="px-3 py-2 text-slate-600 text-xs">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="flex flex-col gap-4">
+      {/* Upload zone */}
+      {!importResult && (
+        <div
+          className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 text-center cursor-pointer transition-colors hover:border-blue-400"
+          style={{ borderColor: "#c7d2e8", backgroundColor: "#f8faff" }}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+        >
+          <Upload size={28} style={{ color: NAVY }} />
+          <div>
+            <p className="font-semibold text-slate-700">{fileName ? fileName : "Drop a CSV file here or click to browse"}</p>
+            <p className="text-xs text-slate-400 mt-1">Columns: firstName, lastName, employeeId, email, role, school, department, gradeLevel, includeInFeedbackTracker</p>
           </div>
           <button
-            onClick={downloadTemplate}
-            className="self-start flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90"
-            style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+            className="text-xs font-semibold underline"
+            style={{ color: NAVY }}
+            onClick={(e) => { e.stopPropagation(); downloadPeopleTemplate(); }}
           >
-            <Download size={14} />
-            Download Template
+            Download template CSV
           </button>
-        </div>
-      </div>
-
-      {/* File picker */}
-      {!importResult && (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-            <Upload size={15} className="text-yellow-300" />
-            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-              Upload CSV
-            </span>
-          </div>
-          <div className="px-4 py-4 flex flex-col gap-3">
-            <div
-              className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-3 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50"
-              style={{ borderColor: "#c7d2e8" }}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }}
-            >
-              <Upload size={28} className="text-slate-300" />
-              <p className="text-sm text-slate-500 text-center">
-                <span className="font-semibold" style={{ color: NAVY }}>Click to browse</span> or drag and drop a CSV file here
-              </p>
-              {fileName && (
-                <span className="text-xs text-green-700 font-semibold bg-green-100 px-2.5 py-1 rounded-full">{fileName}</span>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
-            />
-          </div>
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
       )}
 
       {/* Preview table */}
-      {preview && preview.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
-            <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
-              Preview — {preview.length} row{preview.length !== 1 ? "s" : ""}
-            </span>
-            <button onClick={resetAll} className="text-blue-300 hover:text-white p-1"><X size={16} /></button>
+      {preview && preview.length > 0 && !importResult && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-slate-700 text-sm">{preview.length} people ready to import</p>
+            <div className="flex gap-2">
+              <button className="px-3 py-1.5 rounded text-sm text-slate-600 hover:bg-slate-100 font-semibold" onClick={() => { setPreview(null); setFileName(""); }}>Clear</button>
+              <button
+                className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50 flex items-center gap-1.5"
+                style={{ backgroundColor: NAVY }}
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? "Importing…" : `Import ${preview.length} people`}
+              </button>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          {submitError && <p className="text-sm text-red-600 font-medium">{submitError}</p>}
+          <div className="bg-white rounded-lg shadow-sm overflow-auto max-h-80" style={{ border: "1px solid #dde3f0" }}>
+            <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
-                  <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">School</th>
+                <tr style={{ backgroundColor: NAVY, color: "white" }}>
+                  <th className="text-left px-3 py-2">First Name</th>
+                  <th className="text-left px-3 py-2">Last Name</th>
+                  <th className="text-left px-3 py-2">Employee ID</th>
+                  <th className="text-left px-3 py-2">Email</th>
+                  <th className="text-left px-3 py-2">Role</th>
+                  <th className="text-left px-3 py-2">School</th>
+                  <th className="text-left px-3 py-2">Observable</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {preview.map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{row.name || <span className="text-red-400 italic">missing</span>}</td>
-                    <td className="px-3 py-2 text-slate-600">{row.email || <span className="text-red-400 italic">missing</span>}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className="text-xs font-bold rounded-full px-2 py-0.5"
-                        style={
-                          ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER"].includes(row.role.toUpperCase())
-                            ? { backgroundColor: "#e0e7ff", color: NAVY }
-                            : { backgroundColor: "#fee2e2", color: "#dc2626" }
-                        }
-                      >
-                        {row.role || <em>missing</em>}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{row.school || <span className="text-slate-300">—</span>}</td>
+                {preview.map((p, i) => (
+                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                    <td className="px-3 py-1.5">{p.firstName}</td>
+                    <td className="px-3 py-1.5">{p.lastName}</td>
+                    <td className="px-3 py-1.5 text-slate-400">{p.employeeId ?? "—"}</td>
+                    <td className="px-3 py-1.5">{p.email}</td>
+                    <td className="px-3 py-1.5">{p.role}</td>
+                    <td className="px-3 py-1.5">{p.school}</td>
+                    <td className="px-3 py-1.5">{p.includeInFeedbackTracker ? "Yes" : "No"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {submitError && (
-            <div className="px-4 py-3 bg-red-50 border-t border-red-200 flex items-start gap-2 text-sm text-red-700">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              {submitError}
-            </div>
-          )}
-          <div className="px-4 py-3 border-t border-slate-100 flex gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
-            >
-              {submitting ? "Importing…" : `Import ${preview.length} User${preview.length !== 1 ? "s" : ""}`}
-            </button>
-            <button
-              onClick={resetAll}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Results summary */}
+      {/* Results */}
       {importResult && (
-        <div className="flex flex-col gap-3">
-          {/* Summary header */}
-          <div className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-4" style={{ border: "1px solid #dde3f0" }}>
-            <span className="font-bold text-slate-700 text-sm">Import complete:</span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-green-700">
-              <CheckCircle2 size={15} />{created.length} created
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600">
-              <SkipForward size={15} />{skipped.length} skipped
-            </span>
-            <span className="flex items-center gap-1.5 text-sm font-bold text-red-600">
-              <AlertCircle size={15} />{errors.length} error{errors.length !== 1 ? "s" : ""}
-            </span>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-slate-700">
+              Import complete — {succeeded.length} imported, {skipped.length} skipped, {errors.length} errors
+            </p>
             <button
-              onClick={resetAll}
-              className="ml-auto px-4 py-1.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+              className="px-4 py-1.5 rounded font-bold text-white text-sm"
+              style={{ backgroundColor: NAVY }}
+              onClick={onDone}
             >
-              Import Another File
+              Done
             </button>
           </div>
 
-          {/* Created */}
-          {created.length > 0 && (
+          {succeeded.length > 0 && (
             <ResultSection
-              title={`Created (${created.length})`}
-              rows={created}
-              headerStyle={{ backgroundColor: "#16a34a" }}
-              statusBadge={(r) => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">Created</span>}
+              title={`Imported (${succeeded.length})`}
+              rows={succeeded}
+              headerStyle={{ backgroundColor: "#15803d", color: "white" }}
+              statusBadge={(r) => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">{r.status}</span>}
             />
           )}
-
-          {/* Skipped */}
           {skipped.length > 0 && (
             <ResultSection
-              title={`Skipped — Duplicate Email (${skipped.length})`}
+              title={`Skipped (${skipped.length})`}
               rows={skipped}
-              headerStyle={{ backgroundColor: "#d97706" }}
+              headerStyle={{ backgroundColor: "#d97706", color: "white" }}
               statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "Skipped"}</span>}
             />
           )}
-
-          {/* Errors */}
           {errors.length > 0 && (
             <ResultSection
               title={`Errors (${errors.length})`}
               rows={errors}
-              headerStyle={{ backgroundColor: "#dc2626" }}
+              headerStyle={{ backgroundColor: "#dc2626", color: "white" }}
               statusBadge={(r) => <span className="text-xs font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5">{r.reason ?? "Error"}</span>}
             />
           )}
@@ -2290,9 +1429,9 @@ function ResultSection({
   statusBadge,
 }: {
   title: string;
-  rows: BulkImportRowResult[];
+  rows: BulkImportPersonRowResult[];
   headerStyle: React.CSSProperties;
-  statusBadge: (r: BulkImportRowResult) => React.ReactNode;
+  statusBadge: (r: BulkImportPersonRowResult) => React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
@@ -2329,7 +1468,7 @@ function ResultSection({
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "roster" | "schools" | "users";
+type AdminTab = "rubric" | "people" | "schools";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -2455,20 +1594,21 @@ export default function AdminPage() {
     );
   }
 
-  const isDistrictAdmin  = currentUser?.role === "NETWORK_ADMIN";
-  const canManageUsers   = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
-  const canBulkImport    = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
+  const isNetworkAdmin   = currentUser?.role === "NETWORK_ADMIN";
+  const canManagePeople  = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
+  const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
-    ...(isDistrictAdmin ? [{ id: "rubric" as AdminTab, label: "Rubric Settings" }] : []),
-    { id: "roster", label: "Teacher Roster" },
-    ...(canManageUsers ? [{ id: "users" as AdminTab, label: "Users" }] : []),
-    ...(isDistrictAdmin ? [{ id: "schools" as AdminTab, label: "Schools" }] : []),
+    ...(isNetworkAdmin  ? [{ id: "rubric" as AdminTab,  label: "Rubric Settings" }]    : []),
+    ...(canManagePeople ? [{ id: "people" as AdminTab,  label: "People Management" }]  : []),
+    ...(isNetworkAdmin  ? [{ id: "schools" as AdminTab, label: "Schools" }]             : []),
   ];
 
+  const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
   const visibleTab: AdminTab =
-    (activeTab === "rubric" && !isDistrictAdmin) ? "roster" :
-    (activeTab === "users"  && !canManageUsers)  ? "roster" :
+    (activeTab === "rubric"  && !isNetworkAdmin)  ? defaultTab :
+    (activeTab === "people"  && !canManagePeople) ? defaultTab :
+    (activeTab === "schools" && !isNetworkAdmin)  ? defaultTab :
     activeTab;
 
   return (
@@ -2518,7 +1658,7 @@ export default function AdminPage() {
       <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
 
         {/* ── Rubric set manager (Rubric tab only, District Admin only) ── */}
-        {visibleTab === "rubric" && isDistrictAdmin && (
+        {visibleTab === "rubric" && isNetworkAdmin && (
           <div
             className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-3"
             style={{ border: "1px solid #dde3f0", borderLeft: `4px solid ${YELLOW}` }}
@@ -2605,7 +1745,7 @@ export default function AdminPage() {
         )}
 
         {/* ── Archived rubric sets ─────────────────────────────── */}
-        {visibleTab === "rubric" && isDistrictAdmin && archivedSets.length > 0 && (
+        {visibleTab === "rubric" && isNetworkAdmin && archivedSets.length > 0 && (
           <div
             className="bg-white rounded-lg shadow-sm px-4 py-3"
             style={{ border: "1px solid #dde3f0", borderLeft: "4px solid #94a3b8" }}
@@ -2648,10 +1788,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {visibleTab === "rubric" && isDistrictAdmin && <RubricSettings setSlug={selectedRubricSetSlug} />}
-        {visibleTab === "roster" && <TeacherRoster isDistrictAdmin={isDistrictAdmin} canBulkImport={canBulkImport} />}
-        {visibleTab === "users" && <UserManagement isNetworkAdmin={isDistrictAdmin} currentUserSchoolId={currentUser?.schoolId ?? null} canBulkImport={canBulkImport} />}
-        {visibleTab === "schools" && isDistrictAdmin && <SchoolSettings />}
+        {visibleTab === "rubric"  && isNetworkAdmin  && <RubricSettings setSlug={selectedRubricSetSlug} />}
+        {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+        {visibleTab === "schools" && isNetworkAdmin  && <SchoolSettings />}
       </main>
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}

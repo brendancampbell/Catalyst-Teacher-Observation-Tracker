@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
-import { users, schools } from "@workspace/db/schema";
+import { people, schools } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const SKIP_PATHS = [
@@ -20,44 +20,59 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
     return next();
   }
 
-  const impersonatingUserId = req.session.impersonatingUserId;
-  if (!impersonatingUserId) {
+  const impersonatingEmployeeId = req.session.impersonatingEmployeeId;
+  if (!impersonatingEmployeeId) {
     return next();
   }
 
   try {
     const rows = await db
       .select({
-        id:         users.id,
-        email:      users.email,
-        name:       users.name,
-        role:       users.role,
-        schoolId:   users.schoolId,
-        googleId:   users.googleId,
-        isActive:   users.isActive,
-        schoolName: schools.name,
+        employeeId:               people.employeeId,
+        firstName:                people.firstName,
+        lastName:                 people.lastName,
+        email:                    people.email,
+        role:                     people.role,
+        schoolId:                 people.schoolId,
+        googleId:                 people.googleId,
+        isActive:                 people.isActive,
+        includeInFeedbackTracker: people.includeInFeedbackTracker,
+        primaryInstructionalLeaderId: people.primaryInstructionalLeaderId,
+        department:               people.department,
+        gradeLevel:               people.gradeLevel,
+        needsRescore:             people.needsRescore,
+        rescoreDueDate:           people.rescoreDueDate,
+        schoolName:               schools.name,
       })
-      .from(users)
-      .leftJoin(schools, eq(users.schoolId, schools.id))
-      .where(eq(users.id, impersonatingUserId))
+      .from(people)
+      .leftJoin(schools, eq(people.schoolId, schools.id))
+      .where(eq(people.employeeId, impersonatingEmployeeId))
       .limit(1);
 
     if (rows.length > 0 && rows[0].isActive) {
       const target = rows[0];
       (req as Request & { realUser?: Express.User }).realUser = req.user;
       req.user = {
-        id:         target.id,
-        email:      target.email,
-        name:       target.name,
-        role:       target.role,
-        schoolId:   target.schoolId,
-        googleId:   target.googleId,
-        isActive:   target.isActive,
-        schoolName: target.schoolName ?? null,
+        employeeId:               target.employeeId,
+        firstName:                target.firstName,
+        lastName:                 target.lastName,
+        name:                     `${target.firstName} ${target.lastName}`.trim(),
+        email:                    target.email,
+        role:                     target.role,
+        schoolId:                 target.schoolId ?? null,
+        googleId:                 target.googleId,
+        isActive:                 target.isActive,
+        includeInFeedbackTracker: target.includeInFeedbackTracker,
+        primaryInstructionalLeaderId: target.primaryInstructionalLeaderId ?? null,
+        department:               target.department ?? null,
+        gradeLevel:               target.gradeLevel ?? null,
+        needsRescore:             target.needsRescore,
+        rescoreDueDate:           target.rescoreDueDate ?? null,
+        schoolName:               target.schoolName ?? null,
       } as Express.User;
     } else {
-      delete req.session.impersonatingUserId;
-      delete req.session.realUserId;
+      delete req.session.impersonatingEmployeeId;
+      delete req.session.realEmployeeId;
     }
   } catch {
     /* on error, proceed as real user */

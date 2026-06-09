@@ -66,7 +66,7 @@ function formatDateTime(iso: string) {
 
 interface TeacherMeta {
   name: string;
-  subject: string;
+  subject?: string | null;
   gradeLevel: string[];
 }
 

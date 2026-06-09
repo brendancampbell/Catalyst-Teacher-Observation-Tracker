@@ -251,7 +251,7 @@ export default function DraftsPage() {
                         className="font-bold text-base truncate"
                         style={{ color: NAVY }}
                       >
-                        {draft.teacherName ?? `Teacher ${draft.teacherId}`}
+                        {draft.teacherName ?? `Teacher ${draft.observedEmployeeId}`}
                       </span>
                       {draft.rubricSetName && (
                         <span
@@ -334,7 +334,7 @@ export default function DraftsPage() {
           allDomains={resumeData.allDomains}
           open={resumeOpen}
           onOpenChange={(o) => { setResumeOpen(o); if (!o) setResumeData(null); }}
-          defaultTeacherId={resumeData.draft.teacherId}
+          defaultTeacherId={resumeData.draft.observedEmployeeId}
           resumeDraftId={resumeData.draft.id}
           rubricSetId={resumeData.draft.rubricSetId}
           observerName={currentUser.name}

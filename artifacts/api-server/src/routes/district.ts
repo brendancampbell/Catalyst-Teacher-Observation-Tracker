@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  schools, teachers, rubricSets, rubricCategories,
+  schools, people, rubricSets, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
 import { eq, inArray, and, isNotNull, desc } from "drizzle-orm";
@@ -139,8 +139,8 @@ router.get("/summary", async (req, res) => {
     /* ══ SCENARIO A — Teacher-target rubric (original logic) ══════ */
     const allTeachers = await db
       .select()
-      .from(teachers)
-      .where(and(eq(teachers.isActive, true), isNotNull(teachers.schoolId)));
+      .from(people)
+      .where(and(eq(people.isActive, true), isNotNull(people.schoolId), eq(people.includeInFeedbackTracker, true)));
 
     const obsWhere = walkthroughsOnly
       ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), eq(observations.target, "TEACHER"))
@@ -159,11 +159,11 @@ router.get("/summary", async (req, res) => {
       scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
     }
 
-    const obsByTeacher = new Map<number, typeof allObs>();
+    const obsByTeacher = new Map<string, typeof allObs>();
     for (const o of allObs) {
-      if (!o.teacherId) continue;
-      if (!obsByTeacher.has(o.teacherId)) obsByTeacher.set(o.teacherId, []);
-      obsByTeacher.get(o.teacherId)!.push(o);
+      if (!o.observedEmployeeId) continue;
+      if (!obsByTeacher.has(o.observedEmployeeId)) obsByTeacher.set(o.observedEmployeeId, []);
+      obsByTeacher.get(o.observedEmployeeId)!.push(o);
     }
     for (const [, obs] of obsByTeacher) obs.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -173,7 +173,7 @@ router.get("/summary", async (req, res) => {
       const domainCounts: Record<string, number> = {};
 
       for (const t of schoolTeachers) {
-        const obs = obsByTeacher.get(t.id) ?? [];
+        const obs = obsByTeacher.get(t.employeeId) ?? [];
         if (obs.length === 0) continue;
 
         if (scoreType === "recent") {
@@ -235,7 +235,7 @@ router.get("/summary", async (req, res) => {
         region:        school.region ?? null,
         gradeSpan:     school.gradeSpan ?? null,
         teacherCount:  schoolTeachers.length,
-        observedCount: schoolTeachers.filter((t) => (obsByTeacher.get(t.id) ?? []).length > 0).length,
+        observedCount: schoolTeachers.filter((t) => (obsByTeacher.get(t.employeeId) ?? []).length > 0).length,
         domainAverages,
         overall,
         lastObservedDate: null,

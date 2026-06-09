@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   observations,
   observationScores,
-  teachers,
+  people,
   rubricCategories,
   rubricDomains,
 } from "@workspace/db/schema";
@@ -306,9 +306,9 @@ router.post("/send-observation", async (req, res) => {
     });
     if (!obs) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const teacher = await db.query.teachers.findFirst({
-      where: eq(teachers.id, obs.teacherId),
-    });
+    const teacher = obs.observedEmployeeId
+      ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observedEmployeeId) })
+      : null;
     if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
 
     const scoreRows = await db
@@ -321,12 +321,12 @@ router.post("/send-observation", async (req, res) => {
     );
 
     /* ── Load prior observation for trend arrows ───────────── */
-    const priorObs = await db
+    const priorObs = obs.observedEmployeeId ? await db
       .select()
       .from(observations)
-      .where(eq(observations.teacherId, obs.teacherId))
+      .where(eq(observations.observedEmployeeId, obs.observedEmployeeId))
       .orderBy(desc(observations.date))
-      .limit(10);
+      .limit(10) : [];
 
     let prevScoreMap: Record<string, number> = {};
     for (const prior of priorObs) {
@@ -368,7 +368,7 @@ router.post("/send-observation", async (req, res) => {
       glowsText: glows ?? "",
       growsText: grows ?? "",
       teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
-      teacherSubject: teacher.subject,
+      teacherSubject: teacher.department ?? null,
       teacherGrade: Array.isArray(teacher.gradeLevel) ? teacher.gradeLevel.join(", ") : (teacher.gradeLevel ?? null),
       date: obs.date,
       time: obs.time,

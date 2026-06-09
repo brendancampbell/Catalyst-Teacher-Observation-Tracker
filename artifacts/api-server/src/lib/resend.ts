@@ -27,7 +27,7 @@ async function getCredentials(): Promise<ResendCredentials> {
     }
   ).then((res) => res.json());
 
-  const connectionSettings = data.items?.[0];
+  const connectionSettings = (data as { items?: Array<{ settings?: { api_key?: string; from_email?: string } }> }).items?.[0];
 
   if (!connectionSettings?.settings?.api_key) {
     throw new Error("Resend not connected");

@@ -1,7 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import passport from "passport";
 import { db } from "@workspace/db";
-import { users, schools } from "@workspace/db/schema";
+import { people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireNetworkAdmin } from "../middleware/auth";
 
@@ -69,34 +69,37 @@ router.get("/me", (req, res) => {
   const realUser = (req as unknown as { realUser?: Express.User }).realUser;
   res.json({
     ...req.user,
-    _isImpersonating: !!req.session.impersonatingUserId,
-    _realUser: realUser ? { id: realUser.id, name: realUser.name } : null,
+    _isImpersonating: !!req.session.impersonatingEmployeeId,
+    _realUser: realUser
+      ? { employeeId: realUser.employeeId, name: realUser.name }
+      : null,
   });
 });
 
 /* ── POST /api/auth/impersonate ───────────────────────────────────
-   Starts impersonating a user. Body: { userId: number }
+   Starts impersonating a person. Body: { employeeId: string }
    Only NETWORK_ADMIN can call this; cannot impersonate NETWORK_ADMIN. */
 router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) => {
-  const { userId } = req.body as { userId?: unknown };
-  if (typeof userId !== "number") {
-    res.status(400).json({ error: "userId (number) required" });
+  const { employeeId } = req.body as { employeeId?: unknown };
+  if (typeof employeeId !== "string" || !employeeId.trim()) {
+    res.status(400).json({ error: "employeeId (string) required" });
     return;
   }
 
   const rows = await db
     .select({
-      id:       users.id,
-      role:     users.role,
-      name:     users.name,
-      isActive: users.isActive,
+      employeeId: people.employeeId,
+      role:       people.role,
+      firstName:  people.firstName,
+      lastName:   people.lastName,
+      isActive:   people.isActive,
     })
-    .from(users)
-    .where(eq(users.id, userId))
+    .from(people)
+    .where(eq(people.employeeId, employeeId.trim()))
     .limit(1);
 
   if (rows.length === 0) {
-    res.status(404).json({ error: "User not found" });
+    res.status(404).json({ error: "Person not found" });
     return;
   }
 
@@ -106,21 +109,22 @@ router.post("/impersonate", requireAuth, requireNetworkAdmin, async (req, res) =
     return;
   }
   if (!target.isActive) {
-    res.status(403).json({ error: "Cannot impersonate a deactivated user" });
+    res.status(403).json({ error: "Cannot impersonate a deactivated person" });
     return;
   }
 
-  req.session.impersonatingUserId = userId;
-  req.session.realUserId = (req.user as Express.User).id;
+  req.session.impersonatingEmployeeId = target.employeeId;
+  req.session.realEmployeeId = (req.user as Express.User).employeeId;
 
-  res.json({ ok: true, impersonating: { id: target.id, name: target.name } });
+  const name = `${target.firstName} ${target.lastName}`.trim();
+  res.json({ ok: true, impersonating: { employeeId: target.employeeId, name } });
 });
 
 /* ── POST /api/auth/stop-impersonating ───────────────────────────
    Stops the active impersonation session.                          */
 router.post("/stop-impersonating", requireAuth, (req, res) => {
-  delete req.session.impersonatingUserId;
-  delete req.session.realUserId;
+  delete req.session.impersonatingEmployeeId;
+  delete req.session.realEmployeeId;
   res.json({ ok: true });
 });
 

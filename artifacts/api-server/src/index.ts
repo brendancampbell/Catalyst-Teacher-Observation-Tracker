@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
+import { runPeopleMigration } from "./lib/migrate-to-people";
 
 const rawPort = process.env["PORT"];
 
@@ -35,6 +36,7 @@ async function ensureSessionTable(): Promise<void> {
 }
 
 ensureSessionTable()
+  .then(() => runPeopleMigration())
   .then(() => {
     app.listen(port, (err) => {
       if (err) {
@@ -45,6 +47,6 @@ ensureSessionTable()
     });
   })
   .catch((err) => {
-    logger.error({ err }, "Failed to initialise session table — aborting");
+    logger.error({ err }, "Startup failed — aborting");
     process.exit(1);
   });
