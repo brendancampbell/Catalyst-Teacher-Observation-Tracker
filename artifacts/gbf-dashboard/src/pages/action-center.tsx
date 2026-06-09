@@ -383,19 +383,19 @@ export default function ActionCenterPage() {
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
-                    <BarChart2 size={15} /> Current School Average
+                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
+                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                    <BarChart2 size={17} style={{ color: YELLOW }} /> Current School Average
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
                   <div className="flex items-end gap-3">
                     <span
-                      className="text-4xl font-bold tabular-nums"
+                      className="text-2xl font-bold tabular-nums leading-tight"
                       style={{ color: schoolAvg !== null ? (schoolAvg >= 0.7 ? "#16a34a" : "#dc2626") : "#94a3b8",
                                fontFamily: "'Bebas Neue', sans-serif" }}
                     >
-                      {schoolAvg !== null ? schoolAvg.toFixed(1) : "—"}
+                      {schoolAvg !== null ? schoolAvg.toFixed(2) : "—"}
                     </span>
                     {schoolAvg !== null && (
                       <Badge
@@ -415,9 +415,9 @@ export default function ActionCenterPage() {
               </Card>
 
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
-                    <TrendingUp size={15} className="text-green-600" /> Top Domain Strength
+                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
+                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                    <TrendingUp size={17} style={{ color: YELLOW }} /> Highest Domain
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
@@ -440,9 +440,9 @@ export default function ActionCenterPage() {
               </Card>
 
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-2 pt-4 px-5 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
-                    <TrendingDown size={15} className="text-red-600" /> Top Area for Growth
+                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
+                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
+                    <TrendingDown size={17} style={{ color: YELLOW }} /> Lowest Domain
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
