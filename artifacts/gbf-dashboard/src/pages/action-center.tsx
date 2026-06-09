@@ -358,7 +358,7 @@ export default function ActionCenterPage() {
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
                 { value: "analysis",     label: "Analysis",      icon: <TrendingUp  size={15} /> },
-                ...(currentUser?.role === "DISTRICT_ADMIN"
+                ...(currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "NETWORK_ADMIN"
                   ? [{ value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> }]
                   : []),
               ].map(({ value, label, icon }) => (
