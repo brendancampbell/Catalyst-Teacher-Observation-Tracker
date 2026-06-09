@@ -429,7 +429,6 @@ export default function ActionCenterPage() {
                       <p className="text-sm text-slate-600 mt-1">
                         Avg score <span className="font-bold text-green-700">{insights.topStrength.avg.toFixed(2)}</span> across {insights.topStrength.count} observation{insights.topStrength.count !== 1 ? "s" : ""}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
                     </>
                   ) : (
                     <>
@@ -455,7 +454,6 @@ export default function ActionCenterPage() {
                       <p className="text-sm text-slate-600 mt-1">
                         Avg score <span className="font-bold text-red-700">{insights.topGrowth.avg.toFixed(2)}</span> across {insights.topGrowth.count} observation{insights.topGrowth.count !== 1 ? "s" : ""}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 italic flex items-center gap-1"><Sparkles size={10} /> AI-synthesized · live data</p>
                     </>
                   ) : (
                     <>
