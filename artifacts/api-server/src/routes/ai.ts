@@ -20,9 +20,18 @@ import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError } from "../
 
 const router = Router();
 
-async function assertSchoolExists(id: number): Promise<boolean> {
-  const rows = await db.select({ id: schools.id }).from(schools).where(eq(schools.id, id)).limit(1);
-  return rows.length > 0;
+type SchoolCheckResult = "ok" | "not_found" | "inactive";
+
+async function checkSchool(id: number): Promise<SchoolCheckResult> {
+  const rows = await db
+    .select({ id: schools.id, isActive: schools.isActive, isArchived: schools.isArchived })
+    .from(schools)
+    .where(eq(schools.id, id))
+    .limit(1);
+  if (rows.length === 0) return "not_found";
+  const s = rows[0]!;
+  if (!s.isActive || s.isArchived) return "inactive";
+  return "ok";
 }
 
 function weeksBetween(a: string, b: string): number {
@@ -366,8 +375,10 @@ router.get("/insights", async (req, res) => {
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
-    if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" }); return;
+    if (requested !== null) {
+      const check = await checkSchool(requested);
+      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
+      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
@@ -420,8 +431,10 @@ router.get("/calibration-flags", async (req, res) => {
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
-    if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" }); return;
+    if (requested !== null) {
+      const check = await checkSchool(requested);
+      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
+      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
@@ -448,8 +461,10 @@ router.get("/plateau-alerts", async (req, res) => {
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
-    if (requested !== null && !(await assertSchoolExists(requested))) {
-      res.status(404).json({ error: "School not found" }); return;
+    if (requested !== null) {
+      const check = await checkSchool(requested);
+      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
+      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
