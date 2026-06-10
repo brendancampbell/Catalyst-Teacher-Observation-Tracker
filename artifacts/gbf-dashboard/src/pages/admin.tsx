@@ -71,8 +71,10 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomDesc, setEditingDomDesc] = useState("");
   const [editingSetName, setEditingSetName] = useState(false);
   const [pendingSetName, setPendingSetName] = useState("");
-  const [editingGradeSpan,   setEditingGradeSpan]   = useState(false);
-  const [pendingGradeSpanArr, setPendingGradeSpanArr] = useState<string[]>([]);
+  const [editingGradeSpan,      setEditingGradeSpan]      = useState(false);
+  const [pendingGradeSpanArr,   setPendingGradeSpanArr]   = useState<string[]>([]);
+  const [editingSubjectAudience, setEditingSubjectAudience] = useState(false);
+  const [pendingSubjectAudience, setPendingSubjectAudience] = useState<"STEM" | "HUMANITIES" | "ALL">("ALL");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
   const [newCatOrder,       setNewCatOrder]       = useState(1);
@@ -107,6 +109,16 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
       queryClient.invalidateQueries({ queryKey: qKey });
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
       setEditingGradeSpan(false);
+    },
+  });
+
+  const updateSubjectAudienceMut = useMutation({
+    mutationFn: (audience: "STEM" | "HUMANITIES" | "ALL") => updateRubricSet(setSlug, { subjectAudience: audience }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditingSubjectAudience(false);
     },
   });
 
@@ -270,6 +282,54 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             {data.rubricSet.gradeSpan
               ? data.rubricSet.gradeSpan.split(",").filter(Boolean).join(", ")
               : "All grade spans"}
+          </button>
+        )}
+
+        {/* ── Subject audience edit ── */}
+        {editingSubjectAudience ? (
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0">Audience:</span>
+            <div className="flex items-center gap-3">
+              {(["ALL", "STEM", "HUMANITIES"] as const).map((opt) => (
+                <label key={opt} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                  <input
+                    type="radio"
+                    name="editSubjectAudience"
+                    value={opt}
+                    checked={pendingSubjectAudience === opt}
+                    onChange={() => setPendingSubjectAudience(opt)}
+                    className="accent-blue-600 w-3.5 h-3.5"
+                  />
+                  {opt === "ALL" ? "All" : opt === "STEM" ? "STEM" : "Humanities"}
+                </label>
+              ))}
+            </div>
+            <button
+              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
+              disabled={updateSubjectAudienceMut.isPending}
+              onClick={() => updateSubjectAudienceMut.mutate(pendingSubjectAudience)}
+            >
+              <Check size={15} />
+            </button>
+            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingSubjectAudience(false)}>
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            title="Edit subject audience"
+            onClick={() => {
+              setPendingSubjectAudience(data.rubricSet.subjectAudience ?? "ALL");
+              setEditingSubjectAudience(true);
+            }}
+          >
+            <Pencil size={11} />
+            {data.rubricSet.subjectAudience === "STEM"
+              ? "STEM only"
+              : data.rubricSet.subjectAudience === "HUMANITIES"
+              ? "Humanities only"
+              : "All subjects"}
           </button>
         )}
 
@@ -1644,10 +1704,11 @@ export default function AdminPage() {
 
   /* New Rubric Set dialog */
   const [showNewRubricSetDialog, setShowNewRubricSetDialog] = useState(false);
-  const [newQName, setNewQName]           = useState("");
-  const [newQGradeSpans, setNewQGradeSpans] = useState<string[]>([]);
-  const [newQTarget, setNewQTarget]       = useState<"TEACHER" | "SCHOOL">("TEACHER");
-  const [copyFromSlug, setCopyFromSlug] = useState<string>("");
+  const [newQName, setNewQName]                     = useState("");
+  const [newQGradeSpans, setNewQGradeSpans]         = useState<string[]>([]);
+  const [newQTarget, setNewQTarget]                 = useState<"TEACHER" | "SCHOOL">("TEACHER");
+  const [newQSubjectAudience, setNewQSubjectAudience] = useState<"STEM" | "HUMANITIES" | "ALL">("ALL");
+  const [copyFromSlug, setCopyFromSlug]             = useState<string>("");
 
   function slugify(s: string) {
     return s.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8);
@@ -1660,6 +1721,7 @@ export default function AdminPage() {
       newQGradeSpans.join(",") || undefined,
       copyFromSlug || undefined,
       newQTarget,
+      newQSubjectAudience,
     ),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
@@ -1668,6 +1730,7 @@ export default function AdminPage() {
       setNewQName("");
       setNewQGradeSpans([]);
       setNewQTarget("TEACHER");
+      setNewQSubjectAudience("ALL");
       setCopyFromSlug("");
     },
   });
@@ -2015,6 +2078,32 @@ export default function AdminPage() {
                   {newQTarget === "SCHOOL"
                     ? "School-Wide rubrics are scored per campus, not per teacher."
                     : "Teacher rubrics are the standard — scored per teacher."}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Subject Audience</label>
+                <div className="flex items-center gap-5 px-1 py-1">
+                  {(["ALL", "STEM", "HUMANITIES"] as const).map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                      <input
+                        type="radio"
+                        name="newQSubjectAudience"
+                        value={opt}
+                        checked={newQSubjectAudience === opt}
+                        onChange={() => setNewQSubjectAudience(opt)}
+                        className="accent-blue-600 w-4 h-4"
+                      />
+                      {opt === "ALL" ? "All Subjects" : opt === "STEM" ? "STEM" : "Humanities"}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {newQSubjectAudience === "STEM"
+                    ? "Only shown for teachers in STEM departments."
+                    : newQSubjectAudience === "HUMANITIES"
+                    ? "Only shown for teachers in Humanities departments."
+                    : "Shown for all teachers regardless of department."}
                 </p>
               </div>
 
