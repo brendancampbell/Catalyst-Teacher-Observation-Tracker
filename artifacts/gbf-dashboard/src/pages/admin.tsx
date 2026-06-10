@@ -741,8 +741,9 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-lg shadow-sm" style={{ border: "1px solid #dde3f0", overflow: "hidden" }}>
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: 680 }}>
           <thead>
             <tr style={{ backgroundColor: NAVY }}>
               {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Status", ""].map((h, i) => (
@@ -881,6 +882,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <p className="text-center text-slate-400 text-xs pb-2">
