@@ -1836,8 +1836,8 @@ export default function AdminPage() {
           >
             {/* Sidebar header */}
             <div className="px-4 py-3" style={{ borderBottom: `2px solid ${YELLOW}` }}>
-              <span className="font-bold uppercase" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.06em" }}>
-                Rubric Sets
+              <span className="font-bold uppercase" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+                Rubrics
               </span>
             </div>
 
