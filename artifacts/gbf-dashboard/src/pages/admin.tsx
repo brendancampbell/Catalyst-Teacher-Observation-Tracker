@@ -2108,6 +2108,15 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── Rubric Set edit dialog ── */}
+      {editingRubricSet && (
+        <RubricSetEditDialog
+          slug={editingRubricSet.slug}
+          rubricSet={editingRubricSet}
+          onClose={() => setEditingRubricSet(null)}
+        />
+      )}
+
       {/* ── People and Schools tabs ── */}
       {visibleTab !== "rubric" && (
         <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
