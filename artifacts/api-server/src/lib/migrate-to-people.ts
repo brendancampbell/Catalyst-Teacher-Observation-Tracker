@@ -47,13 +47,23 @@ export async function runPeopleMigration(): Promise<void> {
   const client = await pool.connect();
   try {
     /* ── Read current migration state ────────────────────────────── */
-    const peopleTableExists  = await tableExists(client, "people");
-    const teacherColExists   = await columnExists(client, "observations", "teacher_id");
+    const peopleTableExists   = await tableExists(client, "people");
+    const teacherColExists    = await columnExists(client, "observations", "teacher_id");
     const teachersTableExists = await tableExists(client, "teachers");
-    const usersTableExists   = await tableExists(client, "users");
+    const usersTableExists    = await tableExists(client, "users");
+
+    /* Detect the case where Replit's schema migration created the people table
+       but left it empty (schema applied before server startup).               */
+    let peopleNeedsSeeding = false;
+    if (peopleTableExists && (teachersTableExists || usersTableExists)) {
+      const { rows: cntRows } = await client.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM people`,
+      );
+      peopleNeedsSeeding = cntRows[0].count === "0";
+    }
 
     /* ── Already fully complete ──────────────────────────────────── */
-    if (peopleTableExists && !teacherColExists && !teachersTableExists && !usersTableExists) {
+    if (peopleTableExists && !peopleNeedsSeeding && !teacherColExists && !teachersTableExists && !usersTableExists) {
       logger.info("[migrate-to-people] Migration already complete — skipping");
       return;
     }
@@ -64,12 +74,17 @@ export async function runPeopleMigration(): Promise<void> {
     );
 
     /* ══ PHASE A: Create people table + seed from teachers/users ═══
-       Runs only when people table does not exist yet.               */
-    if (!peopleTableExists) {
-      logger.info("[migrate-to-people] Phase A: creating people table and seeding data");
+       Runs when people table does not exist yet, OR when it was created
+       externally (e.g. Replit schema migration) but left empty.         */
+    if (!peopleTableExists || peopleNeedsSeeding) {
+      logger.info(
+        peopleNeedsSeeding
+          ? "[migrate-to-people] Phase A: people table exists but is empty — seeding from teachers/users"
+          : "[migrate-to-people] Phase A: creating people table and seeding data",
+      );
       await client.query("BEGIN");
       try {
-        /* 1. Create enums */
+        /* 1. Create enums (always idempotent) */
         await client.query(`
           DO $$ BEGIN
             CREATE TYPE person_role AS ENUM (
@@ -88,25 +103,28 @@ export async function runPeopleMigration(): Promise<void> {
           END $$;
         `);
 
-        /* 2. Create people table */
-        await client.query(`
-          CREATE TABLE people (
-            employee_id                   text PRIMARY KEY,
-            first_name                    text NOT NULL,
-            last_name                     text NOT NULL,
-            email                         text NOT NULL UNIQUE,
-            google_id                     text UNIQUE,
-            role                          person_role NOT NULL DEFAULT 'NO_ACCESS',
-            is_active                     boolean NOT NULL DEFAULT true,
-            include_in_feedback_tracker   boolean NOT NULL DEFAULT false,
-            school_id                     integer REFERENCES schools(id) ON DELETE SET NULL,
-            primary_instructional_leader_id text,
-            department                    department_enum,
-            grade_level                   text[],
-            needs_rescore                 boolean NOT NULL DEFAULT false,
-            rescore_due_date              date
-          )
-        `);
+        /* 2. Create people table — only when it doesn't already exist
+           (when peopleNeedsSeeding is true the table was created by Replit) */
+        if (!peopleTableExists) {
+          await client.query(`
+            CREATE TABLE people (
+              employee_id                   text PRIMARY KEY,
+              first_name                    text NOT NULL,
+              last_name                     text NOT NULL,
+              email                         text NOT NULL UNIQUE,
+              google_id                     text UNIQUE,
+              role                          person_role NOT NULL DEFAULT 'NO_ACCESS',
+              is_active                     boolean NOT NULL DEFAULT true,
+              include_in_feedback_tracker   boolean NOT NULL DEFAULT false,
+              school_id                     integer REFERENCES schools(id) ON DELETE SET NULL,
+              primary_instructional_leader_id text,
+              department                    department_enum,
+              grade_level                   text[],
+              needs_rescore                 boolean NOT NULL DEFAULT false,
+              rescore_due_date              date
+            )
+          `);
+        }
 
         /* 3. Migrate teachers → people */
         await client.query(`
@@ -224,12 +242,16 @@ export async function runPeopleMigration(): Promise<void> {
           );
         }
 
-        /* 5. Add self-referencing FK on people */
+        /* 5. Add self-referencing FK on people — idempotent in case Replit's
+           schema migration already created it alongside the table.           */
         await client.query(`
-          ALTER TABLE people
-            ADD CONSTRAINT people_pil_fk
-            FOREIGN KEY (primary_instructional_leader_id)
-            REFERENCES people(employee_id) ON DELETE SET NULL
+          DO $$ BEGIN
+            ALTER TABLE people
+              ADD CONSTRAINT people_pil_fk
+              FOREIGN KEY (primary_instructional_leader_id)
+              REFERENCES people(employee_id) ON DELETE SET NULL;
+          EXCEPTION WHEN duplicate_object THEN NULL;
+          END $$;
         `);
 
         await client.query("COMMIT");
@@ -244,8 +266,20 @@ export async function runPeopleMigration(): Promise<void> {
     }
 
     /* ══ PHASE B: Add text FK columns, backfill, validate, drop old int FKs ══
-       Runs only when observations.teacher_id column still exists.              */
-    if (teacherColExists) {
+       Runs only when observations.teacher_id column still exists.
+       Sub-case: if teachers table is already gone (dev after first migration
+       ran, then Drizzle push re-added the legacy column), just drop the
+       columns without backfilling — data was already migrated.              */
+    if (teacherColExists && !teachersTableExists) {
+      logger.info("[migrate-to-people] Phase B (cleanup): teacher_id present but teachers table gone — dropping legacy columns only");
+      await client.query(`
+        ALTER TABLE observations
+          DROP COLUMN IF EXISTS teacher_id,
+          DROP COLUMN IF EXISTS observer_id,
+          DROP COLUMN IF EXISTS edited_by_id
+      `);
+      logger.info("[migrate-to-people] Phase B (cleanup) complete ✓");
+    } else if (teacherColExists) {
       logger.info("[migrate-to-people] Phase B: backfilling observations and dropping legacy int FK columns");
       await client.query("BEGIN");
       try {
