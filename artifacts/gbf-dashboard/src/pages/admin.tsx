@@ -2136,10 +2136,10 @@ export default function AdminPage() {
                 onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpans([]); setNewQTarget("TEACHER"); setNewQSubjectAudience("ALL"); setCopyFromSlug(""); } }}
                 disabled={atLimit || rubricSetsLoading}
                 className="flex items-center justify-center gap-1.5 w-full font-bold rounded-md px-3 py-2 text-sm transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
+                style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.04em" }}
               >
-                <Plus size={14} />
-                New Rubric Set
+                <Plus size={15} />
+                New Rubric
               </button>
             </div>
           </div>
