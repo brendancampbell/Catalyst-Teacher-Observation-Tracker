@@ -192,6 +192,16 @@ export default function ObservationPage() {
         {!isLoading && !isError && teachers && rubricData && (
           <form id="obs-form" onSubmit={handleSubmit} className="px-4 pt-4 flex flex-col gap-4">
 
+            {/* No-teachers notice */}
+            {filteredTeachers.length === 0 && audience !== "ALL" && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-500" />
+                <p className="text-sm text-amber-800 leading-snug">
+                  No teachers match this rubric's audience. Switch to an All-audience rubric or update teacher subjects.
+                </p>
+              </div>
+            )}
+
             {/* Teacher + Date */}
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
               <div>
@@ -201,7 +211,8 @@ export default function ObservationPage() {
                     value={teacherId}
                     onChange={(e) => setTeacherId(e.target.value)}
                     required
-                    className="w-full appearance-none px-3 py-2.5 pr-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                    disabled={filteredTeachers.length === 0}
+                    className="w-full appearance-none px-3 py-2.5 pr-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ fontFamily: "'Libre Franklin', sans-serif" }}
                   >
                     <option value="" disabled>Select a teacher…</option>

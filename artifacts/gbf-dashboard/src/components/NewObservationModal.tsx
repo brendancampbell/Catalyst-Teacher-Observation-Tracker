@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Plus, Loader2, RotateCcw } from "lucide-react";
+import { X, Plus, Loader2, RotateCcw, AlertCircle } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
@@ -960,6 +960,16 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
               </div>
             )}
 
+            {/* No-teachers notice */}
+            {filteredTeachers.length === 0 && (rubricSetAudience ?? "ALL") !== "ALL" && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+                <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-500" />
+                <p className="text-sm text-amber-800 leading-snug">
+                  No teachers match this rubric's audience. Switch to an All-audience rubric or update teacher subjects.
+                </p>
+              </div>
+            )}
+
             {/* Teacher + Date + Time */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div className="sm:col-span-1">
@@ -969,8 +979,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 <select
                   value={teacherId}
                   onChange={(e) => setTeacherId(e.target.value)}
-                  className={inputBase}
+                  disabled={filteredTeachers.length === 0}
+                  className={`${inputBase} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
+                  {filteredTeachers.length === 0 && (
+                    <option value="" disabled>No teachers available</option>
+                  )}
                   {filteredTeachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} ({t.subject}, Grade{t.gradeLevel.length !== 1 ? "s" : ""} {t.gradeLevel.join(", ")})
