@@ -474,9 +474,9 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                   style={{
                     backgroundColor: target === opt ? NAVY : "white",
                     color: target === opt ? YELLOW : "#475569",
-                    fontFamily: target === opt ? "'Bebas Neue', sans-serif" : undefined,
-                    fontSize: target === opt ? 14 : 13,
-                    letterSpacing: target === opt ? "0.04em" : undefined,
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 14,
+                    letterSpacing: "0.04em",
                   }}
                 >
                   {opt === "TEACHER" ? "Teacher-Facing" : "School-Wide"}
@@ -505,9 +505,9 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                     style={{
                       backgroundColor: active ? NAVY : "white",
                       color: active ? YELLOW : "#475569",
-                      fontFamily: active ? "'Bebas Neue', sans-serif" : undefined,
-                      fontSize: active ? 14 : 13,
-                      letterSpacing: active ? "0.04em" : undefined,
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontSize: 14,
+                      letterSpacing: "0.04em",
                     }}
                   >
                     {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
@@ -534,9 +534,9 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                     style={{
                       backgroundColor: audience === opt ? NAVY : "white",
                       color: audience === opt ? YELLOW : "#475569",
-                      fontFamily: audience === opt ? "'Bebas Neue', sans-serif" : undefined,
-                      fontSize: audience === opt ? 14 : 13,
-                      letterSpacing: audience === opt ? "0.04em" : undefined,
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontSize: 14,
+                      letterSpacing: "0.04em",
                     }}
                   >
                     {opt === "ALL" ? "All Subjects" : opt === "STEM" ? "STEM" : "Humanities"}
@@ -580,7 +580,8 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+              className="px-4 py-2 rounded-lg font-bold text-white hover:opacity-90 transition-opacity border border-slate-200"
+              style={{ backgroundColor: "#e2e8f0", color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
             >
               Cancel
             </button>
