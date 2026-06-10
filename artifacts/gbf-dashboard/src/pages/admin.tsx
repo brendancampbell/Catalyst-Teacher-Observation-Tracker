@@ -461,28 +461,7 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
             />
           </div>
 
-          {/* Grade Spans */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-slate-700">Grade Spans</label>
-            <div className="flex items-center gap-4 px-1 py-1">
-              {GRADE_SPANS.map((gs) => (
-                <label key={gs} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
-                  <input
-                    type="checkbox"
-                    checked={gradeSpanArr.includes(gs)}
-                    onChange={(e) => setGradeSpanArr((p) => e.target.checked ? [...p, gs] : p.filter((g) => g !== gs))}
-                    className="accent-blue-600 w-4 h-4"
-                  />
-                  {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400">
-              {gradeSpanArr.length ? `Scoped to: ${gradeSpanArr.join(", ")}` : "All grade spans"}
-            </p>
-          </div>
-
-          {/* Rubric Type toggle */}
+          {/* Rubric Type toggle — first */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-semibold text-slate-700">Rubric Type</label>
             <div className="flex rounded-lg overflow-hidden border border-slate-200 w-fit">
@@ -511,23 +490,57 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
             </p>
           </div>
 
-          {/* Subject Audience — only for teacher rubrics */}
+          {/* Grade Spans — pill buttons */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Grade Spans</label>
+            <div className="flex rounded-lg overflow-hidden border border-slate-200 w-fit">
+              {GRADE_SPANS.map((gs) => {
+                const active = gradeSpanArr.includes(gs);
+                return (
+                  <button
+                    key={gs}
+                    type="button"
+                    onClick={() => setGradeSpanArr((p) => active ? p.filter((g) => g !== gs) : [...p, gs])}
+                    className="px-4 py-2 text-sm font-semibold transition-colors"
+                    style={{
+                      backgroundColor: active ? NAVY : "white",
+                      color: active ? YELLOW : "#475569",
+                      fontFamily: active ? "'Bebas Neue', sans-serif" : undefined,
+                      fontSize: active ? 14 : 13,
+                      letterSpacing: active ? "0.04em" : undefined,
+                    }}
+                  >
+                    {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-400">
+              {gradeSpanArr.length ? `Scoped to: ${gradeSpanArr.join(", ")}` : "All grade spans"}
+            </p>
+          </div>
+
+          {/* Subject Audience — pill buttons, only for teacher rubrics */}
           {target !== "SCHOOL" && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Subject Audience</label>
-              <div className="flex items-center gap-5 px-1 py-1">
+              <div className="flex rounded-lg overflow-hidden border border-slate-200 w-fit">
                 {(["ALL", "STEM", "HUMANITIES"] as const).map((opt) => (
-                  <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
-                    <input
-                      type="radio"
-                      name={`editAudience-${slug}`}
-                      value={opt}
-                      checked={audience === opt}
-                      onChange={() => setAudience(opt)}
-                      className="accent-blue-600 w-4 h-4"
-                    />
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setAudience(opt)}
+                    className="px-4 py-2 text-sm font-semibold transition-colors"
+                    style={{
+                      backgroundColor: audience === opt ? NAVY : "white",
+                      color: audience === opt ? YELLOW : "#475569",
+                      fontFamily: audience === opt ? "'Bebas Neue', sans-serif" : undefined,
+                      fontSize: audience === opt ? 14 : 13,
+                      letterSpacing: audience === opt ? "0.04em" : undefined,
+                    }}
+                  >
                     {opt === "ALL" ? "All Subjects" : opt === "STEM" ? "STEM" : "Humanities"}
-                  </label>
+                  </button>
                 ))}
               </div>
               <p className="text-xs text-slate-400">
@@ -539,9 +552,11 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
               </p>
             </div>
           )}
+        </div>
 
-          {/* Archive / Restore */}
-          <div className="pt-3 border-t border-slate-100">
+        {/* Footer — archive on left, cancel/save on right */}
+        <div className="px-5 pb-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <div>
             {rubricSet.isArchived ? (
               <button
                 disabled={archiveMut.isPending}
@@ -549,7 +564,7 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                 className="flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors disabled:opacity-50"
               >
                 <ArchiveRestore size={14} />
-                Restore to Active
+                Restore
               </button>
             ) : (
               <button
@@ -558,28 +573,26 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                 className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:text-amber-800 transition-colors disabled:opacity-50"
               >
                 <Archive size={14} />
-                Archive this rubric set
+                Archive
               </button>
             )}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 pb-5 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => saveMut.mutate()}
-            disabled={!name.trim() || saveMut.isPending}
-            className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
-          >
-            {saveMut.isPending ? "Saving…" : "Save Changes"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => saveMut.mutate()}
+              disabled={!name.trim() || saveMut.isPending}
+              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+            >
+              {saveMut.isPending ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
