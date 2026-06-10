@@ -784,10 +784,10 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   if (view === "bulk" && canBulkImport) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex gap-1 border-b border-slate-200 pb-0">
-          <button onClick={() => setView("list")} className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>Users</button>
-          <button className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>
-            <Upload size={13} />Bulk Import
+        <div className="flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
+          <button onClick={() => setView("list")} className="py-3 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "2px solid transparent", marginBottom: -1 }}>User List</button>
+          <button className="py-3 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>
+            Bulk Upload
           </button>
         </div>
         <PeopleBulkImport isNetworkAdmin={isNetworkAdmin} onDone={() => { setView("list"); queryClient.invalidateQueries({ queryKey: qKey }); }} />
@@ -797,11 +797,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-1 border-b border-slate-200 pb-0">
-        <button className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>Users</button>
+      <div className="flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
+        <button className="py-3 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>User List</button>
         {canBulkImport && (
-          <button onClick={() => setView("bulk")} className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>
-            <Upload size={13} />Bulk Import
+          <button onClick={() => setView("bulk")} className="py-3 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "2px solid transparent", marginBottom: -1 }}>
+            Bulk Upload
           </button>
         )}
       </div>
