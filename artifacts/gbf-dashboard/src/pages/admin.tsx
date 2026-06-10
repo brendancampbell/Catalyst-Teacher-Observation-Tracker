@@ -581,7 +581,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const filtersActive = filterRoles.length > 0 || filterSchools.length > 0 || filterObservable;
 
   const shown = people.filter((p) => {
-    if (!showInactive && !p.isActive) return false;
+    if (showInactive ? p.isActive : !p.isActive) return false;
     if (filterObservable && !p.includeInFeedbackTracker) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -657,7 +657,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
         </label>
         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
-          Show inactive
+          Show inactive only
         </label>
         {(filtersActive || search) && (
           <button onClick={() => { setFilterRoles([]); setFilterSchools([]); setSearch(""); setFilterObservable(false); }} className="font-semibold underline underline-offset-2 text-sm" style={{ color: NAVY }}>
@@ -741,28 +741,27 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm" style={{ border: "1px solid #dde3f0", overflow: "hidden" }}>
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: 680 }}>
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <table className="w-full text-sm">
           <thead>
             <tr style={{ backgroundColor: NAVY }}>
-              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Status", ""].map((h, i) => (
+              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", ""].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
-            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 7 : 6} style={{ padding: 0, height: 3 }} /></tr>
+            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 6 : 5} style={{ padding: 0, height: 3 }} /></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {people.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 7 : 6} className="text-center py-8 text-slate-400">No people found.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people found.</td></tr>
             )}
             {people.length > 0 && shown.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 7 : 6} className="text-center py-8 text-slate-400">No people match your filters.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No {showInactive ? "inactive" : "active"} people match your filters.</td></tr>
             )}
             {shown.map((p) => (
               <tr key={p.employeeId}>
                 {editId === p.employeeId ? (
-                  <td colSpan={isNetworkAdmin ? 7 : 6} className="px-4 py-3 bg-blue-50">
+                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap gap-3 items-start">
                         <input className={`${inputCls} flex-1 min-w-[130px]`} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="First name" autoFocus />
@@ -846,12 +845,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                       <span className="block truncate text-xs">{p.department ?? <span className="text-slate-300">—</span>}</span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <span className="text-xs font-bold rounded-full px-2 py-0.5"
-                        style={p.isActive ? { backgroundColor: "#dcfce7", color: "#15803d" } : { backgroundColor: "#fee2e2", color: "#b91c1c" }}>
-                        {p.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
                           <Pencil size={13} />
@@ -882,7 +875,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             ))}
           </tbody>
         </table>
-        </div>
       </div>
 
       <p className="text-center text-slate-400 text-xs pb-2">
