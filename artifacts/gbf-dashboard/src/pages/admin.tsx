@@ -498,6 +498,10 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const [filterSchools,   setFilterSchools]   = useState<string[]>([]);
   const [filterObservable, setFilterObservable] = useState(false);
 
+  /* Pagination */
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
   const selCls   = `${inputCls} cursor-pointer`;
 
@@ -601,6 +605,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
     const last = a.lastName.localeCompare(b.lastName);
     return last !== 0 ? last : a.firstName.localeCompare(b.firstName);
   });
+
+  const totalPages  = Math.max(1, Math.ceil(shown.length / pageSize));
+  const safePage    = Math.min(page, totalPages);
+  const pageStart   = (safePage - 1) * pageSize;
+  const paged       = shown.slice(pageStart, pageStart + pageSize);
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20">
@@ -764,7 +773,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             {people.length > 0 && shown.length === 0 && (
               <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No {showInactive ? "inactive" : "active"} people match your filters.</td></tr>
             )}
-            {shown.map((p) => (
+            {paged.map((p) => (
               <tr key={p.employeeId}>
                 {editId === p.employeeId ? (
                   <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
@@ -885,9 +894,82 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
         </table>
       </div>
 
-      <p className="text-center text-slate-400 text-xs pb-2">
-        Inactive people are hidden from the dashboard but their data is preserved. Observable people appear as subjects in observations.
-      </p>
+      {/* Pagination footer */}
+      <div className="flex items-center justify-between flex-wrap gap-3 pt-1 pb-2">
+        <p className="text-xs text-slate-400">
+          {shown.length === 0
+            ? "No users to show"
+            : `Showing ${pageStart + 1}–${Math.min(pageStart + pageSize, shown.length)} of ${shown.length} user${shown.length !== 1 ? "s" : ""}`}
+        </p>
+
+        <div className="flex items-center gap-3">
+          {/* Page size picker */}
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            Per page
+            <select
+              className="border border-slate-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+            >
+              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+
+          {/* Page buttons */}
+          <div className="flex items-center gap-1">
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
+              style={{ borderColor: "#dde3f0", color: NAVY }}
+              disabled={safePage === 1}
+              onClick={() => setPage(1)}
+              title="First page"
+            ><ChevronLeft size={12} /><ChevronLeft size={12} /></button>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
+              style={{ borderColor: "#dde3f0", color: NAVY }}
+              disabled={safePage === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              title="Previous page"
+            ><ChevronLeft size={14} /></button>
+
+            {/* Page number pills */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
+              .reduce<(number | "…")[]>((acc, n, idx, arr) => {
+                if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push("…");
+                acc.push(n);
+                return acc;
+              }, [])
+              .map((n, i) =>
+                n === "…"
+                  ? <span key={`ellipsis-${i}`} className="w-7 h-7 flex items-center justify-center text-xs text-slate-400">…</span>
+                  : <button
+                      key={n}
+                      className="w-7 h-7 flex items-center justify-center rounded text-xs font-bold transition-colors"
+                      style={n === safePage
+                        ? { backgroundColor: NAVY, color: "white" }
+                        : { border: "1px solid #dde3f0", color: NAVY }}
+                      onClick={() => setPage(n as number)}
+                    >{n}</button>
+              )}
+
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
+              style={{ borderColor: "#dde3f0", color: NAVY }}
+              disabled={safePage === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              title="Next page"
+            ><ChevronRight size={14} /></button>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
+              style={{ borderColor: "#dde3f0", color: NAVY }}
+              disabled={safePage === totalPages}
+              onClick={() => setPage(totalPages)}
+              title="Last page"
+            ><ChevronRight size={12} /><ChevronRight size={12} /></button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
