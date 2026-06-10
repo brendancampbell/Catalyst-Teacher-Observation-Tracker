@@ -14,9 +14,11 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  reorderCategories,
   createDomain,
   updateDomain,
   deleteDomain,
+  reorderDomains,
   fetchPeople,
   createPerson,
   updatePerson,
@@ -129,6 +131,22 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
   });
 
+  const catDragItem = useRef<number | null>(null);
+  const [catDragOver, setCatDragOver] = useState<number | null>(null);
+
+  const reorderCatMut = useMutation({
+    mutationFn: (items: { id: number; displayOrder: number }[]) => reorderCategories(items),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+  });
+
+  const domDragItem = useRef<number | null>(null);
+  const [domDragOver, setDomDragOver] = useState<number | null>(null);
+
+  const reorderDomMut = useMutation({
+    mutationFn: (items: { id: number; displayOrder: number }[]) => reorderDomains(items),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+  });
+
   function startEditCat(cat: RubricCategoryRow) {
     setEditingCatId(cat.id); setEditingCatName(cat.name); setEditingDomId(null);
   }
@@ -153,8 +171,43 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   return (
     <div className="flex flex-col gap-5">
 
-      {data.categories.map((cat) => (
-        <div key={cat.id} className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+      {data.categories.map((cat) => {
+        const isCatDragTarget = catDragOver === cat.id;
+        return (
+        <div
+          key={cat.id}
+          draggable
+          onDragStart={(e) => {
+            catDragItem.current = cat.id;
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (catDragOver !== cat.id) setCatDragOver(cat.id);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const fromId = catDragItem.current;
+            catDragItem.current = null;
+            setCatDragOver(null);
+            if (!fromId || fromId === cat.id) return;
+            const cats = data.categories;
+            const fromIdx = cats.findIndex((c) => c.id === fromId);
+            const toIdx   = cats.findIndex((c) => c.id === cat.id);
+            if (fromIdx < 0 || toIdx < 0) return;
+            const reordered = [...cats];
+            const [moved] = reordered.splice(fromIdx, 1);
+            reordered.splice(toIdx, 0, moved);
+            reorderCatMut.mutate(reordered.map((c, i) => ({ id: c.id, displayOrder: i })));
+          }}
+          onDragEnd={() => { setCatDragOver(null); catDragItem.current = null; }}
+          className="bg-white rounded-lg shadow-sm overflow-hidden"
+          style={{
+            border: isCatDragTarget ? `2px solid ${YELLOW}` : "1px solid #dde3f0",
+            opacity: reorderCatMut.isPending ? 0.7 : 1,
+          }}
+        >
           <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: NAVY, borderBottom: `2px solid ${YELLOW}` }}>
             {editingCatId === cat.id ? (
               <div className="flex items-center gap-2 flex-1">
@@ -174,8 +227,11 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
               </div>
             ) : (
               <>
-                <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.02em" }}>{cat.name}</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <GripVertical size={14} className="shrink-0 cursor-grab" style={{ color: "rgba(255,255,255,0.35)" }} />
+                  <span className="font-bold uppercase text-white truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.02em" }}>{cat.name}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
                   <button className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button>
                   <button className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (confirm(`Delete category "${cat.name}" and all its domains?`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button>
                 </div>
@@ -184,8 +240,46 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
           </div>
 
           <div className="divide-y divide-slate-100">
-            {cat.domains.map((dom) => (
-              <div key={dom.id} className="px-4 py-2.5 hover:bg-slate-50 transition-colors">
+            {cat.domains.map((dom) => {
+              const isDomDragTarget = domDragOver === dom.id;
+              return (
+              <div
+                key={dom.id}
+                draggable
+                onDragStart={(e) => {
+                  domDragItem.current = dom.id;
+                  e.dataTransfer.effectAllowed = "move";
+                  e.stopPropagation();
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = "move";
+                  if (domDragOver !== dom.id) setDomDragOver(dom.id);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const fromId = domDragItem.current;
+                  domDragItem.current = null;
+                  setDomDragOver(null);
+                  if (!fromId || fromId === dom.id) return;
+                  const fromIdx = cat.domains.findIndex((d) => d.id === fromId);
+                  const toIdx   = cat.domains.findIndex((d) => d.id === dom.id);
+                  if (fromIdx < 0 || toIdx < 0) return;
+                  const reordered = [...cat.domains];
+                  const [moved] = reordered.splice(fromIdx, 1);
+                  reordered.splice(toIdx, 0, moved);
+                  reorderDomMut.mutate(reordered.map((d, i) => ({ id: d.id, displayOrder: i })));
+                }}
+                onDragEnd={() => { setDomDragOver(null); domDragItem.current = null; }}
+                className="px-4 py-2.5 transition-colors"
+                style={{
+                  backgroundColor: isDomDragTarget ? "#eef1ff" : undefined,
+                  borderLeft: isDomDragTarget ? `3px solid ${NAVY}` : undefined,
+                  opacity: reorderDomMut.isPending ? 0.7 : 1,
+                }}
+              >
                 {editingDomId === dom.id ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
@@ -204,6 +298,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
+                    <GripVertical size={13} className="shrink-0 mt-0.5 cursor-grab text-slate-300 hover:text-slate-500 transition-colors" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-slate-700 text-sm">{dom.name}</span>
@@ -218,7 +313,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {addingDomForCat === cat.id ? (
               <div className="flex flex-col gap-2 px-4 py-2.5 bg-blue-50">
@@ -253,7 +349,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             )}
           </div>
         </div>
-      ))}
+        );
+      })}
 
       {addingCat ? (
         <div className="bg-white rounded-lg shadow-sm p-4 flex items-center gap-3 flex-wrap" style={{ border: `2px solid ${NAVY}` }}>

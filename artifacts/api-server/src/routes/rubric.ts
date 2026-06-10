@@ -173,6 +173,23 @@ router.post("/:setSlug/categories", requireNetworkAdmin, async (req, res) => {
   }
 });
 
+/* ── PUT /api/rubric/categories/reorder ─────────────────────────── */
+router.put("/categories/reorder", requireNetworkAdmin, async (req, res) => {
+  try {
+    const items = req.body as { id: number; displayOrder: number }[];
+    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    await Promise.all(
+      items.map(({ id, displayOrder }) =>
+        db.update(rubricCategories).set({ displayOrder }).where(eq(rubricCategories.id, id))
+      )
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("PUT /rubric/categories/reorder error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── PUT /api/rubric/categories/:id ────────────────────────────── */
 router.put("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
@@ -211,6 +228,23 @@ router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => 
     res.status(201).json(dom);
   } catch (err) {
     console.error("POST /rubric/categories/:id/domains error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── PUT /api/rubric/domains/reorder ────────────────────────────── */
+router.put("/domains/reorder", requireNetworkAdmin, async (req, res) => {
+  try {
+    const items = req.body as { id: number; displayOrder: number }[];
+    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    await Promise.all(
+      items.map(({ id, displayOrder }) =>
+        db.update(rubricDomains).set({ displayOrder }).where(eq(rubricDomains.id, id))
+      )
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("PUT /rubric/domains/reorder error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -520,6 +520,13 @@ export async function deleteCategory(id: number): Promise<void> {
   await apiFetch<void>(`/rubric/categories/${id}`, { method: "DELETE" });
 }
 
+export async function reorderCategories(items: { id: number; displayOrder: number }[]): Promise<void> {
+  await apiFetch<void>("/rubric/categories/reorder", {
+    method: "PUT",
+    body: JSON.stringify(items),
+  });
+}
+
 export async function createDomain(categoryId: number, name: string, slug: string, displayOrder: number, description?: string): Promise<RubricDomainRow> {
   return apiFetch<RubricDomainRow>(`/rubric/categories/${categoryId}/domains`, {
     method: "POST",
@@ -536,6 +543,13 @@ export async function updateDomain(id: number, name: string, slug: string, descr
 
 export async function deleteDomain(id: number): Promise<void> {
   await apiFetch<void>(`/rubric/domains/${id}`, { method: "DELETE" });
+}
+
+export async function reorderDomains(items: { id: number; displayOrder: number }[]): Promise<void> {
+  await apiFetch<void>("/rubric/domains/reorder", {
+    method: "PUT",
+    body: JSON.stringify(items),
+  });
 }
 
 /* ── AI ────────────────────────────────────────────────────────── */
