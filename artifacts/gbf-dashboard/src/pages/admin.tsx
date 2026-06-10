@@ -1753,6 +1753,7 @@ export default function AdminPage() {
 
   const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
   const [showArchivedSets, setShowArchivedSets]           = useState(false);
+  const [dashboardActiveSlug]                             = useState<string>(() => localStorage.getItem("catalyst:activeRubricSet") ?? "");
   const [editingRubricSet, setEditingRubricSet]           = useState<RubricSetRow | null>(null);
   const dragItem                                          = useRef<string | null>(null);
   const [dragOver, setDragOver]                           = useState<string | null>(null);
@@ -2003,6 +2004,21 @@ export default function AdminPage() {
                           </span>
                         )}
                       </span>
+                      {dashboardActiveSlug && q.slug === dashboardActiveSlug && (
+                        <span
+                          className="shrink-0 rounded px-1.5 py-0.5 font-bold uppercase"
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: "0.08em",
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            backgroundColor: YELLOW,
+                            color: NAVY,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Live
+                        </span>
+                      )}
                       <button
                         type="button"
                         className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
