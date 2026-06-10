@@ -12,6 +12,7 @@ import {
   type DomainEntry,
 } from "@/data/dummy";
 import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
@@ -355,12 +356,13 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     return teachers
       .filter((t) => {
+        if (!teacherMatchesAudience(t.subject, rubricSetAudience)) return false;
         if (subject.length  && !subject.includes(t.subject ?? "")) return false;
         if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
         return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [teachers, subject, grade, viewBy]);
+  }, [teachers, subject, grade, viewBy, rubricSetAudience]);
 
   const groupRows = useMemo(
     () => (viewBy !== "teacher" ? buildGroups(filtered, viewBy) : []),
