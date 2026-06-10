@@ -610,7 +610,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
     return (
       <div className="flex flex-col gap-4">
         <div className="flex gap-1 border-b border-slate-200 pb-0">
-          <button onClick={() => setView("list")} className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>People</button>
+          <button onClick={() => setView("list")} className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>Users</button>
           <button className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>
             <Upload size={13} />Bulk Import
           </button>
@@ -623,7 +623,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-1 border-b border-slate-200 pb-0">
-        <button className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>People</button>
+        <button className="px-4 py-2 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `3px solid ${NAVY}` }}>Users</button>
         {canBulkImport && (
           <button onClick={() => setView("bulk")} className="px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: "#64748b", borderBottom: "3px solid transparent" }}>
             <Upload size={13} />Bulk Import
@@ -744,28 +744,24 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ backgroundColor: NAVY, color: "white" }}>
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Name</th>
-              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Email</th>
-              <th className="text-left px-4 py-2.5 font-semibold" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Role</th>
-              {isNetworkAdmin && (
-                <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>School</th>
-              )}
-              <th className="text-left px-4 py-2.5 font-semibold hidden md:table-cell" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em" }}>Status</th>
-              <th className="px-4 py-2.5" />
+            <tr style={{ backgroundColor: NAVY }}>
+              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Status", ""].map((h, i) => (
+                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
             </tr>
+            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 7 : 6} style={{ padding: 0, height: 3 }} /></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {people.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people found.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 7 : 6} className="text-center py-8 text-slate-400">No people found.</td></tr>
             )}
             {people.length > 0 && shown.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people match your filters.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 7 : 6} className="text-center py-8 text-slate-400">No people match your filters.</td></tr>
             )}
             {shown.map((p) => (
               <tr key={p.employeeId}>
                 {editId === p.employeeId ? (
-                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
+                  <td colSpan={isNetworkAdmin ? 7 : 6} className="px-4 py-3 bg-blue-50">
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap gap-3 items-start">
                         <input className={`${inputCls} flex-1 min-w-[130px]`} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="First name" autoFocus />
@@ -824,32 +820,37 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                   </td>
                 ) : (
                   <>
-                    <td className="px-4 py-2.5" style={{ opacity: p.isActive ? 1 : 0.5 }}>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-medium text-slate-800">{p.name}</span>
+                    <td className="px-4 py-2 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 220 }}>
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="font-medium text-slate-800 truncate">{p.name}</span>
                         {p.includeInFeedbackTracker && (
-                          <span className="text-xs font-bold rounded-full px-2 py-0.5 hidden sm:inline" style={{ backgroundColor: "#fef9c3", color: "#854d0e" }}>Observable</span>
+                          <span className="shrink-0 text-xs font-bold rounded-full px-1.5 py-0" style={{ backgroundColor: "#fef9c3", color: "#854d0e" }}>●</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-500 hidden sm:table-cell" style={{ opacity: p.isActive ? 1 : 0.5 }}>{p.email}</td>
-                    <td className="px-4 py-2.5" style={{ opacity: p.isActive ? 1 : 0.5 }}>
-                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
+                    <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 200 }}>
+                      <span className="block truncate">{p.email}</span>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5 }}>
+                      <span className="text-xs font-bold rounded-full px-2 py-0.5 whitespace-nowrap" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>
                         {ALL_ROLES_MAP[p.role] ?? p.role}
                       </span>
                     </td>
                     {isNetworkAdmin && (
-                      <td className="px-4 py-2.5 text-slate-500 hidden lg:table-cell" style={{ opacity: p.isActive ? 1 : 0.5 }}>
-                        {p.schoolName ?? <span className="text-slate-300 italic">None</span>}
+                      <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 160 }}>
+                        <span className="block truncate">{p.schoolName ?? <span className="text-slate-300 italic">—</span>}</span>
                       </td>
                     )}
-                    <td className="px-4 py-2.5 hidden md:table-cell">
-                      <span className="text-xs font-bold rounded-full px-2.5 py-1"
+                    <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 120 }}>
+                      <span className="block truncate text-xs">{p.department ?? <span className="text-slate-300">—</span>}</span>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className="text-xs font-bold rounded-full px-2 py-0.5"
                         style={p.isActive ? { backgroundColor: "#dcfce7", color: "#15803d" } : { backgroundColor: "#fee2e2", color: "#b91c1c" }}>
                         {p.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
                           <Pencil size={13} />
@@ -1312,9 +1313,21 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
           onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
         >
           <Upload size={28} style={{ color: NAVY }} />
-          <div>
-            <p className="font-semibold text-slate-700">{fileName ? fileName : "Drop a CSV file here or click to browse"}</p>
-            <p className="text-xs text-slate-400 mt-1">Columns: firstName, lastName, employeeId, email, role, school, department, gradeLevel, includeInFeedbackTracker</p>
+          <div className="w-full max-w-lg">
+            <p className="font-semibold text-slate-700 mb-2">{fileName ? fileName : "Drop a CSV file here or click to browse"}</p>
+            <div className="text-left text-xs text-slate-500 space-y-1.5 bg-white rounded-lg p-3 border border-slate-200">
+              <p className="font-semibold text-slate-700 mb-1">Required columns:</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">firstName</span> · <span className="font-mono bg-slate-100 px-1 rounded">lastName</span> · <span className="font-mono bg-slate-100 px-1 rounded">email</span> · <span className="font-mono bg-slate-100 px-1 rounded">role</span></p>
+              <p className="font-semibold text-slate-700 mt-2 mb-1">Optional columns:</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">employeeId</span> — unique ID from your HR system (e.g. EMP0042). Auto-generated if blank.</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">school</span> — exact school name as it appears in Settings → Schools.</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">department</span> — one of: English, Math, Science, History, Spanish, Physical Education, Comp Sci/Engineering, Visual Arts, College, Other.</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">gradeLevel</span> — grade numbers separated by hyphens, e.g. <span className="font-mono">6-7-8</span> or <span className="font-mono">K-1</span>.</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">includeInFeedbackTracker</span> — <span className="font-mono">true</span> for teachers who receive observations; <span className="font-mono">false</span> for admins/coaches. Defaults to true.</p>
+              <p><span className="font-mono bg-slate-100 px-1 rounded">primaryInstructionalLeaderId</span> — employeeId of this person's instructional leader (e.g. EMP0010).</p>
+              <p className="font-semibold text-slate-700 mt-2 mb-1">Valid roles:</p>
+              <p className="font-mono bg-slate-100 px-1 rounded inline-block">COACH</p>{" · "}<p className="font-mono bg-slate-100 px-1 rounded inline-block">SCHOOL_LEADER</p>{" · "}<p className="font-mono bg-slate-100 px-1 rounded inline-block">NETWORK_LEADER</p>{" · "}<p className="font-mono bg-slate-100 px-1 rounded inline-block">NETWORK_ADMIN</p>{" · "}<p className="font-mono bg-slate-100 px-1 rounded inline-block">NO_ACCESS</p>
+            </div>
           </div>
           <button
             className="text-xs font-semibold underline"
@@ -1600,7 +1613,7 @@ export default function AdminPage() {
 
   const tabs: { id: AdminTab; label: string }[] = [
     ...(isNetworkAdmin  ? [{ id: "rubric" as AdminTab,  label: "Rubric Settings" }]    : []),
-    ...(canManagePeople ? [{ id: "people" as AdminTab,  label: "People Management" }]  : []),
+    ...(canManagePeople ? [{ id: "people" as AdminTab,  label: "Users" }]              : []),
     ...(isNetworkAdmin  ? [{ id: "schools" as AdminTab, label: "Schools" }]             : []),
   ];
 
