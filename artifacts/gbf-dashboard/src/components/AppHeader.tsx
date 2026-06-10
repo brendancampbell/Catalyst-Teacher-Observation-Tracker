@@ -1,4 +1,4 @@
-import { Plus, Activity, ArrowLeft, ChevronDown, Atom, BookOpen, FileEdit, School, User } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, Microscope, BookOpen, FileEdit, School, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
@@ -14,7 +14,7 @@ interface RubricOption {
 
 function RubricIcon({ target, subjectAudience, size = 13 }: { target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL"; size?: number }) {
   if (target === "SCHOOL") return <School size={size} />;
-  if (subjectAudience === "STEM") return <Atom size={size} />;
+  if (subjectAudience === "STEM") return <Microscope size={size} />;
   if (subjectAudience === "HUMANITIES") return <BookOpen size={size} />;
   return <User size={size} />;
 }
