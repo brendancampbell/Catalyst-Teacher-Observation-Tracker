@@ -1,6 +1,6 @@
 import { db, pool } from "@workspace/db";
 import {
-  users,
+  people,
   rubricQuarters, rubricCategories, rubricDomains,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -42,12 +42,14 @@ async function seed() {
     { categoryId: catId["Academic Monitoring"], slug: "academic_mon",       name: "Academic Mon. 101",              displayOrder: 2 },
   ]);
 
-  await db.insert(users).values([
+  await db.insert(people).values([
     {
-      email: "bcampbell@uncommonschools.org",
-      name: "Brendan Campbell",
-      role: "NETWORK_ADMIN",
-      schoolId: null,
+      employeeId: "EMP-ADMIN-001",
+      firstName:  "Brendan",
+      lastName:   "Campbell",
+      email:      "bcampbell@uncommonschools.org",
+      role:       "NETWORK_ADMIN",
+      schoolId:   null,
     },
   ]).onConflictDoNothing();
 
