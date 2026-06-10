@@ -1,4 +1,4 @@
-import { Plus, Activity, ArrowLeft, ChevronDown, BookOpen, FileEdit, School, User } from "lucide-react";
+import { Plus, Activity, ArrowLeft, ChevronDown, Atom, BookOpen, FileEdit, School, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
 
@@ -9,12 +9,14 @@ interface RubricOption {
   slug: string;
   name: string;
   target?: "TEACHER" | "SCHOOL";
+  subjectAudience?: "STEM" | "HUMANITIES" | "ALL";
 }
 
-function RubricIcon({ target, size = 13 }: { target?: "TEACHER" | "SCHOOL"; size?: number }) {
-  return target === "SCHOOL"
-    ? <School size={size} />
-    : <User size={size} />;
+function RubricIcon({ target, subjectAudience, size = 13 }: { target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL"; size?: number }) {
+  if (target === "SCHOOL") return <School size={size} />;
+  if (subjectAudience === "STEM") return <Atom size={size} />;
+  if (subjectAudience === "HUMANITIES") return <BookOpen size={size} />;
+  return <User size={size} />;
 }
 
 interface AppHeaderProps {
@@ -125,7 +127,7 @@ export default function AppHeader({
                 >
                   <div className="h-8 flex items-center gap-1.5">
                     <span style={{ color: YELLOW, display: "flex", alignItems: "center" }}>
-                      <RubricIcon target={activeRubric?.target} size={13} />
+                      <RubricIcon target={activeRubric?.target} subjectAudience={activeRubric?.subjectAudience} size={13} />
                     </span>
                     <span
                       className="font-bold uppercase"
@@ -166,7 +168,7 @@ export default function AppHeader({
                             }}
                           >
                             <span style={{ display: "flex", alignItems: "center", opacity: 0.6 }}>
-                              <RubricIcon target={q.target} size={13} />
+                              <RubricIcon target={q.target} subjectAudience={q.subjectAudience} size={13} />
                             </span>
                             {q.name}
                           </button>
