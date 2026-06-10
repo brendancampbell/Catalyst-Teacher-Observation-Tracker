@@ -439,7 +439,7 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
               <RubricIcon target={rubricSet.target} subjectAudience={rubricSet.subjectAudience} size={18} />
             </span>
             <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-              Edit Rubric Set
+              Edit Rubric Settings
             </h2>
           </div>
           <button onClick={onClose} className="text-blue-200 hover:text-white p-1">
