@@ -376,6 +376,12 @@ export default function Dashboard() {
     [groupRows, categories, viewMode],
   );
 
+  /* ── Audience-hidden count (for notice banner) ─────── */
+  const hiddenByAudience = useMemo(() => {
+    if (rubricSetAudience === "ALL") return 0;
+    return teachers.filter((t) => !teacherMatchesAudience(t.subject, rubricSetAudience)).length;
+  }, [teachers, rubricSetAudience]);
+
   /* ── Proficiency filter (applied after subject/grade) ── */
   const profActive = proficiency.length === 1 ? proficiency[0] : null;
 
@@ -686,6 +692,30 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* ── Audience-filter notice ────────────────────────── */}
+        {hiddenByAudience > 0 && (
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium"
+            style={{
+              backgroundColor: "#FFF8E6",
+              border: "1px solid #F5C842",
+              color: "#7A5C00",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M8 1.5a6.5 6.5 0 1 0 0 13A6.5 6.5 0 0 0 8 1.5zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8z" fill="#C48F00"/>
+              <path d="M8 4.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4.75zM8 11a.875.875 0 1 1 0-1.75A.875.875 0 0 1 8 11z" fill="#C48F00"/>
+            </svg>
+            <span>
+              {hiddenByAudience === 1
+                ? "1 teacher is hidden"
+                : `${hiddenByAudience} teachers are hidden`}{" "}
+              — this rubric is for <strong>{rubricSetAudience === "STEM" ? "STEM" : "Humanities"}</strong> teachers only.
+              Switch to an <strong>All Teachers</strong> rubric to see everyone.
+            </span>
+          </div>
+        )}
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div className="flex-1 min-h-0">
