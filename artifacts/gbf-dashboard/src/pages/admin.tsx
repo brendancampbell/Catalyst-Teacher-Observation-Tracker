@@ -751,32 +751,31 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
         <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <colgroup>
-            <col style={{ width: isNetworkAdmin ? "20%" : "22%" }} />
-            <col style={{ width: isNetworkAdmin ? "22%" : "28%" }} />
-            <col style={{ width: "14%" }} />
+            <col style={{ width: isNetworkAdmin ? "24%" : "28%" }} />
+            <col style={{ width: isNetworkAdmin ? "26%" : "34%" }} />
+            <col style={{ width: "18%" }} />
             {isNetworkAdmin && <col style={{ width: "15%" }} />}
-            <col style={{ width: "12%" }} />
-            <col style={{ width: isNetworkAdmin ? "17%" : "24%" }} />
+            <col style={{ width: isNetworkAdmin ? "17%" : "20%" }} />
           </colgroup>
           <thead>
             <tr style={{ backgroundColor: NAVY }}>
-              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Edit / View"].map((h, i) => (
+              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Edit / View"].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em" }}>{h}</th>
               ))}
             </tr>
-            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 6 : 5} style={{ padding: 0, height: 3 }} /></tr>
+            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 5 : 4} style={{ padding: 0, height: 3 }} /></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {people.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No people found.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No people found.</td></tr>
             )}
             {people.length > 0 && shown.length === 0 && (
-              <tr><td colSpan={isNetworkAdmin ? 6 : 5} className="text-center py-8 text-slate-400">No {showInactive ? "inactive" : "active"} people match your filters.</td></tr>
+              <tr><td colSpan={isNetworkAdmin ? 5 : 4} className="text-center py-8 text-slate-400">No {showInactive ? "inactive" : "active"} people match your filters.</td></tr>
             )}
             {paged.map((p) => (
               <tr key={p.employeeId}>
                 {editId === p.employeeId ? (
-                  <td colSpan={isNetworkAdmin ? 6 : 5} className="px-4 py-3 bg-blue-50">
+                  <td colSpan={isNetworkAdmin ? 5 : 4} className="px-4 py-3 bg-blue-50">
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap gap-3 items-start">
                         <input className={`${inputCls} flex-1 min-w-[130px]`} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="First name" autoFocus />
@@ -858,9 +857,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         <span className="block truncate">{p.schoolName ?? <span className="text-slate-300 italic">—</span>}</span>
                       </td>
                     )}
-                    <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 120 }}>
-                      <span className="block truncate text-xs">{p.department ?? <span className="text-slate-300">—</span>}</span>
-                    </td>
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
