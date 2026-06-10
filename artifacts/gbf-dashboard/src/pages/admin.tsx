@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2 } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -54,6 +54,13 @@ const DEPARTMENTS = [
    RUBRIC SETTINGS TAB
    ════════════════════════════════════════════════════════════════ */
 
+function RubricIcon({ target, subjectAudience, size = 14 }: { target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL"; size?: number }) {
+  if (target === "SCHOOL") return <School size={size} />;
+  if (subjectAudience === "STEM") return <Microscope size={size} />;
+  if (subjectAudience === "HUMANITIES") return <BookOpen size={size} />;
+  return <Users size={size} />;
+}
+
 function RubricSettings({ setSlug }: { setSlug: string }) {
   const queryClient = useQueryClient();
   const qKey = ["rubric", setSlug] as const;
@@ -69,12 +76,6 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingDomName, setEditingDomName] = useState("");
   const [editingDomSlug, setEditingDomSlug] = useState("");
   const [editingDomDesc, setEditingDomDesc] = useState("");
-  const [editingSetName, setEditingSetName] = useState(false);
-  const [pendingSetName, setPendingSetName] = useState("");
-  const [editingGradeSpan,      setEditingGradeSpan]      = useState(false);
-  const [pendingGradeSpanArr,   setPendingGradeSpanArr]   = useState<string[]>([]);
-  const [editingSubjectAudience, setEditingSubjectAudience] = useState(false);
-  const [pendingSubjectAudience, setPendingSubjectAudience] = useState<"STEM" | "HUMANITIES" | "ALL">("ALL");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
   const [newCatOrder,       setNewCatOrder]       = useState(1);
@@ -83,44 +84,6 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [newDomSlug,        setNewDomSlug]        = useState("");
   const [newDomOrder,       setNewDomOrder]       = useState(1);
   const [newDomDesc,        setNewDomDesc]        = useState("");
-
-  const archiveSetMut = useMutation({
-    mutationFn: (archive: boolean) => archiveRubricSet(setSlug, archive),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-  });
-
-  const renameSetMut = useMutation({
-    mutationFn: (name: string) => updateRubricSet(setSlug, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setEditingSetName(false);
-    },
-  });
-
-  const updateGradeSpanMut = useMutation({
-    mutationFn: (spans: string[]) => updateRubricSet(setSlug, { gradeSpan: spans.length ? spans.join(",") : null }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-      setEditingGradeSpan(false);
-    },
-  });
-
-  const updateSubjectAudienceMut = useMutation({
-    mutationFn: (audience: "STEM" | "HUMANITIES" | "ALL") => updateRubricSet(setSlug, { subjectAudience: audience }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      setEditingSubjectAudience(false);
-    },
-  });
 
   function slugify(s: string) {
     return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -189,174 +152,6 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3 flex-wrap">
-        {editingSetName ? (
-          <div className="flex items-center gap-2">
-            <input
-              className="px-3 py-1.5 rounded border border-blue-300 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em", minWidth: 140 }}
-              value={pendingSetName}
-              onChange={(e) => setPendingSetName(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && pendingSetName.trim()) renameSetMut.mutate(pendingSetName.trim());
-                if (e.key === "Escape") setEditingSetName(false);
-              }}
-            />
-            <button
-              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
-              disabled={!pendingSetName.trim() || renameSetMut.isPending}
-              onClick={() => renameSetMut.mutate(pendingSetName.trim())}
-            >
-              <Check size={16} />
-            </button>
-            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingSetName(false)}>
-              <X size={16} />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span
-              className="px-4 py-1.5 rounded-full font-bold uppercase text-white shrink-0"
-              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
-            >
-              {data.rubricSet.name}
-            </span>
-            <button
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-              title="Rename rubric set"
-              onClick={() => { setPendingSetName(data.rubricSet.name); setEditingSetName(true); }}
-            >
-              <Pencil size={11} />
-              Rename
-            </button>
-          </div>
-        )}
-
-        {data.rubricSet.isArchived && (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 uppercase tracking-wide">
-            Archived
-          </span>
-        )}
-
-        {/* ── Grade span edit ── */}
-        {editingGradeSpan ? (
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0">Grade spans:</span>
-            <div className="flex items-center gap-3">
-              {GRADE_SPANS.map((gs) => (
-                <label key={gs} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium text-slate-700 select-none">
-                  <input
-                    type="checkbox"
-                    checked={pendingGradeSpanArr.includes(gs)}
-                    onChange={(e) => setPendingGradeSpanArr((p) =>
-                      e.target.checked ? [...p, gs] : p.filter((g) => g !== gs)
-                    )}
-                    className="accent-blue-600 w-3.5 h-3.5"
-                  />
-                  {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
-                </label>
-              ))}
-            </div>
-            <button
-              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
-              disabled={updateGradeSpanMut.isPending}
-              onClick={() => updateGradeSpanMut.mutate(pendingGradeSpanArr)}
-            >
-              <Check size={15} />
-            </button>
-            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingGradeSpan(false)}>
-              <X size={15} />
-            </button>
-          </div>
-        ) : (
-          <button
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            title="Edit grade span"
-            onClick={() => {
-              setPendingGradeSpanArr(data.rubricSet.gradeSpan ? data.rubricSet.gradeSpan.split(",").filter(Boolean) : []);
-              setEditingGradeSpan(true);
-            }}
-          >
-            <Pencil size={11} />
-            {data.rubricSet.gradeSpan
-              ? data.rubricSet.gradeSpan.split(",").filter(Boolean).join(", ")
-              : "All grade spans"}
-          </button>
-        )}
-
-        {/* ── Subject audience edit ── */}
-        {editingSubjectAudience ? (
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide shrink-0">Audience:</span>
-            <div className="flex items-center gap-3">
-              {(["ALL", "STEM", "HUMANITIES"] as const).map((opt) => (
-                <label key={opt} className="flex items-center gap-1.5 cursor-pointer text-sm font-medium text-slate-700 select-none">
-                  <input
-                    type="radio"
-                    name="editSubjectAudience"
-                    value={opt}
-                    checked={pendingSubjectAudience === opt}
-                    onChange={() => setPendingSubjectAudience(opt)}
-                    className="accent-blue-600 w-3.5 h-3.5"
-                  />
-                  {opt === "ALL" ? "All" : opt === "STEM" ? "STEM" : "Humanities"}
-                </label>
-              ))}
-            </div>
-            <button
-              className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
-              disabled={updateSubjectAudienceMut.isPending}
-              onClick={() => updateSubjectAudienceMut.mutate(pendingSubjectAudience)}
-            >
-              <Check size={15} />
-            </button>
-            <button className="text-slate-400 hover:text-slate-600 p-1" onClick={() => setEditingSubjectAudience(false)}>
-              <X size={15} />
-            </button>
-          </div>
-        ) : (
-          <button
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-500 border border-slate-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-            title="Edit subject audience"
-            onClick={() => {
-              setPendingSubjectAudience(data.rubricSet.subjectAudience ?? "ALL");
-              setEditingSubjectAudience(true);
-            }}
-          >
-            <Pencil size={11} />
-            {data.rubricSet.subjectAudience === "STEM"
-              ? "STEM only"
-              : data.rubricSet.subjectAudience === "HUMANITIES"
-              ? "Humanities only"
-              : "All subjects"}
-          </button>
-        )}
-
-        <div className="ml-auto">
-          {data.rubricSet.isArchived ? (
-            <button
-              disabled={archiveSetMut.isPending}
-              onClick={() => archiveSetMut.mutate(false)}
-              className="flex items-center gap-1.5 font-semibold rounded-md px-3 py-1.5 text-sm border transition-colors hover:bg-green-50 disabled:opacity-50"
-              style={{ borderColor: "#16a34a", color: "#16a34a" }}
-            >
-              <ArchiveRestore size={14} />
-              Restore to Active
-            </button>
-          ) : (
-            <button
-              disabled={archiveSetMut.isPending}
-              onClick={() => { if (confirm(`Archive "${data.rubricSet.name}"? It will be hidden from the dashboard until restored.`)) archiveSetMut.mutate(true); }}
-              className="flex items-center gap-1.5 font-semibold rounded-md px-3 py-1.5 text-sm border transition-colors hover:bg-amber-50 disabled:opacity-50"
-              style={{ borderColor: "#d97706", color: "#d97706" }}
-            >
-              <Archive size={14} />
-              Archive
-            </button>
-          )}
-        </div>
-      </div>
 
       {data.categories.map((cat) => (
         <div key={cat.id} className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
@@ -492,6 +287,173 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
       <p className="text-center text-slate-400 text-xs pb-4">
         Changes apply to all future and existing observations in {setSlug}. Existing scores for deleted domains will no longer display.
       </p>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RUBRIC SET EDIT DIALOG
+   ════════════════════════════════════════════════════════════════ */
+
+function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubricSet: RubricSetRow; onClose: () => void }) {
+  const queryClient = useQueryClient();
+
+  const [name,          setName]          = useState(rubricSet.name);
+  const [gradeSpanArr,  setGradeSpanArr]  = useState<string[]>(
+    rubricSet.gradeSpan ? rubricSet.gradeSpan.split(",").filter(Boolean) : []
+  );
+  const [audience, setAudience] = useState<"STEM" | "HUMANITIES" | "ALL">(rubricSet.subjectAudience ?? "ALL");
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+    queryClient.invalidateQueries({ queryKey: ["rubric", slug] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }
+
+  const saveMut = useMutation({
+    mutationFn: () => updateRubricSet(slug, {
+      name: name.trim(),
+      gradeSpan: gradeSpanArr.length ? gradeSpanArr.join(",") : null,
+      subjectAudience: audience,
+    }),
+    onSuccess: () => { invalidate(); onClose(); },
+  });
+
+  const archiveMut = useMutation({
+    mutationFn: (archive: boolean) => archiveRubricSet(slug, archive),
+    onSuccess: () => { invalidate(); onClose(); },
+  });
+
+  const fieldCls = "px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-full";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between" style={{ backgroundColor: NAVY, borderBottom: `3px solid ${YELLOW}` }}>
+          <div className="flex items-center gap-2.5">
+            <span style={{ color: YELLOW }}>
+              <RubricIcon target={rubricSet.target} subjectAudience={rubricSet.subjectAudience} size={18} />
+            </span>
+            <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+              Edit Rubric Set
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-blue-200 hover:text-white p-1">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5 flex flex-col gap-4">
+          {/* Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Name</label>
+            <input
+              className={fieldCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) saveMut.mutate(); }}
+            />
+          </div>
+
+          {/* Grade Spans */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Grade Spans</label>
+            <div className="flex items-center gap-4 px-1 py-1">
+              {GRADE_SPANS.map((gs) => (
+                <label key={gs} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={gradeSpanArr.includes(gs)}
+                    onChange={(e) => setGradeSpanArr((p) => e.target.checked ? [...p, gs] : p.filter((g) => g !== gs))}
+                    className="accent-blue-600 w-4 h-4"
+                  />
+                  {gs === "ES" ? "Elementary" : gs === "MS" ? "Middle" : "High School"}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">
+              {gradeSpanArr.length ? `Scoped to: ${gradeSpanArr.join(", ")}` : "All grade spans"}
+            </p>
+          </div>
+
+          {/* Subject Audience — only for teacher rubrics */}
+          {rubricSet.target !== "SCHOOL" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700">Subject Audience</label>
+              <div className="flex items-center gap-5 px-1 py-1">
+                {(["ALL", "STEM", "HUMANITIES"] as const).map((opt) => (
+                  <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                    <input
+                      type="radio"
+                      name={`editAudience-${slug}`}
+                      value={opt}
+                      checked={audience === opt}
+                      onChange={() => setAudience(opt)}
+                      className="accent-blue-600 w-4 h-4"
+                    />
+                    {opt === "ALL" ? "All Subjects" : opt === "STEM" ? "STEM" : "Humanities"}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400">
+                {audience === "STEM"
+                  ? "Only shown for teachers in STEM departments."
+                  : audience === "HUMANITIES"
+                  ? "Only shown for teachers in Humanities departments."
+                  : "Shown for all teachers regardless of department."}
+              </p>
+            </div>
+          )}
+
+          {/* Archive / Restore */}
+          <div className="pt-3 border-t border-slate-100">
+            {rubricSet.isArchived ? (
+              <button
+                disabled={archiveMut.isPending}
+                onClick={() => archiveMut.mutate(false)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors disabled:opacity-50"
+              >
+                <ArchiveRestore size={14} />
+                Restore to Active
+              </button>
+            ) : (
+              <button
+                disabled={archiveMut.isPending}
+                onClick={() => { if (confirm(`Archive "${rubricSet.name}"? It will be hidden from the dashboard until restored.`)) archiveMut.mutate(true); }}
+                className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:text-amber-800 transition-colors disabled:opacity-50"
+              >
+                <Archive size={14} />
+                Archive this rubric set
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => saveMut.mutate()}
+            disabled={!name.trim() || saveMut.isPending}
+            className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+          >
+            {saveMut.isPending ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1694,6 +1656,9 @@ export default function AdminPage() {
 
   const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
   const [showArchivedSets, setShowArchivedSets]           = useState(false);
+  const [editingRubricSet, setEditingRubricSet]           = useState<RubricSetRow | null>(null);
+  const dragItem                                          = useRef<string | null>(null);
+  const [dragOver, setDragOver]                           = useState<string | null>(null);
 
   /* Sync selected slug to first active set only if the current slug doesn't exist at all */
   useEffect(() => {
@@ -1815,7 +1780,10 @@ export default function AdminPage() {
     activeTab;
 
   return (
-    <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div
+      className="h-full flex flex-col"
+      style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif", overflow: visibleTab === "rubric" && isNetworkAdmin ? "hidden" : "auto" }}
+    >
 
       {/* ── Sticky header + tab bar ── */}
       <div className="sticky top-0 z-30 shadow-md">
@@ -1857,69 +1825,95 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Tab content */}
-      <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
+      {/* ── Rubric tab: two-column sidebar layout ── */}
+      {visibleTab === "rubric" && isNetworkAdmin && (
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Rubric set manager (Rubric tab only, District Admin only) ── */}
-        {visibleTab === "rubric" && isNetworkAdmin && (
+          {/* Left sidebar */}
           <div
-            className="bg-white rounded-lg shadow-sm px-4 py-3 flex flex-wrap items-center gap-3"
-            style={{ border: "1px solid #dde3f0", borderLeft: `4px solid ${YELLOW}` }}
+            className="flex flex-col bg-white shrink-0"
+            style={{ width: 252, borderRight: "1px solid #e2e8f0", overflowY: "auto" }}
           >
-            <span
-              className="font-bold uppercase tracking-widest shrink-0"
-              style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
-            >
-              Rubric
-            </span>
+            {/* Sidebar header */}
+            <div className="px-4 py-3" style={{ borderBottom: `2px solid ${YELLOW}` }}>
+              <span className="font-bold uppercase" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.06em" }}>
+                Rubric Sets
+              </span>
+            </div>
 
+            {/* Active rubric list */}
             {rubricSetsLoading ? (
-              <div className="inline-block w-5 h-5 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+              <div className="flex items-center justify-center py-8">
+                <div className="inline-block w-6 h-6 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+              </div>
             ) : (
-              <div className="flex gap-1.5 flex-wrap items-center">
-                {activeSets.map((q, idx) => {
-                  const selected = q.slug === selectedRubricSetSlug;
-                  const isFirst = idx === 0;
-                  const isLast = idx === activeSets.length - 1;
+              <div className="flex flex-col py-1">
+                {activeSets.map((q) => {
+                  const selected    = q.slug === selectedRubricSetSlug;
+                  const isDragTarget = dragOver === q.slug;
                   return (
-                    <div key={q.slug} className="flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        title="Move left"
-                        disabled={isFirst || reorderMut.isPending}
-                        onClick={() => moveRubricSet(q.slug, "left")}
-                        className="rounded p-0.5 transition-opacity disabled:opacity-20 hover:opacity-70"
-                        style={{ color: NAVY }}
-                      >
-                        <ChevronLeft size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRubricSetSlug(q.slug)}
-                        className="px-3 py-1 font-bold uppercase tracking-wide rounded transition-colors"
-                        style={{
-                          fontFamily: "'Bebas Neue', sans-serif",
-                          fontSize: 14,
-                          letterSpacing: "0.04em",
-                          backgroundColor: selected ? NAVY : "transparent",
-                          color: selected ? "white" : NAVY,
-                          border: `1.5px solid ${NAVY}`,
-                        }}
+                    <div
+                      key={q.slug}
+                      draggable
+                      onDragStart={(e) => {
+                        dragItem.current = q.slug;
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOver !== q.slug) setDragOver(q.slug);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const fromSlug = dragItem.current;
+                        dragItem.current = null;
+                        setDragOver(null);
+                        if (!fromSlug || fromSlug === q.slug) return;
+                        const fromIdx = activeSets.findIndex((s) => s.slug === fromSlug);
+                        const toIdx   = activeSets.findIndex((s) => s.slug === q.slug);
+                        if (fromIdx < 0 || toIdx < 0) return;
+                        const reordered = [...activeSets];
+                        const [moved]   = reordered.splice(fromIdx, 1);
+                        reordered.splice(toIdx, 0, moved);
+                        reorderMut.mutate(reordered.map((s, i) => ({ slug: s.slug, displayOrder: i })));
+                      }}
+                      onDragEnd={() => { setDragOver(null); dragItem.current = null; }}
+                      className="group flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none transition-colors"
+                      style={{
+                        backgroundColor: selected ? NAVY : isDragTarget ? "#e8eeff" : "transparent",
+                        borderLeft: `3px solid ${selected ? YELLOW : isDragTarget ? NAVY : "transparent"}`,
+                        opacity: reorderMut.isPending ? 0.7 : 1,
+                      }}
+                      onClick={() => setSelectedRubricSetSlug(q.slug)}
+                    >
+                      <GripVertical
+                        size={13}
+                        className="shrink-0 opacity-0 group-hover:opacity-40 transition-opacity"
+                        style={{ color: selected ? "rgba(255,255,255,0.5)" : "#94a3b8", cursor: "grab" }}
+                      />
+                      <span className="shrink-0" style={{ color: selected ? YELLOW : NAVY }}>
+                        <RubricIcon target={q.target} subjectAudience={q.subjectAudience} size={13} />
+                      </span>
+                      <span
+                        className="flex-1 min-w-0 truncate font-bold"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em", color: selected ? "white" : NAVY }}
                       >
                         {q.name}
                         {q.gradeSpan && (
-                          <span className="ml-1 text-xs opacity-70">({q.gradeSpan.split(",").filter(Boolean).join(", ")})</span>
+                          <span className="ml-1 font-normal" style={{ fontSize: 11, opacity: 0.6 }}>
+                            {q.gradeSpan.split(",").filter(Boolean).join(", ")}
+                          </span>
                         )}
-                      </button>
+                      </span>
                       <button
                         type="button"
-                        title="Move right"
-                        disabled={isLast || reorderMut.isPending}
-                        onClick={() => moveRubricSet(q.slug, "right")}
-                        className="rounded p-0.5 transition-opacity disabled:opacity-20 hover:opacity-70"
-                        style={{ color: NAVY }}
+                        className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: selected ? "rgba(255,255,255,0.7)" : "#64748b" }}
+                        title="Edit settings"
+                        onClick={(e) => { e.stopPropagation(); setEditingRubricSet(q); }}
                       >
-                        <ChevronRight size={13} />
+                        <Settings2 size={13} />
                       </button>
                     </div>
                   );
@@ -1927,17 +1921,63 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
+            {/* Archived rubric sets */}
+            {archivedSets.length > 0 && (
+              <div className="border-t border-slate-100 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowArchivedSets((v) => !v)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+                >
+                  <Archive size={11} className="text-slate-400 shrink-0" />
+                  <span className="flex-1 text-slate-400 font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.05em" }}>
+                    Archived ({archivedSets.length})
+                  </span>
+                  <ChevronDown size={12} className="text-slate-300 shrink-0 transition-transform" style={{ transform: showArchivedSets ? "rotate(180deg)" : "none" }} />
+                </button>
+                {showArchivedSets && archivedSets.map((q) => {
+                  const selected = q.slug === selectedRubricSetSlug;
+                  return (
+                    <div
+                      key={q.slug}
+                      className="group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors"
+                      style={{
+                        backgroundColor: selected ? "#f1f5f9" : "transparent",
+                        borderLeft: `3px solid ${selected ? "#94a3b8" : "transparent"}`,
+                      }}
+                      onClick={() => setSelectedRubricSetSlug(q.slug)}
+                    >
+                      <span className="shrink-0 text-slate-300">
+                        <RubricIcon target={q.target} subjectAudience={q.subjectAudience} size={13} />
+                      </span>
+                      <span className="flex-1 min-w-0 truncate font-bold text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.03em" }}>
+                        {q.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-600"
+                        title="Edit settings"
+                        onClick={(e) => { e.stopPropagation(); setEditingRubricSet(q); }}
+                      >
+                        <Settings2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* New Rubric Set button */}
+            <div className="mt-auto p-3 border-t border-slate-100">
               {atLimit && !rubricSetsLoading && (
-                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded mb-2 text-center">
                   6/6 max — archive a set to add more
-                </span>
+                </p>
               )}
               <button
-                onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpans([]); setNewQTarget("TEACHER"); setCopyFromSlug(""); } }}
-                disabled={atLimit}
-                title={atLimit ? "Archive a set before creating a new one (max 6)" : undefined}
-                className="flex items-center gap-1.5 font-bold rounded-md px-3 py-1.5 text-sm transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+                onClick={() => { if (!atLimit) { setShowNewRubricSetDialog(true); setNewQName(""); setNewQGradeSpans([]); setNewQTarget("TEACHER"); setNewQSubjectAudience("ALL"); setCopyFromSlug(""); } }}
+                disabled={atLimit || rubricSetsLoading}
+                className="flex items-center justify-center gap-1.5 w-full font-bold rounded-md px-3 py-2 text-sm transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                 style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.02em" }}
               >
                 <Plus size={14} />
@@ -1945,56 +1985,23 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
-        )}
 
-        {/* ── Archived rubric sets ─────────────────────────────── */}
-        {visibleTab === "rubric" && isNetworkAdmin && archivedSets.length > 0 && (
-          <div
-            className="bg-white rounded-lg shadow-sm px-4 py-3"
-            style={{ border: "1px solid #dde3f0", borderLeft: "4px solid #94a3b8" }}
-          >
-            <button
-              type="button"
-              onClick={() => setShowArchivedSets((v) => !v)}
-              className="flex items-center gap-2 w-full text-left"
-            >
-              <Archive size={13} style={{ color: "#64748b" }} />
-              <span className="font-bold uppercase tracking-widest text-slate-500" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.03em" }}>
-                Archived Rubric Sets ({archivedSets.length})
-              </span>
-              <ChevronDown size={14} className="ml-auto text-slate-400 transition-transform" style={{ transform: showArchivedSets ? "rotate(180deg)" : "none" }} />
-            </button>
-            {showArchivedSets && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {archivedSets.map((q) => {
-                  const isSelected = q.slug === selectedRubricSetSlug;
-                  return (
-                    <div
-                      key={q.slug}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded border cursor-pointer transition-colors"
-                      style={{
-                        borderColor: isSelected ? "#94a3b8" : "#cbd5e1",
-                        backgroundColor: isSelected ? "#f1f5f9" : "#f8fafc",
-                        outline: isSelected ? "2px solid #94a3b8" : "none",
-                      }}
-                      onClick={() => setSelectedRubricSetSlug(q.slug)}
-                    >
-                      <span className="font-bold uppercase text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.04em" }}>
-                        {q.name}
-                        {q.gradeSpan && <span className="ml-1 text-xs opacity-60">({q.gradeSpan.split(",").filter(Boolean).join(", ")})</span>}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Right content panel */}
+          <div className="flex-1 overflow-y-auto px-6 py-5" style={{ backgroundColor: "#F4F6FB" }}>
+            <div className="max-w-3xl">
+              <RubricSettings setSlug={selectedRubricSetSlug} />
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {visibleTab === "rubric"  && isNetworkAdmin  && <RubricSettings setSlug={selectedRubricSetSlug} />}
-        {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
-        {visibleTab === "schools" && isNetworkAdmin  && <SchoolSettings />}
-      </main>
+      {/* ── People and Schools tabs ── */}
+      {visibleTab !== "rubric" && (
+        <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
+          {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+          {visibleTab === "schools" && isNetworkAdmin   && <SchoolSettings />}
+        </main>
+      )}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
       {showNewRubricSetDialog && (
