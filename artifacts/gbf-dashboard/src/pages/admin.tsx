@@ -1385,18 +1385,18 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     <div className="flex flex-col gap-4">
       {/* Upload zone */}
       {!importResult && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1.6fr" }}>
+        <div className="flex flex-col gap-4">
 
-          {/* Left: drop zone */}
+          {/* Drop zone */}
           <div
             className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-4 text-center cursor-pointer transition-all hover:shadow-md"
-            style={{ borderColor: "#c7d2e8", backgroundColor: "#f4f7ff", minHeight: 280, padding: "2rem 1.5rem" }}
+            style={{ borderColor: "#c7d2e8", backgroundColor: "#f4f7ff", padding: "2rem 1.5rem" }}
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
           >
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
-              <Upload size={28} color={YELLOW} />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: NAVY }}>
+              <Upload size={24} color={YELLOW} />
             </div>
             {fileName ? (
               <div>
@@ -1420,52 +1420,49 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
             <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
           </div>
 
-          {/* Right: column reference */}
-          <div className="bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-            {/* Header */}
-            <div className="px-5 py-3 flex items-center gap-2" style={{ backgroundColor: NAVY }}>
-              <FileText size={14} color={YELLOW} />
-              <span className="font-bold text-white uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>CSV Column Reference</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {/* Required */}
-              <div className="px-5 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: "#b91c1c" }}>Required</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {["firstName", "lastName", "email", "role"].map((col) => (
-                    <span key={col} className="font-mono text-xs px-2 py-0.5 rounded-md font-bold" style={{ backgroundColor: "#fee2e2", color: "#b91c1c" }}>{col}</span>
+          {/* Column reference table */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+            <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "66%" }} />
+              </colgroup>
+              <thead>
+                <tr style={{ backgroundColor: NAVY }}>
+                  {["Column", "Required", "Description"].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em" }}>{h}</th>
                   ))}
-                </div>
-              </div>
-              {/* Optional columns */}
-              <div className="px-5 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: "#475569" }}>Optional</p>
-                <div className="flex flex-col gap-2">
-                  {[
-                    { col: "employeeId",                   desc: "Unique HR system ID (e.g. EMP0042). Auto-generated if blank." },
-                    { col: "school",                        desc: "Exact school name from Settings → Schools." },
-                    { col: "department",                    desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
-                    { col: "gradeLevel",                    desc: "Hyphen-separated grades, e.g. 6-7-8 or K-1." },
-                    { col: "includeInFeedbackTracker",      desc: "true for observable teachers; false for admins/coaches. Defaults to true." },
-                    { col: "primaryInstructionalLeaderId", desc: "employeeId of this person's instructional leader." },
-                  ].map(({ col, desc }) => (
-                    <div key={col} className="flex gap-2 items-start">
-                      <span className="font-mono text-xs px-2 py-0.5 rounded-md shrink-0 font-semibold" style={{ backgroundColor: "#f1f5f9", color: NAVY }}>{col}</span>
-                      <span className="text-xs text-slate-500 leading-relaxed">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Valid roles */}
-              <div className="px-5 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: "#475569" }}>Valid roles</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN", "NO_ACCESS"].map((r) => (
-                    <span key={r} className="font-mono text-xs px-2 py-0.5 rounded-md font-semibold" style={{ backgroundColor: "#e0e7ff", color: NAVY }}>{r}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
+                </tr>
+                <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={3} style={{ padding: 0, height: 3 }} /></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  { col: "firstName",                    req: true,  desc: "Person's first name." },
+                  { col: "lastName",                     req: true,  desc: "Person's last name." },
+                  { col: "email",                        req: true,  desc: "Work email address." },
+                  { col: "role",                         req: true,  desc: "COACH · SCHOOL_LEADER · NETWORK_LEADER · NETWORK_ADMIN · NO_ACCESS" },
+                  { col: "employeeId",                   req: false, desc: "Unique ID from your HR system (e.g. EMP0042). Auto-generated if blank." },
+                  { col: "school",                       req: false, desc: "Exact school name as it appears in Settings → Schools." },
+                  { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
+                  { col: "gradeLevel",                   req: false, desc: "Hyphen-separated grades, e.g. 6-7-8 or K-1." },
+                  { col: "includeInFeedbackTracker",     req: false, desc: "true for teachers who receive observations; false for admins/coaches. Defaults to true." },
+                  { col: "primaryInstructionalLeaderId", req: false, desc: "employeeId of this person's instructional leader (e.g. EMP0010)." },
+                ].map(({ col, req, desc }) => (
+                  <tr key={col}>
+                    <td className="px-4 py-2.5">
+                      <span className="font-mono text-xs font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f1f5f9", color: NAVY }}>{col}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {req
+                        ? <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#fee2e2", color: "#b91c1c" }}>Yes</span>
+                        : <span className="text-xs text-slate-400">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-600 leading-relaxed">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
