@@ -751,17 +751,17 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
         <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <colgroup>
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "26%" }} />
-            <col style={{ width: "15%" }} />
-            {isNetworkAdmin && <col style={{ width: "16%" }} />}
-            <col style={{ width: "13%" }} />
-            <col style={{ width: isNetworkAdmin ? "8%" : "24%" }} />
+            <col style={{ width: isNetworkAdmin ? "20%" : "22%" }} />
+            <col style={{ width: isNetworkAdmin ? "22%" : "28%" }} />
+            <col style={{ width: "14%" }} />
+            {isNetworkAdmin && <col style={{ width: "15%" }} />}
+            <col style={{ width: "12%" }} />
+            <col style={{ width: isNetworkAdmin ? "17%" : "24%" }} />
           </colgroup>
           <thead>
             <tr style={{ backgroundColor: NAVY }}>
               {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Edit / View"].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h}</th>
+                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em" }}>{h}</th>
               ))}
             </tr>
             <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 6 : 5} style={{ padding: 0, height: 3 }} /></tr>
