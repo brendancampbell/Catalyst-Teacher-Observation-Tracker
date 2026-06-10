@@ -105,27 +105,38 @@ async function migrate() {
       }
     }
 
-    /* ── 3. Data migration: move any remaining rows off legacy labels ── */
-    const { rowCount: principalCount } = await client.query(
-      `UPDATE users SET role = 'SCHOOL_LEADER' WHERE role::text = 'PRINCIPAL'`,
-    );
-    if ((principalCount ?? 0) > 0) console.log(`  Migrated ${principalCount} PRINCIPAL → SCHOOL_LEADER`);
-
-    const { rowCount: districtCount } = await client.query(
-      `UPDATE users SET role = 'NETWORK_ADMIN' WHERE role::text = 'DISTRICT_ADMIN'`,
-    );
-    if ((districtCount ?? 0) > 0) console.log(`  Migrated ${districtCount} DISTRICT_ADMIN → NETWORK_ADMIN`);
-
-    /* ── 4. Add google_id column to users if missing ── */
-    const { rows: colRows } = await client.query<{ exists: boolean }>(
+    /* ── 3 & 4. Legacy users-table steps (skip if table is absent) ── */
+    const { rows: usersTableRows } = await client.query<{ exists: boolean }>(
       `SELECT EXISTS(
-         SELECT 1 FROM information_schema.columns
-         WHERE table_name = 'users' AND column_name = 'google_id'
+         SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = 'users'
        ) AS exists`,
     );
-    if (!colRows[0].exists) {
-      console.log("  Adding google_id column to users…");
-      await client.query(`ALTER TABLE users ADD COLUMN google_id text`);
+    if (usersTableRows[0].exists) {
+      /* ── 3. Data migration: move any remaining rows off legacy labels ── */
+      const { rowCount: principalCount } = await client.query(
+        `UPDATE users SET role = 'SCHOOL_LEADER' WHERE role::text = 'PRINCIPAL'`,
+      );
+      if ((principalCount ?? 0) > 0) console.log(`  Migrated ${principalCount} PRINCIPAL → SCHOOL_LEADER`);
+
+      const { rowCount: districtCount } = await client.query(
+        `UPDATE users SET role = 'NETWORK_ADMIN' WHERE role::text = 'DISTRICT_ADMIN'`,
+      );
+      if ((districtCount ?? 0) > 0) console.log(`  Migrated ${districtCount} DISTRICT_ADMIN → NETWORK_ADMIN`);
+
+      /* ── 4. Add google_id column to users if missing ── */
+      const { rows: colRows } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM information_schema.columns
+           WHERE table_name = 'users' AND column_name = 'google_id'
+         ) AS exists`,
+      );
+      if (!colRows[0].exists) {
+        console.log("  Adding google_id column to users…");
+        await client.query(`ALTER TABLE users ADD COLUMN google_id text`);
+      }
+    } else {
+      console.log("  Legacy 'users' table not present — skipping steps 3 & 4.");
     }
 
     /* ── 5. Pre-apply all unique constraints drizzle-kit would
