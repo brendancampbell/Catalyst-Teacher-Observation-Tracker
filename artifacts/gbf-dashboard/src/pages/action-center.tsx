@@ -98,8 +98,10 @@ export default function ActionCenterPage() {
     staleTime: 60_000,
   });
 
-  const activeQuarter   = rubricFromUrl ?? quarters[0]?.slug ?? "Q1";
-  const activeQuarterId = quarters.find((q) => q.slug === activeQuarter)?.id ?? quarters[0]?.id ?? 0;
+  const activeQuarter        = rubricFromUrl ?? quarters[0]?.slug ?? "Q1";
+  const activeQuarterObj     = quarters.find((q) => q.slug === activeQuarter);
+  const activeQuarterId      = activeQuarterObj?.id ?? quarters[0]?.id ?? 0;
+  const activeQuarterAudience: "STEM" | "HUMANITIES" | "ALL" = activeQuarterObj?.subjectAudience ?? "ALL";
 
   const { data: dashData } = useQuery({
     queryKey: ["dashboard", activeQuarter, schoolId],
@@ -383,7 +385,7 @@ export default function ActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
-              rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name, target: q.target }))}
+              rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name, target: q.target, subjectAudience: q.subjectAudience }))}
               activeRubricSet={activeQuarter}
               onRubricChange={(slug) => {
                 const sp = new URLSearchParams(window.location.search);
@@ -1340,6 +1342,7 @@ export default function ActionCenterPage() {
           observerName={currentUser?.name}
           onSubmit={handleSubmitObs}
           saving={saving}
+          rubricSetAudience={activeQuarterAudience}
           freshStart
         />
       )}
