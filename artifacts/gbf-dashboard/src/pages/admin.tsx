@@ -858,7 +858,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                       </td>
                     )}
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="flex items-center gap-1 justify-end">
+                      <div className="flex items-center gap-1">
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
                           <Pencil size={13} />
                         </button>
