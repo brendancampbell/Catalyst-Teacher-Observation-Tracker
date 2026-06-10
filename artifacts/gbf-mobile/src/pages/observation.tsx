@@ -84,6 +84,10 @@ export default function ObservationPage() {
     () => teachers?.filter((t) => teacherMatchesAudience(t.department, audience)) ?? [],
     [teachers, audience],
   );
+  const hiddenByAudience = useMemo(() => {
+    if (audience === "ALL" || !teachers) return 0;
+    return teachers.filter((t) => !teacherMatchesAudience(t.department, audience)).length;
+  }, [teachers, audience]);
 
   useEffect(() => {
     if (filteredTeachers.length > 0 && !teacherId) {
@@ -198,6 +202,21 @@ export default function ObservationPage() {
                 <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-500" />
                 <p className="text-sm text-amber-800 leading-snug">
                   No teachers match this rubric's audience. Switch to an All-audience rubric or update teacher subjects.
+                </p>
+              </div>
+            )}
+
+            {/* Hidden-teachers notice */}
+            {hiddenByAudience > 0 && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border" style={{ backgroundColor: "#FFF8E6", borderColor: "#F5C842" }}>
+                <AlertCircle size={18} className="shrink-0 mt-0.5" style={{ color: "#B45309" }} />
+                <p className="text-sm leading-snug" style={{ color: "#7A5C00" }}>
+                  {hiddenByAudience === 1 ? "1 teacher is hidden" : `${hiddenByAudience} teachers are hidden`}
+                  {" — this rubric is for "}
+                  <strong>{audience === "STEM" ? "STEM" : "Humanities"}</strong>
+                  {" teachers only. Switch to an "}
+                  <strong>All Teachers</strong>
+                  {" rubric to see everyone."}
                 </p>
               </div>
             )}
