@@ -783,20 +783,22 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
   if (view === "bulk" && canBulkImport) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col">
         <div className="px-4 sm:px-6 flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
           <button onClick={() => setView("list")} className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "2px solid transparent", marginBottom: -1 }}>User List</button>
           <button className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>
             Bulk Upload
           </button>
         </div>
-        <PeopleBulkImport isNetworkAdmin={isNetworkAdmin} onDone={() => { setView("list"); queryClient.invalidateQueries({ queryKey: qKey }); }} />
+        <div className="px-4 sm:px-6 py-5">
+          <PeopleBulkImport isNetworkAdmin={isNetworkAdmin} onDone={() => { setView("list"); queryClient.invalidateQueries({ queryKey: qKey }); }} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col">
       <div className="px-4 sm:px-6 flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
         <button className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>User List</button>
         {canBulkImport && (
@@ -806,6 +808,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
         )}
       </div>
 
+      <div className="px-4 sm:px-6 py-5 flex flex-col gap-4">
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
@@ -1129,6 +1132,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             ><ChevronRight size={12} /><ChevronRight size={12} /></button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -2147,10 +2151,10 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab !== "rubric" && (
+      {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+      {visibleTab === "schools" && isNetworkAdmin   && (
         <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
-          {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
-          {visibleTab === "schools" && isNetworkAdmin   && <SchoolSettings />}
+          <SchoolSettings />
         </main>
       )}
 
