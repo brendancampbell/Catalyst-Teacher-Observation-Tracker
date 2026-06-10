@@ -400,6 +400,7 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
     rubricSet.gradeSpan ? rubricSet.gradeSpan.split(",").filter(Boolean) : []
   );
   const [audience, setAudience] = useState<"STEM" | "HUMANITIES" | "ALL">(rubricSet.subjectAudience ?? "ALL");
+  const [target,   setTarget]   = useState<"TEACHER" | "SCHOOL">(rubricSet.target ?? "TEACHER");
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
@@ -411,7 +412,8 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
     mutationFn: () => updateRubricSet(slug, {
       name: name.trim(),
       gradeSpan: gradeSpanArr.length ? gradeSpanArr.join(",") : null,
-      subjectAudience: audience,
+      target,
+      subjectAudience: target === "SCHOOL" ? "ALL" : audience,
     }),
     onSuccess: () => { invalidate(); onClose(); },
   });
@@ -480,8 +482,37 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
             </p>
           </div>
 
+          {/* Rubric Type toggle */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Rubric Type</label>
+            <div className="flex rounded-lg overflow-hidden border border-slate-200 w-fit">
+              {(["TEACHER", "SCHOOL"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setTarget(opt)}
+                  className="px-4 py-2 text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: target === opt ? NAVY : "white",
+                    color: target === opt ? YELLOW : "#475569",
+                    fontFamily: target === opt ? "'Bebas Neue', sans-serif" : undefined,
+                    fontSize: target === opt ? 14 : 13,
+                    letterSpacing: target === opt ? "0.04em" : undefined,
+                  }}
+                >
+                  {opt === "TEACHER" ? "Teacher-Facing" : "School-Wide"}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">
+              {target === "SCHOOL"
+                ? "Used for school-wide observations, not tied to a specific teacher's rubric."
+                : "Used for teacher-specific classroom observations."}
+            </p>
+          </div>
+
           {/* Subject Audience — only for teacher rubrics */}
-          {rubricSet.target !== "SCHOOL" && (
+          {target !== "SCHOOL" && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Subject Audience</label>
               <div className="flex items-center gap-5 px-1 py-1">
