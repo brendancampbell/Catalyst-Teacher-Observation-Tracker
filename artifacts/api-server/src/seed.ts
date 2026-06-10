@@ -18,7 +18,7 @@ async function seed() {
   console.log("Seeding database with rubric structure and initial admin user…");
 
   const [quarter] = await db.insert(rubricQuarters).values([
-    { slug: "Q1", name: "Quarter 1", isActive: true },
+    { slug: "Q1", name: "Quarter 1", isActive: true, subjectAudience: "ALL" },
   ]).returning();
 
   const insertedCats = await db.insert(rubricCategories).values([

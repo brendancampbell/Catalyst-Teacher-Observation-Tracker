@@ -36,6 +36,7 @@ export interface RubricSet {
   isArchived?: boolean;
   displayOrder?: number;
   target?: "TEACHER" | "SCHOOL";
+  subjectAudience?: "STEM" | "HUMANITIES" | "ALL";
 }
 
 export interface RubricDomain {

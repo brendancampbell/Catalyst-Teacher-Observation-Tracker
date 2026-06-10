@@ -6,6 +6,8 @@ import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { sendObservationEmail, fetchMyDrafts, deleteObservation, createObservation, updateObservation } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { teacherMatchesAudience } from "@/lib/subject-audience";
+import type { SubjectAudience } from "@/lib/subject-audience";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -26,6 +28,7 @@ interface Props {
   defaultIsWalkthrough?: boolean;
   observerName?: string;
   rubricSetId?: number;
+  rubricSetAudience?: SubjectAudience;
   freshStart?: boolean;
   resumeDraftId?: string;
   onSubmit: (
@@ -62,7 +65,7 @@ function formatDateLong(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function NewObservationModal({ teachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, onSubmit, saving, freshStart, resumeDraftId }: Props) {
+export function NewObservationModal({ teachers: allTeachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, rubricSetAudience, onSubmit, saving, freshStart, resumeDraftId }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const nowTime = () => {
@@ -70,7 +73,13 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
     return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
   };
 
-  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? teachers[0]?.id ?? "");
+  const teachers = allTeachers;
+  const filteredTeachers = useMemo(
+    () => allTeachers.filter((t) => teacherMatchesAudience(t.subject, rubricSetAudience ?? "ALL")),
+    [allTeachers, rubricSetAudience],
+  );
+
+  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
   const [date, setDate] = useState(todayIso);
   const [time, setTime] = useState(nowTime);
   const [course, setCourse] = useState("");
@@ -158,7 +167,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   /* On modal open: reset state, then optionally load a draft ───────── */
   useEffect(() => {
     if (open) {
-      const tid = defaultTeacherId ?? teachers[0]?.id ?? "";
+      const tid = defaultTeacherId ?? filteredTeachers[0]?.id ?? "";
       isSubmittingRef.current = false;
       setTeacherId(tid);
       setDate(todayIso);
@@ -261,7 +270,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
-    setTeacherId(defaultTeacherId ?? teachers[0]?.id ?? "");
+    setTeacherId(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
     setDate(todayIso);
     setTime(nowTime());
     setCourse("");
@@ -962,7 +971,7 @@ export function NewObservationModal({ teachers, categories, allDomains, open, on
                   onChange={(e) => setTeacherId(e.target.value)}
                   className={inputBase}
                 >
-                  {teachers.map((t) => (
+                  {filteredTeachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} ({t.subject}, Grade{t.gradeLevel.length !== 1 ? "s" : ""} {t.gradeLevel.join(", ")})
                     </option>

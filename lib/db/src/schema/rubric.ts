@@ -3,17 +3,19 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const evaluationTargetEnum = pgEnum("evaluation_target", ["TEACHER", "SCHOOL"]);
+export const subjectAudienceEnum  = pgEnum("subject_audience", ["STEM", "HUMANITIES", "ALL"]);
 
 export const rubricSets = pgTable("rubric_sets", {
-  id:           serial("id").primaryKey(),
-  slug:         text("slug").notNull().unique(),
-  name:         text("name").notNull(),
-  isActive:     boolean("is_active").notNull().default(false),
-  isArchived:   boolean("is_archived").notNull().default(false),
-  gradeSpan:    text("grade_span"),
-  description:  text("description"),
-  displayOrder: integer("display_order").notNull().default(0),
-  target:       evaluationTargetEnum("target").notNull().default("TEACHER"),
+  id:              serial("id").primaryKey(),
+  slug:            text("slug").notNull().unique(),
+  name:            text("name").notNull(),
+  isActive:        boolean("is_active").notNull().default(false),
+  isArchived:      boolean("is_archived").notNull().default(false),
+  gradeSpan:       text("grade_span"),
+  description:     text("description"),
+  displayOrder:    integer("display_order").notNull().default(0),
+  target:          evaluationTargetEnum("target").notNull().default("TEACHER"),
+  subjectAudience: subjectAudienceEnum("subject_audience").notNull().default("ALL"),
 });
 
 export const rubricCategories = pgTable("rubric_categories", {
@@ -42,6 +44,8 @@ export type InsertRubricDomain = z.infer<typeof insertRubricDomainSchema>;
 export type RubricSet = typeof rubricSets.$inferSelect;
 export type RubricCategory = typeof rubricCategories.$inferSelect;
 export type RubricDomain = typeof rubricDomains.$inferSelect;
+
+export type SubjectAudience = "STEM" | "HUMANITIES" | "ALL";
 
 /* ── Backward-compat aliases (remove after full migration) ─────── */
 export const rubricQuarters = rubricSets;

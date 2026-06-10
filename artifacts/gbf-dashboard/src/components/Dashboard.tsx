@@ -251,6 +251,7 @@ export default function Dashboard() {
   const categories: CategoryEntry[] = data?.categories ?? [];
   const allDomains: DomainEntry[]   = categories.flatMap((c) => c.domains);
   const rubricSetId: number         = data?.rubricSet.id ?? 0;
+  const rubricSetAudience           = allRubricSets.find((r) => r.slug === activeRubricSet)?.subjectAudience ?? "ALL";
 
   /* ── Grade-span rubric filtering ───────────────────────────────────────
      Prefer the school's gradeSpan from the API response (authoritative).
@@ -1167,6 +1168,7 @@ export default function Dashboard() {
         defaultTeacherId={newObsDefaultTeacherId}
         observerName={currentUser?.name}
         rubricSetId={rubricSetId ?? undefined}
+        rubricSetAudience={rubricSetAudience}
         onSubmit={handleNewObservation}
         saving={saving}
         freshStart

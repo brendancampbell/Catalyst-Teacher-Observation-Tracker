@@ -43,12 +43,13 @@ router.put("/sets/reorder", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/sets ──────────────────────────────────────── */
 router.post("/sets", requireNetworkAdmin, async (req, res) => {
   try {
-    const { slug, name, gradeSpan, copyFromSlug, target } = req.body as {
+    const { slug, name, gradeSpan, copyFromSlug, target, subjectAudience } = req.body as {
       slug: string;
       name: string;
       gradeSpan?: string;
       copyFromSlug?: string;
       target?: "TEACHER" | "SCHOOL";
+      subjectAudience?: "STEM" | "HUMANITIES" | "ALL";
     };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
 
@@ -64,7 +65,7 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 
     const [rubricSet] = await db
       .insert(rubricSets)
-      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null, displayOrder: nextOrder, target: target ?? "TEACHER" })
+      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null, displayOrder: nextOrder, target: target ?? "TEACHER", subjectAudience: subjectAudience ?? "ALL" })
       .returning();
 
     /* Optional: copy categories + domains from an existing rubric set */
@@ -106,13 +107,14 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, description, isArchived, gradeSpan, target } = req.body as { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL" };
+    const { name, description, isArchived, gradeSpan, target, subjectAudience } = req.body as { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" };
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (description !== undefined) updates.description = description;
     if (isArchived !== undefined) updates.isArchived = isArchived;
     if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
     if (target !== undefined) updates.target = target;
+    if (subjectAudience !== undefined) updates.subjectAudience = subjectAudience;
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
 
     const [updated] = await db

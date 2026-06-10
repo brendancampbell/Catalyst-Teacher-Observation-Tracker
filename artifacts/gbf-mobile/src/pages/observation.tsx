@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, Teacher, RubricCategory, Score } from "@/lib/api";
+import { teacherMatchesAudience } from "@/lib/subject-audience";
 import { CheckCircle, Loader2, AlertCircle, ChevronDown } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -78,17 +79,29 @@ export default function ObservationPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const audience = selectedRubric?.subjectAudience ?? "ALL";
+  const filteredTeachers = useMemo(
+    () => teachers?.filter((t) => teacherMatchesAudience(t.department, audience)) ?? [],
+    [teachers, audience],
+  );
+
   useEffect(() => {
-    if (teachers && teachers.length > 0 && !teacherId) {
-      setTeacherId(teachers[0].id);
+    if (filteredTeachers.length > 0 && !teacherId) {
+      setTeacherId(filteredTeachers[0].id);
     }
-  }, [teachers]);
+  }, [filteredTeachers]);
+
+  useEffect(() => {
+    if (filteredTeachers.length > 0 && !filteredTeachers.find((t) => t.id === teacherId)) {
+      setTeacherId(filteredTeachers[0].id);
+    }
+  }, [filteredTeachers, teacherId]);
 
   const allDomains = rubricData?.categories.flatMap((c) => c.domains) ?? [];
   const scoredCount = allDomains.filter((d) => scores[d.slug] !== undefined).length;
 
   function resetForm() {
-    setTeacherId(teachers?.[0]?.id ?? "");
+    setTeacherId(filteredTeachers[0]?.id ?? "");
     setDate(new Date().toISOString().split("T")[0]);
     setCourse("");
     setScores({});
@@ -192,7 +205,7 @@ export default function ObservationPage() {
                     style={{ fontFamily: "'Libre Franklin', sans-serif" }}
                   >
                     <option value="" disabled>Select a teacher…</option>
-                    {teachers.map((t) => (
+                    {filteredTeachers.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name} ({t.department ?? ""}{ t.department && t.gradeLevel?.length ? ", " : ""}{t.gradeLevel?.length ? `Gr. ${t.gradeLevel.join("/")}` : ""})
                       </option>

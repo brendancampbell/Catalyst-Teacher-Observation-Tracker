@@ -133,6 +133,35 @@ async function migrate() {
     await ensureUnique(client, "users_email_unique",    "users",       "email");
     await ensureUnique(client, "rubric_sets_slug_unique", "rubric_sets", "slug");
 
+    /* ── 6. Add subject_audience enum + column to rubric_sets ──── */
+    const { rows: saEnumRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'subject_audience') AS exists`,
+    );
+    if (!saEnumRows[0].exists) {
+      console.log("  Creating subject_audience enum…");
+      await client.query(`CREATE TYPE subject_audience AS ENUM ('STEM', 'HUMANITIES', 'ALL')`);
+      console.log("  Done.");
+    }
+
+    const { rows: saColRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'rubric_sets' AND column_name = 'subject_audience'
+       ) AS exists`,
+    );
+    if (!saColRows[0].exists) {
+      const { rows: rsExists } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'rubric_sets') AS exists`,
+      );
+      if (rsExists[0].exists) {
+        console.log("  Adding subject_audience column to rubric_sets…");
+        await client.query(
+          `ALTER TABLE rubric_sets ADD COLUMN subject_audience subject_audience NOT NULL DEFAULT 'ALL'`,
+        );
+        console.log("  Done.");
+      }
+    }
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

@@ -424,15 +424,16 @@ export async function fetchMyLatestRubricSlug(): Promise<string | null> {
 /* ── Rubric Sets (admin) ───────────────────────────────────────── */
 
 export interface RubricSetRow {
-  id:           number;
-  slug:         string;
-  name:         string;
-  isActive:     boolean;
-  isArchived:   boolean;
-  gradeSpan:    string | null;
-  description:  string | null;
-  displayOrder: number;
-  target:       "TEACHER" | "SCHOOL";
+  id:              number;
+  slug:            string;
+  name:            string;
+  isActive:        boolean;
+  isArchived:      boolean;
+  gradeSpan:       string | null;
+  description:     string | null;
+  displayOrder:    number;
+  target:          "TEACHER" | "SCHOOL";
+  subjectAudience: "STEM" | "HUMANITIES" | "ALL";
 }
 
 /** @deprecated Use RubricSetRow */
@@ -446,7 +447,7 @@ export async function fetchRubricSets(includeArchived = false): Promise<RubricSe
 /** @deprecated Use fetchRubricSets */
 export const fetchQuarters = fetchRubricSets;
 
-export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL" }): Promise<RubricSetRow> {
+export async function updateRubricSet(slug: string, fields: { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" }): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
     method: "PATCH",
     body: JSON.stringify(fields),
@@ -464,10 +465,10 @@ export async function reorderRubricSets(items: { slug: string; displayOrder: num
   });
 }
 
-export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string, target?: "TEACHER" | "SCHOOL"): Promise<RubricSetRow> {
+export async function createRubricSet(slug: string, name: string, gradeSpan?: string, copyFromSlug?: string, target?: "TEACHER" | "SCHOOL", subjectAudience?: "STEM" | "HUMANITIES" | "ALL"): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>("/rubric/sets", {
     method: "POST",
-    body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}), ...(target ? { target } : {}) }),
+    body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}), ...(target ? { target } : {}), ...(subjectAudience ? { subjectAudience } : {}) }),
   });
 }
 
