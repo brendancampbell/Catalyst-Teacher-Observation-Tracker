@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -578,11 +578,10 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   function toggleEditGrade(g: string) { setEditGrades((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]); }
 
   const schoolNameOptions = schools.map((s) => s.name);
-  const filtersActive = filterRoles.length > 0 || filterSchools.length > 0 || filterObservable;
+  const filtersActive = filterRoles.length > 0 || filterSchools.length > 0;
 
   const shown = people.filter((p) => {
     if (showInactive ? p.isActive : !p.isActive) return false;
-    if (filterObservable && !p.includeInFeedbackTracker) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!p.name.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q)) return false;
@@ -598,6 +597,9 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       if (!filterSchools.includes(schoolName)) return false;
     }
     return true;
+  }).sort((a, b) => {
+    const last = a.lastName.localeCompare(b.lastName);
+    return last !== 0 ? last : a.firstName.localeCompare(b.firstName);
   });
 
   if (isLoading) return (
@@ -652,15 +654,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
           <FilterMultiSelect label="School" values={filterSchools} onChange={setFilterSchools} options={schoolNameOptions} />
         )}
         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
-          <input type="checkbox" checked={filterObservable} onChange={(e) => setFilterObservable(e.target.checked)} className="accent-blue-700" />
-          Observable only
-        </label>
-        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600 cursor-pointer select-none">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-blue-700" />
           Show inactive only
         </label>
         {(filtersActive || search) && (
-          <button onClick={() => { setFilterRoles([]); setFilterSchools([]); setSearch(""); setFilterObservable(false); }} className="font-semibold underline underline-offset-2 text-sm" style={{ color: NAVY }}>
+          <button onClick={() => { setFilterRoles([]); setFilterSchools([]); setSearch(""); }} className="font-semibold underline underline-offset-2 text-sm" style={{ color: NAVY }}>
             Clear all
           </button>
         )}
@@ -742,11 +740,19 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "26%" }} />
+            <col style={{ width: "15%" }} />
+            {isNetworkAdmin && <col style={{ width: "16%" }} />}
+            <col style={{ width: "13%" }} />
+            <col style={{ width: isNetworkAdmin ? "8%" : "24%" }} />
+          </colgroup>
           <thead>
             <tr style={{ backgroundColor: NAVY }}>
-              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", ""].map((h, i) => (
-                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              {["Name", "Email", "Role", ...(isNetworkAdmin ? ["School"] : []), "Dept", "Edit / View"].map((h, i) => (
+                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h}</th>
               ))}
             </tr>
             <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={isNetworkAdmin ? 6 : 5} style={{ padding: 0, height: 3 }} /></tr>
@@ -824,7 +830,9 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                       <div className="flex items-center gap-1.5 overflow-hidden">
                         <span className="font-medium text-slate-800 truncate">{p.name}</span>
                         {p.includeInFeedbackTracker && (
-                          <span className="shrink-0 text-xs font-bold rounded-full px-1.5 py-0" style={{ backgroundColor: "#fef9c3", color: "#854d0e" }}>●</span>
+                          <span className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full" style={{ backgroundColor: "#fef9c3" }} title="Observable teacher">
+                            <Eye size={10} style={{ color: "#92400e" }} />
+                          </span>
                         )}
                       </div>
                     </td>
