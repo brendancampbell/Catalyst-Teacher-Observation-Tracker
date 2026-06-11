@@ -107,9 +107,16 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, description, isArchived, gradeSpan, target, subjectAudience } = req.body as { name?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" };
+    const { name, slug: newSlug, description, isArchived, gradeSpan, target, subjectAudience } = req.body as { name?: string; slug?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" };
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
+    if (newSlug !== undefined) {
+      const trimmed = newSlug.trim().toUpperCase();
+      if (!/^[A-Z0-9_-]+$/.test(trimmed)) {
+        res.status(400).json({ error: "Slug may only contain letters, numbers, hyphens, and underscores" }); return;
+      }
+      updates.slug = trimmed;
+    }
     if (description !== undefined) updates.description = description;
     if (isArchived !== undefined) updates.isArchived = isArchived;
     if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
@@ -125,7 +132,10 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
 
     if (!updated) { res.status(404).json({ error: "Rubric set not found" }); return; }
     res.json(updated);
-  } catch (err) {
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "A rubric with that slug already exists" }); return;
+    }
     console.error("PATCH /rubric/sets/:slug error:", err);
     res.status(500).json({ error: "Internal server error" });
   }

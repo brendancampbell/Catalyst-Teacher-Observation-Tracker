@@ -396,26 +396,30 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
   const queryClient = useQueryClient();
 
   const [name,          setName]          = useState(rubricSet.name);
+  const [slugValue,     setSlugValue]     = useState(rubricSet.slug);
   const [gradeSpanArr,  setGradeSpanArr]  = useState<string[]>(
     rubricSet.gradeSpan ? rubricSet.gradeSpan.split(",").filter(Boolean) : []
   );
   const [audience, setAudience] = useState<"STEM" | "HUMANITIES" | "ALL">(rubricSet.subjectAudience ?? "ALL");
   const [target,   setTarget]   = useState<"TEACHER" | "SCHOOL">(rubricSet.target ?? "TEACHER");
 
-  function invalidate() {
+  function invalidate(newSlug?: string) {
     queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
     queryClient.invalidateQueries({ queryKey: ["rubric", slug] });
+    if (newSlug && newSlug !== slug) queryClient.invalidateQueries({ queryKey: ["rubric", newSlug] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   }
 
   const saveMut = useMutation({
     mutationFn: () => updateRubricSet(slug, {
       name: name.trim(),
+      slug: slugValue.trim().toUpperCase(),
       gradeSpan: gradeSpanArr.length ? gradeSpanArr.join(",") : null,
       target,
       subjectAudience: target === "SCHOOL" ? "ALL" : audience,
     }),
-    onSuccess: () => { invalidate(); onClose(); },
+    onSuccess: (updated) => { invalidate(updated.slug); onClose(); },
+    onError: (err: Error) => alert(err.message),
   });
 
   const archiveMut = useMutation({
@@ -459,6 +463,19 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
               autoFocus
               onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) saveMut.mutate(); }}
             />
+          </div>
+
+          {/* Slug */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-slate-700">Slug <span className="font-normal text-slate-400 text-xs">(appears in URLs)</span></label>
+            <input
+              className={fieldCls}
+              value={slugValue}
+              onChange={(e) => setSlugValue(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+              placeholder="e.g. LAUNCH"
+              spellCheck={false}
+            />
+            <p className="text-xs text-slate-400">Letters, numbers, hyphens, underscores only. Changing this will break any bookmarked links.</p>
           </div>
 
           {/* Rubric Type toggle — first */}
@@ -587,7 +604,7 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
             </button>
             <button
               onClick={() => saveMut.mutate()}
-              disabled={!name.trim() || saveMut.isPending}
+              disabled={!name.trim() || !slugValue.trim() || saveMut.isPending}
               className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
               style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
             >
