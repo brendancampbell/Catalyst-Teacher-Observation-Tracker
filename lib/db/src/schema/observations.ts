@@ -22,9 +22,6 @@ export const observations = pgTable("observations", {
   editedAt:            timestamp("edited_at", { withTimezone: true }),
   status:              text("status").notNull().default("published"),
   target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
-  teacherId:           integer("teacher_id"),
-  observerId:          integer("observer_id"),
-  editedById:          integer("edited_by_id"),
 });
 
 export const observationScores = pgTable("observation_scores", {
