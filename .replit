@@ -33,3 +33,5 @@ channel = "stable-25_05"
 
 [userenv.production]
 GOOGLE_CALLBACK_URL = "https://get-better-faster.replit.app/api/auth/google/callback"
+BOOTSTRAP_ADMIN_EMAIL = "bcampbell@uncommonschools.org"
+BOOTSTRAP_ADMIN_NAME = "Brendan Campbell"

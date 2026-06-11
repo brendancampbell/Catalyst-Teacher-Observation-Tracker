@@ -38,6 +38,7 @@ async function ensureSessionTable(): Promise<void> {
 
 ensureSessionTable()
   .then(() => runPeopleMigration())
+  .then(() => bootstrapAdmin())
   .then(() => {
     app.listen(port, (err) => {
       if (err) {
