@@ -250,10 +250,8 @@ export default function ActionCenterPage() {
         gradeMap[g].push(td);
       }
     }
-    const grades = Object.keys(gradeMap).sort((a, b) => {
-      const na = parseInt(a, 10), nb = parseInt(b, 10);
-      return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
-    });
+    const gradeOrder = (g: string) => g === "K" ? -1 : parseInt(g, 10);
+    const grades = Object.keys(gradeMap).sort((a, b) => gradeOrder(a) - gradeOrder(b));
     const gradeAvgs: Record<string, Record<string, number | null>> = {};
     for (const g of grades) gradeAvgs[g] = avgForGroup(gradeMap[g]);
 
