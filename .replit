@@ -32,4 +32,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.production]
-GOOGLE_CALLBACK_URL = "https://get-better-faster.replit.app/api/auth/google/callback"
+GOOGLE_CALLBACK_URL = "https://catalyst.uncommonschools.org/api/auth/google/callback"
