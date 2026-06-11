@@ -133,11 +133,13 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
 
     const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : currentUser.schoolId;
 
-    const generatedEmpId = employeeId?.trim()
-      || `EMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const trimmedEmpId = employeeId?.trim();
+    if (!trimmedEmpId) {
+      res.status(400).json({ error: "employeeId is required" }); return;
+    }
 
     const [created] = await db.insert(people).values({
-      employeeId: generatedEmpId,
+      employeeId: trimmedEmpId,
       firstName:  firstName.trim(),
       lastName:   lastName.trim(),
       email:      trimmedEmail,
@@ -302,8 +304,11 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         continue;
       }
 
-      const empId = employeeIdRaw
-        || `EMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      if (!employeeIdRaw) {
+        results.push({ row: rowNum, status: "error", name: displayName ?? undefined, email: email ?? undefined, reason: "Missing employeeId" });
+        continue;
+      }
+      const empId = employeeIdRaw;
 
       try {
         await db.insert(people).values({

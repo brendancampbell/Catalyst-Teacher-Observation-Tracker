@@ -675,7 +675,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
   const createMut = useMutation({
     mutationFn: () => createPerson({
-      employeeId:              addEmpId.trim() || undefined,
+      employeeId:              addEmpId.trim(),
       email:                   addEmail.trim(),
       firstName:               addFirstName.trim(),
       lastName:                addLastName.trim(),
@@ -1610,7 +1610,7 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
                   { col: "lastName",                     req: true,  desc: "Person's last name." },
                   { col: "email",                        req: true,  desc: "Work email address." },
                   { col: "role",                         req: true,  desc: "COACH · SCHOOL_LEADER · NETWORK_LEADER · NETWORK_ADMIN · NO_ACCESS" },
-                  { col: "employeeId",                   req: false, desc: "Unique ID from your HR system (e.g. EMP0042). Auto-generated if blank." },
+                  { col: "employeeId",                   req: true,  desc: "Unique ID from your HR system (e.g. EMP0042). Must match the employee's ID exactly." },
                   { col: "school",                       req: false, desc: "Exact school name as it appears in Settings → Schools." },
                   { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
                   { col: "gradeLevel",                   req: false, desc: "Hyphen-separated grades, e.g. 6-7-8 or K-1." },
