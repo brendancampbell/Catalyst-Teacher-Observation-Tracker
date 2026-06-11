@@ -1,9 +1,13 @@
 /**
  * One-time cleanup: remove legacy teachers/users tables and old integer FK
- * columns from observations. No data is preserved — all dummy records are
- * deleted. Schools and rubric data are untouched.
+ * columns from observations. Schools and rubric data are untouched.
  *
  * Idempotent: safe to call on every startup; exits immediately when already done.
+ *
+ * Note: teachers and users are defined in the Drizzle legacy-tables schema so
+ * Replit's publish migration does NOT generate DROP TABLE CASCADE (which would
+ * silently remove FK constraints before the explicit DROP CONSTRAINT statements,
+ * causing migration failures). This startup migration handles the actual cleanup.
  */
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
@@ -56,11 +60,10 @@ export async function runPeopleMigration(): Promise<void> {
       "[migrate-to-people] Cleaning up legacy schema artifacts",
     );
 
-    /* Clear all observations (dummy data only) and drop legacy tables.
-       teachers is dropped first because observations has FKs into it.  */
+    /* Drop legacy tables with CASCADE to handle any remaining FK constraints.
+       CASCADE only removes the FK constraint objects — it does NOT delete rows
+       from the observations table. Observation data is not touched here.      */
     if (teachersTableExists) {
-      await client.query(`DELETE FROM observations`);
-      logger.info("[migrate-to-people] Cleared observations");
       await client.query(`DROP TABLE IF EXISTS teachers CASCADE`);
       logger.info("[migrate-to-people] Dropped teachers table");
     }
@@ -70,8 +73,8 @@ export async function runPeopleMigration(): Promise<void> {
       logger.info("[migrate-to-people] Dropped users table");
     }
 
-    /* Drop any legacy integer FK columns that Replit's schema migration
-       may not have removed yet (safe no-op when already absent).        */
+    /* Safety net: drop any legacy integer FK columns that Replit's schema
+       migration may not have removed yet (safe no-op when already absent). */
     const legacyCols = [
       teacherColExists  && "teacher_id",
       observerColExists && "observer_id",
