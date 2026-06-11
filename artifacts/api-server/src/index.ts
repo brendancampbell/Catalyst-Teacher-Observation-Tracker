@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { runPeopleMigration } from "./lib/migrate-to-people";
+import { bootstrapAdmin } from "./lib/bootstrap-admin";
 
 const rawPort = process.env["PORT"];
 
