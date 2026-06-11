@@ -4,13 +4,18 @@
  *
  * Idempotent: safe to call on every startup; exits immediately when already done.
  *
- * Note: teachers and users are defined in the Drizzle legacy-tables schema so
- * Replit's publish migration does NOT generate DROP TABLE CASCADE (which would
- * silently remove FK constraints before the explicit DROP CONSTRAINT statements,
- * causing migration failures). This startup migration handles the actual cleanup.
+ * DEV NOTE: teachers and users are defined in the Drizzle legacy-tables schema so
+ * Replit's publish migration does NOT generate `DROP TABLE CASCADE` (which would
+ * silently remove FK constraints before the explicit DROP CONSTRAINT statements).
+ * In development, those tables are intentionally left in place so Replit's diff
+ * sees them in both dev and prod and skips the DROP TABLE. Only in production does
+ * this migration drop them after Replit's publish migration has already removed the
+ * legacy FK columns from observations.
  */
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+
+const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
 async function tableExists(client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> }, table: string): Promise<boolean> {
   const { rows } = await client.query(
@@ -43,12 +48,12 @@ export async function runPeopleMigration(): Promise<void> {
     const observerColExists   = await columnExists(client, "observations", "observer_id");
     const editedByColExists   = await columnExists(client, "observations", "edited_by_id");
 
-    const alreadyDone =
-      !teachersTableExists &&
-      !usersTableExists &&
-      !teacherColExists &&
-      !observerColExists &&
-      !editedByColExists;
+    /* In development the teachers/users tables deliberately exist so Replit's
+       publish migration diff sees them in both environments and skips DROP TABLE.
+       In dev we only need to clean up legacy columns (which dev doesn't have). */
+    const alreadyDone = IS_PRODUCTION
+      ? !teachersTableExists && !usersTableExists && !teacherColExists && !observerColExists && !editedByColExists
+      : !teacherColExists && !observerColExists && !editedByColExists;
 
     if (alreadyDone) {
       logger.info("[migrate-to-people] Already complete — skipping");
@@ -56,21 +61,25 @@ export async function runPeopleMigration(): Promise<void> {
     }
 
     logger.info(
-      { teachersTableExists, usersTableExists, teacherColExists, observerColExists, editedByColExists },
+      { IS_PRODUCTION, teachersTableExists, usersTableExists, teacherColExists, observerColExists, editedByColExists },
       "[migrate-to-people] Cleaning up legacy schema artifacts",
     );
 
-    /* Drop legacy tables with CASCADE to handle any remaining FK constraints.
-       CASCADE only removes the FK constraint objects — it does NOT delete rows
-       from the observations table. Observation data is not touched here.      */
-    if (teachersTableExists) {
-      await client.query(`DROP TABLE IF EXISTS teachers CASCADE`);
-      logger.info("[migrate-to-people] Dropped teachers table");
-    }
+    /* Production only: drop legacy tables. By the time the production server
+       starts, Replit's schema migration has already dropped the teacher_id /
+       observer_id / edited_by_id FK columns from observations, so CASCADE here
+       only removes any residual FK constraint objects — no observation rows
+       are deleted.                                                              */
+    if (IS_PRODUCTION) {
+      if (teachersTableExists) {
+        await client.query(`DROP TABLE IF EXISTS teachers CASCADE`);
+        logger.info("[migrate-to-people] Dropped teachers table");
+      }
 
-    if (usersTableExists) {
-      await client.query(`DROP TABLE IF EXISTS users CASCADE`);
-      logger.info("[migrate-to-people] Dropped users table");
+      if (usersTableExists) {
+        await client.query(`DROP TABLE IF EXISTS users CASCADE`);
+        logger.info("[migrate-to-people] Dropped users table");
+      }
     }
 
     /* Safety net: drop any legacy integer FK columns that Replit's schema
