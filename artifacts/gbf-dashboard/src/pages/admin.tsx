@@ -1336,6 +1336,16 @@ function SchoolSettings() {
         {schools.length > 0 && shownSchools.length === 0 && (
           <div className="text-center py-10 text-slate-400 text-sm">No schools match your filters.</div>
         )}
+        {shownSchools.length > 0 && (
+          <>
+            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "35% 22% 22% 21%" }}>
+              {["Name", "Region", "Grade Span", "Edit / Delete"].map((h, i) => (
+                <div key={i} className="px-4 py-3 text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em" }}>{h}</div>
+              ))}
+            </div>
+            <div style={{ height: 3, backgroundColor: YELLOW }} />
+          </>
+        )}
         <ul className="divide-y divide-slate-100">
           {shownSchools.map((school) => (
             <li key={school.id}>
