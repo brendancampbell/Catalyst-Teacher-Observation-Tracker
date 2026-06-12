@@ -1359,11 +1359,18 @@ function SchoolSettings() {
                 </div>
               ) : (
                 /* ── Display row ── */
-                <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                  <School size={16} className="text-slate-300 shrink-0" />
-                  <span className="flex-1 font-medium text-slate-700 text-sm">{school.name}</span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {school.region && (
+                <div
+                  className="px-4 py-3 hover:bg-slate-50 transition-colors items-center"
+                  style={{ display: "grid", gridTemplateColumns: "35% 22% 22% 21%" }}
+                >
+                  {/* Name */}
+                  <span className="flex items-center gap-2 font-medium text-slate-700 text-sm min-w-0">
+                    <School size={16} className="text-slate-300 shrink-0" />
+                    <span className="truncate">{school.name}</span>
+                  </span>
+                  {/* Region */}
+                  <div className="flex items-center">
+                    {school.region ? (
                       <span
                         className="text-xs font-bold rounded-full px-2.5 py-0.5"
                         style={{
@@ -1373,8 +1380,11 @@ function SchoolSettings() {
                       >
                         {school.region}
                       </span>
-                    )}
-                    {school.gradeSpan && (
+                    ) : <span className="text-slate-300 text-xs">—</span>}
+                  </div>
+                  {/* Grade Span */}
+                  <div className="flex items-center">
+                    {school.gradeSpan ? (
                       <span
                         className="text-xs font-bold rounded-full px-2.5 py-0.5"
                         style={{
@@ -1384,23 +1394,26 @@ function SchoolSettings() {
                       >
                         {school.gradeSpan}
                       </span>
-                    )}
+                    ) : <span className="text-slate-300 text-xs">—</span>}
                   </div>
-                  <button
-                    className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
-                    title="Edit"
-                    onClick={() => startEdit(school)}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
-                    title="Delete"
-                    onClick={() => { if (confirm(`Delete "${school.name}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
-                    disabled={deleteMut.isPending}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {/* Edit / Delete */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
+                      title="Edit"
+                      onClick={() => startEdit(school)}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
+                      title="Delete"
+                      onClick={() => { if (confirm(`Delete "${school.name}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
+                      disabled={deleteMut.isPending}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               )}
             </li>
