@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "GBF Principal Dashboard"
+title = "Catalyst Principal Dashboard"
 version = "1.0.0"
 id = "artifacts/gbf-dashboard"
 router = "path"

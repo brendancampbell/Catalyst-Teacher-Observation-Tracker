@@ -113,7 +113,7 @@ export const TEACHERS: Teacher[] = [
   { id: "t10", name: "Thomas Garcia",    firstName: "Thomas",   lastName: "Garcia",     subject: "History",    gradeLevel: ["11"],          observations: [
     obs("2026-01-28",[4,4,3,4,3,4,3,4,3,4], "Masterful presence; students deeply engaged with material.", "Ratio and F15 Launch are the two 3s — both coachable areas.", "Coach Mills"),
     obs("2026-02-24",[4,4,4,4,4,4,4,4,3,4], "Annotations at 3 — only outlier. Remarkable consistency.", "Push annotations to 4 by embedding a notebook protocol into his launch routine.", "VP Okafor"),
-    obs("2026-03-24",[4,4,4,4,4,4,4,4,4,4], "Perfect across all domains. A truly exemplary teacher.", "Formal instructional leadership role — champion for GBF practices school-wide."),
+    obs("2026-03-24",[4,4,4,4,4,4,4,4,4,4], "Perfect across all domains. A truly exemplary teacher.", "Formal instructional leadership role — champion for Catalyst practices school-wide."),
   ]},
   { id: "t11", name: "Rachel Kim",       firstName: "Rachel",   lastName: "Kim",        subject: "English",    gradeLevel: ["8"],           observations: [
     obs("2026-01-10",[3,3,2,3,3,2,3,3,2,3], "Clear routines; students feel safe and engaged.", "Ratio and annotations are areas of growth — structured protocols needed.", "VP Okafor"),

@@ -59,7 +59,7 @@ export default function AccessDeniedPage() {
           <div className="text-center flex flex-col gap-2">
             <p className="font-semibold text-slate-800 text-lg">Access Denied</p>
             <p className="text-slate-500 text-sm leading-relaxed">
-              We're sorry — your Google account doesn't have access to the GBF Tracker.
+              We're sorry — your Google account doesn't have access to Catalyst.
             </p>
             <p className="text-slate-500 text-sm leading-relaxed">
               If you believe this is a mistake, please contact your <strong className="text-slate-700">Director of Operations (DOO)</strong> to be provisioned.

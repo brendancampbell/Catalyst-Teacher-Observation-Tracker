@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/gbf-mobile/"
-title = "GBF Observation (Mobile Web)"
+title = "Catalyst Observation (Mobile Web)"
 version = "1.0.0"
 id = "artifacts/gbf-mobile"
 router = "path"

@@ -2,7 +2,7 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Contains the **GBF Principal Dashboard** for Uncommon Schools — a full-stack principal observation tracker.
+pnpm workspace monorepo using TypeScript. Contains the **Catalyst Principal Dashboard** for Uncommon Schools — a full-stack principal observation tracker.
 
 ## Stack
 
@@ -35,7 +35,7 @@ artifacts-monorepo/
 └── package.json
 ```
 
-## GBF Principal Dashboard
+## Catalyst Principal Dashboard
 
 ### Application Overview
 

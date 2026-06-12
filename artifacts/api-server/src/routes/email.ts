@@ -384,7 +384,7 @@ router.post("/send-observation", async (req, res) => {
     const { client, fromEmail } = await getUncachableResendClient();
 
     const { error: resendError } = await client.emails.send({
-      from: fromEmail || "Uncommon Schools GBF <onboarding@resend.dev>",
+      from: fromEmail || "Uncommon Schools Catalyst <onboarding@resend.dev>",
       to: [teacherEmail],
       subject,
       html,

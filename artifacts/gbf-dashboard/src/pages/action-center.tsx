@@ -145,7 +145,7 @@ type ChatMsg = { role: "user" | "ai"; text: string };
 
 const WELCOME_MSG: ChatMsg = {
   role: "ai",
-  text: "Hello! I'm your GBF Data Assistant. Ask me about your school's observation trends, domain scores, calibration flags, growth plateaus, or which teachers are closest to the 0.7 proficiency threshold.",
+  text: "Hello! I'm your Catalyst Data Assistant. Ask me about your school's observation trends, domain scores, calibration flags, or which teachers are closest to the 0.7 proficiency threshold.",
 };
 
 export default function ActionCenterPage() {
@@ -1569,7 +1569,7 @@ export default function ActionCenterPage() {
                         <Sparkles size={18} color={YELLOW} />
                       </div>
                       <div>
-                        <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
+                        <h2 className="font-bold text-slate-800 text-base">Catalyst Data Assistant</h2>
                         <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
                       </div>
                       <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
