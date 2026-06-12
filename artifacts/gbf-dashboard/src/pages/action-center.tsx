@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, CheckCircle2, Clock, Plus,
+  CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
-  Bot, User2, ShieldAlert, Activity, Globe2, FileText,
-  Download, ChevronRight, RefreshCw, X,
+  Bot, User2, Activity, Globe2, FileText,
+  Download, ChevronRight, RefreshCw,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -14,7 +14,7 @@ import {
   fetchDashboard,
   fetchDistrictSummary,
   fetchNetworkAverages,
-  fetchQuarters,
+  fetchRubricSets,
   createObservation,
   fetchAIInsights,
   fetchAICalibrationFlags,
@@ -22,7 +22,7 @@ import {
   fetchAIChat,
   type RescoreQueueItem,
   type OverdueTeacher,
-  type RubricQuarterRow,
+  type RubricSetRow,
   type AICalibrationFlag,
   type AIPlateauAlert,
   type AIInsightsResponse,
@@ -93,9 +93,9 @@ export default function ActionCenterPage() {
   });
 
   /* ── Dashboard data ──────────────────────────────────── */
-  const { data: quarters = [] } = useQuery<RubricQuarterRow[]>({
+  const { data: quarters = [] } = useQuery<RubricSetRow[]>({
     queryKey: ["quarters"],
-    queryFn:  () => fetchQuarters(),
+    queryFn:  () => fetchRubricSets(),
     staleTime: 60_000,
   });
 

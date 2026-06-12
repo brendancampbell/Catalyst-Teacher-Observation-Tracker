@@ -441,16 +441,10 @@ export interface RubricSetRow {
   subjectAudience: "STEM" | "HUMANITIES" | "ALL";
 }
 
-/** @deprecated Use RubricSetRow */
-export type RubricQuarterRow = RubricSetRow;
-
 export async function fetchRubricSets(includeArchived = false): Promise<RubricSetRow[]> {
   const qs = includeArchived ? "?includeArchived=true" : "";
   return apiFetch<RubricSetRow[]>(`/rubric/sets${qs}`);
 }
-
-/** @deprecated Use fetchRubricSets */
-export const fetchQuarters = fetchRubricSets;
 
 export async function updateRubricSet(slug: string, fields: { name?: string; slug?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" }): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${slug}`, {
@@ -475,11 +469,6 @@ export async function createRubricSet(slug: string, name: string, gradeSpan?: st
     method: "POST",
     body: JSON.stringify({ slug, name, ...(gradeSpan ? { gradeSpan } : {}), ...(copyFromSlug ? { copyFromSlug } : {}), ...(target ? { target } : {}), ...(subjectAudience ? { subjectAudience } : {}) }),
   });
-}
-
-/** @deprecated Use createRubricSet */
-export function createQuarter(slug: string, name: string, copyFromSlug?: string): Promise<RubricSetRow> {
-  return createRubricSet(slug, name, undefined, copyFromSlug);
 }
 
 export interface RubricCategoryRow {
@@ -563,17 +552,9 @@ export interface AIChatResponse {
   reply: string;
 }
 
-export interface AITrendingStep {
-  pct:     number;
-  domain:  string;
-  avg:     number;
-  insight: string;
-}
-
 export interface AIInsightsResponse {
-  topStrength:   { domain: string; avg: number; count: number } | null;
-  topGrowth:     { domain: string; avg: number; count: number } | null;
-  trendingSteps: AITrendingStep[];
+  topStrength: { domain: string; avg: number; count: number } | null;
+  topGrowth:   { domain: string; avg: number; count: number } | null;
 }
 
 export interface AICalibrationFlag {
