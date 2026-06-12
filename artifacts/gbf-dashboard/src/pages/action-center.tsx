@@ -20,6 +20,7 @@ import {
   fetchAICalibrationFlags,
   fetchAIPlateauAlerts,
   fetchAIChat,
+  generateAIAnalysis,
   type RescoreQueueItem,
   type OverdueTeacher,
   type RubricSetRow,
@@ -41,6 +42,86 @@ import { Separator } from "@/components/ui/separator";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
+
+function AINarrativeRenderer({ content }: { content: string }) {
+  if (!content) {
+    return (
+      <div className="rounded-lg px-4 py-8 text-center text-sm text-slate-400" style={{ border: "1.5px dashed #e2e8f0" }}>
+        No content available.
+      </div>
+    );
+  }
+
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let key = 0;
+
+  function renderInline(text: string): React.ReactNode[] {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={i}>{part.slice(2, -2)}</strong>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      elements.push(<div key={key++} className="mb-2" />);
+      continue;
+    }
+
+    const isSectionHeader = /^\*\*[A-Z][A-Z\s]+\*\*$/.test(trimmed);
+    if (isSectionHeader) {
+      const headerText = trimmed.slice(2, -2);
+      elements.push(
+        <div key={key++} className="flex items-center gap-2 mt-6 mb-2 pb-2" style={{ borderBottom: `2px solid ${YELLOW}` }}>
+          <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 15, letterSpacing: "0.06em" }}>
+            {headerText}
+          </h3>
+        </div>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+      elements.push(
+        <li key={key++} className="text-sm leading-relaxed text-slate-700 ml-4 mb-1" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+          {renderInline(trimmed.slice(2))}
+        </li>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("⚠")) {
+      elements.push(
+        <p key={key++} className="text-xs text-slate-400 italic mt-6 pt-4 leading-relaxed" style={{ borderTop: "1px solid #f1f5f9", fontFamily: "'Libre Franklin', sans-serif" }}>
+          {renderInline(trimmed)}
+        </p>
+      );
+      continue;
+    }
+
+    elements.push(
+      <p key={key++} className="text-sm leading-relaxed text-slate-700 mb-3" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+        {renderInline(trimmed)}
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 text-xs font-semibold mb-4" style={{ color: "#64748b" }}>
+        <Sparkles size={11} style={{ color: YELLOW }} /> AI-generated content · Verify key figures with your data team before sharing externally
+      </div>
+      <div>{elements}</div>
+    </div>
+  );
+}
 
 function getDueStatus(dueDateStr: string | null): { label: string; color: string; urgent: boolean } {
   if (!dueDateStr) return { label: "No due date", color: "#94a3b8", urgent: false };
@@ -179,18 +260,15 @@ export default function ActionCenterPage() {
     title: string;
     generatedAt: string;
     rubricSet: string;
-    status: "complete" | "generating";
+    status: "complete" | "generating" | "error";
+    content?: string;
   };
 
-  const [analysisDocs, setAnalysisDocs] = useState<AnalysisDoc[]>([
-    { id: "mock-1", title: "Q2 Analysis",      generatedAt: "2026-05-28T09:15:00Z", rubricSet: "Q2", status: "complete" },
-    { id: "mock-2", title: "Q1 Mid-Year Analysis", generatedAt: "2026-03-14T14:30:00Z", rubricSet: "Q1", status: "complete" },
-    { id: "mock-3", title: "Q1 Analysis",      generatedAt: "2026-01-22T11:00:00Z", rubricSet: "Q1", status: "complete" },
-  ]);
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>("mock-1");
+  const [analysisDocs, setAnalysisDocs] = useState<AnalysisDoc[]>([]);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  function handleGenerateAnalysis() {
+  async function handleGenerateAnalysis() {
     if (isGenerating) return;
     setIsGenerating(true);
     const pendingId = `gen-${Date.now()}`;
@@ -199,12 +277,24 @@ export default function ActionCenterPage() {
       ...prev,
     ]);
     setSelectedAnalysisId(pendingId);
-    setTimeout(() => {
+    try {
+      const result = await generateAIAnalysis(activeQuarter, schoolId);
       setAnalysisDocs((prev) =>
-        prev.map((d) => d.id === pendingId ? { ...d, status: "complete" } : d)
+        prev.map((d) => d.id === pendingId
+          ? { ...d, status: "complete", content: result.narrative }
+          : d
+        )
       );
+    } catch {
+      setAnalysisDocs((prev) =>
+        prev.map((d) => d.id === pendingId
+          ? { ...d, status: "error", content: "Failed to generate analysis. Please try again." }
+          : d
+        )
+      );
+    } finally {
       setIsGenerating(false);
-    }, 2500);
+    }
   }
 
   function fmtDate(iso: string) {
@@ -1152,9 +1242,12 @@ export default function ActionCenterPage() {
                             </span>
                             <span
                               className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                              style={{ backgroundColor: "#DCFCE7", color: "#15803D" }}
+                              style={{
+                                backgroundColor: selectedDoc.status === "error" ? "#FEF2F2" : "#DCFCE7",
+                                color: selectedDoc.status === "error" ? "#991B1B" : "#15803D",
+                              }}
                             >
-                              Complete
+                              {selectedDoc.status === "error" ? "Error" : "Complete"}
                             </span>
                           </div>
                           <h2
@@ -1177,48 +1270,8 @@ export default function ActionCenterPage() {
                         </button>
                       </div>
 
-                      {/* Placeholder sections */}
-                      {[
-                        {
-                          label: "Executive Summary",
-                          body: "AI-generated narrative summarizing the school's overall performance this period, key trends, and notable changes since the last observation cycle.",
-                        },
-                        {
-                          label: "Domain Highlights",
-                          body: "A breakdown of each rubric domain — identifying top-performing areas, domains with the most growth, and areas of persistent concern across the teacher population.",
-                        },
-                        {
-                          label: "Teacher Growth Trends",
-                          body: "Analysis of individual teacher trajectories, highlighting teachers who have crossed the 0.7 proficiency threshold, those plateauing, and those showing accelerated improvement.",
-                        },
-                        {
-                          label: "Recommended Actions",
-                          body: "Prioritized coaching and intervention recommendations based on the data patterns above, tailored to the school's current context and goals.",
-                        },
-                      ].map(({ label, body }) => (
-                        <div key={label} className="mb-6">
-                          <div
-                            className="flex items-center gap-2 mb-2 pb-2"
-                            style={{ borderBottom: `2px solid ${YELLOW}` }}
-                          >
-                            <h3
-                              className="text-sm font-bold uppercase tracking-wide"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 15, letterSpacing: "0.06em" }}
-                            >
-                              {label}
-                            </h3>
-                          </div>
-                          <div
-                            className="rounded-lg px-4 py-3 text-sm leading-relaxed"
-                            style={{ backgroundColor: "#f8fafc", color: "#94a3b8", fontStyle: "italic", fontFamily: "'Libre Franklin', sans-serif", border: "1.5px dashed #e2e8f0" }}
-                          >
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold mb-1 not-italic" style={{ color: "#cbd5e1" }}>
-                              <Sparkles size={11} /> AI-generated content
-                            </span>
-                            <p>{body}</p>
-                          </div>
-                        </div>
-                      ))}
+                      {/* AI-generated narrative */}
+                      <AINarrativeRenderer content={selectedDoc.content ?? ""} />
                     </div>
                   )}
                 </div>

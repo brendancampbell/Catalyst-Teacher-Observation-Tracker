@@ -364,6 +364,13 @@ export async function fetchAIPlateauAlerts(rubricSlug?: string, schoolId?: numbe
   return apiFetch<AIPlateauAlert[]>(`/ai/plateau-alerts${qs}`);
 }
 
+export async function generateAIAnalysis(rubricSetSlug: string, schoolId?: number | null): Promise<{ narrative: string; rubricSetSlug: string }> {
+  return apiFetch<{ narrative: string; rubricSetSlug: string }>("/ai/analysis", {
+    method: "POST",
+    body: JSON.stringify({ rubricSetSlug, ...(schoolId != null ? { schoolId } : {}) }),
+  });
+}
+
 /* ── Email ──────────────────────────────────────────────────────── */
 
 export async function sendObservationEmail(payload: {

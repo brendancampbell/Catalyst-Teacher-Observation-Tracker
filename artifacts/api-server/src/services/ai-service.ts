@@ -1,15 +1,12 @@
 /*
  * ai-service.ts
  *
- * Single Gemini swap point. All response generation lives here.
+ * Claude Opus swap point. All response generation lives here.
  * DB queries happen in the routes; this service only turns context data
- * into natural-language responses.
- *
- * To connect the real Gemini API:
- *   1. Replace the body of `generateAIResponse` below with your Gemini call.
- *   2. The `context` object already contains all the pre-fetched DB data
- *      you need to inject into the prompt.
+ * into natural-language responses via Claude Opus (claude-opus-4-8).
  */
+
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 export interface DomainAvg {
   domainSlug: string;
@@ -54,123 +51,130 @@ export interface AIContext {
   plateauAlerts: PlateauAlert[];
 }
 
-// ─── TODO: replace with Gemini call ─────────────────────────────────────────
-//
-// When you integrate Gemini:
-//   async function generateAIResponse(message: string, context: AIContext): Promise<string> {
-//     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-//     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-//     const prompt = buildPrompt(message, context);
-//     const result = await model.generateContent(prompt);
-//     return result.response.text();
-//   }
-//
-// ─────────────────────────────────────────────────────────────────────────────
+const GBF_SYSTEM_PROMPT = `You are a GBF (Growth-Based Feedback) Data Assistant embedded in a principal/instructional-leader dashboard. You help school leaders and network coaches understand their observation data and make coaching decisions.
 
-export function generateAIResponse(message: string, context: AIContext): string {
-  const lc = message.toLowerCase();
+Key GBF rubric context:
+- Scores are on a 0–1 scale (not 0–100).
+- The proficiency threshold is 0.7. A score ≥ 0.7 means a teacher is considered proficient in that domain.
+- Scores below 0.7 indicate a growth area requiring coaching support.
+- Calibration flags arise when a School Coach's scores differ by ≥ 0.5 from the Network Walkthrough score on the same teachers — indicating the coach's lens may not be aligned to the network standard.
+- Plateau alerts identify teachers with 3+ consecutive observations showing no score improvement over 4+ weeks.
+- "Rescore queue" means teachers who received a walkthrough score below 0.7 and need a follow-up observation within 14 days.
 
-  const topStrength = context.domainAverages.length
-    ? [...context.domainAverages].sort((a, b) => b.avg - a.avg)[0]
-    : null;
-  const topGrowth = context.domainAverages.length
-    ? [...context.domainAverages].sort((a, b) => a.avg - b.avg)[0]
-    : null;
+Your responses should be:
+- Concise, data-grounded, and actionable.
+- Written for a principal or instructional coach audience.
+- Honest about what the data shows, including areas of concern.
+- Formatted with **bold** for key numbers and domain names when it aids readability.
+- Always attribute insights to the actual data provided — do not invent numbers.`;
 
+function buildContextBlock(context: AIContext): string {
   const scopeLabel = context.scope === "school" ? "school" : "network";
+  const lines: string[] = [
+    `## Current ${scopeLabel} data snapshot`,
+    `- Scope: ${scopeLabel}`,
+    `- Total teachers tracked: ${context.totalTeachers}`,
+    `- Total observations: ${context.totalObservations}`,
+    `- Rescore queue (walkthroughs below 0.7): ${context.rescoreQueueCount}`,
+    "",
+  ];
 
-  /* ── Calibration keyword ─── */
-  if (lc.includes("calibrat")) {
-    if (context.calibrationFlags.length === 0) {
-      return `Good news — I found no calibration discrepancies (≥ 0.5 difference between School Coach and Network Walkthrough scores) in the current data. Your ${scopeLabel}'s scoring appears well-aligned across observers.`;
-    }
-    const flagList = context.calibrationFlags
-      .slice(0, 3)
-      .map((f) => {
-        const subject = f.teacher ?? f.school ?? "Unknown";
-        return `**${subject}** in "${f.domain}" (School Coach: ${f.schoolScore.toFixed(1)} vs Network: ${f.networkScore.toFixed(1)}, Δ ${f.delta.toFixed(1)})`;
-      })
-      .join("; ");
-    return `I found **${context.calibrationFlags.length} calibration flag${context.calibrationFlags.length !== 1 ? "s" : ""}** where scores differ by ≥ 0.5 between School Coach and Network Walkthrough observations. The most notable: ${flagList}. A calibration session before the next round of walkthroughs is recommended.`;
-  }
-
-  /* ── Plateau keyword ─── */
-  if (lc.includes("plateau") || lc.includes("stuck") || lc.includes("no improvement") || lc.includes("stagnant")) {
-    if (context.plateauAlerts.length === 0) {
-      return `Great news — no growth plateaus detected. All teachers in your ${scopeLabel} have shown score movement across their recent observations.`;
-    }
-    const names = context.plateauAlerts.slice(0, 3).map((p) => `**${p.teacherName}** (${p.domain}, ${p.obsCount} observations)`).join("; ");
-    return `I've detected **${context.plateauAlerts.length} growth plateau${context.plateauAlerts.length !== 1 ? "s" : ""}** — teachers with no score improvement over 3+ consecutive observations: ${names}. Each of these teachers has remained at the same or lower score level for 4+ weeks.`;
-  }
-
-  /* ── Threshold / proficiency keyword ─── */
-  if (lc.includes("threshold") || lc.includes("proficien") || lc.includes("0.7")) {
-    const aboveThreshold = context.domainAverages.filter((d) => d.avg >= 0.7);
-    const belowThreshold = context.domainAverages.filter((d) => d.avg < 0.7);
-    if (!context.domainAverages.length) {
-      return `No domain score data is available yet for your ${scopeLabel}. Once observations are recorded, I'll be able to tell you which domains are above or below the 0.7 proficiency threshold.`;
-    }
-    return `Across your ${scopeLabel}, **${aboveThreshold.length} domain${aboveThreshold.length !== 1 ? "s" : ""}** are at or above the 0.7 proficiency threshold, and **${belowThreshold.length}** are below. ${topGrowth ? `The biggest priority for growth is **${topGrowth.domainName}** at an average of ${topGrowth.avg.toFixed(2)}.` : ""}`;
-  }
-
-  /* ── Support keyword ─── */
-  if (lc.includes("support") || lc.includes("priorit") || lc.includes("urgent") || lc.includes("help")) {
-    const urgent = context.rescoreQueueCount;
-    const plateaus = context.plateauAlerts.length;
-    const flags = context.calibrationFlags.length;
-    return `Based on current data, here are the most urgent support needs in your ${scopeLabel}: **${urgent} teacher${urgent !== 1 ? "s" : ""}** in the rescore queue${urgent > 0 ? " (walkthroughs scored below 0.7 needing follow-up)" : ""}, **${plateaus} growth plateau alert${plateaus !== 1 ? "s" : ""}**, and **${flags} calibration flag${flags !== 1 ? "s" : ""}**. ${topGrowth ? `Focus coaching attention on **${topGrowth.domainName}** (avg ${topGrowth.avg.toFixed(2)}) — the lowest-scoring domain ${scopeLabel}-wide.` : ""}`;
-  }
-
-  /* ── Trend keyword ─── */
-  if (lc.includes("trend") || lc.includes("pattern") || lc.includes("common") || lc.includes("theme")) {
-    if (!context.domainAverages.length) {
-      return `No observation data has been recorded yet for your ${scopeLabel}. Add some observations and I'll surface trends for you.`;
-    }
-    const top3 = [...context.domainAverages].sort((a, b) => b.avg - a.avg).slice(0, 3);
-    const bottom3 = [...context.domainAverages].sort((a, b) => a.avg - b.avg).slice(0, 3);
-    const strengthList = top3.map((d) => `**${d.domainName}** (${d.avg.toFixed(2)})`).join(", ");
-    const growthList = bottom3.map((d) => `**${d.domainName}** (${d.avg.toFixed(2)})`).join(", ");
-    return `Across ${context.totalObservations} observations for ${context.totalTeachers} teacher${context.totalTeachers !== 1 ? "s" : ""} in your ${scopeLabel}, the strongest domains are: ${strengthList}. The areas most needing attention are: ${growthList}.`;
-  }
-
-  /* ── Domain name keyword match ─── */
   if (context.domainAverages.length) {
-    const matched = context.domainAverages.find(
-      (d) =>
-        lc.includes(d.domainSlug.toLowerCase()) ||
-        lc.includes(d.domainName.toLowerCase()),
-    );
-    if (matched) {
-      const aboveBelow = matched.avg >= 0.7 ? "above" : "below";
-      const profLabel  = matched.avg >= 0.7 ? "proficient" : "not yet proficient";
-      return `**${matched.domainName}** has an average score of **${matched.avg.toFixed(2)}** across ${matched.count} observation${matched.count !== 1 ? "s" : ""} in your ${scopeLabel} — ${aboveBelow} the 0.7 threshold (${profLabel}). ${matched.avg < 0.7 ? "Consider a focused coaching cycle on this domain." : "Keep reinforcing this strength in upcoming walkthroughs."}`;
+    lines.push("### Domain averages (0–1 scale, ≥0.7 = proficient)");
+    for (const d of context.domainAverages) {
+      const status = d.avg >= 0.7 ? "✓ proficient" : "⚠ below threshold";
+      lines.push(`- ${d.domainName}: ${d.avg.toFixed(3)} across ${d.count} observation(s) [${status}]`);
     }
+    lines.push("");
+  } else {
+    lines.push("### Domain averages: No data yet");
+    lines.push("");
   }
 
-  /* ── Teacher name keyword ─── */
+  if (context.calibrationFlags.length) {
+    lines.push("### Calibration flags (score divergence ≥ 0.5 between coach and network)");
+    for (const f of context.calibrationFlags) {
+      const subject = f.teacher ?? f.school ?? "Unknown";
+      lines.push(`- ${subject} | Domain: ${f.domain} | Coach avg: ${f.schoolScore.toFixed(2)} | Network avg: ${f.networkScore.toFixed(2)} | Δ ${f.delta.toFixed(2)}`);
+    }
+    lines.push("");
+  } else {
+    lines.push("### Calibration flags: None (all observers well-aligned)");
+    lines.push("");
+  }
+
   if (context.plateauAlerts.length) {
-    const matchedTeacher = context.plateauAlerts.find((p) =>
-      lc.includes(p.teacherName.toLowerCase().split(" ")[0]) ||
-      lc.includes(p.teacherName.toLowerCase()),
-    );
-    if (matchedTeacher) {
-      return `**${matchedTeacher.teacherName}** is currently on a growth plateau in **${matchedTeacher.domain}**, scoring **${matchedTeacher.score.toFixed(1)}** across ${matchedTeacher.obsCount} consecutive observations over ${matchedTeacher.weekRange}. I'd recommend a targeted coaching conversation focused on this domain.`;
+    lines.push("### Growth plateau alerts (≥3 consecutive observations with no improvement over ≥4 weeks)");
+    for (const p of context.plateauAlerts) {
+      lines.push(`- ${p.teacherName} | Domain: ${p.domain} | Score: ${p.score.toFixed(2)} | ${p.obsCount} observations over ${p.weekRange}`);
     }
+    lines.push("");
+  } else {
+    lines.push("### Growth plateau alerts: None detected");
+    lines.push("");
   }
 
-  /* ── Average / overview keyword ─── */
-  if (lc.includes("average") || lc.includes("overall") || lc.includes("score") || lc.includes("how") || lc.includes("summary")) {
-    if (!context.domainAverages.length) {
-      return `No observation scores are recorded yet for your ${scopeLabel}. Once data is available, I can give you a full summary.`;
-    }
-    const overall = context.domainAverages.reduce((s, d) => s + d.avg, 0) / context.domainAverages.length;
-    return `Your ${scopeLabel} has **${context.totalTeachers} teacher${context.totalTeachers !== 1 ? "s" : ""}** across **${context.totalObservations} observation${context.totalObservations !== 1 ? "s" : ""}**. The overall average score is **${overall.toFixed(2)}** across all domains. ${topStrength ? `Strongest domain: **${topStrength.domainName}** (${topStrength.avg.toFixed(2)}).` : ""} ${topGrowth ? `Biggest growth opportunity: **${topGrowth.domainName}** (${topGrowth.avg.toFixed(2)}).` : ""}`;
-  }
+  return lines.join("\n");
+}
 
-  /* ── Fallback ─── */
-  if (!context.domainAverages.length) {
-    return `I don't have enough observation data yet for your ${scopeLabel} to answer that question. Once observations are logged, I can help with trends, domain breakdowns, calibration flags, and growth plateau alerts.`;
+export async function generateAIResponse(message: string, context: AIContext): Promise<string> {
+  const contextBlock = buildContextBlock(context);
+  const userContent = `${contextBlock}\n---\n\nUser question: ${message}`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 8192,
+      system: GBF_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    const block = response.content[0];
+    if (block?.type === "text") return block.text;
+    return "I was unable to generate a response. Please try again.";
+  } catch (err) {
+    console.error("Claude chat error:", err);
+    throw err;
   }
-  const overall = context.domainAverages.reduce((s, d) => s + d.avg, 0) / context.domainAverages.length;
-  return `Based on **${context.totalObservations} observation${context.totalObservations !== 1 ? "s" : ""}** across your ${scopeLabel}, the overall average is **${overall.toFixed(2)}**. ${topStrength ? `Top strength: **${topStrength.domainName}** (${topStrength.avg.toFixed(2)}).` : ""} ${topGrowth ? `Top growth area: **${topGrowth.domainName}** (${topGrowth.avg.toFixed(2)}).` : ""} Try asking about calibration flags, growth plateaus, specific domains, or proficiency thresholds.`;
+}
+
+export async function generateAnalysisSummary(context: AIContext, rubricSetSlug: string): Promise<string> {
+  const contextBlock = buildContextBlock(context);
+
+  const prompt = `${contextBlock}
+---
+
+You are writing an executive analysis report for the rubric set "${rubricSetSlug}".
+
+Write a 4-section narrative report with the following structure. Use the exact section headers shown:
+
+**EXECUTIVE SUMMARY**
+A 2–3 paragraph overview of the school's or network's overall performance this period. Reference the overall average score, number of teachers and observations, and the proportion of domains above and below the 0.7 proficiency threshold. Highlight whether the overall picture is strong, mixed, or a cause for concern.
+
+**DOMAIN HIGHLIGHTS**
+A domain-by-domain breakdown. For each domain, note its average score, whether it is above or below the 0.7 threshold, and what that means for teachers in that area. Call out the highest-scoring domain (a strength to celebrate) and the lowest-scoring domain (the top coaching priority). If no domain data exists, say so clearly.
+
+**TEACHER GROWTH TRENDS**
+Discuss growth patterns visible in the data. Reference any plateau alerts — teachers who have not improved across 3+ consecutive observations. Mention the rescore queue count. If no plateau alerts exist, note that as a positive sign. Keep this grounded in the data; do not fabricate specific teacher names beyond what appears in the plateau alerts.
+
+**RECOMMENDED ACTIONS**
+3–5 concrete, prioritized action items for the school or network leader based on the data. Be specific: reference domain names, calibration flags, and plateau teachers where relevant. Prioritize the most urgent items first (rescore queue, large calibration gaps, persistent plateaus).
+
+End with a one-line disclaimer: "⚠ This analysis was generated by AI based on observation data as of the report date. Please verify key figures with your data team before sharing externally."`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 8192,
+      system: GBF_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const block = response.content[0];
+    if (block?.type === "text") return block.text;
+    return "Unable to generate analysis. Please try again.";
+  } catch (err) {
+    console.error("Claude analysis error:", err);
+    throw err;
+  }
 }

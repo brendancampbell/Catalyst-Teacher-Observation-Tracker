@@ -11,6 +11,7 @@ import {
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   generateAIResponse,
+  generateAnalysisSummary,
   type AIContext,
   type CalibrationFlag,
   type PlateauAlert,
@@ -356,7 +357,13 @@ router.post("/chat", async (req, res) => {
       plateauAlerts,
     };
 
-    const reply = generateAIResponse(message, context);
+    let reply: string;
+    try {
+      reply = await generateAIResponse(message, context);
+    } catch (aiErr) {
+      console.error("POST /ai/chat AI error:", aiErr);
+      reply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags and Plateau Alerts tabs for the most recent data.";
+    }
     res.json({ reply });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
@@ -479,6 +486,66 @@ router.get("/plateau-alerts", async (req, res) => {
     }
     console.error("GET /ai/plateau-alerts error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── POST /api/ai/analysis ──────────────────────────────────────── */
+router.post("/analysis", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const { rubricSetSlug, schoolId: reqSchoolId } = req.body as { rubricSetSlug?: string; schoolId?: number | null };
+
+    const slug = rubricSetSlug?.trim() || "Q1";
+
+    const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
+
+    const rubricSetId = await getRubricSetId(slug);
+    const personIds = await getPersonIds(scopedSchoolId);
+
+    const rescoreRows = personIds.length
+      ? await db.select({ employeeId: people.employeeId }).from(people).where(
+          scopedSchoolId !== null
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+        )
+      : [];
+
+    const [domainAverages, calibrationFlags, plateauAlerts] = await Promise.all([
+      buildDomainAverages(personIds, rubricSetId),
+      buildCalibrationFlags(personIds, scope, rubricSetId),
+      buildPlateauAlerts(personIds, rubricSetId),
+    ]);
+
+    const obsCountResult = personIds.length
+      ? await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(observations)
+          .where(
+            rubricSetId != null
+              ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
+              : inArray(observations.observedEmployeeId, personIds)
+          )
+      : [{ count: 0 }];
+
+    const context: AIContext = {
+      scope,
+      domainAverages,
+      totalTeachers:     personIds.length,
+      totalObservations: obsCountResult[0]?.count ?? 0,
+      rescoreQueueCount: rescoreRows.length,
+      calibrationFlags,
+      plateauAlerts,
+    };
+
+    const narrative = await generateAnalysisSummary(context, slug);
+    res.json({ narrative, rubricSetSlug: slug });
+  } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message }); return;
+    }
+    console.error("POST /ai/analysis error:", err);
+    res.status(500).json({ error: "Failed to generate analysis. Please try again." });
   }
 });
 
