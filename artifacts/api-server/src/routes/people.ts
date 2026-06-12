@@ -133,6 +133,13 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
 
     const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : currentUser.schoolId;
 
+    if (role === "SCHOOL_LEADER" && !assignedSchoolId) {
+      res.status(400).json({ error: "School Leaders must be assigned to a school" }); return;
+    }
+    if ((includeInFeedbackTracker ?? false) && !assignedSchoolId) {
+      res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
+    }
+
     const trimmedEmpId = employeeId?.trim();
     if (!trimmedEmpId) {
       res.status(400).json({ error: "employeeId is required" }); return;
@@ -304,6 +311,15 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         continue;
       }
 
+      if (role === "SCHOOL_LEADER" && !schoolId) {
+        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "School Leaders must be assigned to a school" });
+        continue;
+      }
+      if (includeInFB && !schoolId) {
+        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a school" });
+        continue;
+      }
+
       if (!employeeIdRaw) {
         results.push({ row: rowNum, status: "error", name: displayName ?? undefined, email: email ?? undefined, reason: "Missing employeeId" });
         continue;
@@ -401,6 +417,17 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     }
     if (!isNetworkAdmin && role && !SCHOOL_ASSIGNABLE_ROLES.includes(role) && role !== "NO_ACCESS") {
       res.status(403).json({ error: "School Leaders can only assign Coach or School Leader roles" }); return;
+    }
+
+    const effectiveRole     = role     ?? target.role;
+    const effectiveSchoolId = (isNetworkAdmin && schoolId !== undefined) ? schoolId : target.schoolId;
+    const effectiveInFT     = includeInFeedbackTracker !== undefined ? includeInFeedbackTracker : target.includeInFeedbackTracker;
+
+    if (effectiveRole === "SCHOOL_LEADER" && !effectiveSchoolId) {
+      res.status(400).json({ error: "School Leaders must be assigned to a school" }); return;
+    }
+    if (effectiveInFT && !effectiveSchoolId) {
+      res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
     }
 
     const updates: Record<string, unknown> = {};

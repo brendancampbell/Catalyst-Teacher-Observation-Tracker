@@ -920,10 +920,15 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             <input type="checkbox" checked={addObservable} onChange={(e) => setAddObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
             Include in Feedback Tracker (observable subject)
           </label>
+          {isNetworkAdmin && (addObservable || addRole === "SCHOOL_LEADER") && !addSchoolId && (
+            <p className="text-xs font-medium" style={{ color: "#b45309" }}>
+              {addRole === "SCHOOL_LEADER" ? "School Leaders" : "Feedback tracker participants"} must be assigned to a school.
+            </p>
+          )}
           <div className="flex gap-2">
             <button className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }}
               onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !addFirstName.trim() || !addLastName.trim() || !addEmpId.trim() || !addEmail.trim()}>
+              disabled={createMut.isPending || !addFirstName.trim() || !addLastName.trim() || !addEmpId.trim() || !addEmail.trim() || (isNetworkAdmin && (addObservable || addRole === "SCHOOL_LEADER") && !addSchoolId)}>
               {createMut.isPending ? "Adding…" : "Add Person"}
             </button>
             <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setAdding(false)}>Cancel</button>
@@ -1010,8 +1015,13 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         <input type="checkbox" checked={editObservable} onChange={(e) => setEditObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
                         Include in Feedback Tracker (observable subject)
                       </label>
+                      {isNetworkAdmin && (editObservable || editRole === "SCHOOL_LEADER") && !editSchoolId && (
+                        <p className="text-xs font-medium" style={{ color: "#b45309" }}>
+                          {editRole === "SCHOOL_LEADER" ? "School Leaders" : "Feedback tracker participants"} must be assigned to a school.
+                        </p>
+                      )}
                       <div className="flex gap-2">
-                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending}>{updateMut.isPending ? "Saving…" : "Save"}</button>
+                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending || (isNetworkAdmin && (editObservable || editRole === "SCHOOL_LEADER") && !editSchoolId)}>{updateMut.isPending ? "Saving…" : "Save"}</button>
                         <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
                       </div>
                     </div>
