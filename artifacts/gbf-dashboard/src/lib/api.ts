@@ -345,6 +345,53 @@ export async function fetchAIChat(message: string, schoolId?: number | null, ses
   });
 }
 
+export async function streamAIChat(
+  message: string,
+  schoolId: number | null | undefined,
+  sessionId: number | null | undefined,
+  onChunk: (token: string) => void,
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/ai/chat/stream`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      ...(schoolId  != null ? { schoolId  } : {}),
+      ...(sessionId != null ? { sessionId } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? res.statusText);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") return;
+      try {
+        onChunk(JSON.parse(data) as string);
+      } catch {
+        /* ignore malformed lines */
+      }
+    }
+  }
+}
+
 export async function fetchChatSessions(): Promise<AIChatSession[]> {
   return apiFetch<AIChatSession[]>("/ai/chats");
 }

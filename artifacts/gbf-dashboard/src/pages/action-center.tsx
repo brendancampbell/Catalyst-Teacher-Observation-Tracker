@@ -18,7 +18,7 @@ import {
   createObservation,
   fetchAIInsights,
   fetchAICalibrationFlags,
-  fetchAIChat,
+  streamAIChat,
   generateAIAnalysis,
   fetchChatSessions,
   createChatSession,
@@ -448,6 +448,7 @@ export default function ActionCenterPage() {
   const [chatMsgs, setChatMsgs]               = useState<ChatMsg[]>([WELCOME_MSG]);
   const [chatInput, setChatInput]             = useState("");
   const [chatTyping, setChatTyping]           = useState(false);
+  const [streamingText, setStreamingText]     = useState("");
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [renamingId, setRenamingId]           = useState<number | null>(null);
   const [renameValue, setRenameValue]         = useState("");
@@ -479,7 +480,7 @@ export default function ActionCenterPage() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMsgs, chatTyping]);
+  }, [chatMsgs, chatTyping, streamingText]);
 
   async function selectSession(id: number) {
     setActiveChatId(id);
@@ -546,6 +547,7 @@ export default function ActionCenterPage() {
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
     setChatTyping(true);
+    setStreamingText("");
 
     /* Capture session at send-time so we can guard against mid-flight
        chat switches before the reply arrives. */
@@ -562,12 +564,23 @@ export default function ActionCenterPage() {
         setSessions((prev) => [newSession, ...prev]);
       }
 
-      const { reply } = await fetchAIChat(text, schoolId, sessionId);
+      let accumulated = "";
 
-      /* Only update visible messages if the user hasn't switched to a
-         different session while this request was in flight. */
+      await streamAIChat(text, schoolId, sessionId, (chunk) => {
+        accumulated += chunk;
+        /* Switch from typing indicator to streaming text on first chunk */
+        setChatTyping(false);
+        /* Only show streaming text if user hasn't switched sessions */
+        if (activeChatIdRef.current === sessionId) {
+          setStreamingText(accumulated);
+        }
+      });
+
+      /* Commit the complete message and clear the streaming buffer */
       if (activeChatIdRef.current === sessionId) {
-        setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
+        const finalText = accumulated || "I wasn't able to generate a response. Please try again.";
+        setChatMsgs((prev) => [...prev, { role: "ai", text: finalText }]);
+        setStreamingText("");
       }
 
       const now = new Date().toISOString();
@@ -576,6 +589,8 @@ export default function ActionCenterPage() {
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
     } catch {
+      setChatTyping(false);
+      setStreamingText("");
       /* Only show error in the chat that sent the message */
       if (activeChatIdRef.current === sentForSession) {
         setChatMsgs((prev) => [
@@ -585,6 +600,7 @@ export default function ActionCenterPage() {
       }
     } finally {
       setChatTyping(false);
+      /* streamingText is cleared above in both success and error paths */
     }
   }
 
@@ -1608,6 +1624,27 @@ export default function ActionCenterPage() {
                             </div>
                           </div>
                         )}
+                        {!chatTyping && streamingText && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm" style={{ backgroundColor: NAVY }}>
+                              <Bot size={15} color="white" />
+                            </div>
+                            <div
+                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                              style={{
+                                backgroundColor: "white",
+                                color: "#1e293b",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "4px 18px 18px 18px",
+                              }}
+                            >
+                              {streamingText.split("**").map((part, pi) =>
+                                pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                              )}
+                              <span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" />
+                            </div>
+                          </div>
+                        )}
                         <div ref={chatEndRef} />
                       </div>
                     </ScrollArea>
@@ -1624,7 +1661,7 @@ export default function ActionCenterPage() {
                       />
                       <Button
                         onClick={handleSendChat}
-                        disabled={!chatInput.trim() || chatTyping}
+                        disabled={!chatInput.trim() || chatTyping || !!streamingText}
                         className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
                         style={{ backgroundColor: NAVY }}
                       >

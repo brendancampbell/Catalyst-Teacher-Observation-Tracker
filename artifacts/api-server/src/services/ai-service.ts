@@ -113,6 +113,38 @@ export async function generateAIResponse(message: string, context: AIContext): P
   }
 }
 
+export async function generateAIResponseStream(
+  message: string,
+  context: AIContext,
+  onChunk: (text: string) => void,
+): Promise<string> {
+  const contextBlock = buildContextBlock(context);
+  const userContent = `${contextBlock}\n---\n\nUser question: ${message}`;
+
+  let fullText = "";
+
+  const stream = anthropic.messages.stream({
+    model: "claude-opus-4-8",
+    max_tokens: 8192,
+    system: CATALYST_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      const chunk = event.delta.text;
+      fullText += chunk;
+      onChunk(chunk);
+    }
+  }
+
+  await stream.finalMessage();
+  return fullText;
+}
+
 export async function generateAnalysisSummary(context: AIContext, rubricSetSlug: string): Promise<string> {
   const contextBlock = buildContextBlock(context);
 

@@ -13,6 +13,7 @@ import {
 import { eq, and, inArray, sql, desc } from "drizzle-orm";
 import {
   generateAIResponse,
+  generateAIResponseStream,
   generateAnalysisSummary,
   type AIContext,
   type CalibrationFlag,
@@ -328,6 +329,126 @@ router.delete("/chats/:id", async (req, res) => {
   } catch (err) {
     console.error("DELETE /ai/chats/:id error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── POST /api/ai/chat/stream ───────────────────────────────────── */
+router.post("/chat/stream", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const { message, schoolId: reqSchoolId, sessionId } = req.body as {
+      message?: string;
+      schoolId?: number | null;
+      sessionId?: number | null;
+    };
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" }); return;
+    }
+
+    if (sessionId != null) {
+      const [sess] = await db
+        .select({ id: chatSessions.id })
+        .from(chatSessions)
+        .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.employeeId, user.employeeId)))
+        .limit(1);
+      if (!sess) { res.status(403).json({ error: "Session not found" }); return; }
+    }
+
+    const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
+    const personIds = await getPersonIds(scopedSchoolId);
+
+    const rescoreRows = personIds.length
+      ? await db.select({ employeeId: people.employeeId }).from(people).where(
+          scopedSchoolId !== null
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+        )
+      : [];
+
+    const [domainAverages, calibrationFlags] = await Promise.all([
+      buildDomainAverages(personIds),
+      buildCalibrationFlags(personIds, scope),
+    ]);
+
+    const obsCountResult = personIds.length
+      ? await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(observations)
+          .where(inArray(observations.observedEmployeeId, personIds))
+      : [{ count: 0 }];
+
+    const context: AIContext = {
+      scope,
+      domainAverages,
+      totalTeachers:     personIds.length,
+      totalObservations: obsCountResult[0]?.count ?? 0,
+      rescoreQueueCount: rescoreRows.length,
+      calibrationFlags,
+    };
+
+    /* Set SSE headers */
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    let fullReply = "";
+    let streamError = false;
+
+    try {
+      fullReply = await generateAIResponseStream(message, context, (chunk) => {
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      });
+    } catch (aiErr) {
+      console.error("POST /ai/chat/stream AI error:", aiErr);
+      fullReply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
+      res.write(`data: ${JSON.stringify(fullReply)}\n\n`);
+      streamError = true;
+    }
+
+    /* Persist messages if sessionId provided */
+    if (sessionId != null && !streamError) {
+      await db.insert(chatMessages).values([
+        { sessionId, role: "user",      content: message   },
+        { sessionId, role: "assistant", content: fullReply },
+      ]);
+      await db
+        .update(chatSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(chatSessions.id, sessionId));
+    } else if (sessionId != null && streamError) {
+      await db.insert(chatMessages).values([
+        { sessionId, role: "user",      content: message   },
+        { sessionId, role: "assistant", content: fullReply },
+      ]);
+      await db
+        .update(chatSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(chatSessions.id, sessionId));
+    }
+
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      if (!res.headersSent) {
+        res.status(403).json({ error: err.message }); return;
+      }
+      res.write(`data: ${JSON.stringify("Access denied.")}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+    console.error("POST /ai/chat/stream error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal server error" });
+    } else {
+      res.write("data: [DONE]\n\n");
+      res.end();
+    }
   }
 });
 
