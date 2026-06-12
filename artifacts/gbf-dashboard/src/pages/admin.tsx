@@ -800,7 +800,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
   if (view === "bulk" && canBulkImport) {
     return (
-      <div className="flex flex-col">
+      <div className="flex flex-col flex-1">
         <div className="px-4 sm:px-6 flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
           <button onClick={() => setView("list")} className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: "#64748b", borderBottom: "2px solid transparent", marginBottom: -1 }}>User List</button>
           <button className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>
@@ -815,7 +815,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col flex-1">
       {canBulkImport && (
       <div className="px-4 sm:px-6 flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
         <button className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors" style={{ color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }}>User List</button>
