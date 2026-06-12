@@ -26,7 +26,7 @@ interface AppHeaderProps {
   basePath: string;
   onAddObservation?: () => void;
   draftsHref?: string;
-  actionCenterHref: string;
+  actionCenterHref?: string;
   actionCenterLabel?: string;
   userName: string;
   userEmail?: string | null;
@@ -211,14 +211,16 @@ export default function AppHeader({
                 </a>
               )}
 
-              <a
-                href={actionCenterHref}
-                className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
-                title={actionCenterLabel}
-                style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
-              >
-                <Activity size={15} />
-              </a>
+              {actionCenterHref && (
+                <a
+                  href={actionCenterHref}
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
+                  title={actionCenterLabel}
+                  style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
+                >
+                  <Activity size={15} />
+                </a>
+              )}
             </div>
 
             <UserMenuDropdown

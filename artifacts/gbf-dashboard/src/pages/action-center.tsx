@@ -401,7 +401,6 @@ export default function ActionCenterPage() {
               backLabel="Back to Dashboard"
               draftsHref={`${baseUrl}/drafts`}
               basePath={baseUrl}
-              onAddObservation={() => setNewObsOpen(true)}
               actionCenterHref={`${baseUrl}/action-center`}
               userName={currentUser.name}
               userRole={currentUser.role}

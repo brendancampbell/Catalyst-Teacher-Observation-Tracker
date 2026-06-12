@@ -1963,14 +1963,6 @@ export default function AdminPage() {
           basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
           backHref={returnTo}
           backLabel="Dashboard"
-          onAddObservation={() => {
-            window.location.href = returnTo;
-          }}
-          actionCenterHref={
-            (currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER")
-              ? `${import.meta.env.BASE_URL.replace(/\/$/, "")}/district-action-center`
-              : `${import.meta.env.BASE_URL.replace(/\/$/, "")}/action-center`
-          }
           userName={currentUser.name}
           userRole={currentUser.role}
           canAdmin={true}
