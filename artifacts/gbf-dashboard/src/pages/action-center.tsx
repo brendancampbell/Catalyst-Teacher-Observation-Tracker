@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  Download, ChevronRight, RefreshCw,
+  Download, ChevronRight, RefreshCw, Pencil, Trash2,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -21,12 +21,18 @@ import {
   fetchAIPlateauAlerts,
   fetchAIChat,
   generateAIAnalysis,
+  fetchChatSessions,
+  createChatSession,
+  fetchChatSessionMessages,
+  renameChatSession,
+  deleteChatSession,
   type RescoreQueueItem,
   type OverdueTeacher,
   type RubricSetRow,
   type AICalibrationFlag,
   type AIPlateauAlert,
   type AIInsightsResponse,
+  type AIChatSession,
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
@@ -446,14 +452,102 @@ export default function ActionCenterPage() {
   }
 
   /* ── Chat state ──────────────────────────────────────── */
-  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([WELCOME_MSG]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatTyping, setChatTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [sessions, setSessions]               = useState<AIChatSession[]>([]);
+  const [activeChatId, setActiveChatId]       = useState<number | null>(null);
+  const [chatMsgs, setChatMsgs]               = useState<ChatMsg[]>([WELCOME_MSG]);
+  const [chatInput, setChatInput]             = useState("");
+  const [chatTyping, setChatTyping]           = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [renamingId, setRenamingId]           = useState<number | null>(null);
+  const [renameValue, setRenameValue]         = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const chatEndRef                            = useRef<HTMLDivElement>(null);
+  const activeChatIdRef                       = useRef<number | null>(null);
+
+  /* localStorage key scoped to the current user so selections don't bleed
+     between accounts on shared browsers. */
+  const chatStorageKey = `gbf_active_chat_${currentUser?.employeeId ?? "anon"}`;
+
+  function persistSelectedChat(id: number | null) {
+    try {
+      if (id === null) localStorage.removeItem(chatStorageKey);
+      else             localStorage.setItem(chatStorageKey, String(id));
+    } catch { /* storage may be blocked in some envs */ }
+  }
+
+  function readPersistedChatId(): number | null {
+    try {
+      const raw = localStorage.getItem(chatStorageKey);
+      if (!raw) return null;
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? null : n;
+    } catch { return null; }
+  }
+
+  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, chatTyping]);
+
+  async function selectSession(id: number) {
+    setActiveChatId(id);
+    activeChatIdRef.current = id;
+    persistSelectedChat(id);
+    try {
+      const messages = await fetchChatSessionMessages(id);
+      if (messages.length === 0) {
+        setChatMsgs([WELCOME_MSG]);
+      } else {
+        setChatMsgs(messages.map((m) => ({
+          role: m.role === "user" ? "user" as const : "ai" as const,
+          text: m.content,
+        })));
+      }
+    } catch {
+      setChatMsgs([WELCOME_MSG]);
+    }
+  }
+
+  async function loadSessions() {
+    setSessionsLoading(true);
+    try {
+      const list = await fetchChatSessions();
+      setSessions(list);
+      if (list.length === 0) {
+        setActiveChatId(null);
+        activeChatIdRef.current = null;
+        persistSelectedChat(null);
+        setChatMsgs([WELCOME_MSG]);
+        return;
+      }
+      /* Restore previously selected session, or fall back to most recent */
+      const persisted = readPersistedChatId();
+      const target = persisted !== null && list.some((s) => s.id === persisted)
+        ? persisted
+        : list[0].id;
+      await selectSession(target);
+    } catch {
+      /* silent */
+    } finally {
+      setSessionsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (analysisTab === "data-assistant") {
+      loadSessions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisTab]);
+
+  function handleNewChat() {
+    setActiveChatId(null);
+    activeChatIdRef.current = null;
+    persistSelectedChat(null);
+    setChatMsgs([WELCOME_MSG]);
+    setChatInput("");
+  }
 
   async function handleSendChat() {
     const text = chatInput.trim();
@@ -461,17 +555,86 @@ export default function ActionCenterPage() {
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
     setChatTyping(true);
+
+    /* Capture session at send-time so we can guard against mid-flight
+       chat switches before the reply arrives. */
+    let sessionId = activeChatIdRef.current;
+    const sentForSession = sessionId;
+
     try {
-      const { reply } = await fetchAIChat(text, schoolId);
-      setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
+      if (sessionId === null) {
+        const newSession = await createChatSession(text);
+        sessionId = newSession.id;
+        setActiveChatId(newSession.id);
+        activeChatIdRef.current = newSession.id;
+        persistSelectedChat(newSession.id);
+        setSessions((prev) => [newSession, ...prev]);
+      }
+
+      const { reply } = await fetchAIChat(text, schoolId, sessionId);
+
+      /* Only update visible messages if the user hasn't switched to a
+         different session while this request was in flight. */
+      if (activeChatIdRef.current === sessionId) {
+        setChatMsgs((prev) => [...prev, { role: "ai", text: reply }]);
+      }
+
+      const now = new Date().toISOString();
+      setSessions((prev) =>
+        [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+      );
     } catch {
-      setChatMsgs((prev) => [
-        ...prev,
-        { role: "ai", text: "Sorry, I couldn't retrieve a response right now. Please try again." },
-      ]);
+      /* Only show error in the chat that sent the message */
+      if (activeChatIdRef.current === sentForSession) {
+        setChatMsgs((prev) => [
+          ...prev,
+          { role: "ai", text: "Sorry, I couldn't retrieve a response right now. Please try again." },
+        ]);
+      }
     } finally {
       setChatTyping(false);
     }
+  }
+
+  async function handleRenameSubmit(id: number) {
+    if (!renameValue.trim()) { setRenamingId(null); return; }
+    try {
+      const updated = await renameChatSession(id, renameValue.trim());
+      setSessions((prev) => prev.map((s) => s.id === id ? { ...s, title: updated.title } : s));
+    } catch { /* silent */ }
+    setRenamingId(null);
+  }
+
+  async function handleDeleteChat(id: number) {
+    try {
+      await deleteChatSession(id);
+      const remaining = sessions.filter((s) => s.id !== id);
+      setSessions(remaining);
+      setDeleteConfirmId(null);
+      if (activeChatIdRef.current === id) {
+        if (remaining.length > 0) {
+          await selectSession(remaining[0].id);
+        } else {
+          setActiveChatId(null);
+          activeChatIdRef.current = null;
+          persistSelectedChat(null);
+          setChatMsgs([WELCOME_MSG]);
+        }
+      }
+    } catch { /* silent */ }
+  }
+
+  function relativeTime(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1)  return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7)  return `${days}d ago`;
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
   /* ── Render ─────────────────────────────────────────── */
@@ -1281,88 +1444,206 @@ export default function ActionCenterPage() {
 
             {/* ── Data Assistant ── */}
             {analysisTab === "data-assistant" && (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
+              <div className="flex-1 flex min-h-0 overflow-hidden">
 
-                  {/* Header */}
-                  <div className="flex items-center gap-3 mb-4 shrink-0">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
-                      <Sparkles size={18} color={YELLOW} />
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
-                      <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
-                    </div>
-                    <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
-                      Live Data
-                    </Badge>
-                  </div>
-
-                  {/* Message area */}
-                  <ScrollArea className="flex-1 min-h-0 pr-1">
-                    <div className="space-y-4 pb-2">
-                      {chatMsgs.map((msg, i) => (
-                        <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                            style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
-                          >
-                            {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
-                          </div>
-                          <div
-                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
-                            style={{
-                              backgroundColor: msg.role === "ai" ? "white" : NAVY,
-                              color: msg.role === "ai" ? "#1e293b" : "white",
-                              border: msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                              borderRadius: msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
-                            }}
-                          >
-                            {msg.text.split("**").map((part, pi) =>
-                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {chatTyping && (
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
-                            <Bot size={15} color="white" />
-                          </div>
-                          <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
-                            <div className="flex gap-1 items-center h-4">
-                              {[0, 1, 2].map((d) => (
-                                <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                  </ScrollArea>
-
-                  {/* Input bar */}
-                  <div className="shrink-0 mt-4 flex items-center gap-2">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
-                      placeholder="Ask about your school's observation data…"
-                      className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
-                      style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
-                    />
+                {/* ── Sidebar: chat history ── */}
+                <div
+                  className="flex flex-col bg-white shrink-0 overflow-hidden"
+                  style={{ width: 224, borderRight: "1px solid #e2e8f0" }}
+                >
+                  {/* New Chat button */}
+                  <div className="p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
                     <Button
-                      onClick={handleSendChat}
-                      disabled={!chatInput.trim() || chatTyping}
-                      className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                      onClick={handleNewChat}
+                      className="w-full h-8 text-xs font-semibold gap-1.5 rounded-lg"
                       style={{ backgroundColor: NAVY }}
                     >
-                      <Send size={16} color="white" />
+                      <Plus size={13} /> New Chat
                     </Button>
                   </div>
 
+                  {/* Session list */}
+                  <div className="flex-1 overflow-y-auto">
+                    {sessionsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: NAVY }} />
+                      </div>
+                    ) : sessions.length === 0 ? (
+                      <p className="px-4 py-6 text-center text-xs text-slate-400 leading-relaxed">
+                        No chats yet. Send a message to start a conversation.
+                      </p>
+                    ) : (
+                      sessions.map((s) => {
+                        const isActive    = s.id === activeChatId;
+                        const isRenaming  = renamingId === s.id;
+                        const isConfirm   = deleteConfirmId === s.id;
+                        return (
+                          <div
+                            key={s.id}
+                            className="group relative flex flex-col cursor-pointer transition-colors"
+                            style={{
+                              padding:         "10px 12px",
+                              borderBottom:    "1px solid #f1f5f9",
+                              backgroundColor: isActive ? "#EEF2FF" : undefined,
+                            }}
+                            onClick={() => { if (!isRenaming && !isConfirm) selectSession(s.id); }}
+                            onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8fafc"; }}
+                            onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = ""; }}
+                          >
+                            {isRenaming ? (
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onBlur={() => handleRenameSubmit(s.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleRenameSubmit(s.id);
+                                  if (e.key === "Escape") setRenamingId(null);
+                                }}
+                                className="w-full text-xs font-semibold bg-white rounded px-2 py-1 border border-slate-300 focus:outline-none"
+                                style={{ color: NAVY }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : isConfirm ? (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <p className="text-xs font-semibold mb-2" style={{ color: "#b91c1c" }}>Delete this chat?</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    className="text-xs font-bold px-2 py-1 rounded text-white"
+                                    style={{ backgroundColor: "#dc2626" }}
+                                    onClick={() => handleDeleteChat(s.id)}
+                                  >Delete</button>
+                                  <button
+                                    className="text-xs font-semibold px-2 py-1 rounded border border-slate-200 text-slate-600"
+                                    onClick={() => setDeleteConfirmId(null)}
+                                  >Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <span
+                                  className="text-xs font-semibold truncate leading-snug"
+                                  style={{ color: isActive ? NAVY : "#374151", paddingRight: 36 }}
+                                  title={s.title}
+                                >{s.title}</span>
+                                <span className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>{relativeTime(s.updatedAt)}</span>
+                                <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-0.5">
+                                  <button
+                                    className="p-1 rounded transition-colors hover:bg-slate-200"
+                                    title="Rename"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRenamingId(s.id);
+                                      setRenameValue(s.title);
+                                    }}
+                                  >
+                                    <Pencil size={11} style={{ color: "#94a3b8" }} />
+                                  </button>
+                                  <button
+                                    className="p-1 rounded transition-colors hover:bg-red-100"
+                                    title="Delete"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteConfirmId(s.id);
+                                    }}
+                                  >
+                                    <Trash2 size={11} style={{ color: "#f87171" }} />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
+
+                {/* ── Main chat area ── */}
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
+
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-4 shrink-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
+                        <Sparkles size={18} color={YELLOW} />
+                      </div>
+                      <div>
+                        <h2 className="font-bold text-slate-800 text-base">GBF Data Assistant</h2>
+                        <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
+                      </div>
+                      <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
+                        Live Data
+                      </Badge>
+                    </div>
+
+                    {/* Message area */}
+                    <ScrollArea className="flex-1 min-h-0 pr-1">
+                      <div className="space-y-4 pb-2">
+                        {chatMsgs.map((msg, i) => (
+                          <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
+                              style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
+                            >
+                              {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
+                            </div>
+                            <div
+                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                              style={{
+                                backgroundColor: msg.role === "ai" ? "white" : NAVY,
+                                color:           msg.role === "ai" ? "#1e293b" : "white",
+                                border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
+                                borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+                              }}
+                            >
+                              {msg.text.split("**").map((part, pi) =>
+                                pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {chatTyping && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+                              <Bot size={15} color="white" />
+                            </div>
+                            <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
+                              <div className="flex gap-1 items-center h-4">
+                                {[0, 1, 2].map((d) => (
+                                  <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div ref={chatEndRef} />
+                      </div>
+                    </ScrollArea>
+
+                    {/* Input bar */}
+                    <div className="shrink-0 mt-4 flex items-center gap-2">
+                      <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+                        placeholder="Ask about your school's observation data…"
+                        className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
+                        style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
+                      />
+                      <Button
+                        onClick={handleSendChat}
+                        disabled={!chatInput.trim() || chatTyping}
+                        className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: NAVY }}
+                      >
+                        <Send size={16} color="white" />
+                      </Button>
+                    </div>
+
+                  </div>
+                </div>
+
               </div>
             )}
 

@@ -342,6 +342,21 @@ export interface AIChatResponse {
   reply: string;
 }
 
+export interface AIChatSession {
+  id:        number;
+  title:     string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIChatMessage {
+  id:        number;
+  sessionId: number;
+  role:      "user" | "assistant";
+  content:   string;
+  createdAt: string;
+}
+
 export interface AIInsightsResponse {
   topStrength: { domain: string; avg: number; count: number } | null;
   topGrowth:   { domain: string; avg: number; count: number } | null;

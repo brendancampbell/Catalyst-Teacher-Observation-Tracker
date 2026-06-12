@@ -173,6 +173,37 @@ async function migrate() {
       }
     }
 
+    /* ── 7. Create chat_sessions table ─────────────────────────── */
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id          SERIAL PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES people(employee_id) ON DELETE CASCADE,
+        title       TEXT NOT NULL DEFAULT 'New Chat',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS chat_sessions_employee_id_idx ON chat_sessions(employee_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS chat_sessions_updated_at_idx ON chat_sessions(updated_at DESC)
+    `);
+
+    /* ── 8. Create chat_messages table ──────────────────────────── */
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id         SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        role       TEXT NOT NULL,
+        content    TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id)
+    `);
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

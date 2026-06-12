@@ -3,6 +3,7 @@ import { schools } from "./schools";
 import { people } from "./people";
 import { rubricSets, rubricCategories, rubricDomains } from "./rubric";
 import { observations, observationScores } from "./observations";
+import { chatSessions, chatMessages } from "./chat";
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
   people:       many(people),
@@ -53,4 +54,13 @@ export const observationsRelations = relations(observations, ({ one, many }) => 
 
 export const observationScoresRelations = relations(observationScores, ({ one }) => ({
   observation: one(observations, { fields: [observationScores.observationId], references: [observations.id] }),
+}));
+
+export const chatSessionsRelations = relations(chatSessions, ({ one, many }) => ({
+  person:   one(people, { fields: [chatSessions.employeeId], references: [people.employeeId] }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  session: one(chatSessions, { fields: [chatMessages.sessionId], references: [chatSessions.id] }),
 }));

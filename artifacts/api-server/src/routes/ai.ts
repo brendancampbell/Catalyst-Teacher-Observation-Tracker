@@ -7,8 +7,10 @@ import {
   schools,
   rubricDomains,
   rubricSets,
+  chatSessions,
+  chatMessages,
 } from "@workspace/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, desc } from "drizzle-orm";
 import {
   generateAIResponse,
   generateAnalysisSummary,
@@ -311,14 +313,141 @@ async function buildPlateauAlerts(personIds: string[], rubricSetId?: number | nu
   return alerts.sort((a, b) => b.obsCount - a.obsCount);
 }
 
+/* ── GET /api/ai/chats ──────────────────────────────────────────── */
+router.get("/chats", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const sessions = await db
+      .select({
+        id:        chatSessions.id,
+        title:     chatSessions.title,
+        createdAt: chatSessions.createdAt,
+        updatedAt: chatSessions.updatedAt,
+      })
+      .from(chatSessions)
+      .where(eq(chatSessions.employeeId, user.employeeId))
+      .orderBy(desc(chatSessions.updatedAt));
+    res.json(sessions);
+  } catch (err) {
+    console.error("GET /ai/chats error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── POST /api/ai/chats ─────────────────────────────────────────── */
+router.post("/chats", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const { firstMessage } = req.body as { firstMessage?: string };
+
+    let title = "New Chat";
+    if (firstMessage?.trim()) {
+      const raw = firstMessage.trim().slice(0, 60);
+      title = raw.charAt(0).toUpperCase() + raw.slice(1);
+      if (firstMessage.trim().length > 60) title += "…";
+    }
+
+    const [session] = await db
+      .insert(chatSessions)
+      .values({ employeeId: user.employeeId, title })
+      .returning();
+    res.status(201).json(session);
+  } catch (err) {
+    console.error("POST /ai/chats error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── GET /api/ai/chats/:id/messages ─────────────────────────────── */
+router.get("/chats/:id/messages", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const [session] = await db
+      .select({ id: chatSessions.id })
+      .from(chatSessions)
+      .where(and(eq(chatSessions.id, id), eq(chatSessions.employeeId, user.employeeId)))
+      .limit(1);
+    if (!session) { res.status(404).json({ error: "Not found" }); return; }
+
+    const messages = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, id))
+      .orderBy(chatMessages.createdAt);
+    res.json(messages);
+  } catch (err) {
+    console.error("GET /ai/chats/:id/messages error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── PATCH /api/ai/chats/:id ────────────────────────────────────── */
+router.patch("/chats/:id", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const { title } = req.body as { title?: string };
+    if (!title?.trim()) { res.status(400).json({ error: "title is required" }); return; }
+
+    const [updated] = await db
+      .update(chatSessions)
+      .set({ title: title.trim(), updatedAt: new Date() })
+      .where(and(eq(chatSessions.id, id), eq(chatSessions.employeeId, user.employeeId)))
+      .returning();
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(updated);
+  } catch (err) {
+    console.error("PATCH /ai/chats/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── DELETE /api/ai/chats/:id ───────────────────────────────────── */
+router.delete("/chats/:id", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const deleted = await db
+      .delete(chatSessions)
+      .where(and(eq(chatSessions.id, id), eq(chatSessions.employeeId, user.employeeId)))
+      .returning({ id: chatSessions.id });
+    if (!deleted.length) { res.status(404).json({ error: "Not found" }); return; }
+    res.status(204).end();
+  } catch (err) {
+    console.error("DELETE /ai/chats/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── POST /api/ai/chat ──────────────────────────────────────────── */
 router.post("/chat", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const { message, schoolId: reqSchoolId } = req.body as { message?: string; schoolId?: number | null };
+    const { message, schoolId: reqSchoolId, sessionId } = req.body as {
+      message?: string;
+      schoolId?: number | null;
+      sessionId?: number | null;
+    };
 
     if (!message?.trim()) {
       res.status(400).json({ error: "message is required" }); return;
+    }
+
+    /* Verify sessionId ownership if provided */
+    if (sessionId != null) {
+      const [sess] = await db
+        .select({ id: chatSessions.id })
+        .from(chatSessions)
+        .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.employeeId, user.employeeId)))
+        .limit(1);
+      if (!sess) { res.status(403).json({ error: "Session not found" }); return; }
     }
 
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
@@ -362,6 +491,19 @@ router.post("/chat", async (req, res) => {
       console.error("POST /ai/chat AI error:", aiErr);
       reply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
     }
+
+    /* Persist messages if sessionId provided */
+    if (sessionId != null) {
+      await db.insert(chatMessages).values([
+        { sessionId, role: "user",      content: message },
+        { sessionId, role: "assistant", content: reply   },
+      ]);
+      await db
+        .update(chatSessions)
+        .set({ updatedAt: new Date() })
+        .where(eq(chatSessions.id, sessionId));
+    }
+
     res.json({ reply });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {

@@ -37,6 +37,8 @@ export type {
   UpdateObservationPayload,
   DraftObservation,
   AIChatResponse,
+  AIChatSession,
+  AIChatMessage,
   AIInsightsResponse,
   AICalibrationFlag,
   AIPlateauAlert,
@@ -331,13 +333,43 @@ export async function fetchMyLatestRubricSlug(): Promise<string | null> {
 
 /* ── AI ────────────────────────────────────────────────────────── */
 
-import type { AIChatResponse, AIInsightsResponse, AICalibrationFlag, AIPlateauAlert } from "@workspace/api-types";
+import type { AIChatResponse, AIChatSession, AIChatMessage, AIInsightsResponse, AICalibrationFlag, AIPlateauAlert } from "@workspace/api-types";
 
-export async function fetchAIChat(message: string, schoolId?: number | null): Promise<AIChatResponse> {
+export async function fetchAIChat(message: string, schoolId?: number | null, sessionId?: number | null): Promise<AIChatResponse> {
   return apiFetch<AIChatResponse>("/ai/chat", {
     method: "POST",
-    body: JSON.stringify({ message, ...(schoolId != null ? { schoolId } : {}) }),
+    body: JSON.stringify({
+      message,
+      ...(schoolId  != null ? { schoolId  } : {}),
+      ...(sessionId != null ? { sessionId } : {}),
+    }),
   });
+}
+
+export async function fetchChatSessions(): Promise<AIChatSession[]> {
+  return apiFetch<AIChatSession[]>("/ai/chats");
+}
+
+export async function createChatSession(firstMessage?: string): Promise<AIChatSession> {
+  return apiFetch<AIChatSession>("/ai/chats", {
+    method: "POST",
+    body: JSON.stringify({ firstMessage }),
+  });
+}
+
+export async function fetchChatSessionMessages(sessionId: number): Promise<AIChatMessage[]> {
+  return apiFetch<AIChatMessage[]>(`/ai/chats/${sessionId}/messages`);
+}
+
+export async function renameChatSession(sessionId: number, title: string): Promise<AIChatSession> {
+  return apiFetch<AIChatSession>(`/ai/chats/${sessionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function deleteChatSession(sessionId: number): Promise<void> {
+  await apiFetch<void>(`/ai/chats/${sessionId}`, { method: "DELETE" });
 }
 
 export async function fetchAIInsights(rubricSlug?: string, schoolId?: number | null): Promise<AIInsightsResponse> {
