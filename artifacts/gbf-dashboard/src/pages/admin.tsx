@@ -2060,7 +2060,7 @@ export default function AdminPage() {
                       </span>
                       <span
                         className="flex-1 min-w-0 truncate font-bold"
-                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.03em", color: selected ? "white" : NAVY }}
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.03em", color: selected ? "white" : NAVY }}
                       >
                         {q.name}
                         {q.gradeSpan && (
@@ -2113,7 +2113,7 @@ export default function AdminPage() {
                       <span className="shrink-0 text-slate-300">
                         <RubricIcon target={q.target} subjectAudience={q.subjectAudience} size={13} />
                       </span>
-                      <span className="flex-1 min-w-0 truncate font-bold text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "0.03em" }}>
+                      <span className="flex-1 min-w-0 truncate font-bold text-slate-400" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.03em" }}>
                         {q.name}
                       </span>
                       <button
