@@ -253,8 +253,6 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
           <AppHeader
             subtitle="Network Overview"
             basePath={baseUrl}
-            actionCenterHref={`${baseUrl}/district-action-center?rubric=${encodeURIComponent(activeRubricSet)}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-            actionCenterLabel="Action Center"
             userName={currentUser.name}
             userRole={currentUser.role}
             canAdmin={currentUser.role !== "COACH"}

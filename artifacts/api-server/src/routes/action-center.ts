@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
 import { eq, and, max, sql, inArray, isNotNull } from "drizzle-orm";
-import { requireAuth, requireNetworkScope, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { requireAuth, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
 
 const router = Router();
 
@@ -122,51 +122,6 @@ router.get("/network-averages", requireAuth, async (req, res) => {
     res.json({ domainAverages });
   } catch (err) {
     console.error("GET /action-center/network-averages error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-/* ── GET /api/action-center/network ──────────────────────────────
-   Network action center — NETWORK_LEADER and NETWORK_ADMIN only.
-   Accepts an optional ?schoolId= query param to filter by school. */
-router.get("/network", requireNetworkScope, async (req, res) => {
-  try {
-    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
-    if (requested !== null && isNaN(requested)) {
-      res.status(400).json({ error: "Invalid schoolId" }); return;
-    }
-    if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
-    }
-
-    const rows = await db
-      .select({
-        employeeId:     people.employeeId,
-        personFirst:    people.firstName,
-        personLast:     people.lastName,
-        department:     people.department,
-        gradeLevel:     people.gradeLevel,
-        schoolName:     schools.name,
-        rescoreDueDate: people.rescoreDueDate,
-        needsRescore:   people.needsRescore,
-      })
-      .from(people)
-      .leftJoin(schools, eq(people.schoolId, schools.id))
-      .where(
-        requested !== null
-          ? and(eq(people.needsRescore, true), eq(people.schoolId, requested), eq(people.includeInFeedbackTracker, true))
-          : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
-      )
-      .orderBy(people.rescoreDueDate);
-
-    res.json(rows.map((r) => ({
-      ...r,
-      teacherName: `${r.personFirst} ${r.personLast}`.trim(),
-    })));
-  } catch (err) {
-    console.error("GET /action-center/network error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
