@@ -466,7 +466,7 @@ export default function ActionCenterPage() {
 
   /* localStorage key scoped to the current user so selections don't bleed
      between accounts on shared browsers. */
-  const chatStorageKey = `gbf_active_chat_${currentUser?.employeeId ?? "anon"}`;
+  const chatStorageKey = `catalyst_active_chat_${currentUser?.employeeId ?? "anon"}`;
 
   function persistSelectedChat(id: number | null) {
     try {
