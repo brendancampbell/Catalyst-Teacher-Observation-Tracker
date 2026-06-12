@@ -1075,27 +1075,14 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       </div>
 
       {/* Pagination footer */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pt-1 pb-2">
+      <div className="grid items-center pt-1 pb-2" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
         <p className="text-xs text-slate-400">
           {shown.length === 0
             ? "No users to show"
             : `Showing ${pageStart + 1}–${Math.min(pageStart + pageSize, shown.length)} of ${shown.length} user${shown.length !== 1 ? "s" : ""}`}
         </p>
 
-        <div className="flex items-center gap-3">
-          {/* Page size picker */}
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
-            Per page
-            <select
-              className="border border-slate-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-            >
-              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-
-          {/* Page buttons */}
+          {/* Page buttons — center */}
           <div className="flex items-center gap-1">
             <button
               className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
@@ -1148,7 +1135,18 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
               title="Last page"
             ><ChevronRight size={12} /><ChevronRight size={12} /></button>
           </div>
-        </div>
+
+          {/* Per-page picker — right */}
+          <label className="flex items-center justify-end gap-1.5 text-xs text-slate-500">
+            Per page
+            <select
+              className="border border-slate-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+            >
+              {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
       </div>
       </div>
     </div>
