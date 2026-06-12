@@ -1952,7 +1952,7 @@ export default function AdminPage() {
 
   return (
     <div
-      className="h-full flex flex-col overflow-hidden"
+      className="h-full overflow-y-auto flex flex-col"
       style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}
     >
 
@@ -2168,17 +2168,11 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab === "people"  && canManagePeople  && (
-        <div className="flex-1 min-h-0 overflow-auto">
-          <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />
-        </div>
-      )}
+      {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
       {visibleTab === "schools" && isNetworkAdmin   && (
-        <div className="flex-1 min-h-0 overflow-auto">
-          <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
-            <SchoolSettings />
-          </main>
-        </div>
+        <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
+          <SchoolSettings />
+        </main>
       )}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
@@ -2338,7 +2332,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <footer className="text-center pt-1 pb-4 shrink-0" style={{ borderTop: "1px solid #dde3f0", color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
+      <footer className="text-center pt-1 pb-4" style={{ color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
         &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="#" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
       </footer>
     </div>
