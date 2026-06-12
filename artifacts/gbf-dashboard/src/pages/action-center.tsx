@@ -13,6 +13,7 @@ import {
   fetchOverdueObservations,
   fetchDashboard,
   fetchDistrictSummary,
+  fetchNetworkAverages,
   fetchQuarters,
   createObservation,
   fetchAIInsights,
@@ -133,12 +134,23 @@ export default function ActionCenterPage() {
     staleTime: 60_000,
   });
 
-  /* ── District summary (for network comparison) ──────────── */
+  /* ── Role helpers ────────────────────────────────────────── */
+  const isSchoolScoped = currentUser?.role === "COACH" || currentUser?.role === "SCHOOL_LEADER";
+
+  /* ── District summary (for network comparison — network roles only) ── */
   const { data: districtData } = useQuery({
     queryKey: ["district-summary", activeQuarter],
     queryFn:  () => fetchDistrictSummary(activeQuarter),
     staleTime: 60_000,
-    enabled:  !!activeQuarter,
+    enabled:  !!activeQuarter && !isSchoolScoped,
+  });
+
+  /* ── Network averages (for school-scoped roles only) ─────── */
+  const { data: networkAvgsData } = useQuery({
+    queryKey: ["network-averages", activeQuarter],
+    queryFn:  () => fetchNetworkAverages(activeQuarter),
+    staleTime: 60_000,
+    enabled:  !!activeQuarter && isSchoolScoped,
   });
 
   /* ── Compute real school avg ─────────────────────────── */
@@ -269,16 +281,27 @@ export default function ActionCenterPage() {
 
   /* ── Network comparison memo ─────────────────────────── */
   const networkCompData = useMemo(() => {
-    if (!districtData?.schools?.length || !allDomains.length) return null;
-    const networkAvgs: Record<string, number | null> = {};
-    for (const d of allDomains) {
-      const vals = districtData.schools
-        .map((s) => s.domainAverages[d.id])
-        .filter((v): v is number => v !== null && v !== undefined);
-      networkAvgs[d.id] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    if (!allDomains.length) return null;
+
+    if (districtData?.schools?.length) {
+      /* Network-scoped: compute from per-school breakdown */
+      const networkAvgs: Record<string, number | null> = {};
+      for (const d of allDomains) {
+        const vals = districtData.schools
+          .map((s) => s.domainAverages[d.id])
+          .filter((v): v is number => v !== null && v !== undefined);
+        networkAvgs[d.id] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      }
+      return { networkAvgs };
     }
-    return { networkAvgs };
-  }, [districtData, allDomains]);
+
+    if (networkAvgsData?.domainAverages) {
+      /* School-scoped: use pre-computed aggregate from new endpoint */
+      return { networkAvgs: networkAvgsData.domainAverages };
+    }
+
+    return null;
+  }, [districtData, networkAvgsData, allDomains]);
 
   /* ── Add-Observation modal state ────────────────────── */
   const [addObsTeacherId,     setAddObsTeacherId]     = useState<string | null>(null);

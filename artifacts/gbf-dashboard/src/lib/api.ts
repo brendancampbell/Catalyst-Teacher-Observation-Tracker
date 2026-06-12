@@ -289,6 +289,15 @@ export async function fetchDistrictSummary(
   return apiFetch<DistrictSummaryData>(`/district/summary?${params.toString()}`);
 }
 
+export interface NetworkAveragesData {
+  domainAverages: Record<string, number | null>;
+}
+
+export async function fetchNetworkAverages(rubricSetSlug = "Q1"): Promise<NetworkAveragesData> {
+  const params = new URLSearchParams({ rubricSet: rubricSetSlug });
+  return apiFetch<NetworkAveragesData>(`/action-center/network-averages?${params.toString()}`);
+}
+
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {

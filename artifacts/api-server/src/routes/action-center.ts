@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { people, schools, observations } from "@workspace/db/schema";
-import { eq, and, max, sql } from "drizzle-orm";
-import { requireNetworkScope, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
+import { eq, and, max, sql, inArray, isNotNull } from "drizzle-orm";
+import { requireAuth, requireNetworkScope, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
 
 const router = Router();
 
@@ -19,6 +19,112 @@ async function checkSchool(id: number): Promise<SchoolCheckResult> {
   if (!s.isActive || s.isArchived) return "inactive";
   return "ok";
 }
+
+/* ── GET /api/action-center/network-averages ─────────────────────
+   Network-wide domain averages for any authenticated user.
+   Returns only the aggregate — no per-school names or rows.
+   Used by school-scoped roles (COACH, SCHOOL_LEADER) to populate
+   the network comparison table in the Action Center.              */
+router.get("/network-averages", requireAuth, async (req, res) => {
+  try {
+    const setSlug = (req.query.rubricSet as string) || "Q1";
+
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.slug, setSlug),
+    });
+    if (!rubricSet) {
+      res.status(404).json({ error: `Rubric set '${setSlug}' not found` }); return;
+    }
+
+    const categories = await db.query.rubricCategories.findMany({
+      where: eq(rubricCategories.rubricSetId, rubricSet.id),
+      orderBy: (c, { asc }) => [asc(c.displayOrder)],
+      with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
+    });
+
+    const allDomains = categories.flatMap((c) => c.domains ?? []);
+    const allSlugs   = allDomains.map((d) => d.slug);
+
+    if (allSlugs.length === 0) {
+      res.json({ domainAverages: {} }); return;
+    }
+
+    const obsTarget = rubricSet.target === "SCHOOL" ? "SCHOOL" : "TEACHER";
+    const allObs = await db
+      .select()
+      .from(observations)
+      .where(and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, obsTarget)));
+
+    const obsIds    = allObs.map((o) => o.id);
+    const allScores = obsIds.length > 0
+      ? await db.select().from(observationScores).where(inArray(observationScores.observationId, obsIds))
+      : [];
+
+    const scoresByObs = new Map<number, Record<string, number>>();
+    for (const s of allScores) {
+      if (!scoresByObs.has(s.observationId)) scoresByObs.set(s.observationId, {});
+      scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
+    }
+
+    const domainSums:   Record<string, number> = {};
+    const domainCounts: Record<string, number> = {};
+
+    if (rubricSet.target === "TEACHER") {
+      /* Most-recent observation per teacher per domain (same as district summary) */
+      const allPeople = await db
+        .select()
+        .from(people)
+        .where(and(eq(people.isActive, true), isNotNull(people.schoolId), eq(people.includeInFeedbackTracker, true)));
+
+      const obsByTeacher = new Map<string, typeof allObs>();
+      for (const o of allObs) {
+        if (!o.observedEmployeeId) continue;
+        if (!obsByTeacher.has(o.observedEmployeeId)) obsByTeacher.set(o.observedEmployeeId, []);
+        obsByTeacher.get(o.observedEmployeeId)!.push(o);
+      }
+      for (const [, obs] of obsByTeacher) obs.sort((a, b) => b.date.localeCompare(a.date));
+
+      for (const t of allPeople) {
+        const obs = obsByTeacher.get(t.employeeId) ?? [];
+        if (obs.length === 0) continue;
+        for (const slug of allSlugs) {
+          for (const o of obs) {
+            const scores = scoresByObs.get(o.id) ?? {};
+            const v = scores[slug];
+            if (v != null) {
+              domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
+              domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      /* SCHOOL target: average across all school observations */
+      for (const o of allObs) {
+        const scores = scoresByObs.get(o.id) ?? {};
+        for (const slug of allSlugs) {
+          const v = scores[slug];
+          if (v != null) {
+            domainSums[slug]   = (domainSums[slug]   ?? 0) + v;
+            domainCounts[slug] = (domainCounts[slug] ?? 0) + 1;
+          }
+        }
+      }
+    }
+
+    const domainAverages: Record<string, number | null> = {};
+    for (const slug of allSlugs) {
+      const cnt = domainCounts[slug] ?? 0;
+      domainAverages[slug] = cnt > 0 ? Math.round((domainSums[slug] / cnt) * 100) / 100 : null;
+    }
+
+    res.json({ domainAverages });
+  } catch (err) {
+    console.error("GET /action-center/network-averages error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 /* ── GET /api/action-center/network ──────────────────────────────
    Network action center — NETWORK_LEADER and NETWORK_ADMIN only.
