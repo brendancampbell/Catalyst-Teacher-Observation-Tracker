@@ -795,7 +795,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
       </main>
 
       <footer className="text-center pt-1 pb-4" style={{ color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
-        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="#" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
+        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="https://docs.google.com/forms/d/e/1FAIpQLScGsGBwHNyxAv1jcKYR5Q85gHbIZpUojwVW9PxrgJm7zv20jw/viewform?usp=header" target="_blank" rel="noopener noreferrer" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
       </footer>
 
     </div>
