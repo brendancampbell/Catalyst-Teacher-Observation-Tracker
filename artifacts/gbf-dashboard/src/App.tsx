@@ -105,10 +105,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <UserProvider>
         <TooltipProvider>
-          <ImpersonationBanner />
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
+          <div className="h-full flex flex-col overflow-hidden">
+            <ImpersonationBanner />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+            </div>
+          </div>
           <Toaster />
         </TooltipProvider>
       </UserProvider>
