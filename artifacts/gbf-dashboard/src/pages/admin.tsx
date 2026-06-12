@@ -2170,7 +2170,7 @@ export default function AdminPage() {
       {/* ── People and Schools tabs ── */}
       {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
       {visibleTab === "schools" && isNetworkAdmin   && (
-        <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
+        <main className="flex-1 px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
           <SchoolSettings />
         </main>
       )}
