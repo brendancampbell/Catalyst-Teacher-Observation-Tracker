@@ -1998,9 +1998,9 @@ export default function AdminPage() {
             style={{ width: 252, borderRight: "1px solid #e2e8f0", overflowY: "auto" }}
           >
             {/* Sidebar header */}
-            <div className="px-4 py-3" style={{ borderBottom: `2px solid ${YELLOW}` }}>
+            <div className="px-4 pt-3 pb-1" style={{ borderBottom: `2px solid ${YELLOW}` }}>
               <span className="font-bold uppercase" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-                Rubrics
+                List of Rubrics
               </span>
             </div>
 
