@@ -24,18 +24,6 @@ export interface CalibrationFlag {
   delta: number;
 }
 
-export interface PlateauAlert {
-  teacherName: string;
-  subject: string;
-  gradeLevel: string[];
-  domain: string;
-  score: number;
-  obsCount: number;
-  firstDate: string;
-  lastDate: string;
-  weekRange: string;
-}
-
 export interface InsightResult {
   topStrength: { domain: string; avg: number; count: number } | null;
   topGrowth:   { domain: string; avg: number; count: number } | null;

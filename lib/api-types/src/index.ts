@@ -370,15 +370,3 @@ export interface AICalibrationFlag {
   networkScore: number;
   delta:        number;
 }
-
-export interface AIPlateauAlert {
-  teacherName: string;
-  subject:     string;
-  gradeLevel:  string[];
-  domain:      string;
-  score:       number;
-  obsCount:    number;
-  firstDate:   string;
-  lastDate:    string;
-  weekRange:   string;
-}

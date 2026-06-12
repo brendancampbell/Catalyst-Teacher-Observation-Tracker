@@ -18,7 +18,6 @@ import {
   createObservation,
   fetchAIInsights,
   fetchAICalibrationFlags,
-  fetchAIPlateauAlerts,
   fetchAIChat,
   generateAIAnalysis,
   fetchChatSessions,
@@ -30,7 +29,6 @@ import {
   type OverdueTeacher,
   type RubricSetRow,
   type AICalibrationFlag,
-  type AIPlateauAlert,
   type AIInsightsResponse,
   type AIChatSession,
 } from "@/lib/api";
@@ -212,12 +210,6 @@ export default function ActionCenterPage() {
   const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
     queryKey: ["ai-calibration-flags", activeQuarter, schoolId],
     queryFn:  () => fetchAICalibrationFlags(activeQuarter, schoolId),
-    staleTime: 60_000,
-  });
-
-  const { data: plateauAlerts = [] } = useQuery<AIPlateauAlert[]>({
-    queryKey: ["ai-plateau-alerts", activeQuarter, schoolId],
-    queryFn:  () => fetchAIPlateauAlerts(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
@@ -439,7 +431,6 @@ export default function ActionCenterPage() {
       queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
       queryClient.invalidateQueries({ queryKey: ["overdueObservations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["ai-plateau-alerts"] });
       queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
       queryClient.invalidateQueries({ queryKey: ["ai-insights"] });
       return obs.id;

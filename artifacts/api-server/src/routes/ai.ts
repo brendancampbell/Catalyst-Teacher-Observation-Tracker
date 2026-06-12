@@ -16,7 +16,6 @@ import {
   generateAnalysisSummary,
   type AIContext,
   type CalibrationFlag,
-  type PlateauAlert,
   type DomainAvg,
 } from "../services/ai-service";
 import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
@@ -217,100 +216,6 @@ async function buildCalibrationFlags(
     }
   }
   return flags.sort((a, b) => b.delta - a.delta);
-}
-
-async function buildPlateauAlerts(personIds: string[], rubricSetId?: number | null): Promise<PlateauAlert[]> {
-  if (!personIds.length) return [];
-
-  const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.observedEmployeeId, personIds);
-
-  const rows = await db
-    .select({
-      observedEmployeeId: observations.observedEmployeeId,
-      personFirst:        people.firstName,
-      personLast:         people.lastName,
-      department:         people.department,
-      gradeLevel:         people.gradeLevel,
-      domainSlug:         observationScores.domainSlug,
-      score:              observationScores.score,
-      obsDate:            observations.date,
-    })
-    .from(observationScores)
-    .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .innerJoin(people, eq(people.employeeId, observations.observedEmployeeId))
-    .where(whereClause)
-    .orderBy(observations.date);
-
-  type SeriesKey = string;
-  type ScorePoint = { date: string; score: number };
-  const seriesMap = new Map<
-    SeriesKey,
-    { teacherName: string; subject: string | null; gradeLevel: string[] | null; domain: string; points: ScorePoint[] }
-  >();
-
-  for (const r of rows) {
-    if (!r.observedEmployeeId) continue;
-    const key: SeriesKey = `${r.observedEmployeeId}|${r.domainSlug}`;
-    if (!seriesMap.has(key)) {
-      seriesMap.set(key, {
-        teacherName: `${r.personFirst} ${r.personLast ?? ""}`.trim(),
-        subject:     r.department ?? null,
-        gradeLevel:  r.gradeLevel as string[] | null,
-        domain:      r.domainSlug,
-        points:      [],
-      });
-    }
-    seriesMap.get(key)!.points.push({ date: r.obsDate, score: r.score });
-  }
-
-  const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
-  const names = await slugNameMap(allSlugs);
-
-  const alerts: PlateauAlert[] = [];
-  for (const entry of seriesMap.values()) {
-    const pts = entry.points.sort((a, b) => a.date.localeCompare(b.date));
-    if (pts.length < 3) continue;
-
-    let streak = 1;
-    let streakStart = pts[0]!;
-    let bestStreak = 1;
-    let bestStart = pts[0]!;
-    let bestEnd = pts[0]!;
-
-    for (let i = 1; i < pts.length; i++) {
-      if (pts[i]!.score <= pts[i - 1]!.score) {
-        streak++;
-        if (streak > bestStreak) {
-          bestStreak = streak;
-          bestStart  = streakStart;
-          bestEnd    = pts[i]!;
-        }
-      } else {
-        streak = 1;
-        streakStart = pts[i]!;
-      }
-    }
-
-    if (bestStreak < 3) continue;
-    const weeks = weeksBetween(bestStart.date, bestEnd.date);
-    if (weeks < 4) continue;
-
-    alerts.push({
-      teacherName: entry.teacherName,
-      subject:     entry.subject ?? "",
-      gradeLevel:  entry.gradeLevel ?? [],
-      domain:      names.get(entry.domain) ?? entry.domain,
-      score:       bestEnd.score,
-      obsCount:    bestStreak,
-      firstDate:   bestStart.date,
-      lastDate:    bestEnd.date,
-      weekRange:   `${weeks} week${weeks !== 1 ? "s" : ""}`,
-    });
-  }
-
-  return alerts.sort((a, b) => b.obsCount - a.obsCount);
 }
 
 /* ── GET /api/ai/chats ──────────────────────────────────────────── */
@@ -596,35 +501,6 @@ router.get("/calibration-flags", async (req, res) => {
       res.status(403).json({ error: err.message }); return;
     }
     console.error("GET /ai/calibration-flags error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-/* ── GET /api/ai/plateau-alerts ─────────────────────────────────── */
-router.get("/plateau-alerts", async (req, res) => {
-  try {
-    const user = req.user as Express.User;
-    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
-    if (requested !== null && isNaN(requested)) {
-      res.status(400).json({ error: "Invalid schoolId" }); return;
-    }
-    if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
-    }
-    const scopedSchoolId = resolveSchoolId(user, requested);
-    const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
-    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
-
-    const personIds = await getPersonIds(scopedSchoolId);
-    const alerts = await buildPlateauAlerts(personIds, rubricSetId);
-    res.json(alerts);
-  } catch (err) {
-    if (err instanceof NoSchoolAssignedError) {
-      res.status(403).json({ error: err.message }); return;
-    }
-    console.error("GET /ai/plateau-alerts error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

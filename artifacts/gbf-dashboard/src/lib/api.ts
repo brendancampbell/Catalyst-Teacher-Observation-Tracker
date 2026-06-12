@@ -41,7 +41,6 @@ export type {
   AIChatMessage,
   AIInsightsResponse,
   AICalibrationFlag,
-  AIPlateauAlert,
 } from "@workspace/api-types";
 
 export { REGIONS, GRADE_SPANS } from "@workspace/api-types";
@@ -333,7 +332,7 @@ export async function fetchMyLatestRubricSlug(): Promise<string | null> {
 
 /* ── AI ────────────────────────────────────────────────────────── */
 
-import type { AIChatResponse, AIChatSession, AIChatMessage, AIInsightsResponse, AICalibrationFlag, AIPlateauAlert } from "@workspace/api-types";
+import type { AIChatResponse, AIChatSession, AIChatMessage, AIInsightsResponse, AICalibrationFlag } from "@workspace/api-types";
 
 export async function fetchAIChat(message: string, schoolId?: number | null, sessionId?: number | null): Promise<AIChatResponse> {
   return apiFetch<AIChatResponse>("/ai/chat", {
@@ -386,14 +385,6 @@ export async function fetchAICalibrationFlags(rubricSlug?: string, schoolId?: nu
   if (schoolId != null) params.set("schoolId", String(schoolId));
   const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
-}
-
-export async function fetchAIPlateauAlerts(rubricSlug?: string, schoolId?: number | null): Promise<AIPlateauAlert[]> {
-  const params = new URLSearchParams();
-  if (rubricSlug) params.set("rubric", rubricSlug);
-  if (schoolId != null) params.set("schoolId", String(schoolId));
-  const qs = params.toString() ? `?${params.toString()}` : "";
-  return apiFetch<AIPlateauAlert[]>(`/ai/plateau-alerts${qs}`);
 }
 
 export async function generateAIAnalysis(rubricSetSlug: string, schoolId?: number | null): Promise<{ narrative: string; rubricSetSlug: string }> {
