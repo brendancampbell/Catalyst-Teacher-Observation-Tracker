@@ -658,7 +658,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const [addDept,      setAddDept]      = useState("");
   const [addGrades,    setAddGrades]    = useState<string[]>([]);
   const [addObservable, setAddObservable] = useState(true);
-  const [addPilId,     setAddPilId]     = useState<string | null>(null);
 
   /* Edit form state */
   const [editId,          setEditId]          = useState<string | null>(null);
@@ -670,7 +669,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const [editDept,        setEditDept]        = useState("");
   const [editGrades,      setEditGrades]      = useState<string[]>([]);
   const [editObservable,  setEditObservable]  = useState(false);
-  const [editPilId,       setEditPilId]       = useState<string | null>(null);
 
   /* Filter state */
   const [showInactive,    setShowInactive]    = useState(false);
@@ -701,12 +699,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       department:              addDept.trim() || null,
       gradeLevel:              addGrades,
       includeInFeedbackTracker: addObservable,
-      primaryInstructionalLeaderId: addPilId,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
       setAdding(false);
-      setAddFirstName(""); setAddLastName(""); setAddEmpId(""); setAddEmail(""); setAddRole("COACH"); setAddSchoolId(null); setAddDept(""); setAddGrades([]); setAddObservable(true); setAddPilId(null);
+      setAddFirstName(""); setAddLastName(""); setAddEmpId(""); setAddEmail(""); setAddRole("COACH"); setAddSchoolId(null); setAddDept(""); setAddGrades([]); setAddObservable(true);
     },
     onError: (err: Error) => alert(err.message),
   });
@@ -721,7 +718,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       department:              editDept.trim() || null,
       gradeLevel:              editGrades,
       includeInFeedbackTracker: editObservable,
-      primaryInstructionalLeaderId: editPilId,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
     onError: (err: Error) => alert(err.message),
@@ -743,7 +739,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
     setEditDept(p.department ?? "");
     setEditGrades(p.gradeLevel);
     setEditObservable(p.includeInFeedbackTracker);
-    setEditPilId(p.primaryInstructionalLeaderId ?? null);
     setAdding(false);
   }
 
@@ -889,21 +884,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
               <option value="">— Department —</option>
               {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
-            {(() => {
-              const pilOptions = people.filter((p) =>
-                p.isActive &&
-                (p.role === "COACH" || p.role === "SCHOOL_LEADER") &&
-                p.schoolId === addSchoolId &&
-                p.schoolId !== null,
-              );
-              if (pilOptions.length === 0) return null;
-              return (
-                <select className={`${selCls} min-w-[200px]`} value={addPilId ?? ""} onChange={(e) => setAddPilId(e.target.value || null)}>
-                  <option value="">— Primary Instructional Leader —</option>
-                  {pilOptions.map((p) => <option key={p.employeeId} value={p.employeeId}>{p.name}</option>)}
-                </select>
-              );
-            })()}
           </div>
           <div>
             <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
@@ -983,22 +963,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                           <option value="">— Department —</option>
                           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
                         </select>
-                        {(() => {
-                          const pilOptions = people.filter((p) =>
-                            p.isActive &&
-                            (p.role === "COACH" || p.role === "SCHOOL_LEADER") &&
-                            p.schoolId === editSchoolId &&
-                            p.schoolId !== null &&
-                            p.employeeId !== editId,
-                          );
-                          if (pilOptions.length === 0) return null;
-                          return (
-                            <select className={`${selCls} min-w-[200px]`} value={editPilId ?? ""} onChange={(e) => setEditPilId(e.target.value || null)}>
-                              <option value="">— Primary Instructional Leader —</option>
-                              {pilOptions.map((p) => <option key={p.employeeId} value={p.employeeId}>{p.name}</option>)}
-                            </select>
-                          );
-                        })()}
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 mb-1.5 font-medium">Grade levels:</p>
@@ -1455,9 +1419,9 @@ function SchoolSettings() {
    ════════════════════════════════════════════════════════════════ */
 
 const PEOPLE_CSV_TEMPLATE = [
-  "firstName,lastName,employeeId,email,role,school,department,gradeLevel,includeInFeedbackTracker,primaryInstructionalLeaderId",
-  "Jane,Smith,EMP001,jane.smith@school.org,COACH,Lincoln Middle School,Math,6-7-8,true,",
-  "Carlos,Rivera,EMP002,c.rivera@school.org,SCHOOL_LEADER,Jefferson High School,,9-10-11-12,false,EMP001",
+  "firstName,lastName,employeeId,email,role,school,department,gradeLevel,includeInFeedbackTracker",
+  "Jane,Smith,EMP001,jane.smith@school.org,COACH,Lincoln Middle School,Math,6-7-8,true",
+  "Carlos,Rivera,EMP002,c.rivera@school.org,SCHOOL_LEADER,Jefferson High School,,9-10-11-12,false",
 ].join("\n");
 
 function downloadPeopleTemplate() {
@@ -1520,7 +1484,6 @@ function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
   const deptIdx      = idx("department");
   const gradeIdx     = idx("gradelevel");
   const obsIdx       = idx("includeinfeedbacktracker");
-  const pilIdx       = idx("primaryinstructionalleaderid");
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -1537,7 +1500,6 @@ function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
       department: deptIdx      >= 0 ? (cols[deptIdx]      ?? "") : "",
       gradeLevel: gradRaw,
       includeInFeedbackTracker: obsIdx >= 0 ? (cols[obsIdx] ?? "true") : "true",
-      primaryInstructionalLeaderId: pilIdx >= 0 ? (cols[pilIdx] ?? "") : "",
     });
   }
   return results;
@@ -1650,7 +1612,6 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
                   { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
                   { col: "gradeLevel",                   req: false, desc: "Hyphen-separated grades, e.g. 6-7-8 or K-1." },
                   { col: "includeInFeedbackTracker",     req: false, desc: "true for teachers who receive observations; false for admins/coaches. Defaults to true." },
-                  { col: "primaryInstructionalLeaderId", req: false, desc: "employeeId of this person's instructional leader (e.g. EMP0010)." },
                 ].map(({ col, req, desc }) => (
                   <tr key={col}>
                     <td className="px-4 py-2.5">

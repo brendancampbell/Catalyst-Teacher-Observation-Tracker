@@ -49,7 +49,6 @@ export const people = pgTable("people", {
   isActive:                    boolean("is_active").notNull().default(true),
   includeInFeedbackTracker:    boolean("include_in_feedback_tracker").notNull().default(false),
   schoolId:                    integer("school_id").references(() => schools.id, { onDelete: "set null" }),
-  primaryInstructionalLeaderId: text("primary_instructional_leader_id"),
   department:                  departmentEnum("department"),
   gradeLevel:                  text("grade_level").array(),
   needsRescore:                boolean("needs_rescore").notNull().default(false),

@@ -20,7 +20,6 @@ const PEOPLE_SELECT = {
   schoolName:               schools.name,
   isActive:                 people.isActive,
   includeInFeedbackTracker: people.includeInFeedbackTracker,
-  primaryInstructionalLeaderId: people.primaryInstructionalLeaderId,
   department:               people.department,
   gradeLevel:               people.gradeLevel,
   needsRescore:             people.needsRescore,
@@ -94,7 +93,6 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
     const {
       employeeId, firstName, lastName, email, role, schoolId,
       includeInFeedbackTracker, department, gradeLevel,
-      primaryInstructionalLeaderId,
     } = req.body as {
       employeeId?: string;
       firstName: string;
@@ -105,7 +103,6 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       includeInFeedbackTracker?: boolean;
       department?: string | null;
       gradeLevel?: string[] | null;
-      primaryInstructionalLeaderId?: string | null;
     };
 
     if (!firstName?.trim()) { res.status(400).json({ error: "firstName is required" }); return; }
@@ -155,7 +152,6 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       includeInFeedbackTracker: includeInFeedbackTracker ?? false,
       department:  department as typeof DEPARTMENT_VALUES[number] ?? null,
       gradeLevel:  gradeLevel ?? null,
-      primaryInstructionalLeaderId: primaryInstructionalLeaderId ?? null,
     }).returning();
 
     const [withSchool] = await db
@@ -195,7 +191,6 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       includeInFeedbackTracker?: unknown;
       department?:              unknown;
       gradeLevel?:              unknown;
-      primaryInstructionalLeaderId?: unknown;
     }>;
 
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -249,10 +244,6 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
           ? raw.includeInFeedbackTracker
           : false;
       const deptRaw = typeof raw.department === "string" ? raw.department.trim() : null;
-      const pilIdRaw = typeof raw.primaryInstructionalLeaderId === "string" && raw.primaryInstructionalLeaderId.trim()
-        ? raw.primaryInstructionalLeaderId.trim()
-        : null;
-
       let gradeLevel: string[] = [];
       if (Array.isArray(raw.gradeLevel)) {
         gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
@@ -337,7 +328,6 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
           includeInFeedbackTracker: includeInFB,
           department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
           gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
-          primaryInstructionalLeaderId: pilIdRaw,
         });
         results.push({ row: rowNum, status: "created", name: displayName!, email });
       } catch (err: unknown) {
@@ -391,7 +381,7 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     const {
       firstName, lastName, email, role, schoolId,
       includeInFeedbackTracker, department, gradeLevel,
-      primaryInstructionalLeaderId, isActive,
+      isActive,
     } = req.body as Partial<{
       firstName:               string;
       lastName:                string;
@@ -401,7 +391,6 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
       includeInFeedbackTracker: boolean;
       department:              string | null;
       gradeLevel:              string[] | null;
-      primaryInstructionalLeaderId: string | null;
       isActive:                boolean;
     }>;
 
@@ -439,7 +428,6 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     if (includeInFeedbackTracker !== undefined) updates.includeInFeedbackTracker = includeInFeedbackTracker;
     if (department !== undefined) updates.department = department;
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
-    if (primaryInstructionalLeaderId !== undefined) updates.primaryInstructionalLeaderId = primaryInstructionalLeaderId;
     if (isActive   !== undefined) updates.isActive   = isActive;
 
     if (Object.keys(updates).length === 0) {

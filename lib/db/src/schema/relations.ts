@@ -10,12 +10,7 @@ export const schoolsRelations = relations(schools, ({ many }) => ({
 }));
 
 export const peopleRelations = relations(people, ({ one, many }) => ({
-  school:                   one(schools, { fields: [people.schoolId], references: [schools.id] }),
-  primaryInstructionalLeader: one(people, {
-    fields: [people.primaryInstructionalLeaderId],
-    references: [people.employeeId],
-    relationName: "pil",
-  }),
+  school:      one(schools, { fields: [people.schoolId], references: [schools.id] }),
   observedIn:  many(observations, { relationName: "observedPerson" }),
   observedBy:  many(observations, { relationName: "observerPerson" }),
   editedObs:   many(observations, { relationName: "editorPerson" }),

@@ -19,7 +19,6 @@ declare global {
       includeInFeedbackTracker: boolean;
       schoolId: number | null;
       schoolName?: string | null;
-      primaryInstructionalLeaderId: string | null;
       department: string | null;
       gradeLevel: string[] | null;
       needsRescore: boolean;
@@ -41,7 +40,6 @@ function personToUser(person: Person & { school?: { name: string } | null }): Ex
     includeInFeedbackTracker:    person.includeInFeedbackTracker,
     schoolId:                    person.schoolId ?? null,
     schoolName:                  person.school?.name ?? null,
-    primaryInstructionalLeaderId: person.primaryInstructionalLeaderId ?? null,
     department:                  person.department ?? null,
     gradeLevel:                  person.gradeLevel ?? null,
     needsRescore:                person.needsRescore,

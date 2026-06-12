@@ -18,7 +18,6 @@ export interface PersonRow {
   includeInFeedbackTracker:    boolean;
   department:                  string | null;
   gradeLevel:                  string[];
-  primaryInstructionalLeaderId: string | null;
 }
 
 /** @deprecated Use PersonRow */
@@ -56,7 +55,6 @@ export async function createPerson(payload: {
   department?:                    string | null;
   gradeLevel?:                    string[];
   includeInFeedbackTracker?:      boolean;
-  primaryInstructionalLeaderId?:  string | null;
 }): Promise<PersonRow> {
   return apiFetch<PersonRow>("/people", { method: "POST", body: JSON.stringify(payload) });
 }
@@ -71,7 +69,6 @@ export async function updatePerson(employeeId: string, payload: Partial<{
   gradeLevel:                     string[];
   includeInFeedbackTracker:       boolean;
   isActive:                       boolean;
-  primaryInstructionalLeaderId:   string | null;
 }>): Promise<PersonRow> {
   return apiFetch<PersonRow>(`/people/${encodeURIComponent(employeeId)}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
@@ -90,7 +87,6 @@ export interface BulkImportPersonPayload {
   gradeLevel:                     string;
   school:                         string;
   includeInFeedbackTracker?:      string;
-  primaryInstructionalLeaderId?:  string;
 }
 
 export interface BulkImportPersonRowResult {
