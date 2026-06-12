@@ -405,6 +405,7 @@ export default function ActionCenterPage() {
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}
+              onAddObservation={() => handleAddObsClick("")}
               rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name, target: q.target, subjectAudience: q.subjectAudience }))}
               activeRubricSet={activeQuarter}
               onRubricChange={(slug) => {
