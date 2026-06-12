@@ -1952,8 +1952,8 @@ export default function AdminPage() {
 
   return (
     <div
-      className="h-full flex flex-col"
-      style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif", overflow: visibleTab === "rubric" && isNetworkAdmin ? "hidden" : "auto" }}
+      className="h-full flex flex-col overflow-hidden"
+      style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}
     >
 
       {/* ── Sticky header + tab bar ── */}
@@ -1990,7 +1990,7 @@ export default function AdminPage() {
 
       {/* ── Rubric tab: two-column sidebar layout ── */}
       {visibleTab === "rubric" && isNetworkAdmin && (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
           {/* Left sidebar */}
           <div
@@ -2168,11 +2168,17 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+      {visibleTab === "people"  && canManagePeople  && (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />
+        </div>
+      )}
       {visibleTab === "schools" && isNetworkAdmin   && (
-        <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
-          <SchoolSettings />
-        </main>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <main className="px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
+            <SchoolSettings />
+          </main>
+        </div>
       )}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
