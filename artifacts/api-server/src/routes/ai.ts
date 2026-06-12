@@ -334,10 +334,9 @@ router.post("/chat", async (req, res) => {
         )
       : [];
 
-    const [domainAverages, calibrationFlags, plateauAlerts] = await Promise.all([
+    const [domainAverages, calibrationFlags] = await Promise.all([
       buildDomainAverages(personIds),
       buildCalibrationFlags(personIds, scope),
-      buildPlateauAlerts(personIds),
     ]);
 
     const obsCountResult = personIds.length
@@ -354,7 +353,6 @@ router.post("/chat", async (req, res) => {
       totalObservations: obsCountResult[0]?.count ?? 0,
       rescoreQueueCount: rescoreRows.length,
       calibrationFlags,
-      plateauAlerts,
     };
 
     let reply: string;
@@ -362,7 +360,7 @@ router.post("/chat", async (req, res) => {
       reply = await generateAIResponse(message, context);
     } catch (aiErr) {
       console.error("POST /ai/chat AI error:", aiErr);
-      reply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags and Plateau Alerts tabs for the most recent data.";
+      reply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
     }
     res.json({ reply });
   } catch (err) {
@@ -511,10 +509,9 @@ router.post("/analysis", async (req, res) => {
         )
       : [];
 
-    const [domainAverages, calibrationFlags, plateauAlerts] = await Promise.all([
+    const [domainAverages, calibrationFlags] = await Promise.all([
       buildDomainAverages(personIds, rubricSetId),
       buildCalibrationFlags(personIds, scope, rubricSetId),
-      buildPlateauAlerts(personIds, rubricSetId),
     ]);
 
     const obsCountResult = personIds.length
@@ -535,7 +532,6 @@ router.post("/analysis", async (req, res) => {
       totalObservations: obsCountResult[0]?.count ?? 0,
       rescoreQueueCount: rescoreRows.length,
       calibrationFlags,
-      plateauAlerts,
     };
 
     const narrative = await generateAnalysisSummary(context, slug);
