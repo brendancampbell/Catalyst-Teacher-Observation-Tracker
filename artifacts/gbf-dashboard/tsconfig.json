@@ -16,6 +16,9 @@
   },
   "references": [
     {
+      "path": "../../lib/api-types"
+    },
+    {
       "path": "../../lib/api-client-react"
     }
   ]

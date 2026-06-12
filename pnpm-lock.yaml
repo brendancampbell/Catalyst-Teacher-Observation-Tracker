@@ -369,6 +369,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/api-types':
+        specifier: workspace:*
+        version: link:../../lib/api-types
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -561,6 +564,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/api-types':
+        specifier: workspace:*
+        version: link:../../lib/api-types
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -828,6 +834,8 @@ importers:
       orval:
         specifier: ^8.5.2
         version: 8.5.3(prettier@3.8.1)(typescript@5.9.3)
+
+  lib/api-types: {}
 
   lib/api-zod:
     dependencies:
@@ -3072,7 +3080,7 @@ packages:
     hasBin: true
 
   npm-run-path@6.0.0:
-    resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==, tarball: https://registry.npmjs.org/npm-run-path/-/npm-run-path-6.0.0.tgz}
+    resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==}
     engines: {node: '>=18'}
 
   oauth@0.10.2:

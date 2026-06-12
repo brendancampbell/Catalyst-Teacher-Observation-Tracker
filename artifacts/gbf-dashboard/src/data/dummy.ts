@@ -1,32 +1,5 @@
-export type Score = 0 | 0.5 | 1;
-
-export interface Observation {
-  id: string;
-  date: string;
-  time?: string;
-  course?: string;
-  scores: Record<string, Score>;
-  strengths?: string;
-  growthAreas?: string;
-  observer: string;
-  isWalkthrough?: boolean;
-  editedBy?: string;
-  editedAt?: string;
-}
-
-export interface Teacher {
-  id: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  employeeId?: string | null;
-  email?: string | null;
-  subject?: string | null;
-  gradeLevel: string[];
-  observations: Observation[];
-  needsRescore?: boolean;
-  rescoreDueDate?: string | null;
-}
+export type { Score, Observation, Teacher } from "@workspace/api-types";
+import type { Score, Observation, Teacher } from "@workspace/api-types";
 
 export const CATEGORIES = [
   {
