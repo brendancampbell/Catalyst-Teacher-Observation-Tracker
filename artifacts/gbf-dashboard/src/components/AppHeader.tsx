@@ -181,6 +181,7 @@ export default function AppHeader({
             )}
 
             {/* Action buttons grouped in one semi-transparent wrapper */}
+            {(onAddObservation || draftsHref || actionCenterHref) && (
             <div
               className="flex items-center gap-2 rounded px-2 py-1.5"
               style={{
@@ -222,6 +223,7 @@ export default function AppHeader({
                 </a>
               )}
             </div>
+            )}
 
             <UserMenuDropdown
               name={userName}
