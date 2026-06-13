@@ -882,18 +882,18 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
               {/* Footer */}
               <style>{`
-                @keyframes gbfFadeOut {
+                @keyframes catalystFadeOut {
                   0%   { opacity: 1; }
                   60%  { opacity: 1; }
                   100% { opacity: 0; }
                 }
-                .gbf-copy-notif { animation: gbfFadeOut 3.5s forwards; }
+                .catalyst-copy-notif { animation: catalystFadeOut 3.5s forwards; }
               `}</style>
               <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     {copiedHtml && (
-                      <p className="gbf-copy-notif text-sm font-semibold text-green-700 truncate">
+                      <p className="catalyst-copy-notif text-sm font-semibold text-green-700 truncate">
                         Email Copied — Paste (Ctrl+V) into a new email message.
                       </p>
                     )}
