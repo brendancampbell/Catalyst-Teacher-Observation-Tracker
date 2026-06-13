@@ -2,7 +2,7 @@ kind = "web"
 previewPath = "/"
 title = "Catalyst Principal Dashboard"
 version = "1.0.0"
-id = "artifacts/gbf-dashboard"
+id = "artifacts/catalyst-dashboard"
 router = "path"
 
 [[integratedSkills]]
@@ -15,11 +15,11 @@ paths = [ "/" ]
 localPort = 18277
 
 [services.development]
-run = "pnpm --filter @workspace/gbf-dashboard run dev"
+run = "pnpm --filter @workspace/catalyst-dashboard run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/gbf-dashboard", "run", "build" ]
-publicDir = "artifacts/gbf-dashboard/dist/public"
+build = [ "pnpm", "--filter", "@workspace/catalyst-dashboard", "run", "build" ]
+publicDir = "artifacts/catalyst-dashboard/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]

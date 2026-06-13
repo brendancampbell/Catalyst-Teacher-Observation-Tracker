@@ -22,7 +22,7 @@ pnpm workspace monorepo using TypeScript. Contains the **Catalyst Principal Dash
 artifacts-monorepo/
 ├── artifacts/
 │   ├── api-server/          # Express API server (port 8080)
-│   └── gbf-dashboard/       # React + Vite frontend
+│   └── catalyst-dashboard/  # React + Vite frontend
 ├── lib/
 │   ├── db/                  # Drizzle ORM schema + DB connection
 │   ├── api-spec/            # OpenAPI spec + Orval codegen config
@@ -129,7 +129,7 @@ All routes mounted at `/api`:
 - **Action Center page** (`/action-center`) — rescore queue table with due date status
 - **NewObservationModal walkthrough toggle** — shown only to DISTRICT_ADMIN users
 
-### Frontend Client (artifacts/gbf-dashboard/src/)
+### Frontend Client (artifacts/catalyst-dashboard/src/)
 
 - `lib/api.ts` — Typed fetch helpers for all API endpoints
 - `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
@@ -158,14 +158,14 @@ Principals send observation feedback to teachers using the still-visible buttons
 All backend email plumbing remains intact and is not stubbed:
 - `artifacts/api-server/src/routes/email.ts` — `POST /api/email/send-observation` (still mounted, just no UI caller).
 - `artifacts/api-server/src/lib/resend.ts` — Resend client wrapper using the Replit Resend connector.
-- `sendObservationEmail()` in `artifacts/gbf-dashboard/src/lib/api.ts` — frontend API call.
+- `sendObservationEmail()` in `artifacts/catalyst-dashboard/src/lib/api.ts` — frontend API call.
 - `handleSendEmail()` in `NewObservationModal.tsx` — frontend handler.
 
 **To re-enable direct send when Resend is ready:**
 1. Verify the sending domain (e.g. `uncommonschools.org` or a subdomain) in the Resend dashboard.
 2. Confirm the Replit Resend connector's `from_email` matches the verified domain.
-3. In `artifacts/gbf-dashboard/src/components/NewObservationModal.tsx`, change `const EMAIL_DIRECT_SEND_ENABLED = false;` (top of file) to `true`.
-4. Restart the `artifacts/gbf-dashboard: web` workflow.
+3. In `artifacts/catalyst-dashboard/src/components/NewObservationModal.tsx`, change `const EMAIL_DIRECT_SEND_ENABLED = false;` (top of file) to `true`.
+4. Restart the `artifacts/catalyst-dashboard: web` workflow.
 
 No backend or schema changes are required to flip it back on.
 

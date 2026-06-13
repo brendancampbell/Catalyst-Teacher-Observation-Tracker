@@ -1,8 +1,8 @@
 kind = "web"
-previewPath = "/gbf-mobile/"
+previewPath = "/catalyst-mobile/"
 title = "Catalyst Observation (Mobile Web)"
 version = "1.0.0"
-id = "artifacts/gbf-mobile"
+id = "artifacts/catalyst-mobile"
 router = "path"
 
 [[integratedSkills]]
@@ -11,15 +11,15 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/gbf-mobile/" ]
+paths = [ "/catalyst-mobile/" ]
 localPort = 25869
 
 [services.development]
-run = "pnpm --filter @workspace/gbf-mobile run dev"
+run = "pnpm --filter @workspace/catalyst-mobile run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/gbf-mobile", "run", "build" ]
-publicDir = "artifacts/gbf-mobile/dist/public"
+build = [ "pnpm", "--filter", "@workspace/catalyst-mobile", "run", "build" ]
+publicDir = "artifacts/catalyst-mobile/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "25869"
-BASE_PATH = "/gbf-mobile/"
+BASE_PATH = "/catalyst-mobile/"

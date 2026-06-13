@@ -44,9 +44,9 @@ router.get(
     passport.authenticate("google", { session: true }, (err: unknown, user: Express.User | false) => {
       if (err) return next(err);
       const returnTo = req.session.returnTo;
-      const isMobile = typeof returnTo === "string" && returnTo.startsWith("/gbf-mobile");
+      const isMobile = typeof returnTo === "string" && returnTo.startsWith("/catalyst-mobile");
       if (!user) {
-        return res.redirect(isMobile ? "/gbf-mobile/access-denied" : "/access-denied");
+        return res.redirect(isMobile ? "/catalyst-mobile/access-denied" : "/access-denied");
       }
       req.logIn(user, (loginErr) => {
         if (loginErr) return next(loginErr);

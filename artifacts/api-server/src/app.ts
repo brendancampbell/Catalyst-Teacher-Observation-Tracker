@@ -102,7 +102,7 @@ const MOBILE_UA = /iPhone|iPod|BlackBerry|IEMobile|Opera Mini|(Android.*Mobile)/
 
 app.get("/api/app", (req, res) => {
   const ua = req.headers["user-agent"] ?? "";
-  const dest = MOBILE_UA.test(ua) ? "/gbf-mobile/" : "/";
+  const dest = MOBILE_UA.test(ua) ? "/catalyst-mobile/" : "/";
   res.redirect(302, dest);
 });
 
