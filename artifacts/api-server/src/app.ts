@@ -96,6 +96,13 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(applyImpersonation);
 
+/* ── Legacy redirect: /gbf-mobile/* → /catalyst-mobile/* ────────────────
+   Preserves bookmarks from before the app was renamed. */
+app.use("/gbf-mobile", (req, res) => {
+  const rest = req.url; // e.g. "/" or "/some/path?q=1"
+  res.redirect(301, `/catalyst-mobile${rest}`);
+});
+
 /* ── Smart redirect: /api/app → mobile or desktop based on User-Agent ──
    Must be registered BEFORE the /api router so auth middleware doesn't intercept it. */
 const MOBILE_UA = /iPhone|iPod|BlackBerry|IEMobile|Opera Mini|(Android.*Mobile)/i;
