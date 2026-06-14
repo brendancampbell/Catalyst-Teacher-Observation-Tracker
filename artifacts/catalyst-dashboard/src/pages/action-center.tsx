@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square, BrainCircuit,
+  RefreshCw, Pencil, Trash2, Square, BrainCircuit, PanelLeft, X,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -424,6 +424,7 @@ export default function ActionCenterPage() {
   const [renameValue, setRenameValue]               = useState("");
   const [deleteConfirmId, setDeleteConfirmId]       = useState<number | null>(null);
   const [isInstantAnalyzing, setIsInstantAnalyzing] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen]   = useState(false);
   const chatEndRef                                  = useRef<HTMLDivElement>(null);
   const activeChatIdRef                             = useRef<number | null>(null);
   const abortControllerRef                          = useRef<AbortController | null>(null);
@@ -1298,11 +1299,24 @@ export default function ActionCenterPage() {
           {/* ═══════════════════════════════════════════════════
               TAB 3 — ANALYSIS (unified chat)
           ════════════════════════════════════════════════════ */}
-          <TabsContent value="analysis" className="flex-1 flex overflow-hidden mt-0">
+          <TabsContent value="analysis" className="flex-1 flex overflow-hidden mt-0 relative">
+
+            {/* Mobile backdrop — closes sidebar when tapping outside */}
+            {mobileSidebarOpen && (
+              <div
+                className="absolute inset-0 bg-black/30 z-20 md:hidden"
+                onClick={() => setMobileSidebarOpen(false)}
+              />
+            )}
 
             {/* ── Left Sidebar ── */}
             <div
-              className="flex flex-col shrink-0 overflow-hidden bg-white"
+              className={[
+                "flex flex-col shrink-0 overflow-hidden bg-white",
+                "absolute md:relative inset-y-0 left-0 z-30 h-full",
+                "transition-transform duration-200 ease-in-out",
+                mobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+              ].join(" ")}
               style={{ width: 256, borderRight: "1px solid #e2e8f0" }}
             >
               {/* New Chat button */}
@@ -1417,6 +1431,19 @@ export default function ActionCenterPage() {
             {/* ── Main Chat Area ── */}
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ backgroundColor: "#F4F6FB" }}>
 
+              {/* Mobile sidebar toggle — only visible on narrow screens */}
+              <div className="flex items-center md:hidden px-3 pt-3 shrink-0">
+                <button
+                  onClick={() => setMobileSidebarOpen((o) => !o)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+                  style={{ backgroundColor: "white", color: NAVY, border: "1px solid #e2e8f0" }}
+                  aria-label="Toggle chat history"
+                >
+                  {mobileSidebarOpen ? <X size={14} /> : <PanelLeft size={14} />}
+                  {mobileSidebarOpen ? "Close" : "Chats"}
+                </button>
+              </div>
+
               {activeChatId === null ? (
                 /* ── Empty state ── */
                 <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
@@ -1451,7 +1478,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Instant Analysis */}
-                    <div className="flex justify-center mb-5">
+                    <div className="flex flex-col items-center gap-2 mb-5">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
@@ -1459,8 +1486,13 @@ export default function ActionCenterPage() {
                         style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
                       >
                         {isInstantAnalyzing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                        Instant Analysis
+                        {isInstantAnalyzing ? "Generating Analysis…" : "Instant Analysis"}
                       </button>
+                      {isInstantAnalyzing && (
+                        <p className="text-xs text-slate-400 animate-pulse" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                          Reviewing your school's rubric data — this may take a moment
+                        </p>
+                      )}
                     </div>
 
                     <p
