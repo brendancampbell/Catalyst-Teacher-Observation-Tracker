@@ -57,6 +57,10 @@ async function ensureChatTables(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id);
     `);
+    /* Add rubric_set_slug column if not yet present (idempotent) */
+    await client.query(`
+      ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS rubric_set_slug TEXT;
+    `);
     logger.info("Chat tables ready");
   } finally {
     client.release();

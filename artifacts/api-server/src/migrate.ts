@@ -204,6 +204,24 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id)
     `);
 
+    /* ── 9. Add rubric_set_slug column to chat_messages ──────────── */
+    const { rows: rssColRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'chat_messages' AND column_name = 'rubric_set_slug'
+       ) AS exists`,
+    );
+    if (!rssColRows[0].exists) {
+      const { rows: cmExists } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'chat_messages') AS exists`,
+      );
+      if (cmExists[0].exists) {
+        console.log("  Adding rubric_set_slug column to chat_messages…");
+        await client.query(`ALTER TABLE chat_messages ADD COLUMN rubric_set_slug TEXT`);
+        console.log("  Done.");
+      }
+    }
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

@@ -12,9 +12,10 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql, desc } from "drizzle-orm";
 import {
-  generateAIResponse,
-  generateAIResponseStream,
+  generateAIResponseRaw,
+  generateAIResponseStreamRaw,
   generateAnalysisSummary,
+  buildContextBlock,
   type AIContext,
   type CalibrationFlag,
   type DomainAvg,
@@ -332,14 +333,89 @@ router.delete("/chats/:id", async (req, res) => {
   }
 });
 
+/* ── Helper: build combined context string for one or multiple rubric sets ── */
+async function buildCombinedContext(
+  personIds: string[],
+  scope: "school" | "network",
+  rescoreQueueCount: number,
+  totalObservations: number,
+  allRubricSets: Array<{ id: number; slug: string; name: string }>,
+  activeSlug: string | null,
+  messageText: string,
+): Promise<{ contextStr: string; activeRubricSetSlug: string | null }> {
+  /* Determine which rubric slugs are relevant to this message */
+  const mentionedSlugs = new Set<string>();
+  if (activeSlug) mentionedSlugs.add(activeSlug);
+
+  /* Detect additional rubric sets mentioned by slug or name in the message */
+  const msgLower = messageText.toLowerCase();
+  for (const rs of allRubricSets) {
+    if (msgLower.includes(rs.slug.toLowerCase()) || msgLower.includes(rs.name.toLowerCase())) {
+      mentionedSlugs.add(rs.slug);
+    }
+  }
+
+  /* If only one rubric is relevant (or none), build a single context block */
+  const slugList = Array.from(mentionedSlugs);
+
+  if (slugList.length <= 1) {
+    const singleSlug = slugList[0] ?? null;
+    const rsRow = singleSlug ? allRubricSets.find((r) => r.slug === singleSlug) : null;
+    const rsId   = rsRow?.id ?? null;
+
+    const [domainAverages, calibrationFlags] = await Promise.all([
+      buildDomainAverages(personIds, rsId),
+      buildCalibrationFlags(personIds, scope, rsId),
+    ]);
+
+    const ctx: AIContext = {
+      scope,
+      rubricSetName:     rsRow?.name,
+      domainAverages,
+      totalTeachers:     personIds.length,
+      totalObservations,
+      rescoreQueueCount,
+      calibrationFlags,
+    };
+    return { contextStr: buildContextBlock(ctx), activeRubricSetSlug: singleSlug };
+  }
+
+  /* Multiple rubric sets referenced — build a section per rubric */
+  const blocks: string[] = [
+    `## Cross-rubric comparison (scope: ${scope}, teachers: ${personIds.length}, total observations: ${totalObservations})\n`,
+  ];
+
+  for (const slug of slugList) {
+    const rsRow = allRubricSets.find((r) => r.slug === slug);
+    if (!rsRow) continue;
+    const [domainAverages, calibrationFlags] = await Promise.all([
+      buildDomainAverages(personIds, rsRow.id),
+      buildCalibrationFlags(personIds, scope, rsRow.id),
+    ]);
+    const ctx: AIContext = {
+      scope,
+      rubricSetName:     rsRow.name,
+      domainAverages,
+      totalTeachers:     personIds.length,
+      totalObservations,
+      rescoreQueueCount,
+      calibrationFlags,
+    };
+    blocks.push(buildContextBlock(ctx));
+  }
+
+  return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug };
+}
+
 /* ── POST /api/ai/chat/stream ───────────────────────────────────── */
 router.post("/chat/stream", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const { message, schoolId: reqSchoolId, sessionId } = req.body as {
+    const { message, schoolId: reqSchoolId, sessionId, rubricSetSlug } = req.body as {
       message?: string;
       schoolId?: number | null;
       sessionId?: number | null;
+      rubricSetSlug?: string;
     };
 
     if (!message?.trim()) {
@@ -359,34 +435,31 @@ router.post("/chat/stream", async (req, res) => {
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const personIds = await getPersonIds(scopedSchoolId);
 
-    const rescoreRows = personIds.length
-      ? await db.select({ employeeId: people.employeeId }).from(people).where(
-          scopedSchoolId !== null
-            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
-        )
-      : [];
-
-    const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds),
-      buildCalibrationFlags(personIds, scope),
+    const [rescoreRows, allRubricSets, obsCountResult] = await Promise.all([
+      personIds.length
+        ? db.select({ employeeId: people.employeeId }).from(people).where(
+            scopedSchoolId !== null
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+          )
+        : Promise.resolve([]),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+      personIds.length
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        : Promise.resolve([{ count: 0 }]),
     ]);
 
-    const obsCountResult = personIds.length
-      ? await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(observations)
-          .where(inArray(observations.observedEmployeeId, personIds))
-      : [{ count: 0 }];
+    const totalObservations = obsCountResult[0]?.count ?? 0;
 
-    const context: AIContext = {
+    const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
+      personIds,
       scope,
-      domainAverages,
-      totalTeachers:     personIds.length,
-      totalObservations: obsCountResult[0]?.count ?? 0,
-      rescoreQueueCount: rescoreRows.length,
-      calibrationFlags,
-    };
+      rescoreRows.length,
+      totalObservations,
+      allRubricSets,
+      rubricSetSlug ?? null,
+      message,
+    );
 
     /* Set SSE headers */
     res.setHeader("Content-Type", "text/event-stream");
@@ -399,7 +472,7 @@ router.post("/chat/stream", async (req, res) => {
     let streamError = false;
 
     try {
-      fullReply = await generateAIResponseStream(message, context, (chunk) => {
+      fullReply = await generateAIResponseStreamRaw(message, contextStr, (chunk) => {
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
       });
     } catch (aiErr) {
@@ -410,19 +483,10 @@ router.post("/chat/stream", async (req, res) => {
     }
 
     /* Persist messages if sessionId provided */
-    if (sessionId != null && !streamError) {
+    if (sessionId != null) {
       await db.insert(chatMessages).values([
-        { sessionId, role: "user",      content: message   },
-        { sessionId, role: "assistant", content: fullReply },
-      ]);
-      await db
-        .update(chatSessions)
-        .set({ updatedAt: new Date() })
-        .where(eq(chatSessions.id, sessionId));
-    } else if (sessionId != null && streamError) {
-      await db.insert(chatMessages).values([
-        { sessionId, role: "user",      content: message   },
-        { sessionId, role: "assistant", content: fullReply },
+        { sessionId, role: "user",      content: message,   rubricSetSlug: activeRubricSetSlug },
+        { sessionId, role: "assistant", content: fullReply, rubricSetSlug: activeRubricSetSlug },
       ]);
       await db
         .update(chatSessions)
@@ -456,10 +520,11 @@ router.post("/chat/stream", async (req, res) => {
 router.post("/chat", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const { message, schoolId: reqSchoolId, sessionId } = req.body as {
+    const { message, schoolId: reqSchoolId, sessionId, rubricSetSlug } = req.body as {
       message?: string;
       schoolId?: number | null;
       sessionId?: number | null;
+      rubricSetSlug?: string;
     };
 
     if (!message?.trim()) {
@@ -481,38 +546,35 @@ router.post("/chat", async (req, res) => {
 
     const personIds = await getPersonIds(scopedSchoolId);
 
-    const rescoreRows = personIds.length
-      ? await db.select({ employeeId: people.employeeId }).from(people).where(
-          scopedSchoolId !== null
-            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
-        )
-      : [];
-
-    const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds),
-      buildCalibrationFlags(personIds, scope),
+    const [rescoreRows, allRubricSets, obsCountResult] = await Promise.all([
+      personIds.length
+        ? db.select({ employeeId: people.employeeId }).from(people).where(
+            scopedSchoolId !== null
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+          )
+        : Promise.resolve([]),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+      personIds.length
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        : Promise.resolve([{ count: 0 }]),
     ]);
 
-    const obsCountResult = personIds.length
-      ? await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(observations)
-          .where(inArray(observations.observedEmployeeId, personIds))
-      : [{ count: 0 }];
+    const totalObservations = obsCountResult[0]?.count ?? 0;
 
-    const context: AIContext = {
+    const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
+      personIds,
       scope,
-      domainAverages,
-      totalTeachers:     personIds.length,
-      totalObservations: obsCountResult[0]?.count ?? 0,
-      rescoreQueueCount: rescoreRows.length,
-      calibrationFlags,
-    };
+      rescoreRows.length,
+      totalObservations,
+      allRubricSets,
+      rubricSetSlug ?? null,
+      message,
+    );
 
     let reply: string;
     try {
-      reply = await generateAIResponse(message, context);
+      reply = await generateAIResponseRaw(message, contextStr);
     } catch (aiErr) {
       console.error("POST /ai/chat AI error:", aiErr);
       reply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
@@ -521,8 +583,8 @@ router.post("/chat", async (req, res) => {
     /* Persist messages if sessionId provided */
     if (sessionId != null) {
       await db.insert(chatMessages).values([
-        { sessionId, role: "user",      content: message },
-        { sessionId, role: "assistant", content: reply   },
+        { sessionId, role: "user",      content: message, rubricSetSlug: activeRubricSetSlug },
+        { sessionId, role: "assistant", content: reply,   rubricSetSlug: activeRubricSetSlug },
       ]);
       await db
         .update(chatSessions)

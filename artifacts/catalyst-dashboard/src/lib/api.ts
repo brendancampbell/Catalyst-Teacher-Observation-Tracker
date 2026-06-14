@@ -351,6 +351,7 @@ export async function streamAIChat(
   sessionId: number | null | undefined,
   onChunk: (token: string) => void,
   signal?: AbortSignal,
+  rubricSetSlug?: string | null,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/ai/chat/stream`, {
     method: "POST",
@@ -358,8 +359,9 @@ export async function streamAIChat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       message,
-      ...(schoolId  != null ? { schoolId  } : {}),
-      ...(sessionId != null ? { sessionId } : {}),
+      ...(schoolId       != null ? { schoolId       } : {}),
+      ...(sessionId      != null ? { sessionId      } : {}),
+      ...(rubricSetSlug  != null ? { rubricSetSlug  } : {}),
     }),
     signal,
   });

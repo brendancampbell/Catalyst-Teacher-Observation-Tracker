@@ -451,7 +451,7 @@ export default function ActionCenterPage() {
         if (activeChatIdRef.current === sessionId) {
           setStreamingText(accumulated);
         }
-      }, controller.signal);
+      }, controller.signal, activeQuarter);
 
       /* Commit the complete message and clear the streaming buffer */
       if (activeChatIdRef.current === sessionId) {

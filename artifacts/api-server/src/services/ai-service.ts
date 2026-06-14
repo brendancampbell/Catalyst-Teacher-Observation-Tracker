@@ -31,6 +31,7 @@ export interface InsightResult {
 
 export interface AIContext {
   scope: "school" | "network";
+  rubricSetName?: string;
   domainAverages: DomainAvg[];
   totalTeachers: number;
   totalObservations: number;
@@ -54,10 +55,11 @@ Your responses should be:
 - Formatted with **bold** for key numbers and domain names when it aids readability.
 - Always attribute insights to the actual data provided — do not invent numbers.`;
 
-function buildContextBlock(context: AIContext): string {
+export function buildContextBlock(context: AIContext): string {
   const scopeLabel = context.scope === "school" ? "school" : "network";
+  const rubricLabel = context.rubricSetName ? ` — Rubric: ${context.rubricSetName}` : "";
   const lines: string[] = [
-    `## Current ${scopeLabel} data snapshot`,
+    `## Current ${scopeLabel} data snapshot${rubricLabel}`,
     `- Scope: ${scopeLabel}`,
     `- Total teachers tracked: ${context.totalTeachers}`,
     `- Total observations: ${context.totalObservations}`,
@@ -121,6 +123,54 @@ export async function generateAIResponseStream(
   const contextBlock = buildContextBlock(context);
   const userContent = `${contextBlock}\n---\n\nUser question: ${message}`;
 
+  let fullText = "";
+
+  const stream = anthropic.messages.stream({
+    model: "claude-opus-4-8",
+    max_tokens: 8192,
+    system: CATALYST_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      const chunk = event.delta.text;
+      fullText += chunk;
+      onChunk(chunk);
+    }
+  }
+
+  await stream.finalMessage();
+  return fullText;
+}
+
+export async function generateAIResponseRaw(message: string, contextStr: string): Promise<string> {
+  const userContent = `${contextStr}\n---\n\nUser question: ${message}`;
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-4-8",
+      max_tokens: 8192,
+      system: CATALYST_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+    });
+    const block = response.content[0];
+    if (block?.type === "text") return block.text;
+    return "I was unable to generate a response. Please try again.";
+  } catch (err) {
+    console.error("Claude chat error:", err);
+    throw err;
+  }
+}
+
+export async function generateAIResponseStreamRaw(
+  message: string,
+  contextStr: string,
+  onChunk: (text: string) => void,
+): Promise<string> {
+  const userContent = `${contextStr}\n---\n\nUser question: ${message}`;
   let fullText = "";
 
   const stream = anthropic.messages.stream({
