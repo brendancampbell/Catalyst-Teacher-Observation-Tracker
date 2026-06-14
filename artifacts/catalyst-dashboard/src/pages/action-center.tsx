@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square,
+  RefreshCw, Pencil, Trash2, Square, BrainCircuit,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -161,6 +161,9 @@ export default function ActionCenterPage() {
     }
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
+
+  /* ── Active tab ─────────────────────────────────────── */
+  const [activeTab, setActiveTab] = useState("summary");
 
   /* ── Intervention sub-tab ───────────────────────────── */
   const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
@@ -371,16 +374,13 @@ export default function ActionCenterPage() {
       if (list.length === 0) {
         setActiveChatId(null);
         activeChatIdRef.current = null;
-        persistSelectedChat(null);
         setChatMsgs([]);
         return;
       }
-      /* Restore previously selected session, or fall back to most recent */
-      const persisted = readPersistedChatId();
-      const target = persisted !== null && list.some((s) => s.id === persisted)
-        ? persisted
-        : list[0].id;
-      await selectSession(target);
+      /* Always start with blank new-chat state — don't auto-select */
+      setActiveChatId(null);
+      activeChatIdRef.current = null;
+      setChatMsgs([]);
     } catch {
       /* silent */
     } finally {
@@ -582,14 +582,15 @@ export default function ActionCenterPage() {
     <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* Tabs wraps everything so TabsList can live inside the sticky bar */}
-      <Tabs defaultValue="summary" className="flex-1 flex flex-col">
+      <Tabs defaultValue="summary" onValueChange={setActiveTab} className="flex-1 flex flex-col">
 
         {/* ── Frozen top bar (header + tab nav) ── */}
         <div className="sticky top-0 z-30 flex flex-col shadow-md">
 
           {currentUser && (
             <AppHeader
-              subtitle="Action Center"
+              subtitle={activeTab === "analysis" ? "Data Assistant" : "Action Center"}
+              subtitleIcon={activeTab === "analysis" ? <BrainCircuit size={11} /> : undefined}
               backHref={returnTo}
               backLabel="Back to Dashboard"
               draftsHref={`${baseUrl}/drafts`}
@@ -1318,21 +1319,12 @@ export default function ActionCenterPage() {
                 <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
                   <div className="w-full max-w-xl">
                     <div className="text-center mb-8">
-                      <div
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md"
-                        style={{ backgroundColor: NAVY }}
-                      >
-                        <Sparkles size={28} color={YELLOW} />
-                      </div>
                       <h2
                         className="font-bold uppercase tracking-wide mb-2"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 28 }}
                       >
                         Catalyst Data Assistant
                       </h2>
-                      <p className="text-sm text-slate-500" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                        Ask questions about your school's observation data or generate an instant analysis.
-                      </p>
                     </div>
 
                     {/* Input + Send */}
@@ -1356,7 +1348,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Instant Analysis */}
-                    <div className="flex justify-center mb-6">
+                    <div className="flex justify-center mb-5">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
@@ -1368,13 +1360,11 @@ export default function ActionCenterPage() {
                       </button>
                     </div>
 
-                    {/* Helper note */}
                     <p
-                      className="text-xs text-center text-slate-400 leading-relaxed px-4"
+                      className="text-xs text-center text-slate-400"
                       style={{ fontFamily: "'Libre Franklin', sans-serif" }}
                     >
-                      Chats default to the current rubric (<span className="font-semibold text-slate-500">{activeQuarter}</span>). You can ask cross-rubric questions like{" "}
-                      <span className="italic">"How does Q2 compare to Q1?"</span>
+                      Powered by Claude Opus 4
                     </p>
                   </div>
                 </div>
@@ -1383,15 +1373,14 @@ export default function ActionCenterPage() {
                 <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
 
                   {/* Header */}
-                  <div className="flex items-center gap-3 mb-4 shrink-0">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
-                      <Sparkles size={18} color={YELLOW} />
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-slate-800 text-base">Catalyst Data Assistant</h2>
-                      <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
-                    </div>
-                    <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
+                  <div className="flex items-center gap-2 mb-3 shrink-0 pb-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    <h2
+                      className="font-bold uppercase"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 16, letterSpacing: "0.04em" }}
+                    >
+                      {sessions.find((s) => s.id === activeChatId)?.title ?? "Chat"}
+                    </h2>
+                    <Badge className="ml-auto text-xs font-bold px-2 py-0.5" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
                       Live Data
                     </Badge>
                   </div>
