@@ -63,7 +63,7 @@ export function configurePassport() {
 
   passport.use(
     new GoogleStrategy(
-      { clientID, clientSecret, callbackURL },
+      { clientID, clientSecret, callbackURL, state: true },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value;

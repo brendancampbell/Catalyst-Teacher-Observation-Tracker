@@ -30,7 +30,7 @@ router.get(
     }
     next();
   },
-  passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account" }),
+  passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account", state: true }),
 );
 
 /* ── GET /api/auth/google/callback ───────────────────────────────

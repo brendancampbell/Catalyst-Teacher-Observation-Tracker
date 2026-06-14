@@ -9,6 +9,7 @@ import { logger } from "./lib/logger";
 import { configurePassport } from "./lib/passport";
 import { pool } from "@workspace/db";
 import { applyImpersonation } from "./middleware/impersonation";
+import { buildCsrfMiddleware } from "./middleware/csrf";
 
 const PgStore = connectPgSimple(session);
 
@@ -94,6 +95,7 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(buildCsrfMiddleware(buildAllowedOrigins()));
 app.use(applyImpersonation);
 
 /* ── Legacy redirect: /gbf-mobile/* → /catalyst-mobile/* ────────────────
