@@ -44,6 +44,11 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
     const includeInactive = req.query.includeInactive === "true";
     const schoolIdParam   = req.query.schoolId ? Number(req.query.schoolId) : null;
 
+    if (!isNetworkScope && !currentUser.schoolId) {
+      res.status(403).json({ error: "No school assigned to this user" });
+      return;
+    }
+
     const effectiveSchoolId = isNetworkScope
       ? (schoolIdParam ?? null)
       : currentUser.schoolId ?? null;
@@ -130,8 +135,8 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
 
     const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : currentUser.schoolId;
 
-    if (role === "SCHOOL_LEADER" && !assignedSchoolId) {
-      res.status(400).json({ error: "School Leaders must be assigned to a school" }); return;
+    if (SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && !assignedSchoolId) {
+      res.status(400).json({ error: "Coaches and School Leaders must be assigned to a school" }); return;
     }
     if ((includeInFeedbackTracker ?? false) && !assignedSchoolId) {
       res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
@@ -302,8 +307,8 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         continue;
       }
 
-      if (role === "SCHOOL_LEADER" && !schoolId) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "School Leaders must be assigned to a school" });
+      if (SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && !schoolId) {
+        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a school" });
         continue;
       }
       if (includeInFB && !schoolId) {

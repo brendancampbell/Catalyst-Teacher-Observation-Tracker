@@ -9,6 +9,8 @@ import {
 } from "@workspace/db/schema";
 import { eq, desc, inArray } from "drizzle-orm";
 import { getUncachableResendClient } from "../lib/resend";
+import { requireRole } from "../middleware/auth";
+import type { UserRole } from "../middleware/auth";
 
 const router = Router();
 
@@ -276,27 +278,33 @@ function buildHtmlEmail(params: {
 
 /* ── POST /api/email/send-observation ───────────────────────
    Body: { observationId, intro, glows, grows, subject,
-           teacherEmail?, logoUrl? }
-   Sends the branded HTML email to the teacher via Resend.   */
-router.post("/send-observation", async (req, res) => {
+           logoUrl? }
+   Sends the branded HTML email to the teacher via Resend.
+   Requires COACH or above. School-scoped users may only send
+   emails for observations that belong to their own school.
+   The recipient address is always taken from the teacher's
+   record in the database; the caller cannot supply one.     */
+router.post(
+  "/send-observation",
+  requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"),
+  async (req, res) => {
   try {
+    const currentUser = req.user as Express.User;
+    const isNetworkScope =
+      (currentUser.role as UserRole) === "NETWORK_LEADER" ||
+      (currentUser.role as UserRole) === "NETWORK_ADMIN";
+
     const {
       observationId,
       intro,
       glows,
       grows,
       subject,
-      teacherEmail,
       logoUrl,
     } = req.body;
 
     if (!observationId || !intro || !subject) {
       res.status(400).json({ error: "observationId, intro and subject are required" });
-      return;
-    }
-
-    if (!teacherEmail) {
-      res.status(400).json({ error: "Teacher has no email address on record" });
       return;
     }
 
@@ -306,10 +314,29 @@ router.post("/send-observation", async (req, res) => {
     });
     if (!obs) { res.status(404).json({ error: "Observation not found" }); return; }
 
+    /* ── Authorization: school-scoped users may only access their own school ── */
+    if (!isNetworkScope) {
+      if (!currentUser.schoolId) {
+        res.status(403).json({ error: "No school assigned to this user" });
+        return;
+      }
+      if (obs.schoolId !== currentUser.schoolId) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
+
     const teacher = obs.observedEmployeeId
       ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observedEmployeeId) })
       : null;
     if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
+
+    /* ── Use the teacher's email address from the database ── */
+    const teacherEmail = teacher.email;
+    if (!teacherEmail) {
+      res.status(400).json({ error: "Teacher has no email address on record" });
+      return;
+    }
 
     const scoreRows = await db
       .select()
