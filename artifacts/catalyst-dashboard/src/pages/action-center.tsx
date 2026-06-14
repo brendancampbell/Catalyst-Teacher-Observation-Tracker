@@ -60,6 +60,109 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
 
 type ChatMsg = { role: "user" | "ai"; text: string };
 
+/* ── Narrative helpers ──────────────────────────────── */
+
+function renderInlineText(text: string): React.ReactNode[] {
+  return text.split("**").map((part, pi) =>
+    pi % 2 === 1 ? <strong key={pi}>{part}</strong> : <span key={pi}>{part}</span>
+  );
+}
+
+function isAnalysisNarrative(text: string): boolean {
+  const lines = text.split("\n");
+  return lines.some((line) => {
+    const stripped = line.replace(/\*\*/g, "").trim();
+    return (
+      stripped.length >= 4 &&
+      stripped === stripped.toUpperCase() &&
+      /[A-Z]/.test(stripped) &&
+      !/^\d/.test(stripped)
+    );
+  });
+}
+
+function AINarrativeRenderer({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} style={{ height: 8 }} />;
+
+        const stripped = trimmed.replace(/\*\*/g, "");
+
+        /* Section header — ALL CAPS line */
+        if (
+          stripped.length >= 4 &&
+          stripped === stripped.toUpperCase() &&
+          /[A-Z]/.test(stripped)
+        ) {
+          return (
+            <div key={i} style={{ marginTop: i > 0 ? 20 : 0, marginBottom: 8 }}>
+              <span
+                style={{
+                  fontFamily:    "'Bebas Neue', sans-serif",
+                  fontSize:      18,
+                  color:         NAVY,
+                  letterSpacing: "0.04em",
+                  fontWeight:    "bold",
+                  paddingBottom: 3,
+                  borderBottom:  `2.5px solid ${YELLOW}`,
+                  display:       "inline-block",
+                }}
+              >
+                {stripped}
+              </span>
+            </div>
+          );
+        }
+
+        /* Bullet point */
+        if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+          const content = trimmed.replace(/^[-•]\s+/, "");
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
+              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(content)}</span>
+            </div>
+          );
+        }
+
+        /* Warning / note line */
+        if (
+          trimmed.startsWith("⚠") ||
+          trimmed.toLowerCase().startsWith("warning") ||
+          trimmed.toLowerCase().startsWith("note:")
+        ) {
+          return (
+            <div
+              key={i}
+              style={{
+                backgroundColor: "#FEF3C7",
+                borderLeft:      `3px solid ${YELLOW}`,
+                padding:         "6px 10px",
+                borderRadius:    4,
+                marginBottom:    6,
+                fontSize:        13,
+                lineHeight:      "1.5",
+              }}
+            >
+              {renderInlineText(trimmed)}
+            </div>
+          );
+        }
+
+        /* Regular paragraph */
+        return (
+          <p key={i} style={{ fontSize: 13, lineHeight: "1.6", marginBottom: 6, margin: "0 0 6px" }}>
+            {renderInlineText(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ActionCenterPage() {
   const { currentUser } = useUser();
   const queryClient     = useQueryClient();
@@ -1405,9 +1508,12 @@ export default function ActionCenterPage() {
                               borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
                             }}
                           >
-                            {msg.text.split("**").map((part, pi) =>
-                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                            )}
+                            {msg.role === "ai" && isAnalysisNarrative(msg.text)
+                              ? <AINarrativeRenderer text={msg.text} />
+                              : msg.text.split("**").map((part, pi) =>
+                                  pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                                )
+                            }
                           </div>
                         </div>
                       ))}
@@ -1439,10 +1545,12 @@ export default function ActionCenterPage() {
                               borderRadius:    "4px 18px 18px 18px",
                             }}
                           >
-                            {streamingText.split("**").map((part, pi) =>
-                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                            )}
-                            <span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" />
+                            {isAnalysisNarrative(streamingText)
+                              ? <><AINarrativeRenderer text={streamingText} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
+                              : <>{streamingText.split("**").map((part, pi) =>
+                                  pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                                )}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
+                            }
                           </div>
                         </div>
                       )}
