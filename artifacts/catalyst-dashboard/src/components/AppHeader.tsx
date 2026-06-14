@@ -108,7 +108,7 @@ export default function AppHeader({
               >
                 Catalyst
               </p>
-              {subtitleIcon && (
+              {subtitle && (
                 <div
                   className="flex items-center gap-1"
                   style={{ color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.06em", lineHeight: 1, marginTop: 2 }}
