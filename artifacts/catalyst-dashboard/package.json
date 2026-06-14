@@ -10,7 +10,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@workspace/api-types": "workspace:*",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.4",
     "@radix-ui/react-alert-dialog": "^1.1.7",
@@ -50,6 +49,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/api-types": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
@@ -77,6 +77,8 @@
   },
   "dependencies": {
     "@tiptap/react": "^3.25.0",
-    "@tiptap/starter-kit": "^3.25.0"
+    "@tiptap/starter-kit": "^3.25.0",
+    "@types/dompurify": "^3.2.0",
+    "dompurify": "^3.4.10"
   }
 }
