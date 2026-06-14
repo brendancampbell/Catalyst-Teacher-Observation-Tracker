@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  Download, ChevronRight, RefreshCw, Pencil, Trash2,
+  RefreshCw, Pencil, Trash2, Square,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -42,90 +42,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
-
-function AINarrativeRenderer({ content }: { content: string }) {
-  if (!content) {
-    return (
-      <div className="rounded-lg px-4 py-8 text-center text-sm text-slate-400" style={{ border: "1.5px dashed #e2e8f0" }}>
-        No content available.
-      </div>
-    );
-  }
-
-  const lines = content.split("\n");
-  const elements: React.ReactNode[] = [];
-  let key = 0;
-
-  function renderInline(text: string): React.ReactNode[] {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>;
-      }
-      return <span key={i}>{part}</span>;
-    });
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      elements.push(<div key={key++} className="mb-2" />);
-      continue;
-    }
-
-    const isSectionHeader = /^\*\*[A-Z][A-Z\s]+\*\*$/.test(trimmed);
-    if (isSectionHeader) {
-      const headerText = trimmed.slice(2, -2);
-      elements.push(
-        <div key={key++} className="flex items-center gap-2 mt-6 mb-2 pb-2" style={{ borderBottom: `2px solid ${YELLOW}` }}>
-          <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 15, letterSpacing: "0.06em" }}>
-            {headerText}
-          </h3>
-        </div>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-      elements.push(
-        <li key={key++} className="text-sm leading-relaxed text-slate-700 ml-4 mb-1" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-          {renderInline(trimmed.slice(2))}
-        </li>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith("⚠")) {
-      elements.push(
-        <p key={key++} className="text-xs text-slate-400 italic mt-6 pt-4 leading-relaxed" style={{ borderTop: "1px solid #f1f5f9", fontFamily: "'Libre Franklin', sans-serif" }}>
-          {renderInline(trimmed)}
-        </p>
-      );
-      continue;
-    }
-
-    elements.push(
-      <p key={key++} className="text-sm leading-relaxed text-slate-700 mb-3" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-        {renderInline(trimmed)}
-      </p>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-xs font-semibold mb-4" style={{ color: "#64748b" }}>
-        <Sparkles size={11} style={{ color: YELLOW }} /> AI-generated content · Verify key figures with your data team before sharing externally
-      </div>
-      <div>{elements}</div>
-    </div>
-  );
-}
 
 function getDueStatus(dueDateStr: string | null): { label: string; color: string; urgent: boolean } {
   if (!dueDateStr) return { label: "No due date", color: "#94a3b8", urgent: false };
@@ -140,11 +59,6 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
 }
 
 type ChatMsg = { role: "user" | "ai"; text: string };
-
-const WELCOME_MSG: ChatMsg = {
-  role: "ai",
-  text: "Hello! I'm your Catalyst Data Assistant. Ask me about your school's observation trends, domain scores, calibration flags, or which teachers are closest to the 0.7 proficiency threshold.",
-};
 
 export default function ActionCenterPage() {
   const { currentUser } = useUser();
@@ -250,56 +164,6 @@ export default function ActionCenterPage() {
 
   /* ── Intervention sub-tab ───────────────────────────── */
   const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
-  const [analysisTab, setAnalysisTab] = useState<"analysis-summary" | "data-assistant">("analysis-summary");
-
-  /* ── Analysis Summary docs ───────────────────────────── */
-  type AnalysisDoc = {
-    id: string;
-    title: string;
-    generatedAt: string;
-    rubricSet: string;
-    status: "complete" | "generating" | "error";
-    content?: string;
-  };
-
-  const [analysisDocs, setAnalysisDocs] = useState<AnalysisDoc[]>([]);
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  async function handleGenerateAnalysis() {
-    if (isGenerating) return;
-    setIsGenerating(true);
-    const pendingId = `gen-${Date.now()}`;
-    setAnalysisDocs((prev) => [
-      { id: pendingId, title: `${activeQuarter} Analysis`, generatedAt: new Date().toISOString(), rubricSet: activeQuarter, status: "generating" },
-      ...prev,
-    ]);
-    setSelectedAnalysisId(pendingId);
-    try {
-      const result = await generateAIAnalysis(activeQuarter, schoolId);
-      setAnalysisDocs((prev) =>
-        prev.map((d) => d.id === pendingId
-          ? { ...d, status: "complete", content: result.narrative }
-          : d
-        )
-      );
-    } catch {
-      setAnalysisDocs((prev) =>
-        prev.map((d) => d.id === pendingId
-          ? { ...d, status: "error", content: "Failed to generate analysis. Please try again." }
-          : d
-        )
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-  }
-
-  const selectedDoc = analysisDocs.find((d) => d.id === selectedAnalysisId) ?? null;
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -443,18 +307,20 @@ export default function ActionCenterPage() {
   }
 
   /* ── Chat state ──────────────────────────────────────── */
-  const [sessions, setSessions]               = useState<AIChatSession[]>([]);
-  const [activeChatId, setActiveChatId]       = useState<number | null>(null);
-  const [chatMsgs, setChatMsgs]               = useState<ChatMsg[]>([WELCOME_MSG]);
-  const [chatInput, setChatInput]             = useState("");
-  const [chatTyping, setChatTyping]           = useState(false);
-  const [streamingText, setStreamingText]     = useState("");
-  const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [renamingId, setRenamingId]           = useState<number | null>(null);
-  const [renameValue, setRenameValue]         = useState("");
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const chatEndRef                            = useRef<HTMLDivElement>(null);
-  const activeChatIdRef                       = useRef<number | null>(null);
+  const [sessions, setSessions]                     = useState<AIChatSession[]>([]);
+  const [activeChatId, setActiveChatId]             = useState<number | null>(null);
+  const [chatMsgs, setChatMsgs]                     = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput]                   = useState("");
+  const [chatTyping, setChatTyping]                 = useState(false);
+  const [streamingText, setStreamingText]           = useState("");
+  const [sessionsLoading, setSessionsLoading]       = useState(false);
+  const [renamingId, setRenamingId]                 = useState<number | null>(null);
+  const [renameValue, setRenameValue]               = useState("");
+  const [deleteConfirmId, setDeleteConfirmId]       = useState<number | null>(null);
+  const [isInstantAnalyzing, setIsInstantAnalyzing] = useState(false);
+  const chatEndRef                                  = useRef<HTMLDivElement>(null);
+  const activeChatIdRef                             = useRef<number | null>(null);
+  const abortControllerRef                          = useRef<AbortController | null>(null);
 
   /* localStorage key scoped to the current user so selections don't bleed
      between accounts on shared browsers. */
@@ -488,16 +354,12 @@ export default function ActionCenterPage() {
     persistSelectedChat(id);
     try {
       const messages = await fetchChatSessionMessages(id);
-      if (messages.length === 0) {
-        setChatMsgs([WELCOME_MSG]);
-      } else {
-        setChatMsgs(messages.map((m) => ({
-          role: m.role === "user" ? "user" as const : "ai" as const,
-          text: m.content,
-        })));
-      }
+      setChatMsgs(messages.map((m) => ({
+        role: m.role === "user" ? "user" as const : "ai" as const,
+        text: m.content,
+      })));
     } catch {
-      setChatMsgs([WELCOME_MSG]);
+      setChatMsgs([]);
     }
   }
 
@@ -510,7 +372,7 @@ export default function ActionCenterPage() {
         setActiveChatId(null);
         activeChatIdRef.current = null;
         persistSelectedChat(null);
-        setChatMsgs([WELCOME_MSG]);
+        setChatMsgs([]);
         return;
       }
       /* Restore previously selected session, or fall back to most recent */
@@ -527,23 +389,35 @@ export default function ActionCenterPage() {
   }
 
   useEffect(() => {
-    if (analysisTab === "data-assistant") {
-      loadSessions();
-    }
+    loadSessions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisTab]);
+  }, []);
+
+  function handleStopGeneration() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setChatTyping(false);
+    if (streamingText) {
+      setChatMsgs((prev) => [...prev, { role: "ai", text: streamingText }]);
+      setStreamingText("");
+    }
+  }
 
   function handleNewChat() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setActiveChatId(null);
     activeChatIdRef.current = null;
     persistSelectedChat(null);
-    setChatMsgs([WELCOME_MSG]);
+    setChatMsgs([]);
     setChatInput("");
+    setChatTyping(false);
+    setStreamingText("");
   }
 
   async function handleSendChat() {
     const text = chatInput.trim();
-    if (!text) return;
+    if (!text || chatTyping || !!streamingText) return;
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
     setChatTyping(true);
@@ -553,6 +427,9 @@ export default function ActionCenterPage() {
        chat switches before the reply arrives. */
     let sessionId = activeChatIdRef.current;
     const sentForSession = sessionId;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       if (sessionId === null) {
@@ -574,7 +451,7 @@ export default function ActionCenterPage() {
         if (activeChatIdRef.current === sessionId) {
           setStreamingText(accumulated);
         }
-      });
+      }, controller.signal);
 
       /* Commit the complete message and clear the streaming buffer */
       if (activeChatIdRef.current === sessionId) {
@@ -588,7 +465,8 @@ export default function ActionCenterPage() {
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return;
       setChatTyping(false);
       setStreamingText("");
       /* Only show error in the chat that sent the message */
@@ -600,7 +478,62 @@ export default function ActionCenterPage() {
       }
     } finally {
       setChatTyping(false);
+      abortControllerRef.current = null;
       /* streamingText is cleared above in both success and error paths */
+    }
+  }
+
+  async function handleInstantAnalysis() {
+    if (isInstantAnalyzing) return;
+    setIsInstantAnalyzing(true);
+    let capturedSessionId: number | null = null;
+    try {
+      const sessionTitle = `${activeQuarter} Instant Analysis`;
+      const newSession = await createChatSession(sessionTitle);
+      const sessionId = newSession.id;
+      capturedSessionId = sessionId;
+
+      setActiveChatId(newSession.id);
+      activeChatIdRef.current = newSession.id;
+      persistSelectedChat(newSession.id);
+      setSessions((prev) => [newSession, ...prev]);
+      setChatMsgs([]);
+      setChatTyping(true);
+      setStreamingText("");
+
+      /* Fetch the full narrative (persisted to the session via sessionId) */
+      const result = await generateAIAnalysis(activeQuarter, schoolId, sessionId);
+      const narrative = result.narrative;
+
+      /* Stream the narrative progressively so it appears token-by-token */
+      setChatTyping(false);
+      const CHUNK = 12;
+      for (let i = 0; i < narrative.length; i += CHUNK) {
+        /* Stop reveal if the user switched away from this session */
+        if (activeChatIdRef.current !== sessionId) break;
+        setStreamingText(narrative.slice(0, i + CHUNK));
+        await new Promise<void>((r) => setTimeout(r, 8));
+      }
+
+      /* Commit the full message and clear the streaming buffer */
+      if (activeChatIdRef.current === sessionId) {
+        setChatMsgs([{ role: "ai", text: narrative }]);
+        setStreamingText("");
+      }
+
+      const now = new Date().toISOString();
+      setSessions((prev) =>
+        [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+      );
+    } catch {
+      setChatTyping(false);
+      setStreamingText("");
+      if (capturedSessionId === null || activeChatIdRef.current === capturedSessionId) {
+        setChatMsgs([{ role: "ai", text: "Sorry, I couldn't generate the analysis right now. Please try again." }]);
+      }
+    } finally {
+      setIsInstantAnalyzing(false);
     }
   }
 
@@ -626,7 +559,7 @@ export default function ActionCenterPage() {
           setActiveChatId(null);
           activeChatIdRef.current = null;
           persistSelectedChat(null);
-          setChatMsgs([WELCOME_MSG]);
+          setChatMsgs([]);
         }
       }
     } catch { /* silent */ }
@@ -1259,421 +1192,311 @@ export default function ActionCenterPage() {
           </TabsContent>
 
           {/* ═══════════════════════════════════════════════════
-              TAB 3 — ANALYSIS (with sub-tabs)
+              TAB 3 — ANALYSIS (unified chat)
           ════════════════════════════════════════════════════ */}
-          <TabsContent value="analysis" className="flex-1 flex flex-col overflow-hidden mt-0">
+          <TabsContent value="analysis" className="flex-1 flex overflow-hidden mt-0">
 
-            {/* ── Secondary sub-tab bar — matches Intervention style ── */}
-            <div style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }} className="px-4 sm:px-6 flex gap-6">
-              {(
-                [
-                  { key: "analysis-summary", label: "Analysis Summary" },
-                  { key: "data-assistant",   label: "Data Assistant"   },
-                ] as { key: "analysis-summary" | "data-assistant"; label: string }[]
-              ).map(({ key, label }) => {
-                const active = analysisTab === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setAnalysisTab(key)}
-                    className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
-                    style={{
-                      color:        active ? NAVY : "#64748b",
-                      borderBottom: active ? `2px solid ${YELLOW}` : "2px solid transparent",
-                      marginBottom: -1,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            {/* ── Left Sidebar ── */}
+            <div
+              className="flex flex-col shrink-0 overflow-hidden bg-white"
+              style={{ width: 256, borderRight: "1px solid #e2e8f0" }}
+            >
+              {/* New Chat button */}
+              <div className="p-4" style={{ borderBottom: "1px solid #e2e8f0" }}>
+                <button
+                  onClick={handleNewChat}
+                  className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 font-bold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
+                >
+                  <Plus size={14} /> New Chat
+                </button>
+              </div>
+
+              {/* Session list */}
+              <div className="flex-1 overflow-y-auto">
+                {sessionsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: NAVY }} />
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-slate-400 leading-relaxed" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                    No chats yet. Ask a question or run an Instant Analysis to begin.
+                  </p>
+                ) : (
+                  sessions.map((s) => {
+                    const isActive   = s.id === activeChatId;
+                    const isRenaming = renamingId === s.id;
+                    const isConfirm  = deleteConfirmId === s.id;
+                    return (
+                      <div
+                        key={s.id}
+                        className="group relative flex flex-col cursor-pointer"
+                        style={{
+                          padding:         "10px 14px",
+                          borderBottom:    "1px solid #f1f5f9",
+                          borderLeft:      `3px solid ${isActive ? YELLOW : "transparent"}`,
+                          backgroundColor: isActive ? "#EEF2FF" : "transparent",
+                          transition:      "background-color 0.1s",
+                        }}
+                        onClick={() => { if (!isRenaming && !isConfirm) selectSession(s.id); }}
+                        onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8fafc"; }}
+                        onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = "transparent"; }}
+                      >
+                        {isRenaming ? (
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => handleRenameSubmit(s.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameSubmit(s.id);
+                              if (e.key === "Escape") setRenamingId(null);
+                            }}
+                            className="w-full text-xs font-semibold bg-white rounded px-2 py-1 border border-slate-300 focus:outline-none"
+                            style={{ color: NAVY }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : isConfirm ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <p className="text-xs font-semibold mb-2" style={{ color: "#b91c1c" }}>Delete this chat?</p>
+                            <div className="flex gap-2">
+                              <button
+                                className="text-xs font-bold px-2 py-1 rounded text-white"
+                                style={{ backgroundColor: "#dc2626" }}
+                                onClick={() => handleDeleteChat(s.id)}
+                              >Delete</button>
+                              <button
+                                className="text-xs font-semibold px-2 py-1 rounded border border-slate-200 text-slate-600"
+                                onClick={() => setDeleteConfirmId(null)}
+                              >Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span
+                              className="text-xs font-semibold truncate leading-snug"
+                              style={{
+                                fontFamily:   "'Bebas Neue', sans-serif",
+                                color:        isActive ? NAVY : "#374151",
+                                paddingRight: 36,
+                                letterSpacing: "0.02em",
+                                fontSize:     13,
+                              }}
+                              title={s.title}
+                            >{s.title}</span>
+                            <span className="text-xs mt-0.5" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>{relativeTime(s.updatedAt)}</span>
+                            <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-0.5">
+                              <button
+                                className="p-1 rounded transition-colors hover:bg-slate-200"
+                                title="Rename"
+                                onClick={(e) => { e.stopPropagation(); setRenamingId(s.id); setRenameValue(s.title); }}
+                              >
+                                <Pencil size={11} style={{ color: "#94a3b8" }} />
+                              </button>
+                              <button
+                                className="p-1 rounded transition-colors hover:bg-red-100"
+                                title="Delete"
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(s.id); }}
+                              >
+                                <Trash2 size={11} style={{ color: "#f87171" }} />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
-            {/* ── Analysis Summary ── */}
-            {analysisTab === "analysis-summary" && (
-              <div className="flex-1 overflow-hidden flex min-h-0">
+            {/* ── Main Chat Area ── */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ backgroundColor: "#F4F6FB" }}>
 
-                {/* ── Left panel: list ── */}
-                <div
-                  className="flex flex-col shrink-0 overflow-hidden"
-                  style={{ width: 300, borderRight: "1px solid #e2e8f0" }}
-                >
-                  {/* Generate button */}
-                  <div className="p-4 shrink-0" style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <button
-                      onClick={handleGenerateAnalysis}
-                      disabled={isGenerating}
-                      className="w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-opacity disabled:opacity-60"
-                      style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
-                    >
-                      {isGenerating ? (
-                        <>
-                          <RefreshCw size={14} className="animate-spin" />
-                          Generating…
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={14} color={YELLOW} />
-                          Generate New Analysis
-                        </>
-                      )}
-                    </button>
-                    <p className="text-xs text-slate-400 mt-2 text-center leading-snug" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                      Creates an AI-generated summary of current observation data
-                    </p>
-                  </div>
-
-                  {/* Doc list */}
-                  <div className="flex-1 overflow-y-auto">
-                    {analysisDocs.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center px-6 py-10">
-                        <FileText size={28} style={{ color: "#cbd5e1" }} className="mb-3" />
-                        <p className="text-sm text-slate-400" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                          No analyses yet. Generate your first one above.
-                        </p>
+              {activeChatId === null ? (
+                /* ── Empty state ── */
+                <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+                  <div className="w-full max-w-xl">
+                    <div className="text-center mb-8">
+                      <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md"
+                        style={{ backgroundColor: NAVY }}
+                      >
+                        <Sparkles size={28} color={YELLOW} />
                       </div>
-                    ) : (
-                      analysisDocs.map((doc) => {
-                        const isSelected = doc.id === selectedAnalysisId;
-                        return (
-                          <button
-                            key={doc.id}
-                            onClick={() => setSelectedAnalysisId(doc.id)}
-                            className="w-full text-left flex items-start gap-3 px-4 py-3.5 transition-colors"
-                            style={{
-                              backgroundColor: isSelected ? "#EEF2FF" : "transparent",
-                              borderBottom: "1px solid #f1f5f9",
-                            }}
-                          >
-                            <div
-                              className="mt-0.5 shrink-0 flex items-center justify-center rounded-lg w-8 h-8"
-                              style={{ backgroundColor: isSelected ? NAVY : "#f1f5f9" }}
-                            >
-                              {doc.status === "generating"
-                                ? <RefreshCw size={13} className="animate-spin" style={{ color: isSelected ? YELLOW : "#94a3b8" }} />
-                                : <FileText size={13} style={{ color: isSelected ? YELLOW : "#64748b" }} />
-                              }
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className="text-sm font-semibold leading-tight truncate"
-                                style={{ color: isSelected ? NAVY : "#1e293b", fontFamily: "'Libre Franklin', sans-serif" }}
-                              >
-                                {doc.title}
-                              </p>
-                              <p className="text-xs mt-0.5" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>
-                                {fmtDate(doc.generatedAt)}
-                              </p>
-                              {doc.status === "generating" && (
-                                <span
-                                  className="inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full"
-                                  style={{ backgroundColor: "#FEF9C3", color: "#A16207" }}
-                                >
-                                  Generating…
-                                </span>
-                              )}
-                            </div>
-                            <ChevronRight size={14} style={{ color: isSelected ? NAVY : "#cbd5e1", flexShrink: 0, marginTop: 2 }} />
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Right panel: reader ── */}
-                <div className="flex-1 overflow-y-auto">
-                  {!selectedDoc ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#EEF2FF" }}>
-                        <FileText size={24} style={{ color: NAVY }} />
-                      </div>
-                      <p className="text-sm font-semibold text-slate-600">Select an analysis to view</p>
-                      <p className="text-xs text-slate-400 mt-1">Or generate a new one from the panel on the left.</p>
-                    </div>
-                  ) : selectedDoc.status === "generating" ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
-                      <RefreshCw size={28} className="animate-spin mb-4" style={{ color: NAVY }} />
-                      <p className="text-sm font-semibold text-slate-700">Generating analysis…</p>
-                      <p className="text-xs text-slate-400 mt-1">The AI is reviewing your observation data. This will only take a moment.</p>
-                    </div>
-                  ) : (
-                    <div className="max-w-2xl mx-auto px-6 py-6">
-
-                      {/* Doc header */}
-                      <div className="flex items-start justify-between gap-4 mb-6">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span
-                              className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                              style={{ backgroundColor: "#EEF2FF", color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 13 }}
-                            >
-                              {selectedDoc.rubricSet}
-                            </span>
-                            <span
-                              className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: selectedDoc.status === "error" ? "#FEF2F2" : "#DCFCE7",
-                                color: selectedDoc.status === "error" ? "#991B1B" : "#15803D",
-                              }}
-                            >
-                              {selectedDoc.status === "error" ? "Error" : "Complete"}
-                            </span>
-                          </div>
-                          <h2
-                            className="text-xl font-bold"
-                            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
-                          >
-                            {selectedDoc.title}
-                          </h2>
-                          <p className="text-xs text-slate-400 mt-0.5" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                            Generated {fmtDate(selectedDoc.generatedAt)}
-                          </p>
-                        </div>
-                        <button
-                          className="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-80"
-                          style={{ border: "1.5px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
-                          title="Download (coming soon)"
-                        >
-                          <Download size={13} />
-                          Export
-                        </button>
-                      </div>
-
-                      {/* AI-generated narrative */}
-                      <AINarrativeRenderer content={selectedDoc.content ?? ""} />
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            )}
-
-            {/* ── Data Assistant ── */}
-            {analysisTab === "data-assistant" && (
-              <div className="flex-1 flex min-h-0 overflow-hidden">
-
-                {/* ── Sidebar: chat history ── */}
-                <div
-                  className="flex flex-col bg-white shrink-0 overflow-hidden"
-                  style={{ width: 224, borderRight: "1px solid #e2e8f0" }}
-                >
-                  {/* New Chat button */}
-                  <div className="p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <Button
-                      onClick={handleNewChat}
-                      className="w-full h-8 text-xs font-semibold gap-1.5 rounded-lg"
-                      style={{ backgroundColor: NAVY }}
-                    >
-                      <Plus size={13} /> New Chat
-                    </Button>
-                  </div>
-
-                  {/* Session list */}
-                  <div className="flex-1 overflow-y-auto">
-                    {sessionsLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: NAVY }} />
-                      </div>
-                    ) : sessions.length === 0 ? (
-                      <p className="px-4 py-6 text-center text-xs text-slate-400 leading-relaxed">
-                        No chats yet. Send a message to start a conversation.
+                      <h2
+                        className="font-bold uppercase tracking-wide mb-2"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 28 }}
+                      >
+                        Catalyst Data Assistant
+                      </h2>
+                      <p className="text-sm text-slate-500" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                        Ask questions about your school's observation data or generate an instant analysis.
                       </p>
-                    ) : (
-                      sessions.map((s) => {
-                        const isActive    = s.id === activeChatId;
-                        const isRenaming  = renamingId === s.id;
-                        const isConfirm   = deleteConfirmId === s.id;
-                        return (
-                          <div
-                            key={s.id}
-                            className="group relative flex flex-col cursor-pointer transition-colors"
-                            style={{
-                              padding:         "10px 12px",
-                              borderBottom:    "1px solid #f1f5f9",
-                              backgroundColor: isActive ? "#EEF2FF" : undefined,
-                            }}
-                            onClick={() => { if (!isRenaming && !isConfirm) selectSession(s.id); }}
-                            onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8fafc"; }}
-                            onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.backgroundColor = ""; }}
-                          >
-                            {isRenaming ? (
-                              <input
-                                autoFocus
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onBlur={() => handleRenameSubmit(s.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleRenameSubmit(s.id);
-                                  if (e.key === "Escape") setRenamingId(null);
-                                }}
-                                className="w-full text-xs font-semibold bg-white rounded px-2 py-1 border border-slate-300 focus:outline-none"
-                                style={{ color: NAVY }}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : isConfirm ? (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <p className="text-xs font-semibold mb-2" style={{ color: "#b91c1c" }}>Delete this chat?</p>
-                                <div className="flex gap-2">
-                                  <button
-                                    className="text-xs font-bold px-2 py-1 rounded text-white"
-                                    style={{ backgroundColor: "#dc2626" }}
-                                    onClick={() => handleDeleteChat(s.id)}
-                                  >Delete</button>
-                                  <button
-                                    className="text-xs font-semibold px-2 py-1 rounded border border-slate-200 text-slate-600"
-                                    onClick={() => setDeleteConfirmId(null)}
-                                  >Cancel</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <span
-                                  className="text-xs font-semibold truncate leading-snug"
-                                  style={{ color: isActive ? NAVY : "#374151", paddingRight: 36 }}
-                                  title={s.title}
-                                >{s.title}</span>
-                                <span className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>{relativeTime(s.updatedAt)}</span>
-                                <div className="absolute right-2 top-2 hidden group-hover:flex items-center gap-0.5">
-                                  <button
-                                    className="p-1 rounded transition-colors hover:bg-slate-200"
-                                    title="Rename"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setRenamingId(s.id);
-                                      setRenameValue(s.title);
-                                    }}
-                                  >
-                                    <Pencil size={11} style={{ color: "#94a3b8" }} />
-                                  </button>
-                                  <button
-                                    className="p-1 rounded transition-colors hover:bg-red-100"
-                                    title="Delete"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeleteConfirmId(s.id);
-                                    }}
-                                  >
-                                    <Trash2 size={11} style={{ color: "#f87171" }} />
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Main chat area ── */}
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
-
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-4 shrink-0">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
-                        <Sparkles size={18} color={YELLOW} />
-                      </div>
-                      <div>
-                        <h2 className="font-bold text-slate-800 text-base">Catalyst Data Assistant</h2>
-                        <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
-                      </div>
-                      <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
-                        Live Data
-                      </Badge>
                     </div>
 
-                    {/* Message area */}
-                    <ScrollArea className="flex-1 min-h-0 pr-1">
-                      <div className="space-y-4 pb-2">
-                        {chatMsgs.map((msg, i) => (
-                          <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                              style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
-                            >
-                              {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
-                            </div>
-                            <div
-                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
-                              style={{
-                                backgroundColor: msg.role === "ai" ? "white" : NAVY,
-                                color:           msg.role === "ai" ? "#1e293b" : "white",
-                                border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                                borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
-                              }}
-                            >
-                              {msg.text.split("**").map((part, pi) =>
-                                pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {chatTyping && (
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
-                              <Bot size={15} color="white" />
-                            </div>
-                            <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
-                              <div className="flex gap-1 items-center h-4">
-                                {[0, 1, 2].map((d) => (
-                                  <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {!chatTyping && streamingText && (
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm" style={{ backgroundColor: NAVY }}>
-                              <Bot size={15} color="white" />
-                            </div>
-                            <div
-                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
-                              style={{
-                                backgroundColor: "white",
-                                color: "#1e293b",
-                                border: "1px solid #e2e8f0",
-                                borderRadius: "4px 18px 18px 18px",
-                              }}
-                            >
-                              {streamingText.split("**").map((part, pi) =>
-                                pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                              )}
-                              <span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" />
-                            </div>
-                          </div>
-                        )}
-                        <div ref={chatEndRef} />
-                      </div>
-                    </ScrollArea>
-
-                    {/* Input bar */}
-                    <div className="shrink-0 mt-4 flex items-center gap-2">
+                    {/* Input + Send */}
+                    <div className="flex gap-2 mb-4">
                       <Input
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
                         placeholder="Ask about your school's observation data…"
-                        className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
+                        className="flex-1 h-12 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
                         style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
                       />
                       <Button
                         onClick={handleSendChat}
-                        disabled={!chatInput.trim() || chatTyping || !!streamingText}
-                        className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                        disabled={!chatInput.trim()}
+                        className="h-12 px-5 rounded-xl shadow-sm shrink-0"
                         style={{ backgroundColor: NAVY }}
                       >
-                        <Send size={16} color="white" />
+                        <Send size={18} color="white" />
                       </Button>
                     </div>
 
+                    {/* Instant Analysis */}
+                    <div className="flex justify-center mb-6">
+                      <button
+                        onClick={handleInstantAnalysis}
+                        disabled={isInstantAnalyzing}
+                        className="flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold transition-opacity disabled:opacity-60 hover:opacity-90"
+                        style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
+                      >
+                        {isInstantAnalyzing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                        Instant Analysis
+                      </button>
+                    </div>
+
+                    {/* Helper note */}
+                    <p
+                      className="text-xs text-center text-slate-400 leading-relaxed px-4"
+                      style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                    >
+                      Chats default to the current rubric (<span className="font-semibold text-slate-500">{activeQuarter}</span>). You can ask cross-rubric questions like{" "}
+                      <span className="italic">"How does Q2 compare to Q1?"</span>
+                    </p>
                   </div>
                 </div>
+              ) : (
+                /* ── Active chat view ── */
+                <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 min-h-0">
 
-              </div>
-            )}
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4 shrink-0">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: NAVY }}>
+                      <Sparkles size={18} color={YELLOW} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-slate-800 text-base">Catalyst Data Assistant</h2>
+                      <p className="text-xs text-slate-400">Ask questions about your school's observation data</p>
+                    </div>
+                    <Badge className="ml-auto text-xs font-bold px-2.5 py-1" style={{ backgroundColor: "#DCFCE7", color: "#15803D", border: "none" }}>
+                      Live Data
+                    </Badge>
+                  </div>
+
+                  {/* Message area */}
+                  <ScrollArea className="flex-1 min-h-0 pr-1">
+                    <div className="space-y-4 pb-2">
+                      {chatMsgs.map((msg, i) => (
+                        <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
+                            style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
+                          >
+                            {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
+                          </div>
+                          <div
+                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                            style={{
+                              backgroundColor: msg.role === "ai" ? "white" : NAVY,
+                              color:           msg.role === "ai" ? "#1e293b" : "white",
+                              border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
+                              borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+                            }}
+                          >
+                            {msg.text.split("**").map((part, pi) =>
+                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {chatTyping && !streamingText && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
+                            <Bot size={15} color="white" />
+                          </div>
+                          <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
+                            <div className="flex gap-1 items-center h-4">
+                              {[0, 1, 2].map((d) => (
+                                <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {streamingText && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm" style={{ backgroundColor: NAVY }}>
+                            <Bot size={15} color="white" />
+                          </div>
+                          <div
+                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                            style={{
+                              backgroundColor: "white",
+                              color:           "#1e293b",
+                              border:          "1px solid #e2e8f0",
+                              borderRadius:    "4px 18px 18px 18px",
+                            }}
+                          >
+                            {streamingText.split("**").map((part, pi) =>
+                              pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                            )}
+                            <span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" />
+                          </div>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+                  </ScrollArea>
+
+                  {/* Input bar */}
+                  <div className="shrink-0 mt-4 flex items-center gap-2">
+                    {chatTyping || !!streamingText ? (
+                      <button
+                        onClick={handleStopGeneration}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                        style={{ backgroundColor: "#FEE2E2", color: "#b91c1c", border: "1.5px solid #fca5a5" }}
+                      >
+                        <Square size={14} fill="#b91c1c" /> Stop generating
+                      </button>
+                    ) : (
+                      <>
+                        <Input
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+                          placeholder="Ask a follow-up question…"
+                          className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
+                          style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
+                        />
+                        <Button
+                          onClick={handleSendChat}
+                          disabled={!chatInput.trim()}
+                          className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: NAVY }}
+                        >
+                          <Send size={16} color="white" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                </div>
+              )}
+
+            </div>
 
           </TabsContent>
 

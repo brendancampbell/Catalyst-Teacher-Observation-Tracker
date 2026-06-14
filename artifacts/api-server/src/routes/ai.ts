@@ -630,7 +630,11 @@ router.get("/calibration-flags", async (req, res) => {
 router.post("/analysis", async (req, res) => {
   try {
     const user = req.user as Express.User;
-    const { rubricSetSlug, schoolId: reqSchoolId } = req.body as { rubricSetSlug?: string; schoolId?: number | null };
+    const { rubricSetSlug, schoolId: reqSchoolId, sessionId } = req.body as {
+      rubricSetSlug?: string;
+      schoolId?: number | null;
+      sessionId?: number | null;
+    };
 
     const slug = rubricSetSlug?.trim() || "Q1";
 
@@ -674,6 +678,27 @@ router.post("/analysis", async (req, res) => {
     };
 
     const narrative = await generateAnalysisSummary(context, slug);
+
+    /* Persist as an assistant message if a session was provided */
+    if (sessionId != null) {
+      const [sess] = await db
+        .select({ id: chatSessions.id })
+        .from(chatSessions)
+        .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.employeeId, user.employeeId)))
+        .limit(1);
+      if (sess) {
+        await db.insert(chatMessages).values({
+          sessionId,
+          role: "assistant",
+          content: narrative,
+        });
+        await db
+          .update(chatSessions)
+          .set({ updatedAt: new Date() })
+          .where(eq(chatSessions.id, sessionId));
+      }
+    }
+
     res.json({ narrative, rubricSetSlug: slug });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {

@@ -350,6 +350,7 @@ export async function streamAIChat(
   schoolId: number | null | undefined,
   sessionId: number | null | undefined,
   onChunk: (token: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/ai/chat/stream`, {
     method: "POST",
@@ -360,6 +361,7 @@ export async function streamAIChat(
       ...(schoolId  != null ? { schoolId  } : {}),
       ...(sessionId != null ? { sessionId } : {}),
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -371,24 +373,30 @@ export async function streamAIChat(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      if (signal?.aborted) { reader.cancel(); break; }
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6);
-      if (data === "[DONE]") return;
-      try {
-        onChunk(JSON.parse(data) as string);
-      } catch {
-        /* ignore malformed lines */
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") return;
+        try {
+          onChunk(JSON.parse(data) as string);
+        } catch {
+          /* ignore malformed lines */
+        }
       }
     }
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") return;
+    throw err;
   }
 }
 
@@ -434,10 +442,18 @@ export async function fetchAICalibrationFlags(rubricSlug?: string, schoolId?: nu
   return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
 }
 
-export async function generateAIAnalysis(rubricSetSlug: string, schoolId?: number | null): Promise<{ narrative: string; rubricSetSlug: string }> {
+export async function generateAIAnalysis(
+  rubricSetSlug: string,
+  schoolId?: number | null,
+  sessionId?: number | null,
+): Promise<{ narrative: string; rubricSetSlug: string }> {
   return apiFetch<{ narrative: string; rubricSetSlug: string }>("/ai/analysis", {
     method: "POST",
-    body: JSON.stringify({ rubricSetSlug, ...(schoolId != null ? { schoolId } : {}) }),
+    body: JSON.stringify({
+      rubricSetSlug,
+      ...(schoolId  != null ? { schoolId  } : {}),
+      ...(sessionId != null ? { sessionId } : {}),
+    }),
   });
 }
 
