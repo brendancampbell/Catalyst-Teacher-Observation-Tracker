@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square, BrainCircuit, PanelLeft, X,
+  RefreshCw, Pencil, Trash2, Square, PanelLeft, X,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -719,7 +719,7 @@ export default function ActionCenterPage() {
               {[
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
-                { value: "analysis",     label: "Data Assistant", icon: <BrainCircuit size={15} /> },
+                { value: "analysis",     label: "Data Assistant", icon: <Sparkles size={15} /> },
                 ...(currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "NETWORK_ADMIN"
                   ? [{ value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> }]
                   : []),
