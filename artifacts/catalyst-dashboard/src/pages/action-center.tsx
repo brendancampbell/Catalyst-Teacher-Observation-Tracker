@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Bot, User2, Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square, PanelLeft, X,
+  RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -31,6 +31,7 @@ import {
   type AICalibrationFlag,
   type AIInsightsResponse,
   type AIChatSession,
+  type InstantAnalysisStructured,
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
@@ -58,7 +59,7 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
   return { label: `Due in ${diffDays}d`, color: "#16a34a", urgent: false };
 }
 
-type ChatMsg = { role: "user" | "ai"; text: string };
+type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured };
 
 /* ── Narrative helpers ──────────────────────────────── */
 
@@ -193,6 +194,93 @@ function AINarrativeRenderer({ text }: { text: string }) {
           </p>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Instant Analysis Card ──────────────────────────── */
+
+const FINDING_CONFIG = {
+  pattern:  { Icon: BarChart2,   bg: "#EEF2FF", color: "#4F46E5" },
+  leverage: { Icon: TrendingUp,  bg: "#DCFCE7", color: "#15803D" },
+  flag:     { Icon: AlertCircle, bg: "#FEF3C7", color: "#D97706" },
+} as const;
+
+interface InstantAnalysisCardProps {
+  structured: InstantAnalysisStructured;
+  onChipClick: (text: string) => void;
+  onSummaryTabClick: () => void;
+}
+
+function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: InstantAnalysisCardProps) {
+  return (
+    <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", fontFamily: "'Libre Franklin', sans-serif" }}>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: NAVY, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Sparkles size={14} color="white" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>Catalyst Data Assistant</span>
+            <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: YELLOW, color: NAVY, borderRadius: 20, padding: "1px 8px" }}>Instant analysis</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{structured.contextLine}</div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <p style={{ fontSize: 13, lineHeight: 1.65, color: "#1e293b", marginBottom: 14 }}>
+        {renderInlineText(structured.summary)}
+      </p>
+
+      {/* Findings */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {structured.findings.map((f, i) => {
+          const cfg = FINDING_CONFIG[f.type] ?? FINDING_CONFIG.pattern;
+          const { Icon } = cfg;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: cfg.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                <Icon size={13} color={cfg.color} />
+              </div>
+              <p style={{ fontSize: 13, lineHeight: 1.55, color: "#1e293b", margin: 0 }}>
+                <strong>{f.lead}</strong>{" — "}{f.detail}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Summary tab link */}
+      <div style={{ marginBottom: 14 }}>
+        <button
+          onClick={onSummaryTabClick}
+          style={{ fontSize: 12, color: NAVY, fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 }}
+        >
+          See the full scores in the Summary tab →
+        </button>
+      </div>
+
+      {/* Chips */}
+      <div>
+        <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 6 }}>Where would you like to start?</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {structured.chips.map((chip, i) => (
+            <button
+              key={i}
+              onClick={() => onChipClick(chip)}
+              style={{ fontSize: 12, fontWeight: 500, color: NAVY, border: `1.5px solid ${NAVY}`, borderRadius: 20, padding: "4px 12px", background: "white", cursor: "pointer", transition: "background 0.12s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#EEF2FF"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "white"; }}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -553,8 +641,8 @@ export default function ActionCenterPage() {
     setStreamingText("");
   }
 
-  async function handleSendChat() {
-    const text = chatInput.trim();
+  async function handleSendChat(overrideText?: string) {
+    const text = (overrideText ?? chatInput).trim();
     if (!text || chatTyping || !!streamingText) return;
     setChatMsgs((prev) => [...prev, { role: "user", text }]);
     setChatInput("");
@@ -641,21 +729,12 @@ export default function ActionCenterPage() {
 
       /* Fetch the full narrative (persisted to the session via sessionId) */
       const result = await generateAIAnalysis(activeQuarter, schoolId, sessionId);
-      const narrative = result.narrative;
+      const { structured } = result;
 
-      /* Stream the narrative progressively so it appears token-by-token */
-      setChatTyping(false);
-      const CHUNK = 12;
-      for (let i = 0; i < narrative.length; i += CHUNK) {
-        /* Stop reveal if the user switched away from this session */
-        if (activeChatIdRef.current !== sessionId) break;
-        setStreamingText(narrative.slice(0, i + CHUNK));
-        await new Promise<void>((r) => setTimeout(r, 8));
-      }
-
-      /* Commit the full message and clear the streaming buffer */
+      /* Show the structured card immediately (no streaming — it's a component, not text) */
       if (activeChatIdRef.current === sessionId) {
-        setChatMsgs([{ role: "ai", text: narrative }]);
+        setChatTyping(false);
+        setChatMsgs([{ role: "ai", text: structured.narrativeForContext, instantAnalysis: structured }]);
         setStreamingText("");
       }
 
@@ -720,7 +799,7 @@ export default function ActionCenterPage() {
     <div className="h-full overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* Tabs wraps everything so TabsList can live inside the sticky bar */}
-      <Tabs defaultValue="summary" onValueChange={setActiveTab} className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
         {/* ── Frozen top bar (header + tab nav) ── */}
         <div className="sticky top-0 z-30 flex flex-col shadow-md">
@@ -1555,32 +1634,41 @@ export default function ActionCenterPage() {
                   {/* Message area */}
                   <ScrollArea className="flex-1 min-h-0 pr-1">
                     <div className="space-y-4 pb-2">
-                      {chatMsgs.map((msg, i) => (
-                        <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                            style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
-                          >
-                            {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
+                      {chatMsgs.map((msg, i) =>
+                        msg.instantAnalysis ? (
+                          <InstantAnalysisCard
+                            key={i}
+                            structured={msg.instantAnalysis}
+                            onChipClick={(text) => handleSendChat(text)}
+                            onSummaryTabClick={() => setActiveTab("summary")}
+                          />
+                        ) : (
+                          <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
+                              style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
+                            >
+                              {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
+                            </div>
+                            <div
+                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                              style={{
+                                backgroundColor: msg.role === "ai" ? "white" : NAVY,
+                                color:           msg.role === "ai" ? "#1e293b" : "white",
+                                border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
+                                borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+                              }}
+                            >
+                              {msg.role === "ai" && isAnalysisNarrative(msg.text)
+                                ? <AINarrativeRenderer text={msg.text} />
+                                : msg.text.split("**").map((part, pi) =>
+                                    pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
+                                  )
+                              }
+                            </div>
                           </div>
-                          <div
-                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
-                            style={{
-                              backgroundColor: msg.role === "ai" ? "white" : NAVY,
-                              color:           msg.role === "ai" ? "#1e293b" : "white",
-                              border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                              borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
-                            }}
-                          >
-                            {msg.role === "ai" && isAnalysisNarrative(msg.text)
-                              ? <AINarrativeRenderer text={msg.text} />
-                              : msg.text.split("**").map((part, pi) =>
-                                  pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                                )
-                            }
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                       {chatTyping && !streamingText && (
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>

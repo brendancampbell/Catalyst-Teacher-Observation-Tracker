@@ -1,0 +1,42 @@
+Build the opening "Instant Analysis" message for the Data Assistant chat.
+
+PURPOSE & PRINCIPLE
+This message is the AI assistant's interpretation layer. It must NOT duplicate
+the Summary tab, which already shows metric cards, a domain score table with
+bars, and a network comparison table. The dashboard shows the WHAT (raw scores);
+this message shows the SO WHAT (what the pattern means) and the NOW WHAT
+(prioritized next moves). Do not render score bars, score tables, or per-domain
+numeric lists in this message.
+
+WHEN IT APPEARS
+Posted as the first assistant message in the thread when the user clicks
+"Instant Analysis." It seeds the conversation; follow-up questions reference it.
+
+DATA SOURCE (critical)
+Pull every number from the SAME source the Summary tab uses. Do not compute
+scores independently here — if this message and the Summary tab disagree on a
+value, the tool loses credibility. Resolve the current discrepancy (Lowest
+Domain card vs. Domain Comparison table show conflicting Confident Presence
+values) before shipping.
+
+CONTENT STRUCTURE (top to bottom)
+1. Header row: small assistant avatar (sparkle icon), name "Catalyst Data
+   Assistant", an "Instant analysis" pill badge, and a context subline
+   (e.g. "Q1 rubric set · 5 teachers · 39 observations · 10 domains").
+2. Interpretive summary: 2–3 sentences naming the overall pattern, with ONE
+   bolded takeaway. No more than two hard numbers.
+3. Three "findings" rows, each = a small colored icon circle + a bolded lead
+   clause + one supporting sentence:
+   - Finding A (pattern): is the weakness systemic or isolated?
+   - Finding B (leverage): where is the highest-impact coaching move?
+   - Finding C (flag): the single calibration/outlier issue to address.
+   These are generated from the data, not hardcoded.
+4. A quiet secondary link/button "See the full scores in the Summary tab" that
+   switches to the Summary tab (client-side nav, not a chat round-trip).
+5. Suggestion chips ("Where would you like to start?"): 3 tappable pills that
+   insert a prewritten question into the chat and send it.
+
+BEHAVIOR
+- Chips and the expand control insert/send their text as if the user typed it.
+- The Summary-tab link performs in-app navigation, not a message send.
+- Auto-title the thread from the report subject instead of "Chat Window"/"Test".

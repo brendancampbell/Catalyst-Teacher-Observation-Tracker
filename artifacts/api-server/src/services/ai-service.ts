@@ -195,6 +195,76 @@ export async function generateAIResponseStreamRaw(
   return fullText;
 }
 
+export interface InstantAnalysisStructured {
+  contextLine: string;
+  summary: string;
+  findings: Array<{
+    type: "pattern" | "leverage" | "flag";
+    lead: string;
+    detail: string;
+  }>;
+  chips: [string, string, string];
+  narrativeForContext: string;
+}
+
+export async function generateStructuredInstantAnalysis(
+  context: AIContext,
+  rubricSetSlug: string,
+): Promise<InstantAnalysisStructured> {
+  const contextBlock = buildContextBlock(context);
+  const domainCount = context.domainAverages.length;
+  const contextLine = `${rubricSetSlug} rubric set · ${context.totalTeachers} teacher${context.totalTeachers !== 1 ? "s" : ""} · ${context.totalObservations} observation${context.totalObservations !== 1 ? "s" : ""} · ${domainCount} domain${domainCount !== 1 ? "s" : ""}`;
+
+  const prompt = `${contextBlock}
+---
+You are generating an Instant Analysis card for a school principal's dashboard. The dashboard's Summary tab ALREADY shows raw score tables and domain bars — do NOT repeat numeric tables or per-domain score lists here.
+
+This card shows the SO WHAT (what the pattern means) and NOW WHAT (prioritized next moves).
+
+Return ONLY valid JSON with exactly this shape — no markdown fences, no extra keys:
+
+{
+  "summary": "2–3 sentences interpreting the overall pattern. Use **double asterisks** around ONE key takeaway phrase. Use at most two hard numbers.",
+  "findings": [
+    {
+      "type": "pattern",
+      "lead": "4–8 word lead clause describing whether weakness is systemic or isolated",
+      "detail": "One supporting sentence grounded in the actual data."
+    },
+    {
+      "type": "leverage",
+      "lead": "4–8 word lead clause naming the highest-impact coaching move",
+      "detail": "One supporting sentence grounded in the actual data."
+    },
+    {
+      "type": "flag",
+      "lead": "4–8 word lead clause naming the single calibration or outlier issue",
+      "detail": "One supporting sentence grounded in the actual data."
+    }
+  ],
+  "chips": [
+    "Specific follow-up question the principal would ask (10–15 words, referencing real domain or teacher data)",
+    "Second specific follow-up question",
+    "Third specific follow-up question"
+  ],
+  "narrativeForContext": "3–5 sentences capturing the key patterns, top coaching priority, and recommended next steps. This is stored as context so follow-up questions can reference it."
+}`;
+
+  const response = await anthropic.messages.create({
+    model:      "claude-opus-4-8",
+    max_tokens: 1200,
+    system:     CATALYST_SYSTEM_PROMPT,
+    messages:   [{ role: "user", content: prompt }],
+  });
+
+  const block = response.content[0];
+  if (block?.type !== "text") throw new Error("Unexpected Claude response type");
+
+  const text = block.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const parsed = JSON.parse(text) as Omit<InstantAnalysisStructured, "contextLine">;
+  return { ...parsed, contextLine };
+}
+
 export async function generateAnalysisSummary(context: AIContext, rubricSetSlug: string): Promise<string> {
   const contextBlock = buildContextBlock(context);
 

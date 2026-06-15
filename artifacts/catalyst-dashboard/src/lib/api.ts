@@ -444,12 +444,24 @@ export async function fetchAICalibrationFlags(rubricSlug?: string, schoolId?: nu
   return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
 }
 
+export interface InstantAnalysisStructured {
+  contextLine: string;
+  summary: string;
+  findings: Array<{
+    type: "pattern" | "leverage" | "flag";
+    lead: string;
+    detail: string;
+  }>;
+  chips: [string, string, string];
+  narrativeForContext: string;
+}
+
 export async function generateAIAnalysis(
   rubricSetSlug: string,
   schoolId?: number | null,
   sessionId?: number | null,
-): Promise<{ narrative: string; rubricSetSlug: string }> {
-  return apiFetch<{ narrative: string; rubricSetSlug: string }>("/ai/analysis", {
+): Promise<{ structured: InstantAnalysisStructured; rubricSetSlug: string }> {
+  return apiFetch<{ structured: InstantAnalysisStructured; rubricSetSlug: string }>("/ai/analysis", {
     method: "POST",
     body: JSON.stringify({
       rubricSetSlug,

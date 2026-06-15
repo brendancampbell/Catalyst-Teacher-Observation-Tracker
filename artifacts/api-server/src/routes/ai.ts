@@ -15,6 +15,7 @@ import {
   generateAIResponseRaw,
   generateAIResponseStreamRaw,
   generateAnalysisSummary,
+  generateStructuredInstantAnalysis,
   buildContextBlock,
   type AIContext,
   type CalibrationFlag,
@@ -739,9 +740,9 @@ router.post("/analysis", async (req, res) => {
       calibrationFlags,
     };
 
-    const narrative = await generateAnalysisSummary(context, slug);
+    const structured = await generateStructuredInstantAnalysis(context, slug);
 
-    /* Persist as an assistant message if a session was provided */
+    /* Persist the narrative context as an assistant message for follow-up questions */
     if (sessionId != null) {
       const [sess] = await db
         .select({ id: chatSessions.id })
@@ -752,7 +753,7 @@ router.post("/analysis", async (req, res) => {
         await db.insert(chatMessages).values({
           sessionId,
           role: "assistant",
-          content: narrative,
+          content: structured.narrativeForContext,
         });
         await db
           .update(chatSessions)
@@ -761,7 +762,7 @@ router.post("/analysis", async (req, res) => {
       }
     }
 
-    res.json({ narrative, rubricSetSlug: slug });
+    res.json({ structured, rubricSetSlug: slug });
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
       res.status(403).json({ error: err.message }); return;
