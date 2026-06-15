@@ -1508,8 +1508,8 @@ export default function ActionCenterPage() {
                   {/* Header */}
                   <div className="flex items-center gap-2 mb-3 shrink-0 pb-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
                     <h2
-                      className="font-bold uppercase"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 16, letterSpacing: "0.04em" }}
+                      className="font-semibold"
+                      style={{ fontFamily: "'Libre Franklin', sans-serif", color: NAVY, fontSize: 14 }}
                     >
                       {sessions.find((s) => s.id === activeChatId)?.title ?? "Chat"}
                     </h2>
