@@ -91,6 +91,40 @@ function AINarrativeRenderer({ text }: { text: string }) {
 
         const stripped = trimmed.replace(/\*\*/g, "");
 
+        /* Markdown headings — strip # prefix and render styled */
+        if (trimmed.startsWith("#")) {
+          const level = (trimmed.match(/^#+/) ?? [""])[0].length;
+          const content = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "");
+          if (!content) return <div key={i} style={{ height: 8 }} />;
+          if (level === 1) {
+            /* H1 = document title — render as a subtle subtitle above the report */
+            return (
+              <p key={i} style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>
+                {content}
+              </p>
+            );
+          }
+          /* H2 / H3 = section header — same style as ALL-CAPS sections */
+          return (
+            <div key={i} style={{ marginTop: i > 0 ? 20 : 0, marginBottom: 8 }}>
+              <span
+                style={{
+                  fontFamily:    "'Bebas Neue', sans-serif",
+                  fontSize:      18,
+                  color:         NAVY,
+                  letterSpacing: "0.04em",
+                  fontWeight:    "bold",
+                  paddingBottom: 3,
+                  borderBottom:  `2.5px solid ${YELLOW}`,
+                  display:       "inline-block",
+                }}
+              >
+                {content.toUpperCase()}
+              </span>
+            </div>
+          );
+        }
+
         /* Section header — ALL CAPS line */
         if (
           stripped.length >= 4 &&
