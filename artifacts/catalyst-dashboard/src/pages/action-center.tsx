@@ -683,18 +683,17 @@ export default function ActionCenterPage() {
 
   /* ── Render ─────────────────────────────────────────── */
   return (
-    <div className="h-full overflow-y-auto flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <div className="h-full overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
       {/* Tabs wraps everything so TabsList can live inside the sticky bar */}
-      <Tabs defaultValue="summary" onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs defaultValue="summary" onValueChange={setActiveTab} className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
         {/* ── Frozen top bar (header + tab nav) ── */}
         <div className="sticky top-0 z-30 flex flex-col shadow-md">
 
           {currentUser && (
             <AppHeader
-              subtitle={activeTab === "analysis" ? "Data Assistant" : "Action Center"}
-              subtitleIcon={activeTab === "analysis" ? <BrainCircuit size={11} /> : undefined}
+              subtitle="Action Center"
               backHref={returnTo}
               backLabel="Back to Dashboard"
               draftsHref={`${baseUrl}/drafts`}
@@ -720,7 +719,7 @@ export default function ActionCenterPage() {
               {[
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
-                { value: "analysis",     label: "Analysis",      icon: <TrendingUp  size={15} /> },
+                { value: "analysis",     label: "Data Assistant", icon: <BrainCircuit size={15} /> },
                 ...(currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "NETWORK_ADMIN"
                   ? [{ value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> }]
                   : []),
@@ -1655,10 +1654,6 @@ export default function ActionCenterPage() {
           </TabsContent>
 
         </Tabs>
-
-      <footer className="text-center pt-1 pb-4" style={{ color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
-        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="https://docs.google.com/forms/d/e/1FAIpQLScGsGBwHNyxAv1jcKYR5Q85gHbIZpUojwVW9PxrgJm7zv20jw/viewform?usp=header" target="_blank" rel="noopener noreferrer" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
-      </footer>
 
       {/* New Observation Modal */}
       {allTeachers.length > 0 && (

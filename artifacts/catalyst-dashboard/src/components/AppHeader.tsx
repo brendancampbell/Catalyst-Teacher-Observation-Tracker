@@ -22,7 +22,6 @@ function RubricIcon({ target, subjectAudience, size = 13 }: { target?: "TEACHER"
 
 interface AppHeaderProps {
   subtitle: string;
-  subtitleIcon?: ReactNode;
   backHref?: string;
   backLabel?: string;
   basePath: string;
@@ -41,7 +40,6 @@ interface AppHeaderProps {
 
 export default function AppHeader({
   subtitle,
-  subtitleIcon,
   backHref,
   backLabel = "Dashboard",
   basePath,
@@ -108,15 +106,6 @@ export default function AppHeader({
               >
                 Catalyst
               </p>
-              {subtitle && (
-                <div
-                  className="flex items-center gap-1"
-                  style={{ color: YELLOW, fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.06em", lineHeight: 1, marginTop: 2 }}
-                >
-                  {subtitleIcon}
-                  <span style={{ paddingTop: 1 }}>{subtitle}</span>
-                </div>
-              )}
             </div>
           </div>
 
