@@ -1750,7 +1750,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Input + Send */}
-                    <div className="flex gap-2 mb-5 items-end">
+                    <div className="flex gap-2 mb-3 items-end">
                       <textarea
                         ref={chatTextareaRef}
                         value={chatInput}
