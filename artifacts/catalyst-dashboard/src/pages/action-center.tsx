@@ -1369,8 +1369,8 @@ export default function ActionCenterPage() {
                               if (e.key === "Enter") handleRenameSubmit(s.id);
                               if (e.key === "Escape") setRenamingId(null);
                             }}
-                            className="w-full text-xs font-semibold bg-white rounded px-2 py-1 border border-slate-300 focus:outline-none"
-                            style={{ color: NAVY }}
+                            className="w-full font-semibold bg-white rounded px-2 py-1 border border-slate-300 focus:outline-none"
+                            style={{ color: NAVY, fontFamily: "'Libre Franklin', sans-serif", fontSize: 14 }}
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : isConfirm ? (
@@ -1391,13 +1391,12 @@ export default function ActionCenterPage() {
                         ) : (
                           <>
                             <span
-                              className="text-xs font-semibold truncate leading-snug"
+                              className="font-semibold truncate leading-snug"
                               style={{
-                                fontFamily:   "'Bebas Neue', sans-serif",
-                                color:        isActive ? NAVY : "#374151",
+                                fontFamily:  "'Libre Franklin', sans-serif",
+                                color:       isActive ? NAVY : "#374151",
                                 paddingRight: 36,
-                                letterSpacing: "0.02em",
-                                fontSize:     13,
+                                fontSize:    14,
                               }}
                               title={s.title}
                             >{s.title}</span>
