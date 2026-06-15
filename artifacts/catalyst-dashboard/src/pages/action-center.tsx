@@ -73,6 +73,33 @@ function renderInlineText(text: string): React.ReactNode[] {
   });
 }
 
+function renderPlainAIText(text: string): React.ReactNode {
+  const paragraphs = text.split(/\n\n+/);
+  return (
+    <>
+      {paragraphs.map((para, pi) => {
+        const isLast = pi === paragraphs.length - 1;
+        const segments = para.split("**");
+        const inlineNodes = segments.flatMap((part, partI) => {
+          if (partI % 2 === 1) {
+            if (/^\s*[\d,\.%]+\s*$/.test(part)) return [<span key={`b${partI}`}>{part}</span>];
+            return [<strong key={`b${partI}`} style={{ fontWeight: 600 }}>{part}</strong>];
+          }
+          const lines = part.split("\n");
+          return lines.flatMap((line, li) =>
+            li < lines.length - 1 ? [line, <br key={`br${partI}-${li}`} />] : [line],
+          );
+        });
+        return (
+          <p key={pi} style={{ margin: 0, marginBottom: isLast ? 0 : 8 }}>
+            {inlineNodes}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
 function isAnalysisNarrative(text: string): boolean {
   const lines = text.split("\n");
   return lines.some((line) => {
@@ -193,7 +220,7 @@ function AINarrativeRenderer({ text }: { text: string }) {
 
         /* Regular paragraph */
         return (
-          <p key={i} style={{ fontSize: 13, lineHeight: "1.6", marginBottom: 6, margin: "0 0 6px" }}>
+          <p key={i} style={{ fontSize: 13, lineHeight: "1.6", margin: "0 0 10px" }}>
             {renderInlineText(trimmed)}
           </p>
         );
@@ -1696,13 +1723,15 @@ export default function ActionCenterPage() {
                               >
                                 {msg.role === "ai" && isAnalysisNarrative(msg.text)
                                   ? <AINarrativeRenderer text={msg.text} />
-                                  : msg.text.split("**").map((part, pi) => {
-                                      if (pi % 2 === 1) {
-                                        if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
-                                        return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
-                                      }
-                                      return part;
-                                    })
+                                  : msg.role === "ai"
+                                    ? renderPlainAIText(msg.text)
+                                    : msg.text.split("**").map((part, pi) => {
+                                        if (pi % 2 === 1) {
+                                          if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
+                                          return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+                                        }
+                                        return part;
+                                      })
                                 }
                               </div>
                               {msg.role === "ai" && msg.matchedTeachers && msg.matchedTeachers.length > 0 && (
