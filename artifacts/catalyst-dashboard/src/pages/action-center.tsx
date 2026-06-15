@@ -1783,30 +1783,6 @@ export default function ActionCenterPage() {
                       </Button>
                     </div>
 
-                    {/* Example question chips */}
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {[
-                        "Which teachers are below the proficiency threshold?",
-                        "Where is my school strongest and weakest?",
-                        "Who needs a rescore this week?",
-                        "What should I focus on in my next walkthroughs?",
-                      ].map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => handleSendChat(q)}
-                          className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                          style={{
-                            fontFamily: "'Libre Franklin', sans-serif",
-                            borderColor: "#e2e8f0",
-                            color: "#475569",
-                            backgroundColor: "white",
-                          }}
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
-
                     {/* Instant Analysis */}
                     <div className="flex flex-col items-center gap-1.5 mb-5">
                       <button
