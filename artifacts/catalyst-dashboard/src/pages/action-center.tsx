@@ -626,7 +626,7 @@ export default function ActionCenterPage() {
     setIsInstantAnalyzing(true);
     let capturedSessionId: number | null = null;
     try {
-      const sessionTitle = `${activeQuarter} Instant Analysis`;
+      const sessionTitle = `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} Instant Analysis`;
       const newSession = await createChatSession(sessionTitle);
       const sessionId = newSession.id;
       capturedSessionId = sessionId;
