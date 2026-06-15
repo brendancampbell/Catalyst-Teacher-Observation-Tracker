@@ -602,27 +602,21 @@ async function buildCombinedContext(
     };
     contextStr = buildContextBlock(ctx);
 
-    /* Named teacher breakdown (exact name match) */
-    const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
+    /* Always inject full per-teacher breakdown — the AI needs teacher-level
+       data regardless of how the question is phrased. */
+    const allAsMatched = scopedPeople.map((p) => ({
+      employeeId: p.employeeId,
+      name: `${p.firstName} ${p.lastName}`,
+    }));
+    const teacherSection = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
     if (teacherSection) contextStr += "\n\n" + teacherSection;
 
-    /* Relative reference ranked list (only when no exact name was matched) */
-    if (relativeRef.kind && !matchedTeachers.length) {
+    /* Ranked list for explicit "weakest / top N" queries */
+    if (relativeRef.kind) {
       const rankedSection = await buildRankedTeacherSection(
         scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n,
       );
       if (rankedSection) contextStr += "\n\n" + rankedSection;
-    }
-
-    /* "Which teacher / who has" intent — inject full per-teacher breakdown
-       when neither an exact name nor a relative reference was detected */
-    if (teacherDataIntent && !matchedTeachers.length && !relativeRef.kind) {
-      const allAsMatched = scopedPeople.map((p) => ({
-        employeeId: p.employeeId,
-        name: `${p.firstName} ${p.lastName}`,
-      }));
-      const fullBreakdown = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
-      if (fullBreakdown) contextStr += "\n\n" + fullBreakdown;
     }
 
     return { contextStr, activeRubricSetSlug: singleSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
@@ -652,26 +646,20 @@ async function buildCombinedContext(
     blocks.push(buildContextBlock(ctx));
   }
 
-  /* Named teacher breakdown */
-  const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
+  /* Always inject full per-teacher breakdown for all teachers in scope */
+  const allAsMatchedMulti = scopedPeople.map((p) => ({
+    employeeId: p.employeeId,
+    name: `${p.firstName} ${p.lastName}`,
+  }));
+  const teacherSection = await buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets);
   if (teacherSection) blocks.push(teacherSection);
 
-  /* Relative reference ranked list across all rubric sets (only when no exact name was matched) */
-  if (relativeRef.kind && !matchedTeachers.length) {
+  /* Ranked list for explicit "weakest / top N" queries */
+  if (relativeRef.kind) {
     const rankedSection = await buildRankedTeacherSection(
       scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n,
     );
     if (rankedSection) blocks.push(rankedSection);
-  }
-
-  /* "Which teacher / who has" intent — inject full per-teacher breakdown */
-  if (teacherDataIntent && !matchedTeachers.length && !relativeRef.kind) {
-    const allAsMatched = scopedPeople.map((p) => ({
-      employeeId: p.employeeId,
-      name: `${p.firstName} ${p.lastName}`,
-    }));
-    const fullBreakdown = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
-    if (fullBreakdown) blocks.push(fullBreakdown);
   }
 
   return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
