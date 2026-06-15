@@ -554,6 +554,7 @@ export default function ActionCenterPage() {
   const chatEndRef                                  = useRef<HTMLDivElement>(null);
   const activeChatIdRef                             = useRef<number | null>(null);
   const abortControllerRef                          = useRef<AbortController | null>(null);
+  const chatTextareaRef                             = useRef<HTMLTextAreaElement>(null);
 
   /* localStorage key scoped to the current user so selections don't bleed
      between accounts on shared browsers. */
@@ -580,6 +581,13 @@ export default function ActionCenterPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, chatTyping, streamingText]);
+
+  /* Reset textarea height when input is cleared (e.g. after send) */
+  useEffect(() => {
+    if (!chatInput && chatTextareaRef.current) {
+      chatTextareaRef.current.style.height = "auto";
+    }
+  }, [chatInput]);
 
   async function selectSession(id: number) {
     setActiveChatId(id);
@@ -1586,14 +1594,28 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Input + Send */}
-                    <div className="flex gap-2 mb-4">
-                      <Input
+                    <div className="flex gap-2 mb-4 items-end">
+                      <textarea
+                        ref={chatTextareaRef}
                         value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
+                        rows={1}
+                        onChange={(e) => {
+                          setChatInput(e.target.value);
+                          const el = e.target;
+                          el.style.height = "auto";
+                          el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                        }}
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
                         placeholder="Ask about your school's observation data…"
-                        className="flex-1 h-12 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
-                        style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
+                        className="flex-1 rounded-xl border border-slate-200 bg-white shadow-sm text-sm px-3 py-3 resize-none focus:outline-none focus:ring-1"
+                        style={{
+                          minHeight: 48,
+                          maxHeight: 120,
+                          overflowY: "auto",
+                          lineHeight: "1.5",
+                          fontFamily: "inherit",
+                          '--tw-ring-color': NAVY,
+                        } as React.CSSProperties}
                       />
                       <Button
                         onClick={handleSendChat}
@@ -1749,18 +1771,32 @@ export default function ActionCenterPage() {
                       </button>
                     ) : (
                       <>
-                        <Input
+                        <textarea
+                          ref={chatTextareaRef}
                           value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
+                          rows={1}
+                          onChange={(e) => {
+                            setChatInput(e.target.value);
+                            const el = e.target;
+                            el.style.height = "auto";
+                            el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                          }}
                           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
                           placeholder="Ask a follow-up question…"
-                          className="flex-1 rounded-xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-1"
-                          style={{ '--tw-ring-color': NAVY } as React.CSSProperties}
+                          className="flex-1 rounded-xl border border-slate-200 bg-white shadow-sm text-sm px-3 py-2.5 resize-none focus:outline-none focus:ring-1"
+                          style={{
+                            minHeight: 40,
+                            maxHeight: 120,
+                            overflowY: "auto",
+                            lineHeight: "1.5",
+                            fontFamily: "inherit",
+                            '--tw-ring-color': NAVY,
+                          } as React.CSSProperties}
                         />
                         <Button
                           onClick={handleSendChat}
                           disabled={!chatInput.trim()}
-                          className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0"
+                          className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0 self-end"
                           style={{ backgroundColor: NAVY }}
                         >
                           <Send size={16} color="white" />
