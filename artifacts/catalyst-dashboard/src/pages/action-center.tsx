@@ -75,29 +75,69 @@ function renderInlineText(text: string): React.ReactNode[] {
 
 function renderPlainAIText(text: string): React.ReactNode {
   const paragraphs = text.split(/\n\n+/);
-  return (
-    <>
-      {paragraphs.map((para, pi) => {
-        const isLast = pi === paragraphs.length - 1;
-        const segments = para.split("**");
-        const inlineNodes = segments.flatMap((part, partI) => {
-          if (partI % 2 === 1) {
-            if (/^\s*[\d,\.%]+\s*$/.test(part)) return [<span key={`b${partI}`}>{part}</span>];
-            return [<strong key={`b${partI}`} style={{ fontWeight: 600 }}>{part}</strong>];
-          }
-          const lines = part.split("\n");
-          return lines.flatMap((line, li) =>
-            li < lines.length - 1 ? [line, <br key={`br${partI}-${li}`} />] : [line],
+  const nodes: React.ReactNode[] = [];
+
+  paragraphs.forEach((para, pi) => {
+    const isLastPara = pi === paragraphs.length - 1;
+    const lines = para.split("\n");
+
+    const hasListItems = lines.some((line) => {
+      const t = line.trim();
+      return /^[-*]\s+/.test(t) || /^\d+\.\s+/.test(t);
+    });
+
+    if (hasListItems) {
+      lines.forEach((line, li) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const bulletMatch = trimmed.match(/^[-*]\s+([\s\S]*)/);
+        const numberedMatch = trimmed.match(/^(\d+)\.\s+([\s\S]*)/);
+
+        if (bulletMatch) {
+          nodes.push(
+            <div key={`${pi}-${li}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
+              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(bulletMatch[1])}</span>
+            </div>,
           );
-        });
-        return (
-          <p key={pi} style={{ margin: 0, marginBottom: isLast ? 0 : 8 }}>
-            {inlineNodes}
-          </p>
+        } else if (numberedMatch) {
+          nodes.push(
+            <div key={`${pi}-${li}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5", minWidth: 18 }}>{numberedMatch[1]}.</span>
+              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(numberedMatch[2])}</span>
+            </div>,
+          );
+        } else {
+          nodes.push(
+            <p key={`${pi}-${li}`} style={{ margin: 0, marginBottom: 6 }}>
+              {renderInlineText(trimmed)}
+            </p>,
+          );
+        }
+      });
+      if (!isLastPara) nodes.push(<div key={`${pi}-gap`} style={{ height: 3 }} />);
+    } else {
+      const segments = para.split("**");
+      const inlineNodes = segments.flatMap((part, partI) => {
+        if (partI % 2 === 1) {
+          if (/^\s*[\d,\.%]+\s*$/.test(part)) return [<span key={`b${partI}`}>{part}</span>];
+          return [<strong key={`b${partI}`} style={{ fontWeight: 600 }}>{part}</strong>];
+        }
+        const plines = part.split("\n");
+        return plines.flatMap((pline, li) =>
+          li < plines.length - 1 ? [pline, <br key={`br${partI}-${li}`} />] : [pline],
         );
-      })}
-    </>
-  );
+      });
+      nodes.push(
+        <p key={pi} style={{ margin: 0, marginBottom: isLastPara ? 0 : 8 }}>
+          {inlineNodes}
+        </p>,
+      );
+    }
+  });
+
+  return <>{nodes}</>;
 }
 
 function isAnalysisNarrative(text: string): boolean {
