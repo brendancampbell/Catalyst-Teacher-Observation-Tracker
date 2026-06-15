@@ -1737,17 +1737,20 @@ export default function ActionCenterPage() {
                 /* ── Empty state ── */
                 <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
                   <div className="w-full max-w-xl">
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-6">
                       <h2
-                        className="font-bold uppercase tracking-wide mb-2"
+                        className="font-bold uppercase tracking-wide mb-1"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 28 }}
                       >
                         Catalyst Data Assistant
                       </h2>
+                      <p className="text-sm text-slate-500" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                        Ask anything about your teachers, scores, and coaching priorities.
+                      </p>
                     </div>
 
                     {/* Input + Send */}
-                    <div className="flex gap-2 mb-4 items-end">
+                    <div className="flex gap-2 mb-3 items-end">
                       <textarea
                         ref={chatTextareaRef}
                         value={chatInput}
@@ -1780,8 +1783,32 @@ export default function ActionCenterPage() {
                       </Button>
                     </div>
 
+                    {/* Example question chips */}
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {[
+                        "Which teachers are below the proficiency threshold?",
+                        "Where is my school strongest and weakest?",
+                        "Who needs a rescore this week?",
+                        "What should I focus on in my next walkthroughs?",
+                      ].map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => handleSendChat(q)}
+                          className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                          style={{
+                            fontFamily: "'Libre Franklin', sans-serif",
+                            borderColor: "#e2e8f0",
+                            color: "#475569",
+                            backgroundColor: "white",
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+
                     {/* Instant Analysis */}
-                    <div className="flex flex-col items-center gap-2 mb-5">
+                    <div className="flex flex-col items-center gap-1.5 mb-5">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
@@ -1791,18 +1818,18 @@ export default function ActionCenterPage() {
                         {isInstantAnalyzing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
                         {isInstantAnalyzing ? "Generating Analysis…" : "Instant Analysis"}
                       </button>
-                      {isInstantAnalyzing && (
-                        <p className="text-xs text-slate-400 animate-pulse" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-                          Reviewing your school's rubric data — this may take a moment
-                        </p>
-                      )}
+                      <p className="text-xs text-slate-400 text-center" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
+                        {isInstantAnalyzing
+                          ? <span className="animate-pulse">Reviewing your school's rubric data — this may take a moment</span>
+                          : "Scans all your observation data and surfaces key strengths, flags, and coaching priorities."}
+                      </p>
                     </div>
 
                     <p
                       className="text-xs text-center text-slate-400"
                       style={{ fontFamily: "'Libre Franklin', sans-serif" }}
                     >
-                      Powered by Claude Opus 4
+                      Answers are grounded in your live observation data
                     </p>
                   </div>
                 </div>
