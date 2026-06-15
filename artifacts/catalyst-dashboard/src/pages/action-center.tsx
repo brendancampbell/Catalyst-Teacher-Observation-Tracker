@@ -1784,7 +1784,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Instant Analysis */}
-                    <div className="flex flex-col items-center gap-3 mb-8">
+                    <div className="flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
