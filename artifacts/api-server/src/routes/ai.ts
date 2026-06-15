@@ -334,9 +334,115 @@ router.delete("/chats/:id", async (req, res) => {
   }
 });
 
+/* ── Helper: fetch full people list for the current scope ─────────── */
+async function getScopedPeople(
+  scopedSchoolId: number | null,
+): Promise<Array<{ employeeId: string; firstName: string; lastName: string }>> {
+  const baseConditions = [
+    eq(people.isActive, true),
+    eq(people.includeInFeedbackTracker, true),
+  ];
+  const rows = scopedSchoolId === null
+    ? await db
+        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName })
+        .from(people)
+        .where(and(...baseConditions as [ReturnType<typeof eq>, ReturnType<typeof eq>]))
+    : await db
+        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName })
+        .from(people)
+        .where(and(
+          ...baseConditions as [ReturnType<typeof eq>, ReturnType<typeof eq>],
+          eq(people.schoolId, scopedSchoolId),
+        ));
+  return rows;
+}
+
+/* ── Helper: detect which teachers from the pool are mentioned in a message ── */
+function findMentionedTeachers(
+  messageText: string,
+  teacherPool: Array<{ employeeId: string; firstName: string; lastName: string }>,
+): Array<{ employeeId: string; name: string }> {
+  const lower = messageText.toLowerCase();
+  const matched: Array<{ employeeId: string; name: string }> = [];
+  for (const p of teacherPool) {
+    const lastName  = p.lastName.toLowerCase();
+    const fullName  = `${p.firstName} ${p.lastName}`.toLowerCase();
+    if (lower.includes(lastName) || lower.includes(fullName)) {
+      matched.push({ employeeId: p.employeeId, name: `${p.firstName} ${p.lastName}` });
+    }
+  }
+  return matched;
+}
+
+/* ── Helper: build per-teacher cross-period domain scores section ──── */
+async function buildTeacherBreakdowns(
+  matchedTeachers: Array<{ employeeId: string; name: string }>,
+  allRubricSets: Array<{ id: number; slug: string; name: string }>,
+): Promise<string> {
+  if (!matchedTeachers.length) return "";
+
+  const empIds = matchedTeachers.map((t) => t.employeeId);
+
+  const rows = await db
+    .select({
+      observedEmployeeId: observations.observedEmployeeId,
+      rubricSetId:        observations.rubricSetId,
+      domainSlug:         observationScores.domainSlug,
+      score:              observationScores.score,
+    })
+    .from(observationScores)
+    .innerJoin(observations, eq(observations.id, observationScores.observationId))
+    .where(inArray(observations.observedEmployeeId, empIds));
+
+  if (!rows.length) return "";
+
+  const allSlugs = Array.from(new Set(rows.map((r) => r.domainSlug)));
+  const domainNameMap = await slugNameMap(allSlugs);
+
+  /* Group: employeeId -> rubricSetId -> domainSlug -> scores[] */
+  const grouped = new Map<string, Map<number, Map<string, number[]>>>();
+  for (const r of rows) {
+    if (!r.observedEmployeeId) continue;
+    let byRS = grouped.get(r.observedEmployeeId);
+    if (!byRS) { byRS = new Map(); grouped.set(r.observedEmployeeId, byRS); }
+    let byDomain = byRS.get(r.rubricSetId);
+    if (!byDomain) { byDomain = new Map(); byRS.set(r.rubricSetId, byDomain); }
+    const bucket = byDomain.get(r.domainSlug) ?? [];
+    bucket.push(r.score);
+    byDomain.set(r.domainSlug, bucket);
+  }
+
+  const rsMap = new Map(allRubricSets.map((rs) => [rs.id, rs]));
+  const lines: string[] = ["## Individual teacher breakdown by rubric period\n"];
+
+  for (const teacher of matchedTeachers) {
+    lines.push(`### ${teacher.name}`);
+    const byRS = grouped.get(teacher.employeeId);
+    if (!byRS || !byRS.size) {
+      lines.push("No observation data on record.\n");
+      continue;
+    }
+    for (const [rsId, byDomain] of byRS) {
+      const rs = rsMap.get(rsId);
+      const rsLabel = rs?.name ?? `Rubric set ${rsId}`;
+      lines.push(`\n**${rsLabel}**`);
+      for (const [domainSlug, scores] of byDomain) {
+        const domainName = domainNameMap.get(domainSlug) ?? domainSlug;
+        const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+        const status = avg >= 0.7 ? "✓ proficient" : "⚠ below threshold";
+        lines.push(`- ${domainName}: ${avg.toFixed(3)} (${scores.length} observation(s)) [${status}]`);
+      }
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 /* ── Helper: build combined context string for one or multiple rubric sets ── */
 async function buildCombinedContext(
   personIds: string[],
+  scopedPeople: Array<{ employeeId: string; firstName: string; lastName: string }>,
   scope: "school" | "network",
   rescoreQueueCount: number,
   totalObservations: number,
@@ -356,8 +462,13 @@ async function buildCombinedContext(
     }
   }
 
+  /* Detect teacher name mentions */
+  const matchedTeachers = findMentionedTeachers(messageText, scopedPeople);
+
   /* If only one rubric is relevant (or none), build a single context block */
   const slugList = Array.from(mentionedSlugs);
+
+  let contextStr: string;
 
   if (slugList.length <= 1) {
     const singleSlug = slugList[0] ?? null;
@@ -378,7 +489,10 @@ async function buildCombinedContext(
       rescoreQueueCount,
       calibrationFlags,
     };
-    return { contextStr: buildContextBlock(ctx), activeRubricSetSlug: singleSlug };
+    contextStr = buildContextBlock(ctx);
+    const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
+    if (teacherSection) contextStr += "\n\n" + teacherSection;
+    return { contextStr, activeRubricSetSlug: singleSlug };
   }
 
   /* Multiple rubric sets referenced — build a section per rubric */
@@ -404,6 +518,9 @@ async function buildCombinedContext(
     };
     blocks.push(buildContextBlock(ctx));
   }
+
+  const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
+  if (teacherSection) blocks.push(teacherSection);
 
   return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug };
 }
@@ -434,9 +551,13 @@ router.post("/chat/stream", async (req, res) => {
 
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
-    const personIds = await getPersonIds(scopedSchoolId);
+    const [scopedPeople, allRubricSets] = await Promise.all([
+      getScopedPeople(scopedSchoolId),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+    ]);
+    const personIds = scopedPeople.map((p) => p.employeeId);
 
-    const [rescoreRows, allRubricSets, obsCountResult] = await Promise.all([
+    const [rescoreRows, obsCountResult] = await Promise.all([
       personIds.length
         ? db.select({ employeeId: people.employeeId }).from(people).where(
             scopedSchoolId !== null
@@ -444,7 +565,6 @@ router.post("/chat/stream", async (req, res) => {
               : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
           )
         : Promise.resolve([]),
-      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
       personIds.length
         ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
         : Promise.resolve([{ count: 0 }]),
@@ -454,6 +574,7 @@ router.post("/chat/stream", async (req, res) => {
 
     const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
       personIds,
+      scopedPeople,
       scope,
       rescoreRows.length,
       totalObservations,
@@ -545,9 +666,13 @@ router.post("/chat", async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
-    const personIds = await getPersonIds(scopedSchoolId);
+    const [scopedPeople, allRubricSets] = await Promise.all([
+      getScopedPeople(scopedSchoolId),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+    ]);
+    const personIds = scopedPeople.map((p) => p.employeeId);
 
-    const [rescoreRows, allRubricSets, obsCountResult] = await Promise.all([
+    const [rescoreRows, obsCountResult] = await Promise.all([
       personIds.length
         ? db.select({ employeeId: people.employeeId }).from(people).where(
             scopedSchoolId !== null
@@ -555,7 +680,6 @@ router.post("/chat", async (req, res) => {
               : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
           )
         : Promise.resolve([]),
-      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
       personIds.length
         ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
         : Promise.resolve([{ count: 0 }]),
@@ -565,6 +689,7 @@ router.post("/chat", async (req, res) => {
 
     const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
       personIds,
+      scopedPeople,
       scope,
       rescoreRows.length,
       totalObservations,
