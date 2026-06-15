@@ -1735,7 +1735,7 @@ export default function ActionCenterPage() {
 
               {activeChatId === null ? (
                 /* ── Empty state ── */
-                <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+                <div className="flex-1 flex flex-col items-center justify-center px-3 py-10">
                   <div className="w-full max-w-xl">
                     <div className="text-center mb-8">
                       <h2
@@ -1784,7 +1784,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Instant Analysis */}
-                    <div className="flex flex-col items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-1.5 mb-8">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
