@@ -384,6 +384,22 @@ const RELATIVE_TOP_KEYWORDS = [
   "star", "outstanding", "most proficient", "top teacher",
 ];
 
+/* ── Helper: detect "which teacher(s)" / "who has" intent ─────────────────── */
+const TEACHER_DATA_INTENT_KEYWORDS = [
+  "which teacher", "which of my teacher", "which staff",
+  "who has", "who have", "who scored", "who is below", "who are below",
+  "who is above", "who are above", "who needs", "who need",
+  "pulling down", "dragging down",
+  "name the teacher", "identify the teacher", "list the teacher",
+  "per teacher", "by teacher", "teacher breakdown", "individual teacher",
+  "each teacher", "every teacher",
+];
+
+function detectTeacherDataIntent(messageText: string): boolean {
+  const lower = messageText.toLowerCase();
+  return TEACHER_DATA_INTENT_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 function detectRelativeReference(
   messageText: string,
 ): { kind: "bottom" | "top" | null; n: number } {
@@ -558,6 +574,7 @@ async function buildCombinedContext(
   /* Detect teacher name mentions and relative references ("my weakest", "top 3", …) */
   const matchedTeachers   = findMentionedTeachers(messageText, scopedPeople);
   const relativeRef       = detectRelativeReference(messageText);
+  const teacherDataIntent = detectTeacherDataIntent(messageText);
 
   /* If only one rubric is relevant (or none), build a single context block */
   const slugList = Array.from(mentionedSlugs);
@@ -597,6 +614,17 @@ async function buildCombinedContext(
       if (rankedSection) contextStr += "\n\n" + rankedSection;
     }
 
+    /* "Which teacher / who has" intent — inject full per-teacher breakdown
+       when neither an exact name nor a relative reference was detected */
+    if (teacherDataIntent && !matchedTeachers.length && !relativeRef.kind) {
+      const allAsMatched = scopedPeople.map((p) => ({
+        employeeId: p.employeeId,
+        name: `${p.firstName} ${p.lastName}`,
+      }));
+      const fullBreakdown = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
+      if (fullBreakdown) contextStr += "\n\n" + fullBreakdown;
+    }
+
     return { contextStr, activeRubricSetSlug: singleSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
   }
 
@@ -634,6 +662,16 @@ async function buildCombinedContext(
       scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n,
     );
     if (rankedSection) blocks.push(rankedSection);
+  }
+
+  /* "Which teacher / who has" intent — inject full per-teacher breakdown */
+  if (teacherDataIntent && !matchedTeachers.length && !relativeRef.kind) {
+    const allAsMatched = scopedPeople.map((p) => ({
+      employeeId: p.employeeId,
+      name: `${p.firstName} ${p.lastName}`,
+    }));
+    const fullBreakdown = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
+    if (fullBreakdown) blocks.push(fullBreakdown);
   }
 
   return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
