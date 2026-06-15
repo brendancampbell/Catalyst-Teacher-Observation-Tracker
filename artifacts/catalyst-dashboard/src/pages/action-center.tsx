@@ -1797,16 +1797,9 @@ export default function ActionCenterPage() {
                       <p className="text-xs text-slate-400 text-center" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
                         {isInstantAnalyzing
                           ? <span className="animate-pulse">Reviewing your school's rubric data — this may take a moment</span>
-                          : "Scans all your observation data and surfaces key strengths, flags, and coaching priorities."}
+                          : "Scans all your observation data and surfaces key strengths, flags, and coaching priorities — all grounded in your live observation data."}
                       </p>
                     </div>
-
-                    <p
-                      className="text-xs text-center text-slate-400"
-                      style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                    >
-                      Answers are grounded in your live observation data
-                    </p>
                   </div>
                 </div>
               ) : (
