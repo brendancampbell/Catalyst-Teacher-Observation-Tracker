@@ -1737,7 +1737,7 @@ export default function ActionCenterPage() {
                 /* ── Empty state ── */
                 <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
                   <div className="w-full max-w-xl">
-                    <div className="text-center mb-6">
+                    <div className="text-center mb-8">
                       <h2
                         className="font-bold uppercase tracking-wide mb-1"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 28 }}
@@ -1750,7 +1750,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Input + Send */}
-                    <div className="flex gap-2 mb-3 items-end">
+                    <div className="flex gap-2 mb-8 items-end">
                       <textarea
                         ref={chatTextareaRef}
                         value={chatInput}
@@ -1784,7 +1784,7 @@ export default function ActionCenterPage() {
                     </div>
 
                     {/* Instant Analysis */}
-                    <div className="flex flex-col items-center gap-1.5 mb-5">
+                    <div className="flex flex-col items-center gap-1.5">
                       <button
                         onClick={handleInstantAnalysis}
                         disabled={isInstantAnalyzing}
