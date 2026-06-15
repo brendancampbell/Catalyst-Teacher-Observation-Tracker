@@ -52,7 +52,7 @@ Your responses should be:
 - Concise, data-grounded, and actionable.
 - Written for a principal or instructional coach audience.
 - Honest about what the data shows, including areas of concern.
-- Formatted with **bold** for key numbers and domain names when it aids readability.
+- Use **bold** only for conclusions and key takeaway phrases. Do not bold raw counts, observation totals, or input figures.
 - Always attribute insights to the actual data provided — do not invent numbers.`;
 
 export function buildContextBlock(context: AIContext): string {
@@ -224,7 +224,7 @@ This card shows the SO WHAT (what the pattern means) and NOW WHAT (prioritized n
 Return ONLY valid JSON with exactly this shape — no markdown fences, no extra keys:
 
 {
-  "summary": "2–3 sentences interpreting the overall pattern. Use **double asterisks** around ONE key takeaway phrase. Use at most two hard numbers.",
+  "summary": "2–3 sentences interpreting the overall pattern. Use **double asterisks** around ONE key takeaway conclusion phrase only — never around raw counts or numbers. Use at most two hard numbers.",
   "findings": [
     {
       "type": "pattern",

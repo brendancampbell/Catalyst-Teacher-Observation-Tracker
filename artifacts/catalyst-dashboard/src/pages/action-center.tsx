@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
-  Bot, User2, Activity, Globe2, FileText,
+  Activity, Globe2, FileText,
   RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
@@ -64,9 +64,13 @@ type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAna
 /* ── Narrative helpers ──────────────────────────────── */
 
 function renderInlineText(text: string): React.ReactNode[] {
-  return text.split("**").map((part, pi) =>
-    pi % 2 === 1 ? <strong key={pi}>{part}</strong> : <span key={pi}>{part}</span>
-  );
+  return text.split("**").map((part, pi) => {
+    if (pi % 2 === 1) {
+      if (/^\s*[\d,\.%]+\s*$/.test(part)) return <span key={pi}>{part}</span>;
+      return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+    }
+    return <span key={pi}>{part}</span>;
+  });
 }
 
 function isAnalysisNarrative(text: string): boolean {
@@ -1644,26 +1648,28 @@ export default function ActionCenterPage() {
                           />
                         ) : (
                           <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                            {msg.role === "ai" && (
+                              <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
+                            )}
                             <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm"
-                              style={{ backgroundColor: msg.role === "ai" ? NAVY : "#E2E8F0" }}
-                            >
-                              {msg.role === "ai" ? <Bot size={15} color="white" /> : <User2 size={15} color="#64748B" />}
-                            </div>
-                            <div
-                              className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                              className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed"
                               style={{
-                                backgroundColor: msg.role === "ai" ? "white" : NAVY,
-                                color:           msg.role === "ai" ? "#1e293b" : "white",
+                                backgroundColor: msg.role === "ai" ? "white" : "#EEF2FB",
+                                color:           "#1e293b",
                                 border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                                borderRadius:    msg.role === "ai" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+                                borderRadius:    "12px",
+                                boxShadow:       "none",
                               }}
                             >
                               {msg.role === "ai" && isAnalysisNarrative(msg.text)
                                 ? <AINarrativeRenderer text={msg.text} />
-                                : msg.text.split("**").map((part, pi) =>
-                                    pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                                  )
+                                : msg.text.split("**").map((part, pi) => {
+                                    if (pi % 2 === 1) {
+                                      if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
+                                      return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+                                    }
+                                    return part;
+                                  })
                               }
                             </div>
                           </div>
@@ -1671,10 +1677,8 @@ export default function ActionCenterPage() {
                       )}
                       {chatTyping && !streamingText && (
                         <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: NAVY }}>
-                            <Bot size={15} color="white" />
-                          </div>
-                          <div className="px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-200" style={{ borderRadius: "4px 18px 18px 18px" }}>
+                          <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
+                          <div className="px-4 py-3 bg-white border border-slate-200" style={{ borderRadius: "12px", boxShadow: "none" }}>
                             <div className="flex gap-1 items-center h-4">
                               {[0, 1, 2].map((d) => (
                                 <div key={d} className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: `${d * 0.15}s` }} />
@@ -1685,23 +1689,26 @@ export default function ActionCenterPage() {
                       )}
                       {streamingText && (
                         <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm" style={{ backgroundColor: NAVY }}>
-                            <Bot size={15} color="white" />
-                          </div>
+                          <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
                           <div
-                            className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm"
+                            className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed"
                             style={{
                               backgroundColor: "white",
                               color:           "#1e293b",
                               border:          "1px solid #e2e8f0",
-                              borderRadius:    "4px 18px 18px 18px",
+                              borderRadius:    "12px",
+                              boxShadow:       "none",
                             }}
                           >
                             {isAnalysisNarrative(streamingText)
                               ? <><AINarrativeRenderer text={streamingText} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
-                              : <>{streamingText.split("**").map((part, pi) =>
-                                  pi % 2 === 1 ? <strong key={pi}>{part}</strong> : part
-                                )}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
+                              : <>{streamingText.split("**").map((part, pi) => {
+                                  if (pi % 2 === 1) {
+                                    if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
+                                    return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+                                  }
+                                  return part;
+                                })}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
                             }
                           </div>
                         </div>
