@@ -374,6 +374,99 @@ function findMentionedTeachers(
   return matched;
 }
 
+/* ── Helper: detect relative teacher references ("my lowest," "top 3," etc.) ── */
+const RELATIVE_BOTTOM_KEYWORDS = [
+  "lowest", "weakest", "worst", "struggling", "behind", "underperform",
+  "least proficient", "needs support", "needs work", "poorest", "bottom",
+];
+const RELATIVE_TOP_KEYWORDS = [
+  "highest", "strongest", "best", "top performer", "leading", "excel",
+  "star", "outstanding", "most proficient", "top teacher",
+];
+
+function detectRelativeReference(
+  messageText: string,
+): { kind: "bottom" | "top" | null; n: number } {
+  const lower = messageText.toLowerCase();
+
+  /* Try to pull an explicit count, e.g. "lowest 3" or "top 5 teachers" */
+  const countMatch = lower.match(/\b(?:top|bottom|lowest|highest|weakest|strongest|worst|best)\s+(\d+)\b/);
+  const n = countMatch ? Math.min(parseInt(countMatch[1]!, 10), 10) : 3;
+
+  const isBottom = RELATIVE_BOTTOM_KEYWORDS.some((kw) => lower.includes(kw));
+  const isTop    = RELATIVE_TOP_KEYWORDS.some((kw) => lower.includes(kw));
+
+  if (isBottom) return { kind: "bottom", n };
+  if (isTop)    return { kind: "top",    n };
+  return { kind: null, n: 3 };
+}
+
+/* ── Helper: build a ranked teacher list by overall average score ──────────── */
+async function buildRankedTeacherSection(
+  teacherPool: Array<{ employeeId: string; firstName: string; lastName: string }>,
+  allRubricSets: Array<{ id: number; slug: string; name: string }>,
+  rubricSetId: number | null,
+  kind: "bottom" | "top",
+  n: number,
+): Promise<string> {
+  if (!teacherPool.length) return "";
+
+  const empIds = teacherPool.map((t) => t.employeeId);
+
+  const whereClause = rubricSetId != null
+    ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.rubricSetId, rubricSetId))
+    : inArray(observations.observedEmployeeId, empIds);
+
+  const rows = await db
+    .select({
+      observedEmployeeId: observations.observedEmployeeId,
+      score:              observationScores.score,
+    })
+    .from(observationScores)
+    .innerJoin(observations, eq(observations.id, observationScores.observationId))
+    .where(whereClause);
+
+  if (!rows.length) return "";
+
+  /* Compute per-teacher averages */
+  const teacherScores = new Map<string, number[]>();
+  for (const r of rows) {
+    if (!r.observedEmployeeId) continue;
+    const bucket = teacherScores.get(r.observedEmployeeId) ?? [];
+    bucket.push(r.score);
+    teacherScores.set(r.observedEmployeeId, bucket);
+  }
+
+  const nameMap = new Map(teacherPool.map((t) => [t.employeeId, `${t.firstName} ${t.lastName}`]));
+
+  type TeacherRank = { name: string; avg: number; count: number };
+  const ranked: TeacherRank[] = [];
+  for (const [empId, scores] of teacherScores) {
+    const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+    ranked.push({ name: nameMap.get(empId) ?? empId, avg, count: scores.length });
+  }
+
+  ranked.sort((a, b) => kind === "bottom" ? a.avg - b.avg : b.avg - a.avg);
+  const selected = ranked.slice(0, n);
+
+  const label    = kind === "bottom" ? "Lowest-scoring" : "Highest-scoring";
+  const rsLabel  = rubricSetId != null
+    ? (allRubricSets.find((r) => r.id === rubricSetId)?.name ?? "")
+    : "";
+  const header   = rsLabel
+    ? `## ${label} teachers — ${rsLabel} (ranked by overall average)\n`
+    : `## ${label} teachers (ranked by overall average)\n`;
+
+  const lines: string[] = [header];
+  selected.forEach((t, i) => {
+    const status = t.avg >= 0.7 ? "✓ proficient" : "⚠ below threshold";
+    lines.push(`${i + 1}. ${t.name}: avg ${t.avg.toFixed(3)} across ${t.count} score(s) [${status}]`);
+  });
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 /* ── Helper: build per-teacher cross-period domain scores section ──── */
 async function buildTeacherBreakdowns(
   matchedTeachers: Array<{ employeeId: string; name: string }>,
@@ -462,8 +555,9 @@ async function buildCombinedContext(
     }
   }
 
-  /* Detect teacher name mentions */
-  const matchedTeachers = findMentionedTeachers(messageText, scopedPeople);
+  /* Detect teacher name mentions and relative references ("my weakest", "top 3", …) */
+  const matchedTeachers   = findMentionedTeachers(messageText, scopedPeople);
+  const relativeRef       = detectRelativeReference(messageText);
 
   /* If only one rubric is relevant (or none), build a single context block */
   const slugList = Array.from(mentionedSlugs);
@@ -490,8 +584,19 @@ async function buildCombinedContext(
       calibrationFlags,
     };
     contextStr = buildContextBlock(ctx);
+
+    /* Named teacher breakdown (exact name match) */
     const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
     if (teacherSection) contextStr += "\n\n" + teacherSection;
+
+    /* Relative reference ranked list (only when no exact name was matched) */
+    if (relativeRef.kind && !matchedTeachers.length) {
+      const rankedSection = await buildRankedTeacherSection(
+        scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n,
+      );
+      if (rankedSection) contextStr += "\n\n" + rankedSection;
+    }
+
     return { contextStr, activeRubricSetSlug: singleSlug };
   }
 
@@ -519,8 +624,17 @@ async function buildCombinedContext(
     blocks.push(buildContextBlock(ctx));
   }
 
+  /* Named teacher breakdown */
   const teacherSection = await buildTeacherBreakdowns(matchedTeachers, allRubricSets);
   if (teacherSection) blocks.push(teacherSection);
+
+  /* Relative reference ranked list across all rubric sets (only when no exact name was matched) */
+  if (relativeRef.kind && !matchedTeachers.length) {
+    const rankedSection = await buildRankedTeacherSection(
+      scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n,
+    );
+    if (rankedSection) blocks.push(rankedSection);
+  }
 
   return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug };
 }
