@@ -587,10 +587,18 @@ export default function ActionCenterPage() {
     persistSelectedChat(id);
     try {
       const messages = await fetchChatSessionMessages(id);
-      setChatMsgs(messages.map((m) => ({
+      const mapped: ChatMsg[] = messages.map((m) => ({
         role: m.role === "user" ? "user" as const : "ai" as const,
         text: m.content,
-      })));
+      }));
+      /* Restore the instant analysis card if one was saved for this session */
+      const stored = localStorage.getItem(`catalyst-instant-analysis-${id}`);
+      if (stored && mapped.length > 0 && mapped[0].role === "ai") {
+        try {
+          mapped[0] = { ...mapped[0], instantAnalysis: JSON.parse(stored) as InstantAnalysisStructured };
+        } catch { /* ignore corrupt data */ }
+      }
+      setChatMsgs(mapped);
     } catch {
       setChatMsgs([]);
     }
@@ -734,6 +742,9 @@ export default function ActionCenterPage() {
       /* Fetch the full narrative (persisted to the session via sessionId) */
       const result = await generateAIAnalysis(activeQuarter, schoolId, sessionId);
       const { structured } = result;
+
+      /* Persist structured card data so it survives navigation away/back */
+      localStorage.setItem(`catalyst-instant-analysis-${sessionId}`, JSON.stringify(structured));
 
       /* Show the structured card immediately (no streaming — it's a component, not text) */
       if (activeChatIdRef.current === sessionId) {
