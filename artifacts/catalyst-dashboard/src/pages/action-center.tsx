@@ -266,7 +266,7 @@ function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: Ins
       {/* Chips */}
       <div>
         <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 6 }}>Where would you like to start?</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-start" }}>
           {structured.chips.map((chip, i) => (
             <button
               key={i}
