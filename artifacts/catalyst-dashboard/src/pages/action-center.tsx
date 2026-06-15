@@ -59,7 +59,7 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
   return { label: `Due in ${diffDays}d`, color: "#16a34a", urgent: false };
 }
 
-type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured };
+type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured; matchedTeachers?: string[] };
 
 /* ── Narrative helpers ──────────────────────────────── */
 
@@ -681,7 +681,7 @@ export default function ActionCenterPage() {
 
       let accumulated = "";
 
-      await streamAIChat(text, schoolId, sessionId, (chunk) => {
+      const meta = await streamAIChat(text, schoolId, sessionId, (chunk) => {
         accumulated += chunk;
         /* Switch from typing indicator to streaming text on first chunk */
         setChatTyping(false);
@@ -694,7 +694,9 @@ export default function ActionCenterPage() {
       /* Commit the complete message and clear the streaming buffer */
       if (activeChatIdRef.current === sessionId) {
         const finalText = accumulated || "I wasn't able to generate a response. Please try again.";
-        setChatMsgs((prev) => [...prev, { role: "ai", text: finalText }]);
+        const finalMsg: ChatMsg = { role: "ai", text: finalText };
+        if (meta.matchedTeachers?.length) finalMsg.matchedTeachers = meta.matchedTeachers;
+        setChatMsgs((prev) => [...prev, finalMsg]);
         setStreamingText("");
       }
 
@@ -1659,26 +1661,38 @@ export default function ActionCenterPage() {
                           />
                         ) : (
                           <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                            <div
-                              className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed"
-                              style={{
-                                backgroundColor: msg.role === "ai" ? "white" : "#EEF2FB",
-                                color:           "#1e293b",
-                                border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
-                                borderRadius:    "12px",
-                                boxShadow:       "none",
-                              }}
-                            >
-                              {msg.role === "ai" && isAnalysisNarrative(msg.text)
-                                ? <AINarrativeRenderer text={msg.text} />
-                                : msg.text.split("**").map((part, pi) => {
-                                    if (pi % 2 === 1) {
-                                      if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
-                                      return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
-                                    }
-                                    return part;
-                                  })
-                              }
+                            <div className="max-w-[80%] flex flex-col gap-1.5">
+                              <div
+                                className="px-4 py-2.5 text-sm leading-relaxed"
+                                style={{
+                                  backgroundColor: msg.role === "ai" ? "white" : "#EEF2FB",
+                                  color:           "#1e293b",
+                                  border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
+                                  borderRadius:    "12px",
+                                  boxShadow:       "none",
+                                }}
+                              >
+                                {msg.role === "ai" && isAnalysisNarrative(msg.text)
+                                  ? <AINarrativeRenderer text={msg.text} />
+                                  : msg.text.split("**").map((part, pi) => {
+                                      if (pi % 2 === 1) {
+                                        if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
+                                        return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+                                      }
+                                      return part;
+                                    })
+                                }
+                              </div>
+                              {msg.role === "ai" && msg.matchedTeachers && msg.matchedTeachers.length > 0 && (
+                                <div className="flex items-center gap-1.5 flex-wrap px-1">
+                                  <span style={{ fontSize: 11, color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>Looked at data for:</span>
+                                  {msg.matchedTeachers.map((name, ni) => (
+                                    <span key={ni} style={{ fontSize: 11, backgroundColor: "#EEF2FF", color: "#4338CA", borderRadius: 10, padding: "1px 8px", fontWeight: 500, fontFamily: "'Libre Franklin', sans-serif" }}>
+                                      {name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )

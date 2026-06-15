@@ -345,6 +345,10 @@ export async function fetchAIChat(message: string, schoolId?: number | null, ses
   });
 }
 
+export interface StreamChatMeta {
+  matchedTeachers?: string[];
+}
+
 export async function streamAIChat(
   message: string,
   schoolId: number | null | undefined,
@@ -352,7 +356,7 @@ export async function streamAIChat(
   onChunk: (token: string) => void,
   signal?: AbortSignal,
   rubricSetSlug?: string | null,
-): Promise<void> {
+): Promise<StreamChatMeta> {
   const res = await fetch(`${BASE}/api/ai/chat/stream`, {
     method: "POST",
     credentials: "include",
@@ -374,6 +378,7 @@ export async function streamAIChat(
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const meta: StreamChatMeta = {};
 
   try {
     while (true) {
@@ -388,7 +393,11 @@ export async function streamAIChat(
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const data = line.slice(6);
-        if (data === "[DONE]") return;
+        if (data === "[DONE]") return meta;
+        if (data.startsWith("[META]")) {
+          try { Object.assign(meta, JSON.parse(data.slice(6))); } catch { /* ignore */ }
+          continue;
+        }
         try {
           onChunk(JSON.parse(data) as string);
         } catch {
@@ -397,9 +406,10 @@ export async function streamAIChat(
       }
     }
   } catch (err) {
-    if ((err as Error)?.name === "AbortError") return;
+    if ((err as Error)?.name === "AbortError") return meta;
     throw err;
   }
+  return meta;
 }
 
 export async function fetchChatSessions(): Promise<AIChatSession[]> {

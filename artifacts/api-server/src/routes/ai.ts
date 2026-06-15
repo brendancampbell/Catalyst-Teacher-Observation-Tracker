@@ -542,7 +542,7 @@ async function buildCombinedContext(
   allRubricSets: Array<{ id: number; slug: string; name: string }>,
   activeSlug: string | null,
   messageText: string,
-): Promise<{ contextStr: string; activeRubricSetSlug: string | null }> {
+): Promise<{ contextStr: string; activeRubricSetSlug: string | null; matchedTeachers: string[] }> {
   /* Determine which rubric slugs are relevant to this message */
   const mentionedSlugs = new Set<string>();
   if (activeSlug) mentionedSlugs.add(activeSlug);
@@ -597,7 +597,7 @@ async function buildCombinedContext(
       if (rankedSection) contextStr += "\n\n" + rankedSection;
     }
 
-    return { contextStr, activeRubricSetSlug: singleSlug };
+    return { contextStr, activeRubricSetSlug: singleSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
   }
 
   /* Multiple rubric sets referenced — build a section per rubric */
@@ -636,7 +636,7 @@ async function buildCombinedContext(
     if (rankedSection) blocks.push(rankedSection);
   }
 
-  return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug };
+  return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
 }
 
 /* ── POST /api/ai/chat/stream ───────────────────────────────────── */
@@ -686,7 +686,7 @@ router.post("/chat/stream", async (req, res) => {
 
     const totalObservations = obsCountResult[0]?.count ?? 0;
 
-    const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
+    const { contextStr, activeRubricSetSlug, matchedTeachers } = await buildCombinedContext(
       personIds,
       scopedPeople,
       scope,
@@ -728,6 +728,11 @@ router.post("/chat/stream", async (req, res) => {
         .update(chatSessions)
         .set({ updatedAt: new Date() })
         .where(eq(chatSessions.id, sessionId));
+    }
+
+    /* Emit matched-teacher metadata before closing the stream */
+    if (matchedTeachers.length > 0) {
+      res.write(`data: [META]${JSON.stringify({ matchedTeachers })}\n\n`);
     }
 
     res.write("data: [DONE]\n\n");
