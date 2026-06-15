@@ -1648,9 +1648,6 @@ export default function ActionCenterPage() {
                           />
                         ) : (
                           <div key={i} className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                            {msg.role === "ai" && (
-                              <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
-                            )}
                             <div
                               className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed"
                               style={{
@@ -1677,7 +1674,6 @@ export default function ActionCenterPage() {
                       )}
                       {chatTyping && !streamingText && (
                         <div className="flex items-start gap-3">
-                          <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
                           <div className="px-4 py-3 bg-white border border-slate-200" style={{ borderRadius: "12px", boxShadow: "none" }}>
                             <div className="flex gap-1 items-center h-4">
                               {[0, 1, 2].map((d) => (
@@ -1689,7 +1685,6 @@ export default function ActionCenterPage() {
                       )}
                       {streamingText && (
                         <div className="flex items-start gap-3">
-                          <span className="shrink-0 mt-0.5 text-[11px] font-bold leading-none select-none" style={{ color: "#1034B4", width: 20, textAlign: "center" }}>C</span>
                           <div
                             className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed"
                             style={{
