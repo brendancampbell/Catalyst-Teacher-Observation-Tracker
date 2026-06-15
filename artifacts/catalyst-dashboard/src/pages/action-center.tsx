@@ -73,6 +73,19 @@ function renderInlineText(text: string): React.ReactNode[] {
   });
 }
 
+function parseMarkdownTable(lines: string[]): { headers: string[]; rows: string[][] } | null {
+  const tableLines = lines.filter((l) => l.trim().startsWith("|"));
+  if (tableLines.length < 2) return null;
+  const sepIdx = tableLines.findIndex((l) => /^\s*\|[\s\-|:]+\|\s*$/.test(l));
+  if (sepIdx < 1) return null;
+  const parseRow = (line: string) =>
+    line.split("|").slice(1, -1).map((c) => c.trim());
+  return {
+    headers: parseRow(tableLines[sepIdx - 1] ?? ""),
+    rows: tableLines.slice(sepIdx + 1).map(parseRow),
+  };
+}
+
 function renderPlainAIText(text: string): React.ReactNode {
   const paragraphs = text.split(/\n\n+/);
   const nodes: React.ReactNode[] = [];
@@ -80,6 +93,63 @@ function renderPlainAIText(text: string): React.ReactNode {
   paragraphs.forEach((para, pi) => {
     const isLastPara = pi === paragraphs.length - 1;
     const lines = para.split("\n");
+
+    /* ── Markdown table ───────────────────────────────────────────── */
+    const isPipeBlock = lines.filter((l) => l.trim().startsWith("|")).length >= 2;
+    if (isPipeBlock) {
+      const table = parseMarkdownTable(lines);
+      if (table) {
+        nodes.push(
+          <div key={`${pi}-table`} style={{ overflowX: "auto", marginBottom: isLastPara ? 0 : 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              {table.headers.length > 0 && (
+                <thead>
+                  <tr>
+                    {table.headers.map((h, hi) => (
+                      <th
+                        key={hi}
+                        style={{
+                          backgroundColor: NAVY,
+                          color: "white",
+                          padding: "6px 10px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontFamily: "'Libre Franklin', sans-serif",
+                          whiteSpace: "nowrap",
+                          borderBottom: `2px solid ${YELLOW}`,
+                        }}
+                      >
+                        {renderInlineText(h)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody>
+                {table.rows.map((row, ri) => (
+                  <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#F8FAFC" }}>
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        style={{
+                          padding: "5px 10px",
+                          borderBottom: "1px solid #E2E8F0",
+                          verticalAlign: "top",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        {renderInlineText(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+        );
+        return;
+      }
+    }
 
     const hasListItems = lines.some((line) => {
       const t = line.trim();
@@ -154,43 +224,89 @@ function isAnalysisNarrative(text: string): boolean {
 }
 
 function AINarrativeRenderer({ text }: { text: string }) {
-  const lines = text.split("\n");
+  const rawLines = text.split("\n");
+
+  /* Pre-group consecutive |-prefixed lines into table segments so we can
+     detect multi-line markdown tables before line-by-line rendering. */
+  type Seg = { kind: "table"; lines: string[] } | { kind: "line"; content: string };
+  const segments: Seg[] = [];
+  let idx = 0;
+  while (idx < rawLines.length) {
+    if (rawLines[idx].trim().startsWith("|")) {
+      const tLines: string[] = [];
+      while (idx < rawLines.length && rawLines[idx].trim().startsWith("|")) {
+        tLines.push(rawLines[idx++]);
+      }
+      segments.push({ kind: "table", lines: tLines });
+    } else {
+      segments.push({ kind: "line", content: rawLines[idx++] });
+    }
+  }
+
   return (
     <div style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-      {lines.map((line, i) => {
+      {segments.map((seg, si) => {
+        /* ── Table block ─────────────────────────────────────────────── */
+        if (seg.kind === "table") {
+          const table = parseMarkdownTable(seg.lines);
+          if (table) {
+            return (
+              <div key={si} style={{ overflowX: "auto", marginBottom: 12, marginTop: 4 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  {table.headers.length > 0 && (
+                    <thead>
+                      <tr>
+                        {table.headers.map((h, hi) => (
+                          <th key={hi} style={{ backgroundColor: NAVY, color: "white", padding: "6px 10px", textAlign: "left", fontWeight: 600, fontFamily: "'Libre Franklin', sans-serif", whiteSpace: "nowrap", borderBottom: `2px solid ${YELLOW}` }}>
+                            {renderInlineText(h)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                  )}
+                  <tbody>
+                    {table.rows.map((row, ri) => (
+                      <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#F8FAFC" }}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} style={{ padding: "5px 10px", borderBottom: "1px solid #E2E8F0", verticalAlign: "top", lineHeight: "1.5" }}>
+                            {renderInlineText(cell)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
+          /* Fallback: render pipe lines as plain paragraphs */
+          return seg.lines.map((l, li) => (
+            <p key={`${si}-${li}`} style={{ fontSize: 13, lineHeight: "1.6", margin: "0 0 10px" }}>{l}</p>
+          ));
+        }
+
+        /* ── Single line ─────────────────────────────────────────────── */
+        const line = seg.content;
         const trimmed = line.trim();
-        if (!trimmed) return <div key={i} style={{ height: 8 }} />;
+        if (!trimmed) return <div key={si} style={{ height: 8 }} />;
 
         const stripped = trimmed.replace(/\*\*/g, "");
 
-        /* Markdown headings — strip # prefix and render styled */
+        /* Markdown headings */
         if (trimmed.startsWith("#")) {
           const level = (trimmed.match(/^#+/) ?? [""])[0].length;
           const content = trimmed.replace(/^#+\s*/, "").replace(/\*\*/g, "");
-          if (!content) return <div key={i} style={{ height: 8 }} />;
+          if (!content) return <div key={si} style={{ height: 8 }} />;
           if (level === 1) {
-            /* H1 = document title — render as a subtle subtitle above the report */
             return (
-              <p key={i} style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>
+              <p key={si} style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>
                 {content}
               </p>
             );
           }
-          /* H2 / H3 = section header — same style as ALL-CAPS sections */
           return (
-            <div key={i} style={{ marginTop: i > 0 ? 20 : 0, marginBottom: 8 }}>
-              <span
-                style={{
-                  fontFamily:    "'Bebas Neue', sans-serif",
-                  fontSize:      18,
-                  color:         NAVY,
-                  letterSpacing: "0.04em",
-                  fontWeight:    "bold",
-                  paddingBottom: 3,
-                  borderBottom:  `2.5px solid ${YELLOW}`,
-                  display:       "inline-block",
-                }}
-              >
+            <div key={si} style={{ marginTop: si > 0 ? 20 : 0, marginBottom: 8 }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: NAVY, letterSpacing: "0.04em", fontWeight: "bold", paddingBottom: 3, borderBottom: `2.5px solid ${YELLOW}`, display: "inline-block" }}>
                 {content.toUpperCase()}
               </span>
             </div>
@@ -198,25 +314,10 @@ function AINarrativeRenderer({ text }: { text: string }) {
         }
 
         /* Section header — ALL CAPS line */
-        if (
-          stripped.length >= 4 &&
-          stripped === stripped.toUpperCase() &&
-          /[A-Z]/.test(stripped)
-        ) {
+        if (stripped.length >= 4 && stripped === stripped.toUpperCase() && /[A-Z]/.test(stripped)) {
           return (
-            <div key={i} style={{ marginTop: i > 0 ? 20 : 0, marginBottom: 8 }}>
-              <span
-                style={{
-                  fontFamily:    "'Bebas Neue', sans-serif",
-                  fontSize:      18,
-                  color:         NAVY,
-                  letterSpacing: "0.04em",
-                  fontWeight:    "bold",
-                  paddingBottom: 3,
-                  borderBottom:  `2.5px solid ${YELLOW}`,
-                  display:       "inline-block",
-                }}
-              >
+            <div key={si} style={{ marginTop: si > 0 ? 20 : 0, marginBottom: 8 }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: NAVY, letterSpacing: "0.04em", fontWeight: "bold", paddingBottom: 3, borderBottom: `2.5px solid ${YELLOW}`, display: "inline-block" }}>
                 {stripped}
               </span>
             </div>
@@ -227,7 +328,7 @@ function AINarrativeRenderer({ text }: { text: string }) {
         if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
           const content = trimmed.replace(/^[-•]\s+/, "");
           return (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
               <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(content)}</span>
             </div>
@@ -235,24 +336,9 @@ function AINarrativeRenderer({ text }: { text: string }) {
         }
 
         /* Warning / note line */
-        if (
-          trimmed.startsWith("⚠") ||
-          trimmed.toLowerCase().startsWith("warning") ||
-          trimmed.toLowerCase().startsWith("note:")
-        ) {
+        if (trimmed.startsWith("⚠") || trimmed.toLowerCase().startsWith("warning") || trimmed.toLowerCase().startsWith("note:")) {
           return (
-            <div
-              key={i}
-              style={{
-                backgroundColor: "#FEF3C7",
-                borderLeft:      `3px solid ${YELLOW}`,
-                padding:         "6px 10px",
-                borderRadius:    4,
-                marginBottom:    6,
-                fontSize:        13,
-                lineHeight:      "1.5",
-              }}
-            >
+            <div key={si} style={{ backgroundColor: "#FEF3C7", borderLeft: `3px solid ${YELLOW}`, padding: "6px 10px", borderRadius: 4, marginBottom: 6, fontSize: 13, lineHeight: "1.5" }}>
               {renderInlineText(trimmed)}
             </div>
           );
@@ -260,7 +346,7 @@ function AINarrativeRenderer({ text }: { text: string }) {
 
         /* Regular paragraph */
         return (
-          <p key={i} style={{ fontSize: 13, lineHeight: "1.6", margin: "0 0 10px" }}>
+          <p key={si} style={{ fontSize: 13, lineHeight: "1.6", margin: "0 0 10px" }}>
             {renderInlineText(trimmed)}
           </p>
         );
@@ -1813,13 +1899,7 @@ export default function ActionCenterPage() {
                           >
                             {isAnalysisNarrative(streamingText)
                               ? <><AINarrativeRenderer text={streamingText} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
-                              : <>{streamingText.split("**").map((part, pi) => {
-                                  if (pi % 2 === 1) {
-                                    if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
-                                    return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
-                                  }
-                                  return part;
-                                })}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
+                              : <>{renderPlainAIText(streamingText)}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
                             }
                           </div>
                         </div>
