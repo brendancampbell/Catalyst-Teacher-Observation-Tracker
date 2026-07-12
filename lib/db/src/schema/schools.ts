@@ -12,7 +12,7 @@ export const schools = pgTable("schools", {
   id:           serial("id").primaryKey(),
   displayName:  text("display_name").notNull(),
   fullName:     text("full_name").notNull(),
-  abbreviation: text("abbreviation").notNull(),
+  abbreviation: text("abbreviation").notNull().unique(),
   region:       text("region").notNull(),
   gradeSpan:    text("grade_span").notNull(),
   isActive:     boolean("is_active").notNull().default(true),
