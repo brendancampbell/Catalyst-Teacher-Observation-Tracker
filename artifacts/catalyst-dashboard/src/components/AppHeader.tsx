@@ -21,7 +21,8 @@ function RubricIcon({ target, subjectAudience, size = 13 }: { target?: "TEACHER"
 }
 
 interface AppHeaderProps {
-  subtitle: string;
+  subtitle?: string;
+  schoolAbbreviation?: string | null;
   backHref?: string;
   backLabel?: string;
   basePath: string;
@@ -40,6 +41,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({
   subtitle,
+  schoolAbbreviation,
   backHref,
   backLabel = "Dashboard",
   basePath,
@@ -104,7 +106,7 @@ export default function AppHeader({
                 className="text-white uppercase leading-none"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
               >
-                Catalyst
+                Catalyst{schoolAbbreviation ? ` | ${schoolAbbreviation}` : ""}
               </p>
             </div>
           </div>

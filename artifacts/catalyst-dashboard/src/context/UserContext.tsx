@@ -3,12 +3,13 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
 
 export interface UserRow {
-  id:         number;
-  email:      string;
-  name:       string;
-  role:       UserRole;
-  schoolId:   number | null;
-  schoolName: string | null;
+  id:                 number;
+  email:              string;
+  name:               string;
+  role:               UserRole;
+  schoolId:           number | null;
+  schoolName:         string | null;
+  schoolAbbreviation: string | null;
 }
 
 interface RealUser {

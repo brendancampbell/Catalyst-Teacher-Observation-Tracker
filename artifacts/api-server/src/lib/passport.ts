@@ -19,6 +19,7 @@ declare global {
       includeInFeedbackTracker: boolean;
       schoolId: number | null;
       schoolName?: string | null;
+      schoolAbbreviation?: string | null;
       department: string | null;
       gradeLevel: string[] | null;
       needsRescore: boolean;
@@ -27,7 +28,7 @@ declare global {
   }
 }
 
-function personToUser(person: Person & { school?: { displayName: string } | null }): Express.User {
+function personToUser(person: Person & { school?: { displayName: string; abbreviation?: string | null } | null }): Express.User {
   return {
     employeeId:                  person.employeeId,
     firstName:                   person.firstName,
@@ -40,6 +41,7 @@ function personToUser(person: Person & { school?: { displayName: string } | null
     includeInFeedbackTracker:    person.includeInFeedbackTracker,
     schoolId:                    person.schoolId ?? null,
     schoolName:                  person.school?.displayName ?? null,
+    schoolAbbreviation:          person.school?.abbreviation ?? null,
     department:                  person.department ?? null,
     gradeLevel:                  person.gradeLevel ?? null,
     needsRescore:                person.needsRescore,

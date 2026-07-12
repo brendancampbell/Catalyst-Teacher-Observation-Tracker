@@ -146,7 +146,7 @@ function buildDisplayRows(
    ═══════════════════════════════════════════════════════════════ */
 
 interface Props {
-  onDrillDown:    (schoolId: number, schoolName: string, schoolGradeSpan?: string) => void;
+  onDrillDown:    (schoolId: number, schoolName: string, schoolGradeSpan?: string, schoolAbbreviation?: string) => void;
   activeRubricSet: string;
   onRubricChange:  (slug: string) => void;
 }
@@ -600,7 +600,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
                               onClick={() => {
                                 if (row.schoolId == null) return;
                                 const school = data.schools.find((s) => s.id === row.schoolId);
-                                onDrillDown(row.schoolId, row.label, school?.gradeSpan);
+                                onDrillDown(row.schoolId, row.label, school?.gradeSpan, school?.abbreviation ?? undefined);
                               }}
                             >
                               {row.label}

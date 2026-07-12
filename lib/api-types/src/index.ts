@@ -247,6 +247,7 @@ export interface DashboardData {
 export interface DistrictSchoolRow {
   id:               number;
   name:             string;
+  abbreviation:     string | null;
   region:           string;
   gradeSpan:        string;
   teacherCount:     number;

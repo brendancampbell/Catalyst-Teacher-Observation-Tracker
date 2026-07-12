@@ -120,14 +120,15 @@ router.get("/summary", async (req, res) => {
           : null;
 
         return {
-          id:            school.id,
-          name:          school.displayName,
-          region:        school.region ?? null,
-          gradeSpan:     school.gradeSpan ?? null,
-          teacherCount:  0,
-          observedCount: obsArr.length,
+          id:               school.id,
+          name:             school.displayName,
+          abbreviation:     school.abbreviation ?? null,
+          region:           school.region ?? null,
+          gradeSpan:        school.gradeSpan ?? null,
+          teacherCount:     0,
+          observedCount:    obsArr.length,
           domainAverages,
-          overall:       totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null,
+          overall:          totalCount > 0 ? Math.round((totalSum / totalCount) * 10) / 10 : null,
           lastObservedDate: mostRecentDate,
         };
       });
@@ -230,12 +231,13 @@ router.get("/summary", async (req, res) => {
         : null;
 
       return {
-        id:            school.id,
-        name:          school.displayName,
-        region:        school.region ?? null,
-        gradeSpan:     school.gradeSpan ?? null,
-        teacherCount:  schoolTeachers.length,
-        observedCount: schoolTeachers.filter((t) => (obsByTeacher.get(t.employeeId) ?? []).length > 0).length,
+        id:               school.id,
+        name:             school.displayName,
+        abbreviation:     school.abbreviation ?? null,
+        region:           school.region ?? null,
+        gradeSpan:        school.gradeSpan ?? null,
+        teacherCount:     schoolTeachers.length,
+        observedCount:    schoolTeachers.filter((t) => (obsByTeacher.get(t.employeeId) ?? []).length > 0).length,
         domainAverages,
         overall,
         lastObservedDate: null,

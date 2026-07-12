@@ -165,8 +165,9 @@ export default function Dashboard() {
     return v ? Number(v) : null;
   }, [searchParams]);
 
-  /* ── School name from URL param (for drill-down label) */
-  const schoolName          = useMemo(() => searchParams.get("schoolName")      ?? null, [searchParams]);
+  /* ── School name + abbreviation from URL param (for drill-down label) */
+  const schoolName          = useMemo(() => searchParams.get("schoolName")         ?? null, [searchParams]);
+  const schoolAbbreviation  = useMemo(() => searchParams.get("schoolAbbreviation") ?? null, [searchParams]);
   /* Fallback: gradeSpan from URL param (set by drill-down nav before data loads) */
   const schoolGradeSpanFromUrl = useMemo(() => searchParams.get("schoolGradeSpan") ?? null, [searchParams]);
 
@@ -407,8 +408,9 @@ export default function Dashboard() {
   /* ── Sync view state → URL (for shareability) ──────── */
   useEffect(() => {
     const p = new URLSearchParams();
-    if (schoolId != null)       p.set("schoolId",  String(schoolId));
-    if (schoolName)             p.set("schoolName", schoolName);
+    if (schoolId != null)       p.set("schoolId",          String(schoolId));
+    if (schoolName)             p.set("schoolName",         schoolName);
+    if (schoolAbbreviation)     p.set("schoolAbbreviation", schoolAbbreviation);
     if (activeRubricSet)        p.set("rubric",     activeRubricSet);
     if (viewMode !== "recent")  p.set("view",       viewMode);
     if (viewBy   !== "teacher") p.set("by",         viewBy);
@@ -426,9 +428,10 @@ export default function Dashboard() {
       <DistrictDashboard
         activeRubricSet={activeRubricSet}
         onRubricChange={setActiveRubricSet}
-        onDrillDown={(id, name, gradeSpan) => {
+        onDrillDown={(id, name, gradeSpan, abbr) => {
           const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric: activeRubricSet };
-          if (gradeSpan) p.schoolGradeSpan = gradeSpan;
+          if (gradeSpan) p.schoolGradeSpan     = gradeSpan;
+          if (abbr)      p.schoolAbbreviation  = abbr;
           window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
         }}
       />
@@ -580,7 +583,7 @@ export default function Dashboard() {
       {currentUser && (
         <div ref={headerRef} className="sticky top-0 z-30 shadow-md">
           <AppHeader
-            subtitle={schoolName ?? currentUser.schoolName ?? ""}
+            schoolAbbreviation={schoolAbbreviation ?? currentUser.schoolAbbreviation ?? null}
             basePath={BASE_PATH}
             onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
             draftsHref={`${BASE_PATH}/drafts?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`}
@@ -741,11 +744,6 @@ export default function Dashboard() {
                   >
                     <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 2, backgroundColor: YELLOW }} />
                     {firstColLabel}
-                    {schoolName && (
-                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Libre Franklin', sans-serif", letterSpacing: "0.01em", color: "white", textTransform: "none", marginTop: 3 }}>
-                        {schoolName}
-                      </div>
-                    )}
                   </th>
 
                   {categories.map((cat, catIdx) => (
