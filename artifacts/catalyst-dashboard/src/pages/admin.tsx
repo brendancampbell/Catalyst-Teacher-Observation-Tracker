@@ -1208,7 +1208,6 @@ function SchoolCsvModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   }
 
   const validRows   = parsedRows.filter((r) => r.displayName && r.fullName && r.abbreviation && r.region && r.gradeSpan);
-  const canSubmit   = !headerError && parsedRows.length > 0 && !result;
   const allRegions  = new Set(REGIONS as readonly string[]);
   const allSpans    = new Set(GRADE_SPANS as readonly string[]);
 
@@ -1218,6 +1217,9 @@ function SchoolCsvModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     if (!allSpans.has(r.gradeSpan)) return `Unknown grade span "${r.gradeSpan}"`;
     return null;
   }
+
+  const hasRowErrors = parsedRows.some((r) => rowWarning(r) !== null);
+  const canSubmit    = !headerError && parsedRows.length > 0 && !result && !hasRowErrors;
 
   return (
     <div
