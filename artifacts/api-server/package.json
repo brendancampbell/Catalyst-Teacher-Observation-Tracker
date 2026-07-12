@@ -13,7 +13,8 @@
     "typecheck": "tsc --build ../../lib/db ../../lib/api-zod ../../lib/integrations-anthropic-ai && tsc -p tsconfig.json --noEmit",
     "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts",
     "test:admin-schools-validation": "tsx src/test-admin-schools-validation.ts",
-    "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts"
+    "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts",
+    "test:email-injection": "tsx src/test-email-html-injection.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
@@ -29,7 +30,8 @@
     "passport-google-oauth20": "^2.0.0",
     "pino": "^9",
     "pino-http": "^10",
-    "resend": "4.0.0"
+    "resend": "4.0.0",
+    "sanitize-html": "^2.17.6"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",
@@ -40,6 +42,7 @@
     "@types/node": "catalog:",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/sanitize-html": "^2.16.1",
     "esbuild": "^0.28.1",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",

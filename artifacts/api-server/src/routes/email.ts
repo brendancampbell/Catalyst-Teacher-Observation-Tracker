@@ -1,4 +1,5 @@
 import { Router } from "express";
+import sanitizeHtml from "sanitize-html";
 import { db } from "@workspace/db";
 import {
   observations,
@@ -16,11 +17,29 @@ const router = Router();
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const SANITIZE_OPTS: sanitizeHtml.IOptions = {
+  allowedTags:       ["b", "i", "strong", "em", "u", "ul", "ol", "li", "p", "br", "span"],
+  allowedAttributes: {},
+  allowedSchemes:    ["http", "https"],
+};
+
 function richToEmailHtml(text: string, color: string): string {
   if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
   const isHtml = /<[a-z][\s\S]*>/i.test(text);
-  if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${text}</div>`;
-  return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${text.trim()}</p>`;
+  if (isHtml) {
+    const safe = sanitizeHtml(text, SANITIZE_OPTS);
+    return `<div style="font-size:13px;color:${color};line-height:1.6;">${safe}</div>`;
+  }
+  return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeHtml(text.trim())}</p>`;
 }
 
 function formatDateLong(iso: string): string {
@@ -66,7 +85,7 @@ function trendHtml(
   return `<span style="color:#94a3b8;font-size:18px;font-weight:700;line-height:1;">→</span>`;
 }
 
-function buildHtmlEmail(params: {
+export function buildHtmlEmail(params: {
   intro: string;
   glowsText: string;
   growsText: string;
@@ -171,7 +190,7 @@ function buildHtmlEmail(params: {
       <!-- Greeting -->
       <tr>
         <td style="padding:28px 28px 0 28px;">
-          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${intro.replace(/\n/g, "<br/>")}</p>
+          ${richToEmailHtml(intro, "#475569")}
         </td>
       </tr>
 
