@@ -6,6 +6,7 @@ import LoginPage from "@/pages/login";
 import SchoolPickerPage from "@/pages/school-picker";
 import RubricPickerPage from "@/pages/rubric-picker";
 import ObservationPage from "@/pages/observation";
+import DraftsPage from "@/pages/drafts";
 import AccessDeniedPage from "@/pages/access-denied";
 import NotFound from "@/pages/not-found";
 
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/school-picker" component={SchoolPickerPage} />
       <Route path="/rubric-picker" component={RubricPickerPage} />
       <Route path="/observation" component={ObservationPage} />
+      <Route path="/drafts" component={DraftsPage} />
       <Route component={NotFound} />
     </Switch>
   );
