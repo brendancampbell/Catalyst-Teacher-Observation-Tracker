@@ -46,11 +46,11 @@ async function seedDev() {
 
   console.log("Inserting schools…");
   const insertedSchools = await db.insert(schools).values([
-    { name: "Roxbury Prep",               region: "Boston", gradeSpan: "MS" },
-    { name: "Camden Prep",                region: "Camden", gradeSpan: "ES" },
-    { name: "North Star Academy",         region: "Newark", gradeSpan: "HS" },
-    { name: "Uncommon Collegiate",        region: "NYC",    gradeSpan: "HS" },
-    { name: "Leadership Prep Ocean Hill", region: "NYC",    gradeSpan: "MS" },
+    { displayName: "Roxbury Prep",               region: "Boston", gradeSpan: "MS" },
+    { displayName: "Camden Prep",                region: "Camden", gradeSpan: "ES" },
+    { displayName: "North Star Academy",         region: "Newark", gradeSpan: "HS" },
+    { displayName: "Uncommon Collegiate",        region: "NYC",    gradeSpan: "HS" },
+    { displayName: "Leadership Prep Ocean Hill", region: "NYC",    gradeSpan: "MS" },
   ]).returning();
 
   console.log("Inserting staff (admins / leaders / coaches)…");
