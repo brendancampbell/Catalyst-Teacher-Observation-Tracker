@@ -6,16 +6,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/seed.ts", "src/migrate.ts", "src/seed-dev.ts", "src/routes/users.ts"],
-  "references": [
-    {
-      "path": "../../lib/db"
-    },
-    {
-      "path": "../../lib/api-zod"
-    },
-    {
-      "path": "../../lib/integrations-anthropic-ai"
-    }
-  ]
+  "exclude": ["src/seed.ts", "src/migrate.ts", "src/seed-dev.ts", "src/routes/users.ts"]
 }
