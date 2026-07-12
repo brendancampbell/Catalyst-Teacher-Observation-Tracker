@@ -303,11 +303,18 @@ router.put("/:id", async (req, res) => {
         return;
       }
 
-      if (currentUser.role === "SCHOOL_LEADER" && existing.observedEmployeeId) {
-        const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
-        if (!person || person.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot edit observations for people outside your school" });
-          return;
+      if (currentUser.role === "SCHOOL_LEADER") {
+        if (existing.observedEmployeeId) {
+          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
+          if (!person || person.schoolId !== currentUser.schoolId) {
+            res.status(403).json({ error: "Cannot edit observations for people outside your school" });
+            return;
+          }
+        } else {
+          if (existing.schoolId !== currentUser.schoolId) {
+            res.status(403).json({ error: "Cannot edit observations for schools outside your school" });
+            return;
+          }
         }
       }
     }
@@ -426,11 +433,18 @@ router.delete("/:id", async (req, res) => {
         return;
       }
 
-      if (currentUser.role === "SCHOOL_LEADER" && existing.observedEmployeeId) {
-        const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
-        if (!person || person.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot delete observations for people outside your school" });
-          return;
+      if (currentUser.role === "SCHOOL_LEADER") {
+        if (existing.observedEmployeeId) {
+          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
+          if (!person || person.schoolId !== currentUser.schoolId) {
+            res.status(403).json({ error: "Cannot delete observations for people outside your school" });
+            return;
+          }
+        } else {
+          if (existing.schoolId !== currentUser.schoolId) {
+            res.status(403).json({ error: "Cannot delete observations for schools outside your school" });
+            return;
+          }
         }
       }
     }
