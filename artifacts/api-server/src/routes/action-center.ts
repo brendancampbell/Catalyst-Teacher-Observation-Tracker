@@ -21,12 +21,17 @@ async function checkSchool(id: number): Promise<SchoolCheckResult> {
 }
 
 /* ── GET /api/action-center/network-averages ─────────────────────
-   Network-wide domain averages for any authenticated user.
-   Returns only the aggregate — no per-school names or rows.
-   Used by school-scoped roles (COACH, SCHOOL_LEADER) to populate
-   the network comparison table in the Action Center.              */
+   Domain averages for authenticated users.
+   - TEACHER-target rubrics: network-wide aggregate (no per-school
+     breakdown) used for the network comparison table.
+   - SCHOOL-target rubrics: filtered to the requester's own school
+     for SCHOOL_LEADER / COACH; network-wide for NETWORK_* roles.
+   Returns only the aggregate — no per-school names or rows.       */
 router.get("/network-averages", requireAuth, async (req, res) => {
   try {
+    const user = req.user as Express.User;
+    const scopedSchoolId = effectiveSchoolId(user, null);
+
     const setSlug = (req.query.rubricSet as string) || "Q1";
 
     const rubricSet = await db.query.rubricSets.findFirst({
@@ -50,10 +55,22 @@ router.get("/network-averages", requireAuth, async (req, res) => {
     }
 
     const obsTarget = rubricSet.target === "SCHOOL" ? "SCHOOL" : "TEACHER";
+
+    /* For SCHOOL-target rubrics, school-scoped roles (SCHOOL_LEADER, COACH)
+       must only see observations from their own school.                       */
+    const obsWhereClause =
+      rubricSet.target === "SCHOOL" && scopedSchoolId !== null
+        ? and(
+            eq(observations.rubricSetId, rubricSet.id),
+            eq(observations.target, "SCHOOL"),
+            eq(observations.schoolId, scopedSchoolId),
+          )
+        : and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, obsTarget));
+
     const allObs = await db
       .select()
       .from(observations)
-      .where(and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, obsTarget)));
+      .where(obsWhereClause);
 
     const obsIds    = allObs.map((o) => o.id);
     const allScores = obsIds.length > 0
@@ -121,13 +138,16 @@ router.get("/network-averages", requireAuth, async (req, res) => {
 
     res.json({ domainAverages });
   } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message }); return;
+    }
     console.error("GET /action-center/network-averages error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 /* ── GET /api/action-center/rescore-queue ───────────────────────── */
-router.get("/rescore-queue", async (req, res) => {
+router.get("/rescore-queue", requireAuth, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
@@ -175,7 +195,7 @@ router.get("/rescore-queue", async (req, res) => {
 });
 
 /* ── GET /api/action-center/overdue-observations ────────────────── */
-router.get("/overdue-observations", async (req, res) => {
+router.get("/overdue-observations", requireAuth, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
