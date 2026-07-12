@@ -536,6 +536,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             });
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
+            await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           }}
           onDelete={canEdit ? async (observationId) => {
             await deleteObservation(observationId);
