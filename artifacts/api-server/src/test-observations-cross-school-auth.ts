@@ -18,17 +18,15 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { observations, people } from "@workspace/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { observations, people, schools, rubricSets } from "@workspace/db/schema";
+import { eq, inArray, asc } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
-/* Two real school IDs that exist in the dev DB */
-const SCHOOL_A_ID = 60;
-const SCHOOL_B_ID = 61;
-
-/* Rubric set ID that exists in the dev DB */
-const RUBRIC_SET_ID = 5;
+/* Resolved dynamically in before() */
+let SCHOOL_A_ID: number;
+let SCHOOL_B_ID: number;
+let RUBRIC_SET_ID: number;
 
 /* Temporary test user employee IDs — unique enough to avoid clashes */
 const LEADER_A_EID = "TST_SL_CROSS_A";
@@ -79,6 +77,24 @@ const createdObsIds: number[] = [];
 
 describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () => {
   before(async () => {
+    /* Resolve two distinct school IDs and a rubric set ID from the live DB */
+    const twoSchools = await db
+      .select({ id: schools.id })
+      .from(schools)
+      .orderBy(asc(schools.id))
+      .limit(2);
+    assert.equal(twoSchools.length, 2, "Need at least 2 schools in the DB to run this test");
+    SCHOOL_A_ID = twoSchools[0]!.id;
+    SCHOOL_B_ID = twoSchools[1]!.id;
+
+    const firstRubricSet = await db
+      .select({ id: rubricSets.id })
+      .from(rubricSets)
+      .orderBy(asc(rubricSets.id))
+      .limit(1);
+    assert.equal(firstRubricSet.length, 1, "Need at least 1 rubric set in the DB to run this test");
+    RUBRIC_SET_ID = firstRubricSet[0]!.id;
+
     /* Create two temporary SCHOOL_LEADER test users with distinct schoolIds */
     await db.insert(people).values([
       {
