@@ -30,7 +30,8 @@ router.get(
     }
     next();
   },
-  passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account", state: true }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  passport.authenticate("google", { scope: ["profile", "email"], prompt: "select_account", state: true } as any),
 );
 
 /* ── GET /api/auth/google/callback ───────────────────────────────
