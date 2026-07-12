@@ -38,7 +38,7 @@ router.get("/summary", async (req, res) => {
       with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
     });
 
-    const allSchools  = await db.select().from(schools).orderBy(schools.name);
+    const allSchools  = await db.select().from(schools).orderBy(schools.displayName);
     const allDomains  = categories.flatMap((c) => c.domains ?? []);
     const allSlugs    = allDomains.map((d) => d.slug);
 
@@ -121,7 +121,7 @@ router.get("/summary", async (req, res) => {
 
         return {
           id:            school.id,
-          name:          school.name,
+          name:          school.displayName,
           region:        school.region ?? null,
           gradeSpan:     school.gradeSpan ?? null,
           teacherCount:  0,
@@ -231,7 +231,7 @@ router.get("/summary", async (req, res) => {
 
       return {
         id:            school.id,
-        name:          school.name,
+        name:          school.displayName,
         region:        school.region ?? null,
         gradeSpan:     school.gradeSpan ?? null,
         teacherCount:  schoolTeachers.length,

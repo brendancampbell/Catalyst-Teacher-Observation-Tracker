@@ -28,7 +28,7 @@ export default function RubricPickerPage() {
       return;
     }
     if (!isNetworkScope && !selectedSchool && user.schoolId) {
-      setSelectedSchool({ id: user.schoolId, name: user.schoolName ?? "My School" });
+      setSelectedSchool({ id: user.schoolId, displayName: user.schoolName ?? "My School" });
     }
   }, [user, selectedSchool, isNetworkScope]);
 
@@ -51,7 +51,7 @@ export default function RubricPickerPage() {
     navigate("/school-picker");
   }
 
-  const schoolName = selectedSchool?.name ?? user?.schoolName ?? undefined;
+  const schoolName = selectedSchool?.displayName ?? user?.schoolName ?? undefined;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">

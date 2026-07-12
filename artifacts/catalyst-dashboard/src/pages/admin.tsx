@@ -757,7 +757,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   function toggleAddGrade(g: string) { setAddGrades((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]); }
   function toggleEditGrade(g: string) { setEditGrades((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]); }
 
-  const schoolNameOptions = schools.map((s) => s.name);
+  const schoolNameOptions = schools.map((s) => s.displayName);
   const filtersActive = filterRoles.length > 0 || filterSchools.length > 0;
 
   const shown = people.filter((p) => {
@@ -773,7 +773,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       if (!matchedEnums.includes(p.role)) return false;
     }
     if (filterSchools.length > 0) {
-      const schoolName = schools.find((s) => s.id === p.schoolId)?.name ?? "";
+      const schoolName = schools.find((s) => s.id === p.schoolId)?.displayName ?? "";
       if (!filterSchools.includes(schoolName)) return false;
     }
     return true;
@@ -877,7 +877,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             {isNetworkAdmin && (
               <select className={`${selCls} min-w-[160px]`} value={addSchoolId ?? ""} onChange={(e) => setAddSchoolId(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">— School —</option>
-                {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {schools.map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
               </select>
             )}
             <select className={`${selCls} min-w-[180px]`} value={addDept} onChange={(e) => setAddDept(e.target.value)}>
@@ -956,7 +956,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         {isNetworkAdmin && (
                           <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
                             <option value="">— No school —</option>
-                            {schools.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            {schools.map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
                           </select>
                         )}
                         <select className={`${selCls} min-w-[180px]`} value={editDept} onChange={(e) => setEditDept(e.target.value)}>
@@ -1155,32 +1155,48 @@ function SchoolSettings() {
   });
 
   /* Add form */
-  const [adding, setAdding]           = useState(false);
-  const [newName, setNewName]         = useState("");
-  const [newRegion, setNewRegion]     = useState("");
-  const [newSpan, setNewSpan]         = useState("");
+  const [adding, setAdding]               = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [newFullName, setNewFullName]       = useState("");
+  const [newAbbr, setNewAbbr]               = useState("");
+  const [newRegion, setNewRegion]           = useState("");
+  const [newSpan, setNewSpan]               = useState("");
 
   /* Edit form */
-  const [editId, setEditId]           = useState<number | null>(null);
-  const [editName, setEditName]       = useState("");
-  const [editRegion, setEditRegion]   = useState("");
-  const [editSpan, setEditSpan]       = useState("");
+  const [editId, setEditId]               = useState<number | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editFullName, setEditFullName]     = useState("");
+  const [editAbbr, setEditAbbr]             = useState("");
+  const [editRegion, setEditRegion]         = useState("");
+  const [editSpan, setEditSpan]             = useState("");
 
   /* Filters */
   const [schoolSearch,    setSchoolSearch]    = useState("");
   const [filterRegions,   setFilterRegions]   = useState<string[]>([]);
   const [filterGradeSpans, setFilterGradeSpans] = useState<string[]>([]);
 
-  function resetAdd() { setAdding(false); setNewName(""); setNewRegion(""); setNewSpan(""); }
+  function resetAdd() { setAdding(false); setNewDisplayName(""); setNewFullName(""); setNewAbbr(""); setNewRegion(""); setNewSpan(""); }
   function resetEdit() { setEditId(null); }
 
   const createMut = useMutation({
-    mutationFn: () => createAdminSchool({ name: newName.trim(), region: newRegion, gradeSpan: newSpan }),
+    mutationFn: () => createAdminSchool({
+      displayName:  newDisplayName.trim(),
+      fullName:     newFullName.trim() || null,
+      abbreviation: newAbbr.trim() || null,
+      region:       newRegion,
+      gradeSpan:    newSpan,
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetAdd(); },
   });
 
   const updateMut = useMutation({
-    mutationFn: () => updateAdminSchool(editId!, { name: editName.trim(), region: editRegion, gradeSpan: editSpan }),
+    mutationFn: () => updateAdminSchool(editId!, {
+      displayName:  editDisplayName.trim(),
+      fullName:     editFullName.trim() || null,
+      abbreviation: editAbbr.trim() || null,
+      region:       editRegion,
+      gradeSpan:    editSpan,
+    }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); resetEdit(); },
   });
 
@@ -1191,8 +1207,12 @@ function SchoolSettings() {
   });
 
   function startEdit(s: AdminSchool) {
-    setEditId(s.id); setEditName(s.name);
-    setEditRegion(s.region ?? ""); setEditSpan(s.gradeSpan ?? "");
+    setEditId(s.id);
+    setEditDisplayName(s.displayName);
+    setEditFullName(s.fullName ?? "");
+    setEditAbbr(s.abbreviation ?? "");
+    setEditRegion(s.region ?? "");
+    setEditSpan(s.gradeSpan ?? "");
     setAdding(false);
   }
 
@@ -1202,7 +1222,7 @@ function SchoolSettings() {
   const schoolFiltersActive = filterRegions.length > 0 || filterGradeSpans.length > 0;
 
   const shownSchools = schools.filter((s) => {
-    if (schoolSearch && !s.name.toLowerCase().includes(schoolSearch.toLowerCase())) return false;
+    if (schoolSearch && !s.displayName.toLowerCase().includes(schoolSearch.toLowerCase())) return false;
     if (filterRegions.length > 0 && !filterRegions.includes(s.region ?? "")) return false;
     if (filterGradeSpans.length > 0 && !filterGradeSpans.includes(s.gradeSpan ?? "")) return false;
     return true;
@@ -1255,7 +1275,7 @@ function SchoolSettings() {
 
         <div className="ml-auto">
           <button
-            onClick={() => { setAdding(true); setEditId(null); setNewName(""); setNewRegion(""); setNewSpan(""); }}
+            onClick={() => { setAdding(true); setEditId(null); setNewDisplayName(""); setNewFullName(""); setNewAbbr(""); setNewRegion(""); setNewSpan(""); }}
             className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
             style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
           >
@@ -1271,11 +1291,23 @@ function SchoolSettings() {
           <div className="flex flex-wrap gap-3">
             <input
               className={`${inputCls} flex-1 min-w-[200px]`}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="School name (e.g. Lincoln Middle School)"
+              value={newDisplayName}
+              onChange={(e) => setNewDisplayName(e.target.value)}
+              placeholder="Display Name (shown throughout the tool)"
               autoFocus
               onKeyDown={(e) => { if (e.key === "Escape") resetAdd(); }}
+            />
+            <input
+              className={`${inputCls} flex-1 min-w-[200px]`}
+              value={newFullName}
+              onChange={(e) => setNewFullName(e.target.value)}
+              placeholder="Full Name (for CSV matching, optional)"
+            />
+            <input
+              className={`${inputCls} w-32`}
+              value={newAbbr}
+              onChange={(e) => setNewAbbr(e.target.value)}
+              placeholder="Abbrev. (optional)"
             />
             <select className={`${selCls} min-w-[130px]`} value={newRegion} onChange={(e) => setNewRegion(e.target.value)}>
               <option value="">— Region —</option>
@@ -1291,7 +1323,7 @@ function SchoolSettings() {
               className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
               style={{ backgroundColor: NAVY }}
               onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !newName.trim() || !newRegion || !newSpan}
+              disabled={createMut.isPending || !newDisplayName.trim() || !newRegion || !newSpan}
             >
               {createMut.isPending ? "Adding…" : "Add School"}
             </button>
@@ -1312,9 +1344,9 @@ function SchoolSettings() {
         )}
         {shownSchools.length > 0 && (
           <>
-            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "35% 22% 22% 21%" }}>
-              {["Name", "Region", "Grade Span", "Edit / Delete"].map((h, i) => (
-                <div key={i} className="px-4 py-3 text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.05em" }}>{h}</div>
+            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 15% 13% 22%" }}>
+              {["Display Name", "Full Name", "Abbrev.", "Grade Span / Region", "Edit / Delete"].map((h, i) => (
+                <div key={i} className="px-4 py-3 text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
               ))}
             </div>
             <div style={{ height: 3, backgroundColor: YELLOW }} />
@@ -1328,11 +1360,24 @@ function SchoolSettings() {
                 <div className="px-4 py-3 bg-blue-50 flex flex-col gap-3">
                   <div className="flex flex-wrap gap-3">
                     <input
-                      className={`${inputCls} flex-1 min-w-[200px]`}
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
+                      className={`${inputCls} flex-1 min-w-[180px]`}
+                      value={editDisplayName}
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      placeholder="Display Name"
                       autoFocus
                       onKeyDown={(e) => { if (e.key === "Escape") resetEdit(); }}
+                    />
+                    <input
+                      className={`${inputCls} flex-1 min-w-[180px]`}
+                      value={editFullName}
+                      onChange={(e) => setEditFullName(e.target.value)}
+                      placeholder="Full Name (for CSV matching, optional)"
+                    />
+                    <input
+                      className={`${inputCls} w-28`}
+                      value={editAbbr}
+                      onChange={(e) => setEditAbbr(e.target.value)}
+                      placeholder="Abbrev."
                     />
                     <select className={`${selCls} min-w-[130px]`} value={editRegion} onChange={(e) => setEditRegion(e.target.value)}>
                       <option value="">— Region —</option>
@@ -1348,7 +1393,7 @@ function SchoolSettings() {
                       className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
                       style={{ backgroundColor: NAVY }}
                       onClick={() => updateMut.mutate()}
-                      disabled={updateMut.isPending || !editName.trim() || !editRegion || !editSpan}
+                      disabled={updateMut.isPending || !editDisplayName.trim() || !editRegion || !editSpan}
                     >
                       {updateMut.isPending ? "Saving…" : "Save"}
                     </button>
@@ -1361,32 +1406,26 @@ function SchoolSettings() {
                 /* ── Display row ── */
                 <div
                   className="px-4 py-3 hover:bg-slate-50 transition-colors items-center"
-                  style={{ display: "grid", gridTemplateColumns: "35% 22% 22% 21%" }}
+                  style={{ display: "grid", gridTemplateColumns: "28% 22% 15% 13% 22%" }}
                 >
-                  {/* Name */}
+                  {/* Display Name */}
                   <span className="flex items-center gap-2 font-medium text-slate-700 text-sm min-w-0">
                     <School size={16} className="text-slate-300 shrink-0" />
-                    <span className="truncate">{school.name}</span>
+                    <span className="truncate">{school.displayName}</span>
                   </span>
-                  {/* Region */}
-                  <div className="flex items-center">
-                    {school.region ? (
-                      <span
-                        className="text-xs font-bold rounded-full px-2.5 py-0.5"
-                        style={{
-                          backgroundColor: (REGION_COLORS[school.region] ?? { bg: "#f1f5f9" }).bg,
-                          color: (REGION_COLORS[school.region] ?? { color: "#475569" }).color,
-                        }}
-                      >
-                        {school.region}
-                      </span>
-                    ) : <span className="text-slate-300 text-xs">—</span>}
-                  </div>
-                  {/* Grade Span */}
-                  <div className="flex items-center">
+                  {/* Full Name */}
+                  <span className="text-sm text-slate-500 truncate pr-2">
+                    {school.fullName || <span className="text-slate-300">—</span>}
+                  </span>
+                  {/* Abbreviation */}
+                  <span className="text-sm text-slate-500">
+                    {school.abbreviation || <span className="text-slate-300">—</span>}
+                  </span>
+                  {/* Grade Span + Region */}
+                  <div className="flex flex-col gap-0.5">
                     {school.gradeSpan ? (
                       <span
-                        className="text-xs font-bold rounded-full px-2.5 py-0.5"
+                        className="text-xs font-bold rounded-full px-2 py-0.5 w-fit"
                         style={{
                           backgroundColor: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { bg: "#f1f5f9" }).bg,
                           color: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { color: "#475569" }).color,
@@ -1395,6 +1434,17 @@ function SchoolSettings() {
                         {school.gradeSpan}
                       </span>
                     ) : <span className="text-slate-300 text-xs">—</span>}
+                    {school.region ? (
+                      <span
+                        className="text-xs font-bold rounded-full px-2 py-0.5 w-fit"
+                        style={{
+                          backgroundColor: (REGION_COLORS[school.region] ?? { bg: "#f1f5f9" }).bg,
+                          color: (REGION_COLORS[school.region] ?? { color: "#475569" }).color,
+                        }}
+                      >
+                        {school.region}
+                      </span>
+                    ) : null}
                   </div>
                   {/* Edit / Delete */}
                   <div className="flex items-center gap-1">
@@ -1408,7 +1458,7 @@ function SchoolSettings() {
                     <button
                       className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
                       title="Delete"
-                      onClick={() => { if (confirm(`Delete "${school.name}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
+                      onClick={() => { if (confirm(`Delete "${school.displayName}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
                       disabled={deleteMut.isPending}
                     >
                       <Trash2 size={13} />

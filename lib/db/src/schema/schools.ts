@@ -9,12 +9,14 @@ export const GRADE_SPANS = ["ES", "MS", "HS"] as const;
 export type GradeSpan = typeof GRADE_SPANS[number];
 
 export const schools = pgTable("schools", {
-  id:         serial("id").primaryKey(),
-  name:       text("name").notNull(),
-  region:     text("region").notNull(),
-  gradeSpan:  text("grade_span").notNull(),
-  isActive:   boolean("is_active").notNull().default(true),
-  isArchived: boolean("is_archived").notNull().default(false),
+  id:           serial("id").primaryKey(),
+  displayName:  text("display_name").notNull(),
+  fullName:     text("full_name"),
+  abbreviation: text("abbreviation"),
+  region:       text("region").notNull(),
+  gradeSpan:    text("grade_span").notNull(),
+  isActive:     boolean("is_active").notNull().default(true),
+  isArchived:   boolean("is_archived").notNull().default(false),
 });
 
 export const insertSchoolSchema = createInsertSchema(schools).omit({ id: true });

@@ -90,7 +90,7 @@ export default function SchoolPickerPage() {
                   <SchoolIcon size={18} style={{ color: NAVY }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-800 text-sm truncate">{school.name}</p>
+                  <p className="font-semibold text-slate-800 text-sm truncate">{school.displayName}</p>
                   {(school.region || school.gradeSpan) && (
                     <p className="text-xs text-slate-400 mt-0.5">
                       {[school.region, school.gradeSpan].filter(Boolean).join(" · ")}

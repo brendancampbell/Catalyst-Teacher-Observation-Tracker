@@ -67,24 +67,30 @@ export type GradeSpan = typeof GRADE_SPANS[number];
 
 /** Simple school record (used by the mobile app). */
 export interface School {
-  id:        number;
-  name:      string;
-  region?:   string;
-  gradeSpan?: string;
+  id:           number;
+  displayName:  string;
+  fullName?:    string | null;
+  abbreviation?: string | null;
+  region?:      string;
+  gradeSpan?:   string;
 }
 
 /** Full admin school record with explicit nullability. */
 export interface AdminSchool {
-  id:        number;
-  name:      string;
-  region:    string | null;
-  gradeSpan: string | null;
+  id:           number;
+  displayName:  string;
+  fullName:     string | null;
+  abbreviation: string | null;
+  region:       string | null;
+  gradeSpan:    string | null;
 }
 
 export interface SchoolPayload {
-  name:       string;
-  region?:    string | null;
-  gradeSpan?: string | null;
+  displayName:   string;
+  fullName?:     string | null;
+  abbreviation?: string | null;
+  region?:       string | null;
+  gradeSpan?:    string | null;
 }
 
 /* ── Rubric sets ─────────────────────────────────────────────────── */

@@ -148,7 +148,7 @@ router.get("/rescore-queue", async (req, res) => {
         personLast:     people.lastName,
         department:     people.department,
         gradeLevel:     people.gradeLevel,
-        schoolName:     schools.name,
+        schoolName:     schools.displayName,
         rescoreDueDate: people.rescoreDueDate,
         needsRescore:   people.needsRescore,
       })
@@ -200,7 +200,7 @@ router.get("/overdue-observations", async (req, res) => {
         personLast:   people.lastName,
         department:   people.department,
         gradeLevel:   people.gradeLevel,
-        schoolName:   schools.name,
+        schoolName:   schools.displayName,
         lastObserved: max(observations.date),
       })
       .from(people)
@@ -211,7 +211,7 @@ router.get("/overdue-observations", async (req, res) => {
         eq(people.includeInFeedbackTracker, true),
         schoolFilter,
       ))
-      .groupBy(people.employeeId, people.firstName, people.lastName, people.department, people.gradeLevel, schools.name)
+      .groupBy(people.employeeId, people.firstName, people.lastName, people.department, people.gradeLevel, schools.displayName)
       .having(
         sql`MAX(${observations.date}) < CURRENT_DATE - INTERVAL '14 days' OR MAX(${observations.date}) IS NULL`,
       )

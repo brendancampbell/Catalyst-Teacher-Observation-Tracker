@@ -138,7 +138,7 @@ export default function SchoolObservationModal({
                 >
                   <option value="">Select school…</option>
                   {schools.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>{s.displayName}</option>
                   ))}
                 </select>
               </div>

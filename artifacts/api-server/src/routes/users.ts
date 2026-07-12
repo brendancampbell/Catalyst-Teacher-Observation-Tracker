@@ -24,7 +24,7 @@ router.get("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) 
         name:       users.name,
         role:       users.role,
         schoolId:   users.schoolId,
-        schoolName: schools.name,
+        schoolName: schools.displayName,
         isActive:   users.isActive,
       })
       .from(users)
@@ -87,7 +87,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
     }).returning();
 
     const [withSchool] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.displayName, isActive: users.isActive })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
       .where(eq(users.id, created.id));
@@ -122,12 +122,17 @@ router.post("/bulk", requireRole("NETWORK_ADMIN"), async (req, res) => {
 
     // Pre-fetch all schools once so we can do name→id resolution.
     const allSchools = await db
-      .select({ id: schools.id, name: schools.name })
+      .select({ id: schools.id, displayName: schools.displayName, fullName: schools.fullName })
       .from(schools);
 
-    const schoolNameMap = new Map<string, number>(
-      allSchools.map((s) => [s.name.toLowerCase().trim(), s.id]),
-    );
+    const schoolNameMap = new Map<string, number>();
+    for (const s of allSchools) {
+      const dn = s.displayName.toLowerCase().trim();
+      if (!schoolNameMap.has(dn)) schoolNameMap.set(dn, s.id);
+    }
+    for (const s of allSchools) {
+      if (s.fullName) schoolNameMap.set(s.fullName.toLowerCase().trim(), s.id);
+    }
     const schoolIdSet = new Set<number>(allSchools.map((s) => s.id));
 
     const VALID_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER"];
@@ -267,7 +272,7 @@ router.patch("/:id", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
 
     const [withSchool] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.displayName, isActive: users.isActive })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
       .where(eq(users.id, updated.id));
@@ -321,7 +326,7 @@ router.patch("/:id/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN")
       .returning();
 
     const [withSchool] = await db
-      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.name, isActive: users.isActive })
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role, schoolId: users.schoolId, schoolName: schools.displayName, isActive: users.isActive })
       .from(users)
       .leftJoin(schools, eq(users.schoolId, schools.id))
       .where(eq(users.id, updated.id));

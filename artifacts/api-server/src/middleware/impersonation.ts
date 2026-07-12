@@ -41,7 +41,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
         gradeLevel:               people.gradeLevel,
         needsRescore:             people.needsRescore,
         rescoreDueDate:           people.rescoreDueDate,
-        schoolName:               schools.name,
+        schoolName:               schools.displayName,
       })
       .from(people)
       .leftJoin(schools, eq(people.schoolId, schools.id))

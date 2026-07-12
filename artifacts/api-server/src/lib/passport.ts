@@ -27,7 +27,7 @@ declare global {
   }
 }
 
-function personToUser(person: Person & { school?: { name: string } | null }): Express.User {
+function personToUser(person: Person & { school?: { displayName: string } | null }): Express.User {
   return {
     employeeId:                  person.employeeId,
     firstName:                   person.firstName,
@@ -39,7 +39,7 @@ function personToUser(person: Person & { school?: { name: string } | null }): Ex
     isActive:                    person.isActive,
     includeInFeedbackTracker:    person.includeInFeedbackTracker,
     schoolId:                    person.schoolId ?? null,
-    schoolName:                  person.school?.name ?? null,
+    schoolName:                  person.school?.displayName ?? null,
     department:                  person.department ?? null,
     gradeLevel:                  person.gradeLevel ?? null,
     needsRescore:                person.needsRescore,
@@ -114,7 +114,7 @@ export function configurePassport() {
         with: { school: true },
       });
       if (!person) return done(null, false);
-      done(null, personToUser(person as Person & { school?: { name: string } | null }));
+      done(null, personToUser(person as Person & { school?: { displayName: string } | null }));
     } catch (err) {
       done(err);
     }

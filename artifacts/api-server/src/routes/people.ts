@@ -17,7 +17,7 @@ const PEOPLE_SELECT = {
   email:                    people.email,
   role:                     people.role,
   schoolId:                 people.schoolId,
-  schoolName:               schools.name,
+  schoolName:               schools.displayName,
   isActive:                 people.isActive,
   includeInFeedbackTracker: people.includeInFeedbackTracker,
   department:               people.department,
@@ -203,11 +203,24 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       return;
     }
 
-    const allSchools = await db.select({ id: schools.id, name: schools.name }).from(schools);
-    const schoolNameMap = new Map<string, number>(
-      allSchools.map((s) => [s.name.toLowerCase().trim(), s.id]),
-    );
+    const allSchools = await db.select({
+      id: schools.id,
+      displayName: schools.displayName,
+      fullName: schools.fullName,
+    }).from(schools);
     const schoolIdSet = new Set<number>(allSchools.map((s) => s.id));
+    /* Build lookup: fullName takes priority, fall back to displayName */
+    const schoolNameMap = new Map<string, number>();
+    for (const s of allSchools) {
+      const dn = s.displayName.toLowerCase().trim();
+      if (!schoolNameMap.has(dn)) schoolNameMap.set(dn, s.id);
+    }
+    for (const s of allSchools) {
+      if (s.fullName) {
+        const fn = s.fullName.toLowerCase().trim();
+        schoolNameMap.set(fn, s.id);
+      }
+    }
 
     type RowResult = {
       row: number;
@@ -285,7 +298,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       let schoolId: number | null = null;
       if (isNetworkAdmin) {
         if (school) {
-          const byName = schoolNameMap.get(school.toLowerCase());
+          const byName = schoolNameMap.get(school.toLowerCase().trim());
           if (byName !== undefined) {
             schoolId = byName;
           } else {

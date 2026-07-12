@@ -152,7 +152,7 @@ export default function ObservationPage() {
     navigate("/school-picker");
   }
 
-  const schoolName = selectedSchool?.name ?? user?.schoolName ?? undefined;
+  const schoolName = selectedSchool?.displayName ?? user?.schoolName ?? undefined;
   const subtitle = [schoolName, selectedRubric?.name].filter(Boolean).join(" · ");
 
   const isLoading = loadingTeachers || loadingRubric;

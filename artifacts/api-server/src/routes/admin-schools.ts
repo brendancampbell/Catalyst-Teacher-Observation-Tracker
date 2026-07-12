@@ -9,7 +9,7 @@ const router = Router();
 /* GET /api/admin/schools — list all schools (any network-scope user) */
 router.get("/", async (_req, res) => {
   try {
-    const rows = await db.select().from(schools).orderBy(schools.name);
+    const rows = await db.select().from(schools).orderBy(schools.displayName);
     res.json(rows);
   } catch (err) {
     console.error("GET /admin/schools error:", err);
@@ -20,9 +20,15 @@ router.get("/", async (_req, res) => {
 /* POST /api/admin/schools — create school (NETWORK_ADMIN only) */
 router.post("/", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, region, gradeSpan } = req.body as { name: string; region: string; gradeSpan: string };
-    if (!name?.trim()) {
-      res.status(400).json({ error: "name is required" });
+    const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as {
+      displayName: string;
+      fullName?: string | null;
+      abbreviation?: string | null;
+      region: string;
+      gradeSpan: string;
+    };
+    if (!displayName?.trim()) {
+      res.status(400).json({ error: "displayName is required" });
       return;
     }
     if (!region?.trim()) {
@@ -35,7 +41,13 @@ router.post("/", requireNetworkAdmin, async (req, res) => {
     }
     const [row] = await db
       .insert(schools)
-      .values({ name: name.trim(), region: region.trim(), gradeSpan: gradeSpan.trim() })
+      .values({
+        displayName:  displayName.trim(),
+        fullName:     fullName?.trim() || null,
+        abbreviation: abbreviation?.trim() || null,
+        region:       region.trim(),
+        gradeSpan:    gradeSpan.trim(),
+      })
       .returning();
     res.status(201).json(row);
   } catch (err) {
@@ -48,11 +60,23 @@ router.post("/", requireNetworkAdmin, async (req, res) => {
 router.patch("/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { name, region, gradeSpan } = req.body as Partial<{ name: string; region: string; gradeSpan: string }>;
+    const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as Partial<{
+      displayName:  string;
+      fullName:     string | null;
+      abbreviation: string | null;
+      region:       string;
+      gradeSpan:    string;
+    }>;
     const updates: Record<string, unknown> = {};
-    if (name !== undefined) {
-      if (!name.trim()) { res.status(400).json({ error: "name cannot be empty" }); return; }
-      updates.name = name.trim();
+    if (displayName !== undefined) {
+      if (!displayName.trim()) { res.status(400).json({ error: "displayName cannot be empty" }); return; }
+      updates.displayName = displayName.trim();
+    }
+    if (fullName !== undefined) {
+      updates.fullName = fullName?.trim() || null;
+    }
+    if (abbreviation !== undefined) {
+      updates.abbreviation = abbreviation?.trim() || null;
     }
     if (region !== undefined) {
       if (!region.trim()) { res.status(400).json({ error: "region is required" }); return; }
