@@ -13,6 +13,7 @@ import {
 } from "@/data/dummy";
 import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
+import { calcOverallAvgFromScores } from "@/lib/utils";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
@@ -61,12 +62,18 @@ function getCategoryAvg(teacher: Teacher, catDomains: DomainEntry[], viewMode: V
   return domainScores.length ? avg(domainScores) : null;
 }
 
-/* Overall teacher average = average of category sub-averages. */
+/* Overall teacher average = average of category sub-averages (shared canonical impl). */
 function getTeacherOverallAvg(teacher: Teacher, categories: CategoryEntry[], viewMode: ViewMode): number | null {
-  const catAvgs = categories
-    .map((c) => getCategoryAvg(teacher, c.domains, viewMode))
-    .filter((s): s is number => s !== null);
-  return catAvgs.length ? avg(catAvgs) : null;
+  const scores: Record<string, number | undefined> = {};
+  for (const c of categories) {
+    for (const d of c.domains) {
+      const v = viewMode === "periodAvg"
+        ? getQuarterDomainScore(teacher, d.id)
+        : getMostRecentDomainScore(teacher, d.id);
+      if (v !== null) scores[d.id] = v;
+    }
+  }
+  return calcOverallAvgFromScores(scores, categories);
 }
 
 /* Domain-level avg across multiple teachers (for footer and group cells). */

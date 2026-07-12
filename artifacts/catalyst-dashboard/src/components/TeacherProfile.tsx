@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, Sc
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { calcOverallAvgFromScores } from "@/lib/utils";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
@@ -207,8 +208,8 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
     });
   }, [activeTeacher, activeCategories, recent]);
 
-  const overallAvg = recentScores.length
-    ? recentScores.reduce((s, { score }) => s + score, 0) / recentScores.length
+  const overallAvg = recent
+    ? calcOverallAvgFromScores(recent.scores as Record<string, number | undefined>, activeCategories)
     : null;
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
