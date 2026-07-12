@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Papa from "papaparse";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2 } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -1169,10 +1170,13 @@ function downloadTemplate() {
 }
 
 function parseSchoolCsv(text: string): { rows: BulkSchoolRow[]; headerError: string | null } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return { rows: [], headerError: "CSV is empty" };
+  const result = Papa.parse<string[]>(text.trim(), {
+    skipEmptyLines: true,
+  });
 
-  const header = lines[0].split(",").map((h) => h.replace(/^"|"$/g, "").trim());
+  if (result.data.length === 0) return { rows: [], headerError: "CSV is empty" };
+
+  const header = result.data[0].map((h) => h.trim());
   const expected = CSV_HEADERS as readonly string[];
 
   if (header.length !== expected.length || expected.some((col, i) => header[i] !== col)) {
@@ -1184,9 +1188,9 @@ function parseSchoolCsv(text: string): { rows: BulkSchoolRow[]; headerError: str
 
   const rows: BulkSchoolRow[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) ?? [];
-    const get  = (colIdx: number) => (cols[colIdx] ?? "").replace(/^"|"$/g, "").trim();
+  for (let i = 1; i < result.data.length; i++) {
+    const cols = result.data[i];
+    const get  = (colIdx: number) => (cols[colIdx] ?? "").trim();
     rows.push({
       displayName:  get(0),
       fullName:     get(1),
