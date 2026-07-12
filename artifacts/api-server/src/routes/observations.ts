@@ -186,7 +186,7 @@ router.get("/:id", async (req, res) => {
       return;
     }
 
-    if (currentUser.role === "SCHOOL_LEADER") {
+    if (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH") {
       if (existing.target === "SCHOOL") {
         if (existing.schoolId !== currentUser.schoolId) {
           res.status(403).json({ error: "Cannot access observations for schools outside your school" });
