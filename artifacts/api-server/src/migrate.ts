@@ -204,6 +204,45 @@ async function migrate() {
       CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id)
     `);
 
+    /* ── 9a. Three-name schools migration (name → display_name + full_name + abbreviation) ── */
+    {
+      const { rows: schoolColRows } = await client.query<{ column_name: string }>(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'schools'
+          AND column_name IN ('name', 'display_name', 'full_name', 'abbreviation')
+      `);
+      const schoolCols = new Set(schoolColRows.map((r) => r.column_name));
+      const hasName        = schoolCols.has("name");
+      const hasDisplayName = schoolCols.has("display_name");
+      const hasFullName    = schoolCols.has("full_name");
+      const hasAbbr        = schoolCols.has("abbreviation");
+
+      if (hasDisplayName && hasFullName && hasAbbr) {
+        console.log("  schools three-name fields: already present.");
+      } else if (!hasName && !hasDisplayName) {
+        console.log("  schools three-name fields: fresh schema, nothing to migrate.");
+      } else {
+        console.log("  Migrating schools three-name fields…");
+        if (!hasDisplayName) {
+          await client.query(`ALTER TABLE "schools" ADD COLUMN "display_name" text`);
+          if (hasName) {
+            await client.query(`UPDATE "schools" SET "display_name" = "name" WHERE "display_name" IS NULL`);
+          }
+          await client.query(`ALTER TABLE "schools" ALTER COLUMN "display_name" SET NOT NULL`);
+        }
+        if (!hasFullName) {
+          await client.query(`ALTER TABLE "schools" ADD COLUMN "full_name" text`);
+        }
+        if (!hasAbbr) {
+          await client.query(`ALTER TABLE "schools" ADD COLUMN "abbreviation" text`);
+        }
+        if (hasName) {
+          await client.query(`ALTER TABLE "schools" DROP COLUMN "name"`);
+        }
+        console.log("  Done.");
+      }
+    }
+
     /* ── 9. Add rubric_set_slug column to chat_messages ──────────── */
     const { rows: rssColRows } = await client.query<{ exists: boolean }>(
       `SELECT EXISTS(

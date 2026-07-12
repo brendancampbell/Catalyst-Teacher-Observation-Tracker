@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
+import devAuthRouter from "./dev-auth";
 import dashboardRouter from "./dashboard";
 import districtRouter from "./district";
 import teachersRouter from "./teachers";
@@ -16,6 +17,8 @@ import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middlew
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
+/* Dev-only auth bypass — disabled in production inside the handler */
+router.use("/auth", devAuthRouter);
 router.use(requireAuth, healthRouter);
 
 router.use("/dashboard",    requireAuth, enforceSchoolScope, dashboardRouter);
