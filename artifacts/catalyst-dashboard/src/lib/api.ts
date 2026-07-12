@@ -130,6 +130,24 @@ export async function deleteAdminSchool(id: number): Promise<void> {
   await apiFetch<void>(`/admin/schools/${id}`, { method: "DELETE" });
 }
 
+export interface BulkSchoolRow {
+  displayName:  string;
+  fullName:     string;
+  abbreviation: string;
+  region:       string;
+  gradeSpan:    string;
+}
+
+export interface BulkSchoolResult {
+  added:   number;
+  updated: number;
+  failed:  { row: number; error: string }[];
+}
+
+export async function bulkImportSchools(rows: BulkSchoolRow[]): Promise<BulkSchoolResult> {
+  return apiFetch<BulkSchoolResult>("/admin/schools/bulk", { method: "POST", body: JSON.stringify(rows) });
+}
+
 /* ── Rubric Set Info ─────────────────────────────────────────────── */
 
 import type {

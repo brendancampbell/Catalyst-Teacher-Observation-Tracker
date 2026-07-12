@@ -222,6 +222,58 @@ async function migrate() {
       }
     }
 
+    /* ── 10. Rename schools.name → display_name if still on old schema ── */
+    const { rows: schoolsNameRows } = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS(
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'schools' AND column_name = 'name'
+      ) AS exists
+    `);
+    if (schoolsNameRows[0].exists) {
+      console.log("  Schools: renaming name → display_name…");
+      await client.query(`ALTER TABLE schools RENAME COLUMN name TO display_name`);
+      console.log("  Done.");
+    }
+
+    /* ── 11. Add schools.full_name if missing ── */
+    const { rows: schoolsFnRows } = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS(
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'schools' AND column_name = 'full_name'
+      ) AS exists
+    `);
+    if (!schoolsFnRows[0].exists) {
+      const { rows: schoolsExists } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schools') AS exists`,
+      );
+      if (schoolsExists[0].exists) {
+        console.log("  Schools: adding full_name column…");
+        await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS full_name TEXT`);
+        console.log("  Done.");
+      }
+    }
+
+    /* ── 12. Add schools.abbreviation if missing ── */
+    const { rows: schoolsAbbrRows } = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS(
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'schools' AND column_name = 'abbreviation'
+      ) AS exists
+    `);
+    if (!schoolsAbbrRows[0].exists) {
+      const { rows: schoolsExists2 } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schools') AS exists`,
+      );
+      if (schoolsExists2[0].exists) {
+        console.log("  Schools: adding abbreviation column…");
+        await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS abbreviation TEXT`);
+        console.log("  Done.");
+      }
+    }
+
+    /* ── 13. Add unique constraint on schools.abbreviation ── */
+    await ensureUnique(client, "schools_abbreviation_unique", "schools", "abbreviation");
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

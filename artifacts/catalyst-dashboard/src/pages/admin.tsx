@@ -29,6 +29,7 @@ import {
   createAdminSchool,
   updateAdminSchool,
   deleteAdminSchool,
+  bulkImportSchools,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -40,6 +41,8 @@ import {
   type AdminSchool,
   type BulkImportPersonPayload,
   type BulkImportPersonRowResult,
+  type BulkSchoolRow,
+  type BulkSchoolResult,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -1145,6 +1148,284 @@ const GRADE_SPAN_COLORS: Record<string, { bg: string; color: string }> = {
   HS: { bg: "#f0fdf4", color: "#166534" },
 };
 
+/* ════════════════════════════════════════════════════════════════
+   SCHOOL CSV UPLOAD MODAL
+   ════════════════════════════════════════════════════════════════ */
+
+const CSV_HEADERS = ["Display Name", "Full Name", "Abbreviation", "Region", "Grade Span"] as const;
+
+function downloadTemplate() {
+  const rows = [
+    CSV_HEADERS.join(","),
+    `"Example School ES","Example School Elementary School","EX_ES","Newark","ES"`,
+  ];
+  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "schools_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseSchoolCsv(text: string): { rows: BulkSchoolRow[]; headerError: string | null } {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return { rows: [], headerError: "CSV is empty" };
+
+  const header = lines[0].split(",").map((h) => h.replace(/^"|"$/g, "").trim());
+  const expected = CSV_HEADERS as readonly string[];
+  const missing  = expected.filter((h) => !header.includes(h));
+  if (missing.length > 0) {
+    return { rows: [], headerError: `Missing required columns: ${missing.join(", ")}` };
+  }
+
+  const idx = (col: string) => header.indexOf(col);
+  const rows: BulkSchoolRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) ?? [];
+    const get  = (col: string) => (cols[idx(col)] ?? "").replace(/^"|"$/g, "").trim();
+    rows.push({
+      displayName:  get("Display Name"),
+      fullName:     get("Full Name"),
+      abbreviation: get("Abbreviation"),
+      region:       get("Region"),
+      gradeSpan:    get("Grade Span"),
+    });
+  }
+
+  return { rows, headerError: null };
+}
+
+function SchoolCsvModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [parsedRows,   setParsedRows]   = useState<BulkSchoolRow[]>([]);
+  const [headerError,  setHeaderError]  = useState<string | null>(null);
+  const [fileName,     setFileName]     = useState<string | null>(null);
+  const [result,       setResult]       = useState<BulkSchoolResult | null>(null);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [submitError,  setSubmitError]  = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setResult(null);
+    setSubmitError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { rows, headerError } = parseSchoolCsv(text);
+      setParsedRows(rows);
+      setHeaderError(headerError);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleSubmit() {
+    if (parsedRows.length === 0) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await bulkImportSchools(parsedRows);
+      setResult(res);
+      if (res.added > 0 || res.updated > 0) onSuccess();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const validRows   = parsedRows.filter((r) => r.displayName && r.fullName && r.abbreviation && r.region && r.gradeSpan);
+  const canSubmit   = !headerError && parsedRows.length > 0 && !result;
+  const allRegions  = new Set(REGIONS as readonly string[]);
+  const allSpans    = new Set(GRADE_SPANS as readonly string[]);
+
+  function rowWarning(r: BulkSchoolRow): string | null {
+    if (!r.displayName || !r.fullName || !r.abbreviation || !r.region || !r.gradeSpan) return "Missing required field(s)";
+    if (!allRegions.has(r.region))  return `Unknown region "${r.region}"`;
+    if (!allSpans.has(r.gradeSpan)) return `Unknown grade span "${r.gradeSpan}"`;
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden" style={{ maxHeight: "90vh" }}>
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between shrink-0" style={{ backgroundColor: NAVY, borderBottom: `3px solid ${YELLOW}` }}>
+          <div className="flex items-center gap-2.5">
+            <Upload size={18} style={{ color: YELLOW }} />
+            <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+              Upload Schools CSV
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-blue-200 hover:text-white p-1"><X size={20} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-col gap-5 p-5 overflow-y-auto flex-1">
+
+          {/* Step 1 — Template */}
+          <div className="flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+            <FileText size={16} className="text-slate-400 shrink-0" />
+            <span className="text-sm text-slate-600 flex-1">Need the format? Download the template CSV first.</span>
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded font-bold text-sm border"
+              style={{ borderColor: NAVY, color: NAVY }}
+            >
+              <Download size={13} />Template
+            </button>
+          </div>
+
+          {/* Step 2 — File picker */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-700">Upload CSV file</label>
+            <div
+              className="flex items-center gap-3 rounded-lg border-2 border-dashed border-slate-300 px-4 py-4 cursor-pointer hover:border-blue-400 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload size={18} className="text-slate-400 shrink-0" />
+              <span className="text-sm text-slate-500">{fileName ?? "Click to choose a .csv file"}</span>
+              {fileName && <Check size={16} className="text-green-500 shrink-0 ml-auto" />}
+            </div>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+          </div>
+
+          {/* Header error */}
+          {headerError && (
+            <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
+              {headerError}
+            </div>
+          )}
+
+          {/* Preview table */}
+          {!headerError && parsedRows.length > 0 && !result && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-700">{parsedRows.length} row{parsedRows.length !== 1 ? "s" : ""} parsed</span>
+                {parsedRows.length !== validRows.length && (
+                  <span className="text-xs font-semibold text-red-600">{parsedRows.length - validRows.length} row{parsedRows.length - validRows.length !== 1 ? "s have" : " has"} errors</span>
+                )}
+              </div>
+              <div className="rounded-lg border border-slate-200 overflow-auto" style={{ maxHeight: 280 }}>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr style={{ backgroundColor: NAVY, color: "white" }}>
+                      {["#", "Display Name", "Full Name", "Abbr.", "Region", "Grade", ""].map((h) => (
+                        <th key={h} className="px-2.5 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {parsedRows.map((r, i) => {
+                      const warn = rowWarning(r);
+                      return (
+                        <tr key={i} className={warn ? "bg-red-50" : i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                          <td className="px-2.5 py-1.5 text-slate-400">{i + 2}</td>
+                          <td className="px-2.5 py-1.5 font-medium text-slate-800 max-w-[140px] truncate">{r.displayName || <span className="text-red-400 italic">—</span>}</td>
+                          <td className="px-2.5 py-1.5 text-slate-600 max-w-[160px] truncate">{r.fullName || <span className="text-red-400 italic">—</span>}</td>
+                          <td className="px-2.5 py-1.5 font-mono text-slate-500">{r.abbreviation || <span className="text-red-400 italic">—</span>}</td>
+                          <td className="px-2.5 py-1.5 text-slate-600">{r.region || <span className="text-red-400 italic">—</span>}</td>
+                          <td className="px-2.5 py-1.5 text-slate-600">{r.gradeSpan || <span className="text-red-400 italic">—</span>}</td>
+                          <td className="px-2.5 py-1.5">
+                            {warn
+                              ? <span title={warn}><AlertCircle size={13} className="text-red-400" /></span>
+                              : <Check size={13} className="text-green-500" />
+                            }
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Submit error */}
+          {submitError && (
+            <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />{submitError}
+            </div>
+          )}
+
+          {/* Result summary */}
+          {result && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {result.added > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-sm font-semibold text-green-700">
+                    <CheckCircle2 size={15} />{result.added} added
+                  </div>
+                )}
+                {result.updated > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-sm font-semibold text-blue-700">
+                    <CheckCircle2 size={15} />{result.updated} updated
+                  </div>
+                )}
+                {result.failed.length > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm font-semibold text-red-700">
+                    <AlertCircle size={15} />{result.failed.length} failed
+                  </div>
+                )}
+                {result.added === 0 && result.updated === 0 && result.failed.length === 0 && (
+                  <div className="text-sm text-slate-500">No rows were processed.</div>
+                )}
+              </div>
+
+              {result.failed.length > 0 && (
+                <div className="rounded-lg border border-red-200 overflow-hidden">
+                  <div className="px-3 py-2 bg-red-50 text-xs font-semibold text-red-700 uppercase tracking-wide">Failed rows</div>
+                  <div className="divide-y divide-red-100" style={{ maxHeight: 200, overflowY: "auto" }}>
+                    {result.failed.map((f) => (
+                      <div key={f.row} className="flex items-start gap-3 px-3 py-2 text-xs">
+                        <span className="font-bold text-slate-500 shrink-0">Row {f.row}</span>
+                        <span className="text-red-600">{f.error}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-5 py-4 shrink-0 border-t border-slate-100">
+          <button onClick={onClose} className="px-4 py-2 rounded font-semibold text-sm text-slate-600 hover:bg-slate-100">
+            {result ? "Close" : "Cancel"}
+          </button>
+          {!result && (
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit || submitting}
+              className="flex items-center gap-2 px-5 py-2 rounded font-bold text-sm text-white disabled:opacity-50"
+              style={{ backgroundColor: NAVY }}
+            >
+              {submitting ? (
+                <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Importing…</>
+              ) : (
+                <><Upload size={14} />Import {parsedRows.length > 0 ? `${parsedRows.length} School${parsedRows.length !== 1 ? "s" : ""}` : "Schools"}</>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SCHOOLS SETTINGS PANEL
+   ════════════════════════════════════════════════════════════════ */
+
 function SchoolSettings() {
   const queryClient = useQueryClient();
   const qKey = ["admin", "schools"] as const;
@@ -1174,6 +1455,9 @@ function SchoolSettings() {
   const [schoolSearch,    setSchoolSearch]    = useState("");
   const [filterRegions,   setFilterRegions]   = useState<string[]>([]);
   const [filterGradeSpans, setFilterGradeSpans] = useState<string[]>([]);
+
+  /* CSV upload modal */
+  const [showCsvModal, setShowCsvModal] = useState(false);
 
   function resetAdd() { setAdding(false); setNewDisplayName(""); setNewFullName(""); setNewAbbr(""); setNewRegion(""); setNewSpan(""); }
   function resetEdit() { setEditId(null); }
@@ -1273,7 +1557,15 @@ function SchoolSettings() {
           </button>
         )}
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setShowCsvModal(true)}
+            className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0 border"
+            style={{ borderColor: NAVY, color: NAVY }}
+          >
+            <Upload size={14} />
+            Upload CSV
+          </button>
           <button
             onClick={() => { setAdding(true); setEditId(null); setNewDisplayName(""); setNewFullName(""); setNewAbbr(""); setNewRegion(""); setNewSpan(""); }}
             className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
@@ -1284,6 +1576,13 @@ function SchoolSettings() {
           </button>
         </div>
       </div>
+
+      {showCsvModal && (
+        <SchoolCsvModal
+          onClose={() => setShowCsvModal(false)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: qKey })}
+        />
+      )}
 
       {/* Add school form */}
       {adding && (

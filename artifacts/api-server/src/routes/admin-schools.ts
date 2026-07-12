@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { schools, people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
+import { REGIONS, GRADE_SPANS } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -111,6 +112,66 @@ router.patch("/:id", requireNetworkAdmin, async (req, res) => {
     console.error("PATCH /admin/schools/:id error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+/* POST /api/admin/schools/bulk — upsert many schools via CSV upload (NETWORK_ADMIN only) */
+router.post("/bulk", requireNetworkAdmin, async (req, res) => {
+  type BulkRow = { displayName: string; fullName: string; abbreviation: string; region: string; gradeSpan: string };
+  const rows: BulkRow[] = req.body;
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "Expected a non-empty array of school rows" });
+    return;
+  }
+
+  const validRegions   = new Set<string>(REGIONS);
+  const validGradeSpans = new Set<string>(GRADE_SPANS);
+
+  let added   = 0;
+  let updated = 0;
+  const failed: { row: number; error: string }[] = [];
+
+  const client = await pool.connect();
+  try {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const rowNum = i + 2;
+
+      if (!r.displayName?.trim())   { failed.push({ row: rowNum, error: "Display Name is required" });   continue; }
+      if (!r.fullName?.trim())      { failed.push({ row: rowNum, error: "Full Name is required" });       continue; }
+      if (!r.abbreviation?.trim())  { failed.push({ row: rowNum, error: "Abbreviation is required" });   continue; }
+      if (!r.region?.trim())        { failed.push({ row: rowNum, error: "Region is required" });          continue; }
+      if (!r.gradeSpan?.trim())     { failed.push({ row: rowNum, error: "Grade Span is required" });      continue; }
+      if (!validRegions.has(r.region.trim()))     { failed.push({ row: rowNum, error: `Unknown region "${r.region}" — must be one of: ${REGIONS.join(", ")}` });      continue; }
+      if (!validGradeSpans.has(r.gradeSpan.trim())) { failed.push({ row: rowNum, error: `Unknown grade span "${r.gradeSpan}" — must be one of: ${GRADE_SPANS.join(", ")}` }); continue; }
+
+      try {
+        const { rows: result } = await client.query<{ xmax: string }>(`
+          INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (abbreviation) DO UPDATE
+            SET display_name = EXCLUDED.display_name,
+                full_name    = EXCLUDED.full_name,
+                region       = EXCLUDED.region,
+                grade_span   = EXCLUDED.grade_span
+          RETURNING xmax
+        `, [r.displayName.trim(), r.fullName.trim(), r.abbreviation.trim(), r.region.trim(), r.gradeSpan.trim()]);
+
+        if (result[0].xmax === "0") {
+          added++;
+        } else {
+          updated++;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        failed.push({ row: rowNum, error: msg });
+      }
+    }
+  } finally {
+    client.release();
+  }
+
+  res.json({ added, updated, failed });
 });
 
 /* DELETE /api/admin/schools/:id — delete school (NETWORK_ADMIN only) */
