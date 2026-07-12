@@ -44,8 +44,16 @@ router.post("/", requireNetworkAdmin, async (req, res) => {
       res.status(400).json({ error: "Region is required" });
       return;
     }
+    if (!(REGIONS as readonly string[]).includes(region.trim())) {
+      res.status(400).json({ error: `Unknown region "${region.trim()}" — must be one of: ${REGIONS.join(", ")}` });
+      return;
+    }
     if (!gradeSpan?.trim()) {
       res.status(400).json({ error: "Grade Span is required" });
+      return;
+    }
+    if (!(GRADE_SPANS as readonly string[]).includes(gradeSpan.trim())) {
+      res.status(400).json({ error: `Unknown grade span "${gradeSpan.trim()}" — must be one of: ${GRADE_SPANS.join(", ")}` });
       return;
     }
     const [row] = await db
@@ -91,10 +99,18 @@ router.patch("/:id", requireNetworkAdmin, async (req, res) => {
     }
     if (region !== undefined) {
       if (!region.trim()) { res.status(400).json({ error: "Region is required" }); return; }
+      if (!(REGIONS as readonly string[]).includes(region.trim())) {
+        res.status(400).json({ error: `Unknown region "${region.trim()}" — must be one of: ${REGIONS.join(", ")}` });
+        return;
+      }
       updates.region = region.trim();
     }
     if (gradeSpan !== undefined) {
       if (!gradeSpan.trim()) { res.status(400).json({ error: "Grade Span is required" }); return; }
+      if (!(GRADE_SPANS as readonly string[]).includes(gradeSpan.trim())) {
+        res.status(400).json({ error: `Unknown grade span "${gradeSpan.trim()}" — must be one of: ${GRADE_SPANS.join(", ")}` });
+        return;
+      }
       updates.gradeSpan = gradeSpan.trim();
     }
     if (Object.keys(updates).length === 0) {
