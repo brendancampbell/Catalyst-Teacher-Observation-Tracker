@@ -3,9 +3,13 @@ import { db, pool } from "@workspace/db";
 import { schools, people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
-import { REGIONS, GRADE_SPANS } from "@workspace/db/schema";
+import { insertSchoolSchema, patchSchoolSchema } from "@workspace/db/schema";
 
 const router = Router();
+
+function firstZodError(err: { issues: { message: string }[] }): string {
+  return err.issues[0]?.message ?? "Validation error";
+}
 
 /* GET /api/admin/schools — list all schools (any network-scope user) */
 router.get("/", async (_req, res) => {
@@ -21,51 +25,12 @@ router.get("/", async (_req, res) => {
 /* POST /api/admin/schools — create school (NETWORK_ADMIN only) */
 router.post("/", requireNetworkAdmin, async (req, res) => {
   try {
-    const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as {
-      displayName: string;
-      fullName: string;
-      abbreviation: string;
-      region: string;
-      gradeSpan: string;
-    };
-    if (!displayName?.trim()) {
-      res.status(400).json({ error: "Display Name is required" });
+    const parsed = insertSchoolSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
       return;
     }
-    if (!fullName?.trim()) {
-      res.status(400).json({ error: "Full Name is required" });
-      return;
-    }
-    if (!abbreviation?.trim()) {
-      res.status(400).json({ error: "Abbreviation is required" });
-      return;
-    }
-    if (!region?.trim()) {
-      res.status(400).json({ error: "Region is required" });
-      return;
-    }
-    if (!(REGIONS as readonly string[]).includes(region.trim())) {
-      res.status(400).json({ error: `Unknown region "${region.trim()}" — must be one of: ${REGIONS.join(", ")}` });
-      return;
-    }
-    if (!gradeSpan?.trim()) {
-      res.status(400).json({ error: "Grade Span is required" });
-      return;
-    }
-    if (!(GRADE_SPANS as readonly string[]).includes(gradeSpan.trim())) {
-      res.status(400).json({ error: `Unknown grade span "${gradeSpan.trim()}" — must be one of: ${GRADE_SPANS.join(", ")}` });
-      return;
-    }
-    const [row] = await db
-      .insert(schools)
-      .values({
-        displayName:  displayName.trim(),
-        fullName:     fullName.trim(),
-        abbreviation: abbreviation.trim(),
-        region:       region.trim(),
-        gradeSpan:    gradeSpan.trim(),
-      })
-      .returning();
+    const [row] = await db.insert(schools).values(parsed.data).returning();
     res.status(201).json(row);
   } catch (err) {
     console.error("POST /admin/schools error:", err);
@@ -77,42 +42,12 @@ router.post("/", requireNetworkAdmin, async (req, res) => {
 router.patch("/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as Partial<{
-      displayName:  string;
-      fullName:     string;
-      abbreviation: string;
-      region:       string;
-      gradeSpan:    string;
-    }>;
-    const updates: Record<string, unknown> = {};
-    if (displayName !== undefined) {
-      if (!displayName.trim()) { res.status(400).json({ error: "Display Name cannot be empty" }); return; }
-      updates.displayName = displayName.trim();
+    const parsed = patchSchoolSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
     }
-    if (fullName !== undefined) {
-      if (!fullName.trim()) { res.status(400).json({ error: "Full Name cannot be empty" }); return; }
-      updates.fullName = fullName.trim();
-    }
-    if (abbreviation !== undefined) {
-      if (!abbreviation.trim()) { res.status(400).json({ error: "Abbreviation cannot be empty" }); return; }
-      updates.abbreviation = abbreviation.trim();
-    }
-    if (region !== undefined) {
-      if (!region.trim()) { res.status(400).json({ error: "Region is required" }); return; }
-      if (!(REGIONS as readonly string[]).includes(region.trim())) {
-        res.status(400).json({ error: `Unknown region "${region.trim()}" — must be one of: ${REGIONS.join(", ")}` });
-        return;
-      }
-      updates.region = region.trim();
-    }
-    if (gradeSpan !== undefined) {
-      if (!gradeSpan.trim()) { res.status(400).json({ error: "Grade Span is required" }); return; }
-      if (!(GRADE_SPANS as readonly string[]).includes(gradeSpan.trim())) {
-        res.status(400).json({ error: `Unknown grade span "${gradeSpan.trim()}" — must be one of: ${GRADE_SPANS.join(", ")}` });
-        return;
-      }
-      updates.gradeSpan = gradeSpan.trim();
-    }
+    const updates = parsed.data;
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "Nothing to update" });
       return;
@@ -132,33 +67,21 @@ router.patch("/:id", requireNetworkAdmin, async (req, res) => {
 
 /* POST /api/admin/schools/bulk — upsert many schools via CSV upload (NETWORK_ADMIN only) */
 router.post("/bulk", requireNetworkAdmin, async (req, res) => {
-  type BulkRow = { displayName: string; fullName: string; abbreviation: string; region: string; gradeSpan: string };
-  const rows: BulkRow[] = req.body;
+  const rows: unknown[] = req.body;
 
   if (!Array.isArray(rows) || rows.length === 0) {
     res.status(400).json({ error: "Expected a non-empty array of school rows" });
     return;
   }
 
-  const validRegions    = new Set<string>(REGIONS);
-  const validGradeSpans = new Set<string>(GRADE_SPANS);
-
   /* ── Phase 1: validate all rows before touching the DB ── */
   const validationErrors: { row: number; error: string }[] = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const rowNum = i + 2;
-
-    if (!r.displayName?.trim())         validationErrors.push({ row: rowNum, error: "Display Name is required" });
-    else if (!r.fullName?.trim())       validationErrors.push({ row: rowNum, error: "Full Name is required" });
-    else if (!r.abbreviation?.trim())   validationErrors.push({ row: rowNum, error: "Abbreviation is required" });
-    else if (!r.region?.trim())         validationErrors.push({ row: rowNum, error: "Region is required" });
-    else if (!r.gradeSpan?.trim())      validationErrors.push({ row: rowNum, error: "Grade Span is required" });
-    else if (!validRegions.has(r.region.trim()))
-      validationErrors.push({ row: rowNum, error: `Unknown region "${r.region}" — must be one of: ${REGIONS.join(", ")}` });
-    else if (!validGradeSpans.has(r.gradeSpan.trim()))
-      validationErrors.push({ row: rowNum, error: `Unknown grade span "${r.gradeSpan}" — must be one of: ${GRADE_SPANS.join(", ")}` });
+    const parsed = insertSchoolSchema.safeParse(rows[i]);
+    if (!parsed.success) {
+      validationErrors.push({ row: i + 2, error: firstZodError(parsed.error) });
+    }
   }
 
   if (validationErrors.length > 0) {
@@ -174,7 +97,7 @@ router.post("/bulk", requireNetworkAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
     for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
+      const r = insertSchoolSchema.parse(rows[i]);
       const rowNum = i + 2;
       try {
         const { rows: result } = await client.query<{ xmax: string }>(`
@@ -186,7 +109,7 @@ router.post("/bulk", requireNetworkAdmin, async (req, res) => {
                 region       = EXCLUDED.region,
                 grade_span   = EXCLUDED.grade_span
           RETURNING xmax
-        `, [r.displayName.trim(), r.fullName.trim(), r.abbreviation.trim(), r.region.trim(), r.gradeSpan.trim()]);
+        `, [r.displayName, r.fullName, r.abbreviation, r.region, r.gradeSpan]);
 
         if (result[0].xmax === "0") {
           added++;

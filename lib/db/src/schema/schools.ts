@@ -19,6 +19,27 @@ export const schools = pgTable("schools", {
   isArchived:   boolean("is_archived").notNull().default(false),
 });
 
-export const insertSchoolSchema = createInsertSchema(schools).omit({ id: true });
+export const insertSchoolSchema = createInsertSchema(schools, {
+  displayName:  z.string().trim().min(1, "Display Name is required"),
+  fullName:     z.string().trim().min(1, "Full Name is required"),
+  abbreviation: z.string().trim().min(1, "Abbreviation is required"),
+  region:       z.string().trim().pipe(
+    z.enum(REGIONS, {
+      error: (iss) => ({
+        message: `Unknown region "${iss.input}" — must be one of: ${REGIONS.join(", ")}`,
+      }),
+    })
+  ),
+  gradeSpan:    z.string().trim().pipe(
+    z.enum(GRADE_SPANS, {
+      error: (iss) => ({
+        message: `Unknown grade span "${iss.input}" — must be one of: ${GRADE_SPANS.join(", ")}`,
+      }),
+    })
+  ),
+}).omit({ id: true });
+
+export const patchSchoolSchema = insertSchoolSchema.partial();
+
 export type InsertSchool = z.infer<typeof insertSchoolSchema>;
 export type School = typeof schools.$inferSelect;
