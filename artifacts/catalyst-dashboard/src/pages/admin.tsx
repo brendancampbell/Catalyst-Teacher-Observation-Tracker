@@ -1615,9 +1615,9 @@ function SchoolSettings() {
         )}
         {shownSchools.length > 0 && (
           <>
-            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}>
+            <div className="px-4 py-3" style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}>
               {["Display Name", "Full Name", "Abbrev.", "Grade", "Region", ""].map((h, i) => (
-                <div key={i} className="px-4 py-3 text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
+                <div key={i} className="text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
               ))}
             </div>
             <div style={{ height: 3, backgroundColor: YELLOW }} />
@@ -1721,7 +1721,7 @@ function SchoolSettings() {
                     ) : <span className="text-slate-300 text-xs">—</span>}
                   </div>
                   {/* Edit / Delete */}
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center justify-end gap-0.5">
                     <button
                       className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
                       title="Edit"
