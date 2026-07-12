@@ -19,7 +19,8 @@ const router: IRouter = Router();
 router.use("/auth", authRouter);
 /* Dev-only auth bypass — disabled in production inside the handler */
 router.use("/auth", devAuthRouter);
-router.use(requireAuth, healthRouter);
+/* Health check — no auth, must be publicly reachable for deployment probe */
+router.use(healthRouter);
 
 router.use("/dashboard",    requireAuth, enforceSchoolScope, dashboardRouter);
 router.use("/district",     requireAuth, requireNetworkScope, districtRouter);
