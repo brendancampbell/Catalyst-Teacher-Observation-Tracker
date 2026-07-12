@@ -1615,9 +1615,9 @@ function SchoolSettings() {
         )}
         {shownSchools.length > 0 && (
           <>
-            <div className="px-4 py-3" style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}>
-              {["Display Name", "Full Name", "Abbrev.", "Grade", "Region", ""].map((h, i) => (
-                <div key={i} className="text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
+            <div className="px-4 py-3" style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 19% auto" }}>
+              {["Display Name", "Full Name", "Abbrev.", "Grade", "Region", "Actions"].map((h, i) => (
+                <div key={i} className={`text-white font-bold uppercase${i === 5 ? " text-right" : " text-left"}`} style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
               ))}
             </div>
             <div style={{ height: 3, backgroundColor: YELLOW }} />
@@ -1677,7 +1677,7 @@ function SchoolSettings() {
                 /* ── Display row ── */
                 <div
                   className="px-4 py-3 hover:bg-slate-50 transition-colors items-center"
-                  style={{ display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}
+                  style={{ display: "grid", gridTemplateColumns: "28% 22% 14% 10% 19% auto" }}
                 >
                   {/* Display Name */}
                   <span className="flex items-center gap-2 font-medium text-slate-700 text-sm min-w-0">
