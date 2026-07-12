@@ -1282,9 +1282,9 @@ function SchoolCsvModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-700">{parsedRows.length} row{parsedRows.length !== 1 ? "s" : ""} parsed</span>
-                {parsedRows.length !== validRows.length && (
-                  <span className="text-xs font-semibold text-red-600">{parsedRows.length - validRows.length} row{parsedRows.length - validRows.length !== 1 ? "s have" : " has"} errors</span>
-                )}
+                {(() => { const errCount = parsedRows.filter((r) => rowWarning(r) !== null).length; return errCount > 0 ? (
+                  <span className="text-xs font-semibold text-red-600">{errCount} row{errCount !== 1 ? "s have" : " has"} errors</span>
+                ) : null; })()}
               </div>
               <div className="rounded-lg border border-slate-200 overflow-auto" style={{ maxHeight: 280 }}>
                 <table className="w-full text-xs">
