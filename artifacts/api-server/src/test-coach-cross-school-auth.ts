@@ -2,7 +2,7 @@
  * Regression tests for cross-school COACH auth on observations and action-center endpoints.
  *
  * Run with:
- *   pnpm --filter @workspace/api-server exec tsx src/test-coach-cross-school-auth.ts
+ *   pnpm --filter @workspace/api-server run test:coach-cross-school-auth
  *
  * Requires the dev server to be running (NODE_ENV=development) because it uses
  * the /api/auth/dev-login bypass to establish a session without OAuth.
@@ -12,8 +12,8 @@
  *   2. COACH from School A → GET /observations/:id (SCHOOL-target, School A) → 200
  *   3. COACH /action-center/network-averages with a SCHOOL-target rubric set
  *      → domainAverages reflect only their own school's observations (not another school's)
- *   4. COACH /action-center/rescore-queue → 200 and scoped to own school
- *   5. COACH /action-center/overdue-observations → 200 and scoped to own school
+ *   4. COACH /action-center/rescore-queue → only School A people appear (School B excluded)
+ *   5. COACH /action-center/overdue-observations → only School A people appear (School B excluded)
  */
 
 import { test, describe, before, after } from "node:test";
@@ -31,7 +31,19 @@ let SCHOOL_RUBRIC_SET_ID: number;
 let SCHOOL_RUBRIC_SET_SLUG: string;
 
 /* Temporary test user employee IDs */
-const COACH_A_EID = "TST_COACH_CROSS_A";
+const COACH_A_EID          = "TST_COACH_CROSS_A";
+const RESCORE_PERSON_A_EID = "TST_COACH_RESCORE_A";  /* School A — should appear in rescore-queue */
+const RESCORE_PERSON_B_EID = "TST_COACH_RESCORE_B";  /* School B — must NOT appear for Coach A */
+const OVERDUE_PERSON_A_EID = "TST_COACH_OVERDUE_A";  /* School A — should appear in overdue-obs */
+const OVERDUE_PERSON_B_EID = "TST_COACH_OVERDUE_B";  /* School B — must NOT appear for Coach A */
+
+const ALL_TEST_EIDS = [
+  COACH_A_EID,
+  RESCORE_PERSON_A_EID,
+  RESCORE_PERSON_B_EID,
+  OVERDUE_PERSON_A_EID,
+  OVERDUE_PERSON_B_EID,
+];
 
 /* Track inserted IDs for cleanup */
 const createdObsIds: number[] = [];
@@ -102,8 +114,8 @@ describe("Cross-school auth — COACH role", () => {
       .values({ slug, name: "Test Coach School RS", target: "SCHOOL", isActive: true })
       .returning({ id: rubricSets.id, slug: rubricSets.slug });
     assert.ok(rs, "Failed to insert test rubric set");
-    createdRubricSetId   = rs.id;
-    SCHOOL_RUBRIC_SET_ID = rs.id;
+    createdRubricSetId     = rs.id;
+    SCHOOL_RUBRIC_SET_ID   = rs.id;
     SCHOOL_RUBRIC_SET_SLUG = rs.slug;
 
     const [cat] = await db
@@ -120,17 +132,70 @@ describe("Cross-school auth — COACH role", () => {
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId = dom.id;
 
-    /* Create a COACH test user assigned to School A */
-    await db.insert(people).values({
-      employeeId:               COACH_A_EID,
-      firstName:                "Test",
-      lastName:                 "CoachA",
-      email:                    "tst.coach.a.crossschool@example.com",
-      role:                     "COACH",
-      schoolId:                 SCHOOL_A_ID,
-      isActive:                 true,
-      includeInFeedbackTracker: false,
-    }).onConflictDoNothing();
+    /* Create all test people in one batch */
+    await db.insert(people).values([
+      /* The COACH under test — assigned to School A */
+      {
+        employeeId:               COACH_A_EID,
+        firstName:                "Test",
+        lastName:                 "CoachA",
+        email:                    "tst.coach.a.crossschool@example.com",
+        role:                     "COACH",
+        schoolId:                 SCHOOL_A_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: false,
+      },
+      /* School A person who needs a rescore — should appear in Coach A's rescore-queue */
+      {
+        employeeId:               RESCORE_PERSON_A_EID,
+        firstName:                "Rescore",
+        lastName:                 "SchoolA",
+        email:                    "tst.rescore.a@example.com",
+        role:                     "NO_ACCESS",
+        schoolId:                 SCHOOL_A_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: true,
+        needsRescore:             true,
+        rescoreDueDate:           "2025-06-01",
+      },
+      /* School B person who needs a rescore — must NOT appear in Coach A's rescore-queue */
+      {
+        employeeId:               RESCORE_PERSON_B_EID,
+        firstName:                "Rescore",
+        lastName:                 "SchoolB",
+        email:                    "tst.rescore.b@example.com",
+        role:                     "NO_ACCESS",
+        schoolId:                 SCHOOL_B_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: true,
+        needsRescore:             true,
+        rescoreDueDate:           "2025-06-01",
+      },
+      /* School A teacher with no observations — should appear in Coach A's overdue list */
+      {
+        employeeId:               OVERDUE_PERSON_A_EID,
+        firstName:                "Overdue",
+        lastName:                 "SchoolA",
+        email:                    "tst.overdue.a@example.com",
+        role:                     "NO_ACCESS",
+        schoolId:                 SCHOOL_A_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: true,
+        needsRescore:             false,
+      },
+      /* School B teacher with no observations — must NOT appear in Coach A's overdue list */
+      {
+        employeeId:               OVERDUE_PERSON_B_EID,
+        firstName:                "Overdue",
+        lastName:                 "SchoolB",
+        email:                    "tst.overdue.b@example.com",
+        role:                     "NO_ACCESS",
+        schoolId:                 SCHOOL_B_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: true,
+        needsRescore:             false,
+      },
+    ]).onConflictDoNothing();
 
     /* Insert a SCHOOL-target observation for School A with score = 4 */
     const [obsA] = await db
@@ -187,7 +252,7 @@ describe("Cross-school auth — COACH role", () => {
   });
 
   after(async () => {
-    /* Scores first (FK child), then observations, then rubric schema, then users */
+    /* Scores first (FK child), then observations, then rubric schema, then people */
     if (createdScoreIds.length > 0) {
       await db.delete(observationScores).where(inArray(observationScores.id, createdScoreIds)).catch(() => {});
     }
@@ -203,7 +268,7 @@ describe("Cross-school auth — COACH role", () => {
     if (createdRubricSetId !== null) {
       await db.delete(rubricSets).where(eq(rubricSets.id, createdRubricSetId)).catch(() => {});
     }
-    await db.delete(people).where(eq(people.employeeId, COACH_A_EID)).catch(() => {});
+    await db.delete(people).where(inArray(people.employeeId, ALL_TEST_EIDS)).catch(() => {});
   });
 
   /* 1 ── COACH GET /observations/:id cross-school → 403 ───────────────────── */
@@ -269,9 +334,9 @@ describe("Cross-school auth — COACH role", () => {
     );
   });
 
-  /* 4 ── COACH rescore-queue → 200 and scoped to own school ──────────────── */
+  /* 4 ── COACH rescore-queue → School B person excluded ──────────────────── */
 
-  test("4 — authenticated COACH GET /action-center/rescore-queue returns 200 scoped to own school", async () => {
+  test("4 — COACH /action-center/rescore-queue contains only own-school people", async () => {
     const res = await request("GET", "/action-center/rescore-queue", undefined, coachAJar);
     assert.equal(
       res.status,
@@ -280,22 +345,27 @@ describe("Cross-school auth — COACH role", () => {
     );
     assert.ok(Array.isArray(res.body), "Response should be an array");
 
-    /* All returned rows must belong to School A — no cross-school leakage */
-    const rows = res.body as Array<{ schoolId?: number; schoolName?: string }>;
-    for (const row of rows) {
-      if (row.schoolId !== undefined) {
-        assert.equal(
-          row.schoolId,
-          SCHOOL_A_ID,
-          `rescore-queue returned a row from wrong school: schoolId=${row.schoolId}`,
-        );
-      }
-    }
+    const rows = res.body as Array<{ employeeId: string }>;
+    const returnedIds = rows.map((r) => r.employeeId);
+
+    /* School A person needing rescore must be present */
+    assert.ok(
+      returnedIds.includes(RESCORE_PERSON_A_EID),
+      `Expected School A person (${RESCORE_PERSON_A_EID}) in rescore-queue but it was missing. ` +
+      `Returned IDs: ${JSON.stringify(returnedIds)}`,
+    );
+
+    /* School B person must be absent — cross-school data leak would expose them */
+    assert.ok(
+      !returnedIds.includes(RESCORE_PERSON_B_EID),
+      `School B person (${RESCORE_PERSON_B_EID}) must NOT appear in Coach A's rescore-queue. ` +
+      `Cross-school data is leaking. Returned IDs: ${JSON.stringify(returnedIds)}`,
+    );
   });
 
-  /* 5 ── COACH overdue-observations → 200 and scoped to own school ────────── */
+  /* 5 ── COACH overdue-observations → School B person excluded ────────────── */
 
-  test("5 — authenticated COACH GET /action-center/overdue-observations returns 200 scoped to own school", async () => {
+  test("5 — COACH /action-center/overdue-observations contains only own-school people", async () => {
     const res = await request("GET", "/action-center/overdue-observations", undefined, coachAJar);
     assert.equal(
       res.status,
@@ -303,6 +373,23 @@ describe("Cross-school auth — COACH role", () => {
       `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`,
     );
     assert.ok(Array.isArray(res.body), "Response should be an array");
+
+    const rows = res.body as Array<{ employeeId: string }>;
+    const returnedIds = rows.map((r) => r.employeeId);
+
+    /* School A overdue person must be present (never observed, includeInFeedbackTracker=true) */
+    assert.ok(
+      returnedIds.includes(OVERDUE_PERSON_A_EID),
+      `Expected School A person (${OVERDUE_PERSON_A_EID}) in overdue-observations but it was missing. ` +
+      `Returned IDs: ${JSON.stringify(returnedIds)}`,
+    );
+
+    /* School B overdue person must be absent — cross-school data leak would expose them */
+    assert.ok(
+      !returnedIds.includes(OVERDUE_PERSON_B_EID),
+      `School B person (${OVERDUE_PERSON_B_EID}) must NOT appear in Coach A's overdue-observations. ` +
+      `Cross-school data is leaking. Returned IDs: ${JSON.stringify(returnedIds)}`,
+    );
   });
 });
 
