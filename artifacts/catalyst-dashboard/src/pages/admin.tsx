@@ -1181,8 +1181,8 @@ function SchoolSettings() {
   const createMut = useMutation({
     mutationFn: () => createAdminSchool({
       displayName:  newDisplayName.trim(),
-      fullName:     newFullName.trim() || null,
-      abbreviation: newAbbr.trim() || null,
+      fullName:     newFullName.trim(),
+      abbreviation: newAbbr.trim(),
       region:       newRegion,
       gradeSpan:    newSpan,
     }),
@@ -1192,8 +1192,8 @@ function SchoolSettings() {
   const updateMut = useMutation({
     mutationFn: () => updateAdminSchool(editId!, {
       displayName:  editDisplayName.trim(),
-      fullName:     editFullName.trim() || null,
-      abbreviation: editAbbr.trim() || null,
+      fullName:     editFullName.trim(),
+      abbreviation: editAbbr.trim(),
       region:       editRegion,
       gradeSpan:    editSpan,
     }),
@@ -1293,7 +1293,7 @@ function SchoolSettings() {
               className={`${inputCls} flex-1 min-w-[200px]`}
               value={newDisplayName}
               onChange={(e) => setNewDisplayName(e.target.value)}
-              placeholder="Display Name (shown throughout the tool)"
+              placeholder="Display Name *"
               autoFocus
               onKeyDown={(e) => { if (e.key === "Escape") resetAdd(); }}
             />
@@ -1301,13 +1301,13 @@ function SchoolSettings() {
               className={`${inputCls} flex-1 min-w-[200px]`}
               value={newFullName}
               onChange={(e) => setNewFullName(e.target.value)}
-              placeholder="Full Name (for CSV matching, optional)"
+              placeholder="Full Name (for CSV matching) *"
             />
             <input
               className={`${inputCls} w-32`}
               value={newAbbr}
               onChange={(e) => setNewAbbr(e.target.value)}
-              placeholder="Abbrev. (optional)"
+              placeholder="Abbrev. *"
             />
             <select className={`${selCls} min-w-[130px]`} value={newRegion} onChange={(e) => setNewRegion(e.target.value)}>
               <option value="">— Region —</option>
@@ -1323,7 +1323,7 @@ function SchoolSettings() {
               className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
               style={{ backgroundColor: NAVY }}
               onClick={() => createMut.mutate()}
-              disabled={createMut.isPending || !newDisplayName.trim() || !newRegion || !newSpan}
+              disabled={createMut.isPending || !newDisplayName.trim() || !newFullName.trim() || !newAbbr.trim() || !newRegion || !newSpan}
             >
               {createMut.isPending ? "Adding…" : "Add School"}
             </button>
@@ -1371,13 +1371,13 @@ function SchoolSettings() {
                       className={`${inputCls} flex-1 min-w-[180px]`}
                       value={editFullName}
                       onChange={(e) => setEditFullName(e.target.value)}
-                      placeholder="Full Name (for CSV matching, optional)"
+                      placeholder="Full Name (for CSV matching) *"
                     />
                     <input
                       className={`${inputCls} w-28`}
                       value={editAbbr}
                       onChange={(e) => setEditAbbr(e.target.value)}
-                      placeholder="Abbrev."
+                      placeholder="Abbrev. *"
                     />
                     <select className={`${selCls} min-w-[130px]`} value={editRegion} onChange={(e) => setEditRegion(e.target.value)}>
                       <option value="">— Region —</option>
@@ -1393,7 +1393,7 @@ function SchoolSettings() {
                       className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50"
                       style={{ backgroundColor: NAVY }}
                       onClick={() => updateMut.mutate()}
-                      disabled={updateMut.isPending || !editDisplayName.trim() || !editRegion || !editSpan}
+                      disabled={updateMut.isPending || !editDisplayName.trim() || !editFullName.trim() || !editAbbr.trim() || !editRegion || !editSpan}
                     >
                       {updateMut.isPending ? "Saving…" : "Save"}
                     </button>

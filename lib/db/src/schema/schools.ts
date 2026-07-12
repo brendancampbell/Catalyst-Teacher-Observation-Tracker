@@ -11,8 +11,8 @@ export type GradeSpan = typeof GRADE_SPANS[number];
 export const schools = pgTable("schools", {
   id:           serial("id").primaryKey(),
   displayName:  text("display_name").notNull(),
-  fullName:     text("full_name"),
-  abbreviation: text("abbreviation"),
+  fullName:     text("full_name").notNull(),
+  abbreviation: text("abbreviation").notNull(),
   region:       text("region").notNull(),
   gradeSpan:    text("grade_span").notNull(),
   isActive:     boolean("is_active").notNull().default(true),

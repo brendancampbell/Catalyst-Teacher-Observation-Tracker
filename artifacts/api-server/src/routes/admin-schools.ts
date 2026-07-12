@@ -22,29 +22,37 @@ router.post("/", requireNetworkAdmin, async (req, res) => {
   try {
     const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as {
       displayName: string;
-      fullName?: string | null;
-      abbreviation?: string | null;
+      fullName: string;
+      abbreviation: string;
       region: string;
       gradeSpan: string;
     };
     if (!displayName?.trim()) {
-      res.status(400).json({ error: "displayName is required" });
+      res.status(400).json({ error: "Display Name is required" });
+      return;
+    }
+    if (!fullName?.trim()) {
+      res.status(400).json({ error: "Full Name is required" });
+      return;
+    }
+    if (!abbreviation?.trim()) {
+      res.status(400).json({ error: "Abbreviation is required" });
       return;
     }
     if (!region?.trim()) {
-      res.status(400).json({ error: "region is required" });
+      res.status(400).json({ error: "Region is required" });
       return;
     }
     if (!gradeSpan?.trim()) {
-      res.status(400).json({ error: "gradeSpan is required" });
+      res.status(400).json({ error: "Grade Span is required" });
       return;
     }
     const [row] = await db
       .insert(schools)
       .values({
         displayName:  displayName.trim(),
-        fullName:     fullName?.trim() || null,
-        abbreviation: abbreviation?.trim() || null,
+        fullName:     fullName.trim(),
+        abbreviation: abbreviation.trim(),
         region:       region.trim(),
         gradeSpan:    gradeSpan.trim(),
       })
@@ -62,28 +70,30 @@ router.patch("/:id", requireNetworkAdmin, async (req, res) => {
     const id = Number(req.params.id);
     const { displayName, fullName, abbreviation, region, gradeSpan } = req.body as Partial<{
       displayName:  string;
-      fullName:     string | null;
-      abbreviation: string | null;
+      fullName:     string;
+      abbreviation: string;
       region:       string;
       gradeSpan:    string;
     }>;
     const updates: Record<string, unknown> = {};
     if (displayName !== undefined) {
-      if (!displayName.trim()) { res.status(400).json({ error: "displayName cannot be empty" }); return; }
+      if (!displayName.trim()) { res.status(400).json({ error: "Display Name cannot be empty" }); return; }
       updates.displayName = displayName.trim();
     }
     if (fullName !== undefined) {
-      updates.fullName = fullName?.trim() || null;
+      if (!fullName.trim()) { res.status(400).json({ error: "Full Name cannot be empty" }); return; }
+      updates.fullName = fullName.trim();
     }
     if (abbreviation !== undefined) {
-      updates.abbreviation = abbreviation?.trim() || null;
+      if (!abbreviation.trim()) { res.status(400).json({ error: "Abbreviation cannot be empty" }); return; }
+      updates.abbreviation = abbreviation.trim();
     }
     if (region !== undefined) {
-      if (!region.trim()) { res.status(400).json({ error: "region is required" }); return; }
+      if (!region.trim()) { res.status(400).json({ error: "Region is required" }); return; }
       updates.region = region.trim();
     }
     if (gradeSpan !== undefined) {
-      if (!gradeSpan.trim()) { res.status(400).json({ error: "gradeSpan is required" }); return; }
+      if (!gradeSpan.trim()) { res.status(400).json({ error: "Grade Span is required" }); return; }
       updates.gradeSpan = gradeSpan.trim();
     }
     if (Object.keys(updates).length === 0) {
