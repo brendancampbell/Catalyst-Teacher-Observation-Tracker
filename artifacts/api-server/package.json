@@ -11,7 +11,8 @@
     "build:all": "node ./build.mjs && node --enable-source-maps ./dist/migrate.mjs && pnpm --filter @workspace/db run push-force && node --enable-source-maps ./dist/seed.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts"
+    "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts",
+    "test:admin-schools-validation": "tsx src/test-admin-schools-validation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
@@ -41,6 +42,7 @@
     "esbuild": "^0.28.1",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",
-    "thread-stream": "3.1.0"
+    "thread-stream": "3.1.0",
+    "tsx": "catalog:"
   }
 }
