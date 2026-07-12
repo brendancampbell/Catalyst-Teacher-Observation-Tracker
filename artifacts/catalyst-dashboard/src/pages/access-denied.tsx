@@ -10,30 +10,40 @@ export default function AccessDeniedPage() {
       <div style={{ height: 5, backgroundColor: YELLOW, position: "fixed", top: 0, left: 0, right: 0 }} />
 
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
-        <div className="flex flex-col items-center gap-3">
-          <img
-            src="/uncommon-logo.png"
-            alt="Uncommon Schools"
-            className="h-16 w-auto object-contain"
-          />
-          <h1
-            className="uppercase tracking-widest text-center"
-            style={{
-              color: NAVY,
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontWeight: 700,
-              fontSize: 28,
-              letterSpacing: "0.06em",
-            }}
-          >
-            Catalyst
-          </h1>
+        <div className="flex flex-col items-center gap-6">
+          {/* Logo + divider + Catalyst — matches login page */}
+          <div className="flex items-center w-full">
+            <div className="flex flex-1 justify-end pr-4">
+              <img
+                src="/uncommon-logo.png"
+                alt="Uncommon Schools"
+                className="h-16 w-auto object-contain"
+              />
+            </div>
+            <div style={{ width: 2, height: 64, backgroundColor: NAVY, borderRadius: 1, flexShrink: 0 }} />
+            <div className="flex flex-1 pl-4">
+              <h1
+                className="uppercase"
+                style={{
+                  color: NAVY,
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 52,
+                  letterSpacing: "0.05em",
+                  lineHeight: 1,
+                }}
+              >
+                Catalyst
+              </h1>
+            </div>
+          </div>
           <p
-            className="text-white uppercase text-center"
+            className="uppercase text-center w-full"
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 16,
-              letterSpacing: "0.08em",
+              fontSize: 22,
+              letterSpacing: "0.1em",
+              color: NAVY,
               marginTop: 2,
             }}
           >
