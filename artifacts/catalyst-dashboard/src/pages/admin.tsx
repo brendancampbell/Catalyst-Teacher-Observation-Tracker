@@ -1615,7 +1615,7 @@ function SchoolSettings() {
         )}
         {shownSchools.length > 0 && (
           <>
-            <div className="px-4 py-3" style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 19% auto" }}>
+            <div className="px-4 py-3" style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 0.5fr 0.75fr 72px" }}>
               {["Display Name", "Full Name", "Abbrev.", "Grade", "Region", "Actions"].map((h, i) => (
                 <div key={i} className={`text-white font-bold uppercase${i === 5 ? " text-right" : " text-left"}`} style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
               ))}
@@ -1677,7 +1677,7 @@ function SchoolSettings() {
                 /* ── Display row ── */
                 <div
                   className="px-4 py-3 hover:bg-slate-50 transition-colors items-center"
-                  style={{ display: "grid", gridTemplateColumns: "28% 22% 14% 10% 19% auto" }}
+                  style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 0.5fr 0.75fr 72px" }}
                 >
                   {/* Display Name */}
                   <span className="flex items-center gap-2 font-medium text-slate-700 text-sm min-w-0">
