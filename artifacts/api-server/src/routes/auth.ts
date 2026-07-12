@@ -7,6 +7,18 @@ import { requireAuth, requireNetworkAdmin } from "../middleware/auth";
 
 const router = Router();
 
+/**
+ * Returns true only for safe same-origin relative paths.
+ * Rejects protocol-relative URLs (//host/…), scheme URLs (http:, javascript:),
+ * and anything that doesn't look like a clean app path.
+ */
+export function isSafeReturnTo(s: unknown): s is string {
+  if (typeof s !== "string") return false;
+  if (s.startsWith("//")) return false;   // protocol-relative absolute URL
+  if (s.includes(":"))    return false;   // any scheme (http:, javascript:, …)
+  return /^\/[A-Za-z0-9/_\-?=&#.%+]*$/.test(s);
+}
+
 const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 const requireGoogleEnabled: RequestHandler = (_req, res, next) => {
@@ -25,7 +37,7 @@ router.get(
   requireGoogleEnabled,
   (req, res, next) => {
     const returnTo = req.query["returnTo"];
-    if (typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo)) {
+    if (isSafeReturnTo(returnTo)) {
       req.session.returnTo = returnTo;
     }
     next();
@@ -52,7 +64,7 @@ router.get(
       req.logIn(user, (loginErr) => {
         if (loginErr) return next(loginErr);
         delete req.session.returnTo;
-        const dest = typeof returnTo === "string" && /^\/[A-Za-z0-9/_\-?=&#.]*$/.test(returnTo) ? returnTo : "/";
+        const dest = isSafeReturnTo(returnTo) ? returnTo : "/";
         res.redirect(dest);
       });
     })(req, res, next);

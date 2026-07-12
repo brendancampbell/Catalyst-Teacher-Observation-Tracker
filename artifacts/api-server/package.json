@@ -14,7 +14,8 @@
     "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts",
     "test:admin-schools-validation": "tsx src/test-admin-schools-validation.ts",
     "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts",
-    "test:email-injection": "tsx src/test-email-html-injection.ts"
+    "test:email-injection": "tsx src/test-email-html-injection.ts",
+    "test:return-to-redirect": "tsx src/test-return-to-redirect.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
