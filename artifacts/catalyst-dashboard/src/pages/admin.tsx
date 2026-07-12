@@ -1174,23 +1174,25 @@ function parseSchoolCsv(text: string): { rows: BulkSchoolRow[]; headerError: str
 
   const header = lines[0].split(",").map((h) => h.replace(/^"|"$/g, "").trim());
   const expected = CSV_HEADERS as readonly string[];
-  const missing  = expected.filter((h) => !header.includes(h));
-  if (missing.length > 0) {
-    return { rows: [], headerError: `Missing required columns: ${missing.join(", ")}` };
+
+  if (header.length !== expected.length || expected.some((col, i) => header[i] !== col)) {
+    return {
+      rows: [],
+      headerError: `Header row must be exactly: ${expected.join(", ")} (in that order). Got: ${header.join(", ")}`,
+    };
   }
 
-  const idx = (col: string) => header.indexOf(col);
   const rows: BulkSchoolRow[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) ?? [];
-    const get  = (col: string) => (cols[idx(col)] ?? "").replace(/^"|"$/g, "").trim();
+    const get  = (colIdx: number) => (cols[colIdx] ?? "").replace(/^"|"$/g, "").trim();
     rows.push({
-      displayName:  get("Display Name"),
-      fullName:     get("Full Name"),
-      abbreviation: get("Abbreviation"),
-      region:       get("Region"),
-      gradeSpan:    get("Grade Span"),
+      displayName:  get(0),
+      fullName:     get(1),
+      abbreviation: get(2),
+      region:       get(3),
+      gradeSpan:    get(4),
     });
   }
 

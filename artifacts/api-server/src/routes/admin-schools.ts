@@ -124,27 +124,42 @@ router.post("/bulk", requireNetworkAdmin, async (req, res) => {
     return;
   }
 
-  const validRegions   = new Set<string>(REGIONS);
+  const validRegions    = new Set<string>(REGIONS);
   const validGradeSpans = new Set<string>(GRADE_SPANS);
 
+  /* ── Phase 1: validate all rows before touching the DB ── */
+  const validationErrors: { row: number; error: string }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowNum = i + 2;
+
+    if (!r.displayName?.trim())         validationErrors.push({ row: rowNum, error: "Display Name is required" });
+    else if (!r.fullName?.trim())       validationErrors.push({ row: rowNum, error: "Full Name is required" });
+    else if (!r.abbreviation?.trim())   validationErrors.push({ row: rowNum, error: "Abbreviation is required" });
+    else if (!r.region?.trim())         validationErrors.push({ row: rowNum, error: "Region is required" });
+    else if (!r.gradeSpan?.trim())      validationErrors.push({ row: rowNum, error: "Grade Span is required" });
+    else if (!validRegions.has(r.region.trim()))
+      validationErrors.push({ row: rowNum, error: `Unknown region "${r.region}" — must be one of: ${REGIONS.join(", ")}` });
+    else if (!validGradeSpans.has(r.gradeSpan.trim()))
+      validationErrors.push({ row: rowNum, error: `Unknown grade span "${r.gradeSpan}" — must be one of: ${GRADE_SPANS.join(", ")}` });
+  }
+
+  if (validationErrors.length > 0) {
+    res.json({ added: 0, updated: 0, failed: validationErrors });
+    return;
+  }
+
+  /* ── Phase 2: all rows valid — upsert ── */
   let added   = 0;
   let updated = 0;
-  const failed: { row: number; error: string }[] = [];
+  const dbErrors: { row: number; error: string }[] = [];
 
   const client = await pool.connect();
   try {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       const rowNum = i + 2;
-
-      if (!r.displayName?.trim())   { failed.push({ row: rowNum, error: "Display Name is required" });   continue; }
-      if (!r.fullName?.trim())      { failed.push({ row: rowNum, error: "Full Name is required" });       continue; }
-      if (!r.abbreviation?.trim())  { failed.push({ row: rowNum, error: "Abbreviation is required" });   continue; }
-      if (!r.region?.trim())        { failed.push({ row: rowNum, error: "Region is required" });          continue; }
-      if (!r.gradeSpan?.trim())     { failed.push({ row: rowNum, error: "Grade Span is required" });      continue; }
-      if (!validRegions.has(r.region.trim()))     { failed.push({ row: rowNum, error: `Unknown region "${r.region}" — must be one of: ${REGIONS.join(", ")}` });      continue; }
-      if (!validGradeSpans.has(r.gradeSpan.trim())) { failed.push({ row: rowNum, error: `Unknown grade span "${r.gradeSpan}" — must be one of: ${GRADE_SPANS.join(", ")}` }); continue; }
-
       try {
         const { rows: result } = await client.query<{ xmax: string }>(`
           INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span)
@@ -164,14 +179,14 @@ router.post("/bulk", requireNetworkAdmin, async (req, res) => {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
-        failed.push({ row: rowNum, error: msg });
+        dbErrors.push({ row: rowNum, error: msg });
       }
     }
   } finally {
     client.release();
   }
 
-  res.json({ added, updated, failed });
+  res.json({ added, updated, failed: dbErrors });
 });
 
 /* DELETE /api/admin/schools/:id — delete school (NETWORK_ADMIN only) */
