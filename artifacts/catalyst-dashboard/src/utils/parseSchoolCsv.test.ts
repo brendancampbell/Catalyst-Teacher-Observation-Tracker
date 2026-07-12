@@ -122,6 +122,37 @@ describe("parseSchoolCsv", () => {
     });
   });
 
+  describe("empty optional fields in a full 5-column row", () => {
+    it("returns empty strings for fields that are explicitly empty (quoted empty)", () => {
+      const csv = [VALID_HEADER, `"NSA ES","NSA Elementary","","",""` ].join("\n");
+      const { rows, headerError } = parseSchoolCsv(csv);
+      expect(headerError).toBeNull();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].abbreviation).toBe("");
+      expect(rows[0].region).toBe("");
+      expect(rows[0].gradeSpan).toBe("");
+    });
+
+    it("returns empty strings for fields that are bare-empty (unquoted commas only)", () => {
+      const csv = [VALID_HEADER, `NSA ES,NSA Elementary,,,`].join("\n");
+      const { rows, headerError } = parseSchoolCsv(csv);
+      expect(headerError).toBeNull();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].abbreviation).toBe("");
+      expect(rows[0].region).toBe("");
+      expect(rows[0].gradeSpan).toBe("");
+    });
+
+    it("trims whitespace-only fields to empty string", () => {
+      const csv = [VALID_HEADER, `NSA ES,NSA Elementary,"  ","   ","  "`].join("\n");
+      const { rows, headerError } = parseSchoolCsv(csv);
+      expect(headerError).toBeNull();
+      expect(rows[0].abbreviation).toBe("");
+      expect(rows[0].region).toBe("");
+      expect(rows[0].gradeSpan).toBe("");
+    });
+  });
+
   describe("multiple data rows", () => {
     it("returns all rows from a file with multiple data rows", () => {
       const csv = [
