@@ -99,6 +99,133 @@ router.get("/drafts", async (req, res) => {
   }
 });
 
+/* ── GET /api/observations ───────────────────────────────────────────
+   Returns SCHOOL-target observations visible to the requester.
+   - SCHOOL_LEADER: only observations where schoolId = currentUser.schoolId
+   - NETWORK_LEADER / NETWORK_ADMIN: all SCHOOL-target observations
+     (optionally filtered by ?schoolId=<id>)
+   - Other roles: 403                                                    */
+router.get("/", async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const role = currentUser.role;
+
+    if (role !== "SCHOOL_LEADER" && role !== "NETWORK_LEADER" && role !== "NETWORK_ADMIN") {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    let schoolFilter: number | null = null;
+    if (role === "SCHOOL_LEADER") {
+      if (!currentUser.schoolId) {
+        res.status(403).json({ error: "No school assigned to this user" });
+        return;
+      }
+      schoolFilter = currentUser.schoolId;
+    } else {
+      const param = req.query.schoolId;
+      if (param) schoolFilter = Number(param);
+    }
+
+    const conditions = [eq(observations.target, "SCHOOL")];
+    if (schoolFilter !== null) conditions.push(eq(observations.schoolId, schoolFilter));
+
+    const rows = await db
+      .select()
+      .from(observations)
+      .where(and(...conditions))
+      .orderBy(desc(observations.date));
+
+    const ids = rows.map((o) => o.id);
+    const allScores = ids.length > 0
+      ? await db.select().from(observationScores).where(inArray(observationScores.observationId, ids))
+      : [];
+
+    const scoresByObs = new Map<number, Record<string, number>>();
+    for (const s of allScores) {
+      if (!scoresByObs.has(s.observationId)) scoresByObs.set(s.observationId, {});
+      scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
+    }
+
+    res.json(rows.map((o) => ({
+      id:          String(o.id),
+      schoolId:    o.schoolId,
+      target:      o.target,
+      date:        o.date,
+      strengths:   o.strengths ?? undefined,
+      growthAreas: o.growthAreas ?? undefined,
+      observer:    o.observer,
+      status:      o.status,
+      scores:      scoresByObs.get(o.id) ?? {},
+    })));
+  } catch (err) {
+    console.error("GET /observations error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── GET /api/observations/:id ───────────────────────────────────────
+   Returns a single observation.
+   SCHOOL_LEADER access rules:
+   - SCHOOL-target: allowed only if observation.schoolId === user.schoolId
+   - TEACHER-target: allowed only if the observed person is in the same school */
+router.get("/:id", async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const obsId = Number(req.params.id);
+    if (!Number.isFinite(obsId)) {
+      res.status(400).json({ error: "Invalid observation id" });
+      return;
+    }
+
+    const existing = await db.query.observations.findFirst({
+      where: eq(observations.id, obsId),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "Observation not found" });
+      return;
+    }
+
+    if (currentUser.role === "SCHOOL_LEADER") {
+      if (existing.target === "SCHOOL") {
+        if (existing.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot access observations for schools outside your school" });
+          return;
+        }
+      } else {
+        if (existing.observedEmployeeId) {
+          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
+          if (!person || person.schoolId !== currentUser.schoolId) {
+            res.status(403).json({ error: "Cannot access observations for people outside your school" });
+            return;
+          }
+        }
+      }
+    }
+
+    const savedScores = await db.select().from(observationScores)
+      .where(eq(observationScores.observationId, obsId));
+
+    res.json({
+      id:            String(existing.id),
+      date:          existing.date,
+      time:          existing.time ?? undefined,
+      course:        existing.course ?? undefined,
+      isWalkthrough: existing.isWalkthrough,
+      strengths:     existing.strengths ?? undefined,
+      growthAreas:   existing.growthAreas ?? undefined,
+      observer:      existing.observer,
+      status:        existing.status,
+      target:        existing.target,
+      schoolId:      existing.schoolId ?? undefined,
+      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+    });
+  } catch (err) {
+    console.error("GET /observations/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { observedEmployeeId, rubricSetId, date, strengths?, growthAreas?,
            observer?, scores, isWalkthrough?, status?, target?,

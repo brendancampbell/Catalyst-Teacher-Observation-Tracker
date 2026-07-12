@@ -1,5 +1,5 @@
 /**
- * Regression tests for cross-school SCHOOL_LEADER auth on PUT and DELETE
+ * Regression tests for cross-school SCHOOL_LEADER auth on GET, PUT and DELETE
  * /api/observations/:id for SCHOOL-target observations.
  *
  * Run with:
@@ -13,6 +13,9 @@
  *   2. SCHOOL_LEADER from School A → DELETE a SCHOOL-target obs for School B → 403
  *   3. SCHOOL_LEADER from School A → PUT on a SCHOOL-target obs for School A → 200
  *   4. SCHOOL_LEADER from School A → DELETE a SCHOOL-target obs for School A → 200
+ *   5. SCHOOL_LEADER from School A → GET a SCHOOL-target obs for School B → 403
+ *   6. SCHOOL_LEADER from School A → GET a SCHOOL-target obs for School A → 200
+ *   7. SCHOOL_LEADER from School A → GET /observations list → only includes School A obs
  */
 
 import { test, describe, before, after } from "node:test";
@@ -233,6 +236,86 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     /* Remove from cleanup list — test deleted it */
     const idx = createdObsIds.indexOf(obsOwnSchoolId);
     if (idx !== -1) createdObsIds.splice(idx, 1);
+  });
+
+  /* 5 ── GET cross-school → 403 ──────────────────────────────────────────── */
+
+  test("5 — SCHOOL_LEADER cannot GET a SCHOOL-target observation from another school", async () => {
+    const res = await request(
+      "GET",
+      `/observations/${obsOtherSchoolId}`,
+      undefined,
+      leaderAJar,
+    );
+    assert.equal(
+      res.status,
+      403,
+      `Expected 403, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+  });
+
+  /* 6 ── GET own school → 200 ─────────────────────────────────────────────── */
+
+  test("6 — SCHOOL_LEADER can GET a SCHOOL-target observation in their own school", async () => {
+    /* Re-insert the own-school obs since test 4 deleted it */
+    const [reinserted] = await db
+      .insert(observations)
+      .values({
+        schoolId:           SCHOOL_A_ID,
+        observedEmployeeId: null,
+        rubricSetId:        RUBRIC_SET_ID,
+        observerEmployeeId: null,
+        date:               "2025-01-02",
+        observer:           "Cross-School Test Re",
+        status:             "published",
+        target:             "SCHOOL",
+      })
+      .returning({ id: observations.id });
+    assert.ok(reinserted, "Failed to re-insert own-school observation for GET test");
+    createdObsIds.push(reinserted.id);
+
+    const res = await request(
+      "GET",
+      `/observations/${reinserted.id}`,
+      undefined,
+      leaderAJar,
+    );
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+  });
+
+  /* 7 ── GET list → only own school obs visible ───────────────────────────── */
+
+  test("7 — SCHOOL_LEADER GET /observations list only includes their own school's observations", async () => {
+    const res = await request(
+      "GET",
+      "/observations",
+      undefined,
+      leaderAJar,
+    );
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    const list = res.body as Array<{ schoolId: number }>;
+    assert.ok(Array.isArray(list), "Response should be an array");
+    for (const obs of list) {
+      assert.equal(
+        obs.schoolId,
+        SCHOOL_A_ID,
+        `List contains obs from wrong school: schoolId=${obs.schoolId}`,
+      );
+    }
+    /* Confirm the other-school obs is NOT in the list */
+    const ids = (res.body as Array<{ id: string }>).map((o) => o.id);
+    assert.ok(
+      !ids.includes(String(obsOtherSchoolId)),
+      `Other-school obs (id=${obsOtherSchoolId}) should not appear in School A leader's list`,
+    );
   });
 });
 
