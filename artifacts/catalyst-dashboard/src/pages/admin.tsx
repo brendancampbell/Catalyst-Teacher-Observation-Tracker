@@ -1645,8 +1645,8 @@ function SchoolSettings() {
         )}
         {shownSchools.length > 0 && (
           <>
-            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 15% 13% 22%" }}>
-              {["Display Name", "Full Name", "Abbrev.", "Grade Span / Region", "Edit / Delete"].map((h, i) => (
+            <div style={{ backgroundColor: NAVY, display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}>
+              {["Display Name", "Full Name", "Abbrev.", "Grade", "Region", ""].map((h, i) => (
                 <div key={i} className="px-4 py-3 text-white font-bold uppercase text-left" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.05em" }}>{h}</div>
               ))}
             </div>
@@ -1707,7 +1707,7 @@ function SchoolSettings() {
                 /* ── Display row ── */
                 <div
                   className="px-4 py-3 hover:bg-slate-50 transition-colors items-center"
-                  style={{ display: "grid", gridTemplateColumns: "28% 22% 15% 13% 22%" }}
+                  style={{ display: "grid", gridTemplateColumns: "28% 22% 14% 10% 12% 14%" }}
                 >
                   {/* Display Name */}
                   <span className="flex items-center gap-2 font-medium text-slate-700 text-sm min-w-0">
@@ -1722,11 +1722,11 @@ function SchoolSettings() {
                   <span className="text-sm text-slate-500">
                     {school.abbreviation || <span className="text-slate-300">—</span>}
                   </span>
-                  {/* Grade Span + Region */}
-                  <div className="flex flex-col gap-0.5">
+                  {/* Grade Span */}
+                  <div>
                     {school.gradeSpan ? (
                       <span
-                        className="text-xs font-bold rounded-full px-2 py-0.5 w-fit"
+                        className="text-xs font-bold rounded-full px-2 py-0.5"
                         style={{
                           backgroundColor: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { bg: "#f1f5f9" }).bg,
                           color: (GRADE_SPAN_COLORS[school.gradeSpan] ?? { color: "#475569" }).color,
@@ -1735,9 +1735,12 @@ function SchoolSettings() {
                         {school.gradeSpan}
                       </span>
                     ) : <span className="text-slate-300 text-xs">—</span>}
+                  </div>
+                  {/* Region */}
+                  <div>
                     {school.region ? (
                       <span
-                        className="text-xs font-bold rounded-full px-2 py-0.5 w-fit"
+                        className="text-xs font-bold rounded-full px-2 py-0.5"
                         style={{
                           backgroundColor: (REGION_COLORS[school.region] ?? { bg: "#f1f5f9" }).bg,
                           color: (REGION_COLORS[school.region] ?? { color: "#475569" }).color,
@@ -1745,10 +1748,10 @@ function SchoolSettings() {
                       >
                         {school.region}
                       </span>
-                    ) : null}
+                    ) : <span className="text-slate-300 text-xs">—</span>}
                   </div>
                   {/* Edit / Delete */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button
                       className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
                       title="Edit"
