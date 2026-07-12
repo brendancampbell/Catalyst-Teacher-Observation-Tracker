@@ -13,10 +13,9 @@ const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
 const SCORE_LABELS: Record<number, string> = {
-  1: "Needs Improvement",
-  2: "Approaching",
-  3: "Proficient",
-  4: "Exemplary",
+  0:   "Not Yet",
+  0.5: "Developing",
+  1:   "Proficient",
 };
 
 function formatDate(iso: string) {
