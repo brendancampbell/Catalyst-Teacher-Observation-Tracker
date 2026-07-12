@@ -106,7 +106,7 @@ export default function AppHeader({
                 className="text-white uppercase leading-none"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 700, fontSize: 30, letterSpacing: "0.04em" }}
               >
-                Catalyst{schoolAbbreviation ? ` | ${schoolAbbreviation}` : ""}
+                Catalyst{schoolAbbreviation ? ` — ${schoolAbbreviation}` : ""}
               </p>
             </div>
           </div>
