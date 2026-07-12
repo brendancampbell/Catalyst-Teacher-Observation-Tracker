@@ -327,6 +327,8 @@ router.post(
       return;
     }
 
+    const sanitizedSubject = String(subject).replace(/[\r\n\x00-\x1F\x7F]/g, " ").trim();
+
     /* ── Load observation + scores ─────────────────────────── */
     const obs = await db.query.observations.findFirst({
       where: eq(observations.id, Number(observationId)),
@@ -432,7 +434,7 @@ router.post(
     const { error: resendError } = await client.emails.send({
       from: fromEmail || "Uncommon Schools Catalyst <onboarding@resend.dev>",
       to: [teacherEmail],
-      subject,
+      subject: sanitizedSubject,
       html,
     });
 
