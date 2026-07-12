@@ -19,7 +19,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { schools } from "@workspace/db/schema";
+import { schools, REGIONS, GRADE_SPANS } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
@@ -120,7 +120,7 @@ describe("Admin schools — region & grade-span validation", () => {
       `Error should mention the bad value. Got: "${body.error}"`
     );
     /* Must list at least one valid region in the message */
-    const mentionesSomeRegion = ["Boston", "Camden", "NYC", "Newark", "Rochester"]
+    const mentionesSomeRegion = (REGIONS as readonly string[])
       .some(r => body.error!.includes(r));
     assert.ok(mentionesSomeRegion, `Error should list valid regions. Got: "${body.error}"`);
   });
@@ -138,7 +138,7 @@ describe("Admin schools — region & grade-span validation", () => {
       body.error.includes("BAD_SPAN"),
       `Error should mention the bad value. Got: "${body.error}"`
     );
-    const mentionsSomeSpan = ["ES", "MS", "HS"].some(s => body.error!.includes(s));
+    const mentionsSomeSpan = (GRADE_SPANS as readonly string[]).some(s => body.error!.includes(s));
     assert.ok(mentionsSomeSpan, `Error should list valid grade spans. Got: "${body.error}"`);
   });
 
@@ -204,7 +204,7 @@ describe("Admin schools — region & grade-span validation", () => {
       entry.error.includes("NOT_A_REAL_REGION"),
       `Error should mention the bad value. Got: "${entry.error}"`
     );
-    const mentionsValidRegion = ["Boston", "Camden", "NYC", "Newark", "Rochester"]
+    const mentionsValidRegion = (REGIONS as readonly string[])
       .some(r => entry.error.includes(r));
     assert.ok(mentionsValidRegion, `Error should list valid regions. Got: "${entry.error}"`);
   });
@@ -230,7 +230,7 @@ describe("Admin schools — region & grade-span validation", () => {
       entry.error.includes("NOT_A_REAL_SPAN"),
       `Error should mention the bad value. Got: "${entry.error}"`
     );
-    const mentionsValidSpan = ["ES", "MS", "HS"].some(s => entry.error.includes(s));
+    const mentionsValidSpan = (GRADE_SPANS as readonly string[]).some(s => entry.error.includes(s));
     assert.ok(mentionsValidSpan, `Error should list valid grade spans. Got: "${entry.error}"`);
   });
 });
