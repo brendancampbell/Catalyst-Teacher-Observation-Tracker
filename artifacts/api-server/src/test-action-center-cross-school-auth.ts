@@ -117,7 +117,7 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ rubricCategoryId: cat.id, slug: TEST_DOMAIN_SLUG, name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, slug: TEST_DOMAIN_SLUG, name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId = dom.id;
