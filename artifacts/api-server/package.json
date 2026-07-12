@@ -12,7 +12,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc --build ../../lib/db ../../lib/api-zod ../../lib/integrations-anthropic-ai && tsc -p tsconfig.json --noEmit",
     "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts",
-    "test:admin-schools-validation": "tsx src/test-admin-schools-validation.ts"
+    "test:admin-schools-validation": "tsx src/test-admin-schools-validation.ts",
+    "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
