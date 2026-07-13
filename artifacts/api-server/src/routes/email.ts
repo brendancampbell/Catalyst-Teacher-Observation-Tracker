@@ -213,7 +213,7 @@ export function buildHtmlEmail(params: {
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Teacher</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacherName}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(teacherName)}</td>
             </tr>
             ${teacherSubject ? `<tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Subject</td>

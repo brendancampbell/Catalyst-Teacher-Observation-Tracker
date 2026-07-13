@@ -95,7 +95,45 @@ for (const [name, payload] of coursePayloads) {
   console.log(`PASS [${passed}/${total}] course ${name}: ${payload.slice(0, 55)}`);
 }
 
-/* ── 3. rich-text fields — go through sanitize-html ──── */
+/* ── 3. teacherName field — goes through escapeHtml() ── */
+
+const teacherNamePayloads: Array<[string, string]> = [
+  ["script tag",       '<script>alert(1)</script>'],
+  ["attribute break",  '" onmouseover="alert(1)"'],
+  ["angle bracket",    '<b>Evil</b> Name'],
+  ["ampersand",        'Smith & Jones'],
+  ["combined xss",     '"><script>alert(1)</script>'],
+];
+
+console.log("\n--- teacherName field (escapeHtml) ---");
+for (const [name, payload] of teacherNamePayloads) {
+  total++;
+  const html = buildHtmlEmail({ ...BASE, teacherName: payload, observer: "Coach A", course: "Algebra" });
+  assertPlainFieldSafe(html, payload, `teacherName[${name}]`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] teacherName ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 4. teacherSubject field — goes through escapeHtml() */
+
+const teacherSubjectPayloads: Array<[string, string]> = [
+  ["script tag",       '<script>alert(1)</script>'],
+  ["attribute break",  '" onmouseover="alert(1)"'],
+  ["angle bracket",    '<i>Honors</i> Math'],
+  ["ampersand",        'English & Language Arts'],
+  ["combined xss",     "'><script>alert(1)</script>"],
+];
+
+console.log("\n--- teacherSubject field (escapeHtml) ---");
+for (const [name, payload] of teacherSubjectPayloads) {
+  total++;
+  const html = buildHtmlEmail({ ...BASE, teacherSubject: payload, observer: "Coach A", course: "Algebra" });
+  assertPlainFieldSafe(html, payload, `teacherSubject[${name}]`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] teacherSubject ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 5. rich-text fields — go through sanitize-html ──── */
 
 const richPayloads = [
   '<script>alert(1)</script>',
