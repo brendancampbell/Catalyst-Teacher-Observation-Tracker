@@ -171,7 +171,63 @@ for (const [name, payload] of timePayloads) {
   console.log(`PASS [${passed}/${total}] time ${name}: ${payload.slice(0, 55)}`);
 }
 
-/* ── 7. rich-text fields — go through sanitize-html ──── */
+/* ── 7. dateLabel field — currently NOT wrapped in escapeHtml() ─────────
+ *
+ * dateLabel is produced by formatDateLong(date), which pipes the raw date
+ * string through new Date().toLocaleDateString().  Even so the output must
+ * be entity-encoded before it lands in the HTML template.  These tests
+ * confirm:
+ *   a) formatDateLong() does not amplify any injection (it returns
+ *      "Invalid Date" for non-date strings — no raw tags).
+ *   b) The final rendered cell contains no unescaped angle-bracket tags,
+ *      attribute-breakout patterns, or dangerous schemes.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/** Re-implements formatDateLong exactly as it appears in email.ts. */
+function formatDateLong(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+const dateLabelPayloads: Array<[string, string]> = [
+  ["script tag",           "<script>alert(1)</script>"],
+  ["img onerror",          "<img src=x onerror=alert(1)>"],
+  ["angle bracket mid",    "2026-<b>07</b>-13"],
+  ["double-quote break",   '2026-07-13" onload="alert(1)'],
+  ["single-quote break",   "2026-07-13' onload='alert(1)"],
+  ["javascript scheme",    "javascript:alert(1)"],
+  ["null byte",            "2026-07-\x0013"],
+  ["unicode angle-lt",     "\uff1cscript\uff1ealert(1)\uff1c/script\uff1e"],
+  ["combined xss",         '"><script>alert(1)</script>'],
+];
+
+console.log("\n--- dateLabel field (via formatDateLong + escapeHtml) ---");
+for (const [name, payload] of dateLabelPayloads) {
+  total++;
+  const html = buildHtmlEmail({ ...BASE, date: payload, observer: "Coach A", course: "Algebra" });
+
+  assert(!html.includes("<script"),     `dateLabel[${name}]: raw <script tag present`);
+  assert(!html.includes("</script"),    `dateLabel[${name}]: raw </script tag present`);
+  assert(!html.includes("javascript:"), `dateLabel[${name}]: javascript: scheme present`);
+  assert(!html.includes("onerror"),     `dateLabel[${name}]: onerror attribute present`);
+  assert(!html.includes("onload"),      `dateLabel[${name}]: onload attribute present`);
+
+  if (payload.includes("<")) {
+    assert(
+      !html.includes(payload),
+      `dateLabel[${name}]: raw payload appears verbatim in output`
+    );
+  }
+
+  passed++;
+  console.log(`PASS [${passed}/${total}] dateLabel ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 8. rich-text fields — go through sanitize-html ──── */
 
 const richPayloads = [
   '<script>alert(1)</script>',

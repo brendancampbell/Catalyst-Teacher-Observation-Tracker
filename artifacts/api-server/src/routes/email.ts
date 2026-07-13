@@ -201,7 +201,7 @@ export function buildHtmlEmail(params: {
           <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;width:110px;background:#f8fafc;">Date</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${dateLabel}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(dateLabel)}</td>
             </tr>
             ${time ? `<tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Time</td>
