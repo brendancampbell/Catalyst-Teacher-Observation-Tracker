@@ -10,9 +10,6 @@ export default function LoginPage() {
   const { currentUser, isLoading } = useUser();
   const [, navigate] = useLocation();
 
-  const params = new URLSearchParams(window.location.search);
-  const authError = params.get("auth_error");
-
   useEffect(() => {
     if (!isLoading && currentUser) {
       navigate("/");
@@ -88,16 +85,6 @@ export default function LoginPage() {
             <p className="font-semibold text-slate-700 text-lg">Sign in to your account</p>
             <p className="text-slate-400 text-sm mt-1">Use your Uncommon Schools Google account</p>
           </div>
-
-          {authError === "access_denied" && (
-            <div
-              className="w-full rounded-lg px-4 py-3 text-sm text-center"
-              style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c" }}
-            >
-              <strong>Access denied.</strong> Your Google account doesn't have access to this app.
-              Contact your administrator to be provisioned.
-            </div>
-          )}
 
           <a
             href={`${BASE}/api/auth/google`}
