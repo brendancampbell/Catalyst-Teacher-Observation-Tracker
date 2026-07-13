@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, Clock, Plus,
@@ -18,6 +19,7 @@ import {
   createObservation,
   fetchAIInsights,
   fetchAICalibrationFlags,
+  fetchOverdueActionSteps,
   streamAIChat,
   generateAIAnalysis,
   fetchChatSessions,
@@ -27,6 +29,7 @@ import {
   deleteChatSession,
   type RescoreQueueItem,
   type OverdueTeacher,
+  type OverdueActionStep,
   type RubricSetRow,
   type AICalibrationFlag,
   type AIInsightsResponse,
@@ -446,6 +449,7 @@ export default function ActionCenterPage() {
   const { currentUser } = useUser();
   const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+  const [, navigate] = useLocation();
 
   const searchParams = new URLSearchParams(window.location.search);
   const rubricFromUrl    = searchParams.get("rubric") ?? undefined;
@@ -509,6 +513,13 @@ export default function ActionCenterPage() {
     staleTime: 60_000,
   });
 
+  /* ── Overdue action steps ─────────────────────────────── */
+  const { data: overdueActionSteps = [] } = useQuery<OverdueActionStep[]>({
+    queryKey: ["overdueActionSteps", schoolId],
+    queryFn:  () => fetchOverdueActionSteps(schoolId),
+    staleTime: 60_000,
+  });
+
   /* ── Role helpers ────────────────────────────────────────── */
   const isSchoolScoped = currentUser?.role === "COACH" || currentUser?.role === "SCHOOL_LEADER";
 
@@ -549,7 +560,7 @@ export default function ActionCenterPage() {
   const [activeTab, setActiveTab] = useState("summary");
 
   /* ── Intervention sub-tab ───────────────────────────── */
-  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration">("rescore");
+  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps">("rescore");
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -655,35 +666,41 @@ export default function ActionCenterPage() {
   }
 
   async function handleSubmitObs(
-    teacherId:    string,
-    date:         string,
-    scores:       Record<string, Score>,
-    strengths:    string,
-    growthAreas:  string,
-    isWalkthrough: boolean,
-    time:         string,
-    course:       string,
+    teacherId:           string,
+    date:                string,
+    scores:              Record<string, Score>,
+    strengths:           string,
+    growthAreas:         string,
+    isWalkthrough:       boolean,
+    time:                string,
+    course:              string,
+    _draftId?:           string,
+    newActionStep?:      { text: string; dueDate: string },
+    masterActionStepId?: number,
   ): Promise<string> {
     setSaving(true);
     try {
       const obs = await createObservation({
         teacherId,
-        rubricSetId: activeQuarterId,
+        rubricSetId:       activeQuarterId,
         date,
-        time:        time        || undefined,
-        course:      course      || undefined,
+        time:              time        || undefined,
+        course:            course      || undefined,
         scores,
-        strengths:   strengths   || undefined,
-        growthAreas: growthAreas || undefined,
-        observer:    currentUser?.name ?? "Unknown",
-        observerId:  currentUser?.id,
+        strengths:         strengths   || undefined,
+        growthAreas:       growthAreas || undefined,
+        observer:          currentUser?.name ?? "Unknown",
+        observerId:        currentUser?.id,
         isWalkthrough,
+        newActionStep,
+        masterActionStepId,
       });
       queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
       queryClient.invalidateQueries({ queryKey: ["overdueObservations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
       queryClient.invalidateQueries({ queryKey: ["ai-insights"] });
+      queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
@@ -1354,7 +1371,8 @@ export default function ActionCenterPage() {
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
-                ] as { key: "rescore" | "overdue" | "calibration"; label: string; count: number }[]
+                  { key: "overdueActionSteps", label: "Overdue Action Steps", count: overdueActionSteps.length },
+                ] as { key: "rescore" | "overdue" | "calibration" | "overdueActionSteps"; label: string; count: number }[]
               ).map(({ key, label, count }) => {
                 const active = interventionTab === key;
                 return (
@@ -1524,6 +1542,70 @@ export default function ActionCenterPage() {
                                 </tr>
                               );
                             })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* OVERDUE ACTION STEPS */}
+              {interventionTab === "overdueActionSteps" && (
+                <section>
+                  <div className="mb-4">
+                    <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
+                      Overdue Action Steps
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Action steps that have passed their due date and have not yet been mastered.
+                    </p>
+                  </div>
+                  {overdueActionSteps.length === 0 ? (
+                    <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-14 gap-3">
+                      <CheckCircle2 size={48} className="text-green-400" />
+                      <div className="text-center">
+                        <p className="font-bold text-lg" style={{ color: NAVY }}>All clear!</p>
+                        <p className="text-slate-500 text-sm mt-1">No overdue action steps at this time.</p>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr style={{ backgroundColor: NAVY }}>
+                              {["Teacher", "School", "Action Step", "Due Date", "Days Overdue", "Assigned By"].map((h, i) => (
+                                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
+                              ))}
+                            </tr>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={6} style={{ padding: 0, height: 3 }} /></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {overdueActionSteps.map((item) => (
+                              <tr
+                                key={item.id}
+                                className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                onClick={() => navigate(`${baseUrl}/teacher/${item.teacherEmployeeId}`)}
+                              >
+                                <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>
+                                  {item.teacherName}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
+                                <td className="px-4 py-3 text-slate-700 max-w-xs">
+                                  <p className="line-clamp-2 leading-snug">{item.text}</p>
+                                </td>
+                                <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                  {new Date(item.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
+                                    {item.daysOverdue}d overdue
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">{item.assignerName ?? "—"}</td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>

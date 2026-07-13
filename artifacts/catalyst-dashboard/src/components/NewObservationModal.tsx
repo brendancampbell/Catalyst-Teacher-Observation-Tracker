@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Plus, Loader2, RotateCcw, AlertCircle } from "lucide-react";
+import { X, Plus, Loader2, RotateCcw, AlertCircle, RefreshCw } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
-import type { CategoryEntry, DomainEntry } from "@/lib/api";
-import { sendObservationEmail, fetchMyDrafts, deleteObservation, createObservation, updateObservation } from "@/lib/api";
+import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
+import { sendObservationEmail, fetchMyDrafts, deleteObservation, createObservation, updateObservation, fetchLatestActionStep } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
@@ -41,6 +41,8 @@ interface Props {
     time: string,
     course: string,
     draftId?: string,
+    newActionStep?: { text: string; dueDate: string },
+    masterActionStepId?: number,
   ) => Promise<string>;
   saving?: boolean;
 }
@@ -114,8 +116,33 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const [outlookHint, setOutlookHint] = useState(false);
   const [emailMode, setEmailMode] = useState<"all" | "scored" | "glows">("all");
 
+  /* ── Action step state ────────────────────────────────────────── */
+  const [latestActionStep, setLatestActionStep] = useState<ActionStep | null>(null);
+  const [actionStepLoading, setActionStepLoading] = useState(false);
+  const [markMastered, setMarkMastered] = useState(false);
+  const [newActionStepText, setNewActionStepText] = useState("");
+  const [newActionStepDueDate, setNewActionStepDueDate] = useState("");
+  const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
+
   /* Keep draftIdRef in sync so setTimeout callbacks always see latest value */
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
+
+  /* Fetch latest action step for a teacher ──────────────────────── */
+  const fetchActionStep = useCallback(async (tid: string) => {
+    if (!tid) return;
+    const teacher = allTeachers.find((t) => t.id === tid);
+    const empId = teacher?.employeeId;
+    if (!empId) return;
+    setActionStepLoading(true);
+    try {
+      const step = await fetchLatestActionStep(empId);
+      setLatestActionStep(step);
+    } catch {
+      setLatestActionStep(null);
+    } finally {
+      setActionStepLoading(false);
+    }
+  }, [allTeachers]);
 
   /* Silently detect and auto-load a draft for the selected teacher ─── */
   const checkForDraft = useCallback(async (forTeacherId: string) => {
@@ -182,11 +209,17 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       setDraftResumedFrom(null);
       setAutoSaveStatus("idle");
       setLastSavedTime(null);
+      setLatestActionStep(null);
+      setMarkMastered(false);
+      setNewActionStepText("");
+      setNewActionStepDueDate("");
+      setActionStepDueDateError(null);
       if (resumeDraftId) {
         loadDraftById(resumeDraftId);
       } else if (!freshStart) {
         checkForDraft(tid);
       }
+      fetchActionStep(tid);
     }
   }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -204,7 +237,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setDraftResumedFrom(null);
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
+    setLatestActionStep(null);
+    setMarkMastered(false);
+    setNewActionStepText("");
+    setNewActionStepDueDate("");
+    setActionStepDueDateError(null);
     if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
+    fetchActionStep(teacherId);
   }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Auto-save: debounced upsert 2 s after any form change ─────────── */
@@ -213,7 +252,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     const hasContent =
       Object.keys(scores).length > 0 ||
       strengths.trim().length > 0 ||
-      growthAreas.trim().length > 0;
+      growthAreas.trim().length > 0 ||
+      (newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0) ||
+      markMastered;
     if (!hasContent) return;
 
     if (draftJustLoaded.current) {
@@ -223,6 +264,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
     setAutoSaveStatus("saving");
 
+    const newActionStepDraft =
+      newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0
+        ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
+        : undefined;
+    const masterActionStepIdDraft =
+      markMastered && latestActionStep?.status === "open" ? latestActionStep.id : undefined;
+
     const timer = setTimeout(async () => {
       if (isSubmittingRef.current) return;
       try {
@@ -231,11 +279,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         let savedId: string;
         if (currentDraftId) {
           const obs = await updateObservation(currentDraftId, {
-            strengths:     strengths   || undefined,
-            growthAreas:   growthAreas || undefined,
-            scores:        scoresRecord,
-            isWalkthrough: isWalkthrough,
-            status:        "draft",
+            strengths:          strengths   || undefined,
+            growthAreas:        growthAreas || undefined,
+            scores:             scoresRecord,
+            isWalkthrough:      isWalkthrough,
+            status:             "draft",
+            newActionStep:      newActionStepDraft,
+            masterActionStepId: masterActionStepIdDraft,
           });
           savedId = obs.id;
         } else {
@@ -243,14 +293,16 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             teacherId,
             rubricSetId,
             date,
-            time:          time   || undefined,
-            course:        course || undefined,
-            scores:        scoresRecord,
-            strengths:     strengths || undefined,
-            growthAreas:   growthAreas || undefined,
-            observer:      observerName,
-            isWalkthrough: isWalkthrough,
-            status:        "draft",
+            time:               time   || undefined,
+            course:             course || undefined,
+            scores:             scoresRecord,
+            strengths:          strengths || undefined,
+            growthAreas:        growthAreas || undefined,
+            observer:           observerName,
+            isWalkthrough:      isWalkthrough,
+            status:             "draft",
+            newActionStep:      newActionStepDraft,
+            masterActionStepId: masterActionStepIdDraft,
           });
           savedId = obs.id;
           setDraftId(savedId);
@@ -267,7 +319,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     autoSaveTimerRef.current = timer;
     return () => { clearTimeout(timer); autoSaveTimerRef.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, teacherId, date, time, course, JSON.stringify(scores), strengths, growthAreas, isWalkthrough]);
+  }, [open, teacherId, date, time, course, JSON.stringify(scores), strengths, growthAreas, isWalkthrough, newActionStepText, newActionStepDueDate, markMastered]);
 
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
@@ -299,6 +351,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setDraftResumedFrom(null);
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
+    setLatestActionStep(null);
+    setMarkMastered(false);
+    setNewActionStepText("");
+    setNewActionStepDueDate("");
+    setActionStepDueDateError(null);
   }
 
   function buildEmailDraft(introText?: string, mode: "all" | "scored" | "glows" = emailMode): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
@@ -624,7 +681,36 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     isSubmittingRef.current = true;
     if (!teacherId) return;
-    const obsId = await onSubmit(teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course, draftId ?? undefined);
+
+    /* ── Action step validation ── */
+    const hasNewStep = newActionStepText.trim().length > 0 || newActionStepDueDate.length > 0;
+    if (hasNewStep) {
+      if (!newActionStepText.trim() || !newActionStepDueDate) {
+        setActionStepDueDateError("Both action step text and a due date are required.");
+        isSubmittingRef.current = false;
+        return;
+      }
+      if (newActionStepDueDate < todayIso) {
+        setActionStepDueDateError("Due date must be today or in the future. Please update it.");
+        isSubmittingRef.current = false;
+        return;
+      }
+    }
+    setActionStepDueDateError(null);
+
+    const newActionStepPayload = hasNewStep && newActionStepText.trim() && newActionStepDueDate
+      ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
+      : undefined;
+    const masterActionStepIdPayload = markMastered && latestActionStep?.status === "open"
+      ? latestActionStep.id
+      : undefined;
+
+    const obsId = await onSubmit(
+      teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course,
+      draftId ?? undefined,
+      newActionStepPayload,
+      masterActionStepIdPayload,
+    );
     setSavedObsId(obsId ?? null);
     if (emailFeedback) {
       const _t = teachers.find((t) => t.id === teacherId);
@@ -1127,6 +1213,107 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 </div>
               </div>
             ))}
+
+            {/* ── Latest Action Step Banner ────────────────── */}
+            {actionStepLoading && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-500" style={{ backgroundColor: "#F4F6FB", border: "1px solid #dde3f0" }}>
+                <Loader2 size={12} className="animate-spin" /> Loading previous action step…
+              </div>
+            )}
+            {!actionStepLoading && latestActionStep && (
+              <div
+                className="rounded-lg px-4 py-3 space-y-2"
+                style={{
+                  backgroundColor: latestActionStep.status === "mastered" ? "#F0FDF4" : "#FFF7ED",
+                  border: `1.5px solid ${latestActionStep.status === "mastered" ? "#86EFAC" : "#FED7AA"}`,
+                }}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-bold uppercase tracking-wider"
+                    style={{ color: latestActionStep.status === "mastered" ? "#15803D" : "#C2410C" }}
+                  >
+                    {latestActionStep.status === "mastered" ? "✓ Previous Action Step (Mastered)" : "↻ Previous Action Step (Open)"}
+                  </span>
+                  {latestActionStep.dueDate < todayIso && latestActionStep.status === "open" && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>Overdue</span>
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-slate-800 leading-snug">{latestActionStep.text}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <span>Assigned: <span className="font-semibold text-slate-700">{new Date(latestActionStep.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                  <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = latestActionStep.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                  {latestActionStep.assignedByName && <span>By: <span className="font-semibold text-slate-700">{latestActionStep.assignedByName}</span></span>}
+                  {latestActionStep.status === "mastered" && latestActionStep.masteredAt && (
+                    <span>Mastered: <span className="font-semibold text-green-700">{new Date(latestActionStep.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                  )}
+                </div>
+                {/* Mark mastered checkbox — only for open steps */}
+                {latestActionStep.status === "open" && (
+                  <label className="flex items-center gap-2 cursor-pointer mt-1">
+                    <input
+                      type="checkbox"
+                      checked={markMastered}
+                      onChange={(e) => setMarkMastered(e.target.checked)}
+                      className="w-4 h-4 rounded accent-green-600"
+                    />
+                    <span className="text-xs font-semibold text-green-700">Mark this action step mastered during this observation</span>
+                  </label>
+                )}
+                {/* Repeat button */}
+                {latestActionStep.status === "open" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewActionStepText(latestActionStep.text);
+                      setNewActionStepDueDate(latestActionStep.dueDate);
+                      setActionStepDueDateError(null);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
+                    style={{ borderColor: "#CBD5E1", color: "#475569" }}
+                  >
+                    <RefreshCw size={11} /> Repeat last action step
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── New Action Step ──────────────────────────── */}
+            <div
+              className="rounded-lg px-4 py-3 space-y-3"
+              style={{ backgroundColor: "#F8FAFC", border: "1.5px solid #dde3f0" }}
+            >
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>
+                → Assign New Action Step <span className="font-normal text-slate-400 normal-case">(optional)</span>
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Action Step</label>
+                <textarea
+                  value={newActionStepText}
+                  onChange={(e) => { setNewActionStepText(e.target.value); setActionStepDueDateError(null); }}
+                  placeholder="Describe the specific action step for this teacher…"
+                  className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none"
+                  style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 72 }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={newActionStepDueDate}
+                  min={todayIso}
+                  onChange={(e) => { setNewActionStepDueDate(e.target.value); setActionStepDueDateError(null); }}
+                  className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                  style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                />
+              </div>
+              {actionStepDueDateError && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-red-700">
+                  <AlertCircle size={12} className="shrink-0" />
+                  {actionStepDueDateError}
+                </div>
+              )}
+            </div>
 
             {/* Notes */}
             <div className="flex flex-col gap-3">

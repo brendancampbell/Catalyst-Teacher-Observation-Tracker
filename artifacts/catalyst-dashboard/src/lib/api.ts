@@ -41,6 +41,8 @@ export type {
   AIChatMessage,
   AIInsightsResponse,
   AICalibrationFlag,
+  ActionStep,
+  OverdueActionStep,
 } from "@workspace/api-types";
 
 export { REGIONS, GRADE_SPANS } from "@workspace/api-types";
@@ -523,6 +525,27 @@ export async function generateAIAnalysis(
       ...(sessionId != null ? { sessionId } : {}),
     }),
   });
+}
+
+/* ── Action Steps ──────────────────────────────────────────────── */
+
+import type { ActionStep, OverdueActionStep } from "@workspace/api-types";
+
+export async function fetchLatestActionStep(teacherEmployeeId: string): Promise<ActionStep | null> {
+  return apiFetch<ActionStep | null>(`/action-steps/latest?teacherEmployeeId=${encodeURIComponent(teacherEmployeeId)}`);
+}
+
+export async function fetchActionSteps(teacherEmployeeId: string): Promise<ActionStep[]> {
+  return apiFetch<ActionStep[]>(`/action-steps?teacherEmployeeId=${encodeURIComponent(teacherEmployeeId)}`);
+}
+
+export async function masterActionStep(id: number): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/action-steps/${id}/master`, { method: "PATCH" });
+}
+
+export async function fetchOverdueActionSteps(schoolId?: number | null): Promise<OverdueActionStep[]> {
+  const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
+  return apiFetch<OverdueActionStep[]>(`/action-steps/overdue${qs}`);
 }
 
 /* ── Email ──────────────────────────────────────────────────────── */

@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
-import { fetchDashboard, updateObservation, deleteObservation, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
@@ -156,6 +156,40 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
   /* ── Observation modal state ──────────────────────────────────── */
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [localObsOverrides, setLocalObsOverrides] = useState<Record<string, Observation>>({});
+
+  /* ── Action Steps ─────────────────────────────────────────────── */
+  const [actionSteps, setActionSteps] = useState<ActionStep[]>([]);
+  const [actionStepsLoading, setActionStepsLoading] = useState(false);
+  const [masteringId, setMasteringId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!teacher.employeeId) return;
+    setActionStepsLoading(true);
+    fetchActionSteps(teacher.employeeId)
+      .then(setActionSteps)
+      .catch(() => setActionSteps([]))
+      .finally(() => setActionStepsLoading(false));
+  }, [teacher.employeeId]);
+
+  const openSteps = actionSteps.filter((s) => s.status === "open");
+  const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
+  const todayIsoProfile = new Date().toISOString().slice(0, 10);
+
+  async function handleMasterStep(stepId: number) {
+    setMasteringId(stepId);
+    try {
+      await masterActionStep(stepId);
+      setActionSteps((prev) =>
+        prev.map((s) =>
+          s.id === stepId
+            ? { ...s, status: "mastered" as const, masteredAt: new Date().toISOString() }
+            : s,
+        ),
+      );
+    } finally {
+      setMasteringId(null);
+    }
+  }
 
   /* ── Rubric switching ─────────────────────────────────────────── */
   const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
@@ -537,6 +571,111 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             ))}
           </div>
         </div>
+
+        {/* ── Action Steps ──────────────────────────────────── */}
+        {teacher.employeeId && (
+          <div>
+            <h2
+              className="font-bold uppercase tracking-wide mb-3"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.02em" }}
+            >
+              Action Steps
+              {!actionStepsLoading && (
+                <span
+                  className="ml-3 text-base font-semibold rounded-full px-2.5 py-0.5"
+                  style={{ backgroundColor: YELLOW, color: NAVY }}
+                >
+                  {actionSteps.length}
+                </span>
+              )}
+            </h2>
+
+            {actionStepsLoading && (
+              <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+                <Clock size={14} className="animate-spin" /> Loading action steps…
+              </div>
+            )}
+
+            {!actionStepsLoading && actionSteps.length === 0 && (
+              <p className="text-sm text-slate-400 italic py-2">No action steps recorded yet.</p>
+            )}
+
+            {!actionStepsLoading && openSteps.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Open</p>
+                <div className="space-y-3">
+                  {openSteps.map((step) => {
+                    const isOverdue = step.dueDate < todayIsoProfile;
+                    return (
+                      <div
+                        key={step.id}
+                        className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
+                        style={{ border: isOverdue ? "1.5px solid #FCA5A5" : "1px solid #dde3f0" }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <AlertCircle size={14} className={isOverdue ? "text-red-500" : "text-amber-500"} />
+                            {isOverdue && (
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
+                                Overdue
+                              </span>
+                            )}
+                          </div>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              disabled={masteringId === step.id}
+                              onClick={() => handleMasterStep(step.id)}
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded transition-colors disabled:opacity-50"
+                              style={{ backgroundColor: "#DCFCE7", color: "#15803D" }}
+                            >
+                              <CheckCircle2 size={13} />
+                              {masteringId === step.id ? "Saving…" : "Mark Mastered"}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">{step.text}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                          <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                          <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                          {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!actionStepsLoading && masteredSteps.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mastered</p>
+                <div className="space-y-3">
+                  {masteredSteps.map((step) => (
+                    <div
+                      key={step.id}
+                      className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
+                      style={{ border: "1.5px solid #86EFAC" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={14} className="text-green-600" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-green-700">Mastered</span>
+                      </div>
+                      <p className="text-sm font-medium text-slate-700 leading-snug line-through decoration-green-400">{step.text}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                        <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                        {step.masteredAt && (
+                          <span>Mastered: <span className="font-semibold text-green-700">{new Date(step.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                        )}
+                        {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </main>
 

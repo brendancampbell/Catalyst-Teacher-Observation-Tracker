@@ -276,27 +276,32 @@ export interface SchoolObservationPayload {
 }
 
 export interface CreateObservationPayload {
-  teacherId:      string;
-  rubricSetId:    number;
-  date:           string;
-  time?:          string;
-  course?:        string;
-  strengths?:     string;
-  growthAreas?:   string;
-  observer?:      string;
-  observerId?:    number;
-  isWalkthrough?: boolean;
-  scores?:        Record<string, Score>;
-  status?:        "draft" | "published";
+  teacherId:           string;
+  rubricSetId:         number;
+  date:                string;
+  time?:               string;
+  course?:             string;
+  strengths?:          string;
+  growthAreas?:        string;
+  observer?:           string;
+  observerId?:         number;
+  isWalkthrough?:      boolean;
+  scores?:             Record<string, Score>;
+  status?:             "draft" | "published";
+  newActionStep?:      { text: string; dueDate: string };
+  masterActionStepId?: number;
 }
 
 export interface UpdateObservationPayload {
-  date?:        string;
-  strengths?:   string;
-  growthAreas?: string;
-  observer?:    string;
-  scores?:      Record<string, Score>;
-  status?:      "draft" | "published";
+  date?:               string;
+  strengths?:          string;
+  growthAreas?:        string;
+  observer?:           string;
+  scores?:             Record<string, Score>;
+  status?:             "draft" | "published";
+  isWalkthrough?:      boolean;
+  newActionStep?:      { text: string; dueDate: string };
+  masterActionStepId?: number;
 }
 
 export interface DraftObservation {
@@ -315,6 +320,36 @@ export interface DraftObservation {
   observer:           string;
   status:             "draft";
   scores:             Record<string, Score>;
+}
+
+/* ── Action Steps ────────────────────────────────────────────────── */
+
+export interface ActionStep {
+  id:                          number;
+  teacherEmployeeId:           string;
+  assignedByEmployeeId?:       string;
+  assignedByName?:             string;
+  assignedDuringObservationId?: string;
+  text:                        string;
+  dueDate:                     string;
+  status:                      "open" | "mastered";
+  masteredAt?:                 string;
+  masteredByEmployeeId?:       string;
+  masteredByName?:             string;
+  masteredDuringObservationId?: string;
+  createdAt:                   string;
+}
+
+export interface OverdueActionStep {
+  id:                   number;
+  teacherEmployeeId:    string;
+  teacherName:          string;
+  schoolName?:          string;
+  text:                 string;
+  dueDate:              string;
+  daysOverdue:          number;
+  assignedByEmployeeId?: string;
+  assignerName?:        string;
 }
 
 /* ── Action Center ───────────────────────────────────────────────── */

@@ -459,6 +459,8 @@ export default function Dashboard() {
     time: string,
     course: string,
     draftId?: string,
+    newActionStep?: { text: string; dueDate: string },
+    masterActionStepId?: number,
   ): Promise<string> {
     if (!rubricSetId) return "";
     setSaving(true);
@@ -467,25 +469,29 @@ export default function Dashboard() {
       if (draftId) {
         /* Publishing an existing draft → PUT with status: published */
         obs = await updateObservation(draftId, {
-          strengths:    strengths    || undefined,
-          growthAreas:  growthAreas  || undefined,
-          scores:       scores,
-          status:       "published",
+          strengths:          strengths    || undefined,
+          growthAreas:        growthAreas  || undefined,
+          scores:             scores,
+          status:             "published",
+          newActionStep,
+          masterActionStepId,
         });
       } else {
         obs = await createObservation({
           teacherId,
           rubricSetId,
           date,
-          time:         time   || undefined,
-          course:       course || undefined,
+          time:               time   || undefined,
+          course:             course || undefined,
           scores,
-          strengths:    strengths || undefined,
-          growthAreas:  growthAreas || undefined,
-          observer:     currentUser?.name ?? "Unknown",
-          observerId:   currentUser?.id,
+          strengths:          strengths || undefined,
+          growthAreas:        growthAreas || undefined,
+          observer:           currentUser?.name ?? "Unknown",
+          observerId:         currentUser?.id,
           isWalkthrough,
-          status:       "published",
+          status:             "published",
+          newActionStep,
+          masterActionStepId,
         });
       }
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
