@@ -10,6 +10,17 @@ const router = Router();
 router.get("/sets", async (req, res) => {
   try {
     const includeArchived = req.query.includeArchived === "true";
+
+    /* includeArchived=true is admin-only — COACH may not enumerate archived rubric sets. */
+    if (includeArchived) {
+      const user = req.user as Express.User | undefined;
+      const role = user?.role;
+      if (role !== "SCHOOL_LEADER" && role !== "NETWORK_LEADER" && role !== "NETWORK_ADMIN") {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+    }
+
     const query = db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     const sets = includeArchived
       ? await query

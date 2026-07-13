@@ -20,7 +20,8 @@
     "test:observation-score-validation": "tsx src/test-observation-score-validation.ts",
     "test:email-school-scope-auth": "tsx src/test-email-school-scope-auth.ts",
     "test:impersonation-endpoints": "tsx src/test-impersonation-endpoints.ts",
-    "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts"
+    "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts",
+    "test:coach-admin-block": "tsx src/test-coach-admin-block.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

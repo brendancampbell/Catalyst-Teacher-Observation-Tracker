@@ -42,6 +42,13 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
     const isNetworkScope = currentUser.role === "NETWORK_LEADER" || currentUser.role === "NETWORK_ADMIN";
     const feedbackOnly    = req.query.includeInFeedbackTracker === "true";
     const includeInactive = req.query.includeInactive === "true";
+
+    /* includeInactive=true is an admin-only parameter — COACH may not enumerate
+       deactivated people even within their own school.                          */
+    if (includeInactive && currentUser.role === "COACH") {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
     const schoolIdParam   = req.query.schoolId ? Number(req.query.schoolId) : null;
 
     if (!isNetworkScope && !currentUser.schoolId) {
