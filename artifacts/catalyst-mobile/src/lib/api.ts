@@ -57,7 +57,10 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    const err = new HttpError(res.status, text || `HTTP ${res.status}`);
+    let message: string;
+    try { message = (JSON.parse(text) as { error?: string }).error ?? res.statusText; }
+    catch { message = text || res.statusText; }
+    const err = new HttpError(res.status, message);
     if (res.status === 401 && _unauthorizedHandler) {
       _unauthorizedHandler();
     }
