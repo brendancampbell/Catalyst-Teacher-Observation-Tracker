@@ -209,8 +209,28 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
     });
   }, [activeTeacher, activeCategories, recent]);
 
-  const overallAvg = recent
-    ? calcOverallAvgFromScores(recent.scores as Record<string, number | undefined>, activeCategories)
+  /* Most-recent score for a specific domain — walks observations newest→oldest,
+     returns the first observation that actually scored this domain. */
+  function getMostRecentDomainScore(domainId: string): number | null {
+    for (const obs of sortedObs) {
+      const score = obs.scores[domainId];
+      if (score !== undefined) return score as number;
+    }
+    return null;
+  }
+
+  /* Build a merged per-domain scores map using the per-domain-latest-across-history
+     logic (same as Dashboard), then feed it to calcOverallAvgFromScores. */
+  const mergedDomainScores: Record<string, number | undefined> = {};
+  for (const cat of activeCategories) {
+    for (const domain of cat.domains) {
+      const score = getMostRecentDomainScore(domain.id);
+      if (score !== null) mergedDomainScores[domain.id] = score;
+    }
+  }
+
+  const overallAvg = activeCategories.length
+    ? calcOverallAvgFromScores(mergedDomainScores, activeCategories)
     : null;
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");

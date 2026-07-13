@@ -13,7 +13,6 @@ import {
 } from "@/data/dummy";
 import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
-import { calcOverallAvgFromScores } from "@/lib/utils";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
