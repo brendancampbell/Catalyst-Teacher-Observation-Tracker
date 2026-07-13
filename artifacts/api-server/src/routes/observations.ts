@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import {
   observations, observationScores, people, rubricSets, schools,
@@ -7,6 +8,32 @@ import {
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
 const router = Router();
+
+/* ── Per-user rate limiter for mutation endpoints ────────────────────
+   Limits PUT and DELETE to 30 requests per 15-minute window per user
+   (or IP when unauthenticated). Blunts brute-force ID enumeration.    */
+const observationMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  keyGenerator: (req) => {
+    const user = req.user as Express.User | undefined;
+    return user?.employeeId ?? req.ip ?? "unknown";
+  },
+  handler: (req, res) => {
+    req.log.warn(
+      {
+        event:             "observation_mutation_rate_limit_exceeded",
+        actingEmployeeId:  (req.user as Express.User | undefined)?.employeeId,
+        path:              req.path,
+        method:            req.method,
+      },
+      "observation mutation rate limit exceeded",
+    );
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+  },
+  standardHeaders: true,
+  legacyHeaders:   false,
+});
 
 /* ── validateScores ──────────────────────────────────────────────────
    Returns { ok: true } when every entry in `scores` has a value in
@@ -472,7 +499,7 @@ router.post("/", async (req, res) => {
 /* ── PUT /api/observations/:id ──────────────────────────────────────
    Draft creators (any role) may edit/publish their own draft.
    Published observations require SCHOOL_LEADER+.                    */
-router.put("/:id", async (req, res) => {
+router.put("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
@@ -499,11 +526,19 @@ router.put("/:id", async (req, res) => {
         if (existing.observedEmployeeId) {
           const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
           if (!person || person.schoolId !== currentUser.schoolId) {
+            req.log.warn(
+              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+              "cross-school observation access rejected",
+            );
             res.status(403).json({ error: "Cannot edit observations for people outside your school" });
             return;
           }
         } else {
           if (existing.schoolId !== currentUser.schoolId) {
+            req.log.warn(
+              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+              "cross-school observation access rejected",
+            );
             res.status(403).json({ error: "Cannot edit observations for schools outside your school" });
             return;
           }
@@ -610,7 +645,7 @@ router.put("/:id", async (req, res) => {
 /* ── DELETE /api/observations/:id ───────────────────────────────────
    Draft creators (any role) may delete their own drafts.
    School Leaders: restricted to their own school's people.           */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
@@ -641,11 +676,19 @@ router.delete("/:id", async (req, res) => {
         if (existing.observedEmployeeId) {
           const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
           if (!person || person.schoolId !== currentUser.schoolId) {
+            req.log.warn(
+              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+              "cross-school observation access rejected",
+            );
             res.status(403).json({ error: "Cannot delete observations for people outside your school" });
             return;
           }
         } else {
           if (existing.schoolId !== currentUser.schoolId) {
+            req.log.warn(
+              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+              "cross-school observation access rejected",
+            );
             res.status(403).json({ error: "Cannot delete observations for schools outside your school" });
             return;
           }
