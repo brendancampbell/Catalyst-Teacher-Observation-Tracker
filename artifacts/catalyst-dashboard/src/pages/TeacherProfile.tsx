@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { CheckCircle2, AlertCircle, ChevronLeft, Loader2 } from "lucide-react";
-import { fetchActionSteps, masterActionStep } from "@/lib/api";
+import { fetchActionSteps, masterActionStep, fetchPeople } from "@/lib/api";
 import type { ActionStep } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -48,6 +48,22 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
     enabled: !!employeeId,
   });
 
+  /* Resolve teacher name from the people list when the prop isn't supplied
+     (e.g. direct URL access or navigation without ?name= query param).
+     The query is skipped entirely when teacherName is already known.      */
+  const { data: resolvedName } = useQuery<string | undefined>({
+    queryKey: ["person-name", employeeId],
+    queryFn: async () => {
+      const all = await fetchPeople();
+      const match = all.find((p) => p.employeeId === employeeId);
+      return match ? `${match.firstName} ${match.lastName}`.trim() : undefined;
+    },
+    staleTime: 5 * 60_000,
+    enabled: !teacherName && !!employeeId,
+  });
+
+  const displayName = teacherName ?? resolvedName;
+
   const [masteringId, setMasteringId] = useState<number | null>(null);
 
   async function handleMaster(id: number) {
@@ -89,7 +105,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
             className="font-bold uppercase tracking-wider text-white leading-tight truncate"
             style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 20 }}
           >
-            {teacherName ? `${teacherName} — Action Steps` : "Action Steps"}
+            {displayName ? `${displayName} — Action Steps` : "Action Steps"}
           </h1>
           <span className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.55)" }}>
             {employeeId}
