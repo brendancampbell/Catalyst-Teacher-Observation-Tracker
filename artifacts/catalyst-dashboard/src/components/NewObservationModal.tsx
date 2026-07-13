@@ -231,10 +231,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         let savedId: string;
         if (currentDraftId) {
           const obs = await updateObservation(currentDraftId, {
-            strengths:   strengths   || undefined,
-            growthAreas: growthAreas || undefined,
-            scores:      scoresRecord,
-            status:      "draft",
+            strengths:     strengths   || undefined,
+            growthAreas:   growthAreas || undefined,
+            scores:        scoresRecord,
+            isWalkthrough: isWalkthrough,
+            status:        "draft",
           });
           savedId = obs.id;
         } else {
@@ -242,13 +243,14 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             teacherId,
             rubricSetId,
             date,
-            time:         time   || undefined,
-            course:       course || undefined,
-            scores:       scoresRecord,
-            strengths:    strengths || undefined,
-            growthAreas:  growthAreas || undefined,
-            observer:     observerName,
-            status:       "draft",
+            time:          time   || undefined,
+            course:        course || undefined,
+            scores:        scoresRecord,
+            strengths:     strengths || undefined,
+            growthAreas:   growthAreas || undefined,
+            observer:      observerName,
+            isWalkthrough: isWalkthrough,
+            status:        "draft",
           });
           savedId = obs.id;
           setDraftId(savedId);
