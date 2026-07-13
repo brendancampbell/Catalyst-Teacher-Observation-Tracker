@@ -39,11 +39,11 @@ interface RubricData {
   categories: RubricCategory[];
 }
 
-function localDraftKey(userId: number | undefined, rubricSetId: number | undefined, teacherId: string | undefined): string {
+export function localDraftKey(userId: number | undefined, rubricSetId: number | undefined, teacherId: string | undefined): string {
   return `catalyst-mobile-draft-${userId ?? "anon"}-${rubricSetId ?? "0"}-${teacherId ?? "0"}`;
 }
 
-interface LocalDraft {
+export interface LocalDraft {
   teacherId: string;
   date: string;
   course: string;
