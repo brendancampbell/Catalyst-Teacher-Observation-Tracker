@@ -7,7 +7,7 @@ import { TtlCache } from "../lib/ttl-cache";
 
 /* Network-averages loads all teachers + observations + scores to compute a
    single aggregate object.  Cache the result per rubricSet+scope for 2 min. */
-const networkAvgsCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
+export const networkAvgsCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 

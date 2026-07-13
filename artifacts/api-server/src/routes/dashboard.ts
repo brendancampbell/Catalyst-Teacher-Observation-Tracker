@@ -9,7 +9,7 @@ import { TtlCache } from "../lib/ttl-cache";
 
 /* Network-wide (schoolId=null) responses are cached for 2 minutes.
    School-scoped calls are already cheap and bypass the cache entirely. */
-const dashboardCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
+export const dashboardCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 

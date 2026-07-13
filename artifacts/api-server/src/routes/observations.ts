@@ -1,6 +1,9 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
+import { dashboardCache } from "./dashboard";
+import { districtCache }  from "./district";
+import { networkAvgsCache } from "./action-center";
 import {
   observations, observationScores, people, rubricSets, schools,
   rubricCategories, rubricDomains, observationScoreValueSchema,
@@ -379,6 +382,10 @@ router.post("/", async (req, res) => {
       const savedScores = await db.select().from(observationScores)
         .where(eq(observationScores.observationId, obs.id));
 
+      dashboardCache.invalidatePrefix("dashboard:");
+      districtCache.invalidatePrefix("district:");
+      networkAvgsCache.invalidatePrefix("network-avgs:");
+
       res.status(201).json({
         id:          String(obs.id),
         schoolId:    obs.schoolId,
@@ -477,6 +484,10 @@ router.post("/", async (req, res) => {
 
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obs.id));
+
+    dashboardCache.invalidatePrefix("dashboard:");
+    districtCache.invalidatePrefix("district:");
+    networkAvgsCache.invalidatePrefix("network-avgs:");
 
     res.status(201).json({
       id:            String(obs.id),
@@ -616,6 +627,10 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obsId));
 
+    dashboardCache.invalidatePrefix("dashboard:");
+    districtCache.invalidatePrefix("district:");
+    networkAvgsCache.invalidatePrefix("network-avgs:");
+
     let editedByName: string | undefined;
     if (updated.editedByEmployeeId) {
       const editor = await db.query.people.findFirst({ where: eq(people.employeeId, updated.editedByEmployeeId) });
@@ -697,6 +712,11 @@ router.delete("/:id", observationMutationLimiter, async (req, res) => {
     }
 
     await db.delete(observations).where(eq(observations.id, obsId));
+
+    dashboardCache.invalidatePrefix("dashboard:");
+    districtCache.invalidatePrefix("district:");
+    networkAvgsCache.invalidatePrefix("network-avgs:");
+
     res.json({ ok: true, id: String(obsId) });
   } catch (err) {
     console.error("DELETE /observations/:id error:", err);

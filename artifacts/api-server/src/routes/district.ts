@@ -9,7 +9,7 @@ import { TtlCache } from "../lib/ttl-cache";
 
 /* District summary loads every teacher + observation + score in memory to
    compute per-school aggregates.  Cache the final aggregate for 2 minutes. */
-const districtCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
+export const districtCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 
