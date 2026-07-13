@@ -334,9 +334,63 @@ describe("Observation score input validation — POST and PUT", () => {
     );
   });
 
-  /* 5 ── POST with all-valid inputs → 201 ─────────────────────────────────── */
+  /* 5 ── PUT with bad scores must not mutate the observation row ──────────── */
 
-  test("5 — POST with all-valid inputs returns 201", async () => {
+  test("5 — PUT with invalid scores returns 400 and does not mutate the observation row", async () => {
+    /* Create a draft observation so we can attempt to publish it via PUT */
+    const [obs] = await db
+      .insert(observations)
+      .values({
+        observedEmployeeId: TEACHER_EID,
+        schoolId:           null,
+        rubricSetId:        RUBRIC_SET_ID,
+        observerEmployeeId: ADMIN_EID,
+        date:               "2025-07-05",
+        observer:           "Score Val Test",
+        status:             "draft",
+        target:             "TEACHER",
+      })
+      .returning({ id: observations.id, status: observations.status, editedAt: observations.editedAt });
+    assert.ok(obs, "Failed to create test observation for mutation guard test");
+    createdObsIds.push(obs.id);
+
+    /* Attempt to publish with an invalid score — the status should NOT flip to published */
+    const res = await request(
+      "PUT",
+      `/observations/${obs.id}`,
+      {
+        status: "published",
+        scores: { [VALID_DOMAIN_SLUG]: "garbage" },
+      },
+      adminJar,
+    );
+
+    assert.equal(
+      res.status,
+      400,
+      `Expected 400, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+
+    /* Verify the DB row is unchanged */
+    const rowAfter = await db.query.observations.findFirst({
+      where: eq(observations.id, obs.id),
+    });
+    assert.ok(rowAfter, "Observation row should still exist");
+    assert.equal(
+      rowAfter.status,
+      "draft",
+      `Status should still be 'draft', but got '${rowAfter.status}' — PUT mutated the row before returning 400`,
+    );
+    assert.equal(
+      rowAfter.editedAt?.toISOString() ?? null,
+      obs.editedAt?.toISOString() ?? null,
+      "editedAt should not have changed on a failed PUT",
+    );
+  });
+
+  /* 6 ── POST with all-valid inputs → 201 ─────────────────────────────────── */
+
+  test("6 — POST with all-valid inputs returns 201", async () => {
     const res = await request(
       "POST",
       "/observations",

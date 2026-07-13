@@ -511,6 +511,18 @@ router.put("/:id", async (req, res) => {
       }
     }
 
+    /* ── Score validation BEFORE any write ──────────────────────── */
+    if (scores && typeof scores === "object") {
+      const scoreValidation = await validateScores(
+        scores as Record<string, unknown>,
+        existing.rubricSetId,
+      );
+      if (!scoreValidation.ok) {
+        res.status(400).json({ error: scoreValidation.error });
+        return;
+      }
+    }
+
     const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
     const isPublishing = existing.status === "draft" && resolvedStatus === "published";
 
@@ -530,14 +542,6 @@ router.put("/:id", async (req, res) => {
       .returning();
 
     if (scores && typeof scores === "object") {
-      const scoreValidation = await validateScores(
-        scores as Record<string, unknown>,
-        existing.rubricSetId,
-      );
-      if (!scoreValidation.ok) {
-        res.status(400).json({ error: scoreValidation.error });
-        return;
-      }
       await db.delete(observationScores).where(eq(observationScores.observationId, obsId));
       const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
         observationId: obsId,
