@@ -205,7 +205,7 @@ export function buildHtmlEmail(params: {
             </tr>
             ${time ? `<tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Time</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${time}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(time)}</td>
             </tr>` : ""}
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Observer</td>

@@ -133,7 +133,45 @@ for (const [name, payload] of teacherSubjectPayloads) {
   console.log(`PASS [${passed}/${total}] teacherSubject ${name}: ${payload.slice(0, 55)}`);
 }
 
-/* ── 5. rich-text fields — go through sanitize-html ──── */
+/* ── 5. gradeLabel field — goes through escapeHtml() ─── */
+
+const gradeLabelPayloads: Array<[string, string]> = [
+  ["script tag",       '<script>alert(1)</script>'],
+  ["attribute break",  '" onmouseover="alert(1)"'],
+  ["angle bracket",    '<b>Grade 5</b>'],
+  ["ampersand",        'K & 1'],
+  ["combined xss",     '"><script>alert(1)</script>'],
+];
+
+console.log("\n--- gradeLabel field (escapeHtml via teacherGrade) ---");
+for (const [name, payload] of gradeLabelPayloads) {
+  total++;
+  const html = buildHtmlEmail({ ...BASE, observer: "Coach A", course: "Algebra", teacherGrade: payload });
+  assertPlainFieldSafe(html, payload, `gradeLabel[${name}]`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] gradeLabel ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 6. time field — goes through escapeHtml() ─────── */
+
+const timePayloads: Array<[string, string]> = [
+  ["script tag",       '<script>alert(1)</script>'],
+  ["attribute break",  '" onmouseover="alert(1)"'],
+  ["angle bracket",    '<b>9:00</b> AM'],
+  ["ampersand",        '9:00 AM & PM'],
+  ["combined xss",     '"><script>alert(1)</script>'],
+];
+
+console.log("\n--- time field (escapeHtml) ---");
+for (const [name, payload] of timePayloads) {
+  total++;
+  const html = buildHtmlEmail({ ...BASE, observer: "Coach A", course: "Algebra", time: payload });
+  assertPlainFieldSafe(html, payload, `time[${name}]`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] time ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 7. rich-text fields — go through sanitize-html ──── */
 
 const richPayloads = [
   '<script>alert(1)</script>',
