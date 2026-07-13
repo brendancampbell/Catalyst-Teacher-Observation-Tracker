@@ -8,6 +8,7 @@ import observationsRouter from "./observations";
 import rubricRouter from "./rubric";
 import adminSchoolsRouter from "./admin-schools";
 import actionCenterRouter from "./action-center";
+import actionStepsRouter from "./action-steps";
 import aiRouter from "./ai";
 import emailRouter from "./email";
 import peopleRouter from "./people";
@@ -34,6 +35,7 @@ router.use("/rubric",       requireAuth, rubricRouter);
 router.use("/people",       requireAuth, peopleRouter);
 router.use("/admin/schools",requireAuth, requireNetworkScope, adminSchoolsRouter);
 router.use("/action-center",requireAuth, actionCenterRouter);
+router.use("/action-steps", requireAuth, actionStepsRouter);
 router.use("/ai",           requireAuth, aiRouter);
 router.use("/email",        requireAuth, emailRouter);
 

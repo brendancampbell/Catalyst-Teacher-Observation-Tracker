@@ -7,6 +7,7 @@ import { networkAvgsCache } from "./action-center";
 import {
   observations, observationScores, people, rubricSets, schools,
   rubricCategories, rubricDomains, observationScoreValueSchema,
+  actionSteps,
 } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
@@ -431,33 +432,97 @@ router.post("/", async (req, res) => {
       }
     }
 
-    const [obs] = await db.insert(observations).values({
-      observedEmployeeId:  resolvedObservedId,
-      schoolId:            null,
-      rubricSetId:         Number(resolvedRubricSetId),
-      date,
-      time:                time || null,
-      course:              course || null,
-      strengths:           strengths || null,
-      growthAreas:         growthAreas || null,
-      observer:            observer || creator.name,
-      observerEmployeeId:  creator.employeeId,
-      isWalkthrough:       !!isWalkthrough,
-      status:              resolvedStatus,
-      target:              "TEACHER",
-    }).returning();
+    /* ── Action step validation (TEACHER target only) ───────────── */
+    const { newActionStep, masterActionStepId } = req.body as {
+      newActionStep?: { text: string; dueDate: string };
+      masterActionStepId?: number;
+    };
 
-    const scoreRows = scores
-      ? Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
-          observationId: obs.id,
-          domainSlug,
-          score: Number(score),
-        }))
-      : [];
-
-    if (scoreRows.length > 0) {
-      await db.insert(observationScores).values(scoreRows);
+    if (newActionStep !== undefined) {
+      if (!newActionStep.text || !newActionStep.dueDate) {
+        res.status(400).json({ error: "newActionStep requires both text and dueDate" });
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0]!;
+      if (newActionStep.dueDate < today) {
+        res.status(400).json({ error: "newActionStep.dueDate must be today or in the future" });
+        return;
+      }
     }
+
+    let masterStep: typeof actionSteps.$inferSelect | null = null;
+    if (masterActionStepId !== undefined) {
+      masterStep = await db.query.actionSteps.findFirst({
+        where: eq(actionSteps.id, Number(masterActionStepId)),
+      }) ?? null;
+      if (!masterStep) {
+        res.status(400).json({ error: "masterActionStepId not found" });
+        return;
+      }
+      if (masterStep.teacherEmployeeId !== resolvedObservedId) {
+        res.status(400).json({ error: "masterActionStepId does not belong to the observed teacher" });
+        return;
+      }
+      if (masterStep.status !== "open") {
+        res.status(400).json({ error: "masterActionStepId is not currently open" });
+        return;
+      }
+    }
+
+    /* ── Transactional write: obs + scores + action steps ───────── */
+    const { obs, scoreRows } = await db.transaction(async (tx) => {
+      const [obs] = await tx.insert(observations).values({
+        observedEmployeeId:  resolvedObservedId,
+        schoolId:            null,
+        rubricSetId:         Number(resolvedRubricSetId),
+        date,
+        time:                time || null,
+        course:              course || null,
+        strengths:           strengths || null,
+        growthAreas:         growthAreas || null,
+        observer:            observer || creator.name,
+        observerEmployeeId:  creator.employeeId,
+        isWalkthrough:       !!isWalkthrough,
+        status:              resolvedStatus,
+        target:              "TEACHER",
+      }).returning();
+
+      const scoreRows = scores
+        ? Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
+            observationId: obs!.id,
+            domainSlug,
+            score: Number(score),
+          }))
+        : [];
+
+      if (scoreRows.length > 0) {
+        await tx.insert(observationScores).values(scoreRows);
+      }
+
+      if (masterStep) {
+        await tx.update(actionSteps)
+          .set({
+            status:              "mastered",
+            masteredAt:          new Date(),
+            masteredByEmployeeId: creator.employeeId,
+            masteredDuringObservationId: obs!.id,
+          })
+          .where(eq(actionSteps.id, masterStep.id));
+      }
+
+      if (newActionStep) {
+        await tx.insert(actionSteps).values({
+          teacherEmployeeId:           resolvedObservedId,
+          assignedByEmployeeId:        creator.employeeId,
+          assignedDuringObservationId: obs!.id,
+          text:                        newActionStep.text,
+          dueDate:                     newActionStep.dueDate,
+          status:                      "open",
+        });
+      }
+
+      return { obs: obs!, scoreRows };
+    });
 
     /* ── Walkthrough / Rescore queue logic ───────────────────────── */
     if (obs.isWalkthrough && obs.status === "published" && obs.observedEmployeeId) {
@@ -514,7 +579,15 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { strengths, growthAreas, observer, scores, status } = req.body;
+    const { strengths, growthAreas, observer, scores, status, newActionStep, masterActionStepId } = req.body as {
+      strengths?: string;
+      growthAreas?: string;
+      observer?: string;
+      scores?: Record<string, number>;
+      status?: string;
+      newActionStep?: { text: string; dueDate: string };
+      masterActionStepId?: number;
+    };
 
     const existing = await db.query.observations.findFirst({
       where: eq(observations.id, obsId),
@@ -569,6 +642,38 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       }
     }
 
+    /* ── Action step validation (TEACHER target only) ─────────────── */
+    if (newActionStep !== undefined && existing.target === "TEACHER") {
+      if (!newActionStep.text || !newActionStep.dueDate) {
+        res.status(400).json({ error: "newActionStep requires both text and dueDate" });
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0]!;
+      if (newActionStep.dueDate < today) {
+        res.status(400).json({ error: "newActionStep.dueDate must be today or in the future" });
+        return;
+      }
+    }
+
+    let masterStepForPut: typeof actionSteps.$inferSelect | null = null;
+    if (masterActionStepId !== undefined && existing.target === "TEACHER") {
+      masterStepForPut = await db.query.actionSteps.findFirst({
+        where: eq(actionSteps.id, Number(masterActionStepId)),
+      }) ?? null;
+      if (!masterStepForPut) {
+        res.status(400).json({ error: "masterActionStepId not found" });
+        return;
+      }
+      if (masterStepForPut.teacherEmployeeId !== existing.observedEmployeeId) {
+        res.status(400).json({ error: "masterActionStepId does not belong to the observed teacher" });
+        return;
+      }
+      if (masterStepForPut.status !== "open") {
+        res.status(400).json({ error: "masterActionStepId is not currently open" });
+        return;
+      }
+    }
+
     const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
     const isPublishing = existing.status === "draft" && resolvedStatus === "published";
 
@@ -576,26 +681,53 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       ? { editedByEmployeeId: currentUser.employeeId, editedAt: new Date() }
       : {};
 
-    const [updated] = await db.update(observations)
-      .set({
-        strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
-        growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
-        observer:    observer    !== undefined ? (observer    || existing.observer) : existing.observer,
-        status:      resolvedStatus,
-        ...auditFields,
-      })
-      .where(eq(observations.id, obsId))
-      .returning();
+    /* ── Transactional write: obs update + scores + action steps ─── */
+    const [updated] = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(observations)
+        .set({
+          strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
+          growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
+          observer:    observer    !== undefined ? (observer    || existing.observer) : existing.observer,
+          status:      resolvedStatus,
+          ...auditFields,
+        })
+        .where(eq(observations.id, obsId))
+        .returning();
 
-    if (scores && typeof scores === "object") {
-      await db.delete(observationScores).where(eq(observationScores.observationId, obsId));
-      const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
-        observationId: obsId,
-        domainSlug,
-        score: Number(score),
-      }));
-      if (scoreRows.length > 0) await db.insert(observationScores).values(scoreRows);
-    }
+      if (scores && typeof scores === "object") {
+        await tx.delete(observationScores).where(eq(observationScores.observationId, obsId));
+        const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
+          observationId: obsId,
+          domainSlug,
+          score: Number(score),
+        }));
+        if (scoreRows.length > 0) await tx.insert(observationScores).values(scoreRows);
+      }
+
+      if (masterStepForPut) {
+        await tx.update(actionSteps)
+          .set({
+            status:              "mastered",
+            masteredAt:          new Date(),
+            masteredByEmployeeId: currentUser.employeeId,
+            masteredDuringObservationId: obsId,
+          })
+          .where(eq(actionSteps.id, masterStepForPut.id));
+      }
+
+      if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
+        await tx.insert(actionSteps).values({
+          teacherEmployeeId:           existing.observedEmployeeId,
+          assignedByEmployeeId:        currentUser.employeeId,
+          assignedDuringObservationId: obsId,
+          text:                        newActionStep.text,
+          dueDate:                     newActionStep.dueDate,
+          status:                      "open",
+        });
+      }
+
+      return [updated!];
+    });
 
     /* ── Rescore on publish ──────────────────────────────────────── */
     if (isPublishing && updated.isWalkthrough && updated.observedEmployeeId) {

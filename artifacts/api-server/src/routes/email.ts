@@ -7,8 +7,9 @@ import {
   people,
   rubricCategories,
   rubricDomains,
+  actionSteps,
 } from "@workspace/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and, ne } from "drizzle-orm";
 import { getUncachableResendClient } from "../lib/resend";
 import { requireRole } from "../middleware/auth";
 import type { UserRole } from "../middleware/auth";
@@ -100,11 +101,17 @@ export function buildHtmlEmail(params: {
   prevScoreMap: Record<string, number>;
   categories: Array<{ label: string; domains: Array<{ slug: string; label: string }> }>;
   logoUrl: string;
+  actionStepContext?: {
+    masteredStep?: { text: string; masteredByName?: string };
+    stillOpenStep?: { text: string; dueDate: string; assignedByName?: string };
+    newStep?: { text: string; dueDate: string };
+  };
 }): string {
   const {
     intro, glowsText, growsText, teacherName, teacherSubject,
     teacherGrade, date, time, course, observer,
     scoreMap, prevScoreMap, categories, logoUrl,
+    actionStepContext,
   } = params;
 
   const dateLabel = formatDateLong(date);
@@ -278,6 +285,65 @@ export function buildHtmlEmail(params: {
         </td>
       </tr>
 
+      ${(() => {
+        if (!actionStepContext) return "";
+        const { masteredStep, stillOpenStep, newStep } = actionStepContext;
+        if (!masteredStep && !stillOpenStep && !newStep) return "";
+
+        let rows = "";
+
+        if (masteredStep) {
+          const byLine = masteredStep.masteredByName
+            ? ` <span style="color:#6b7280;font-size:12px;">— mastered by ${escapeHtml(masteredStep.masteredByName)}</span>`
+            : "";
+          rows += `
+            <tr style="border-bottom:1px solid #d1fae5;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#065f46;background:#ecfdf5;width:110px;">✔ Mastered</td>
+              <td style="padding:8px 14px;font-size:13px;color:#064e3b;">${richToEmailHtml(masteredStep.text, "#064e3b")}${byLine}</td>
+            </tr>`;
+        }
+
+        if (stillOpenStep) {
+          const assignedLine = stillOpenStep.assignedByName
+            ? ` <span style="color:#6b7280;font-size:12px;">— assigned by ${escapeHtml(stillOpenStep.assignedByName)}</span>`
+            : "";
+          rows += `
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;width:110px;">⏳ Still Open</td>
+              <td style="padding:8px 14px;font-size:13px;color:#78350f;">${richToEmailHtml(stillOpenStep.text, "#78350f")}<br/><span style="font-size:11px;color:#92400e;">Due: ${escapeHtml(stillOpenStep.dueDate)}</span>${assignedLine}</td>
+            </tr>`;
+        }
+
+        if (newStep) {
+          rows += `
+            <tr>
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#1d4ed8;background:#eff6ff;width:110px;">🎯 New Step</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e3a8a;">${richToEmailHtml(newStep.text, "#1e3a8a")}<br/><span style="font-size:11px;color:#1e40af;">Due: ${escapeHtml(newStep.dueDate)}</span></td>
+            </tr>`;
+        }
+
+        return `
+      <!-- Action Steps -->
+      <tr>
+        <td style="padding:16px 28px 0 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
+            <tr>
+              <td style="padding:14px 16px 6px 16px;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0369a1;">◎ Action Step</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 6px 6px 6px;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden;">
+                  ${rows}
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`;
+      })()}
+
       <!-- Spacer -->
       <tr><td style="height:24px;font-size:0;line-height:0;">&nbsp;</td></tr>
 
@@ -435,6 +501,74 @@ router.post(
         .map((d) => ({ slug: d.slug, label: d.name })),
     }));
 
+    /* ── Load action step context for this observation ─────── */
+    let actionStepContext: Parameters<typeof buildHtmlEmail>[0]["actionStepContext"] | undefined;
+    if (obs.observedEmployeeId) {
+      const obsIdNum = Number(observationId);
+
+      /* Step mastered during this observation */
+      const masteredRows = await db
+        .select()
+        .from(actionSteps)
+        .where(eq(actionSteps.masteredDuringObservationId, obsIdNum))
+        .limit(1);
+      const masteredRow = masteredRows[0] ?? null;
+
+      /* New step assigned during this observation */
+      const newRows = await db
+        .select()
+        .from(actionSteps)
+        .where(eq(actionSteps.assignedDuringObservationId, obsIdNum))
+        .limit(1);
+      const newRow = newRows[0] ?? null;
+
+      /* Still-open previous step (most recent, excluding new one) */
+      const openConditions = [
+        eq(actionSteps.teacherEmployeeId, obs.observedEmployeeId),
+        eq(actionSteps.status, "open"),
+        ...(newRow ? [ne(actionSteps.id, newRow.id)] : []),
+      ];
+      const openRows = await db
+        .select()
+        .from(actionSteps)
+        .where(and(...openConditions))
+        .orderBy(desc(actionSteps.createdAt))
+        .limit(1);
+      const openRow = openRows[0] ?? null;
+
+      /* Resolve assigner name for open step */
+      let assignedByName: string | undefined;
+      if (openRow?.assignedByEmployeeId) {
+        const assigner = await db.query.people.findFirst({
+          where: eq(people.employeeId, openRow.assignedByEmployeeId),
+        });
+        if (assigner) assignedByName = `${assigner.firstName} ${assigner.lastName}`.trim();
+      }
+
+      /* Resolve masteredBy name */
+      let masteredByName: string | undefined;
+      if (masteredRow?.masteredByEmployeeId) {
+        const masterer = await db.query.people.findFirst({
+          where: eq(people.employeeId, masteredRow.masteredByEmployeeId),
+        });
+        if (masterer) masteredByName = `${masterer.firstName} ${masterer.lastName}`.trim();
+      }
+
+      if (masteredRow || openRow || newRow) {
+        actionStepContext = {
+          masteredStep: masteredRow
+            ? { text: masteredRow.text, masteredByName }
+            : undefined,
+          stillOpenStep: openRow
+            ? { text: openRow.text, dueDate: openRow.dueDate, assignedByName }
+            : undefined,
+          newStep: newRow
+            ? { text: newRow.text, dueDate: newRow.dueDate }
+            : undefined,
+        };
+      }
+    }
+
     /* ── Build HTML ────────────────────────────────────────── */
     const html = buildHtmlEmail({
       intro,
@@ -451,6 +585,7 @@ router.post(
       prevScoreMap,
       categories,
       logoUrl: logoUrl ?? "https://www.uncommonschools.org/favicon.ico",
+      actionStepContext,
     });
 
     /* ── Send via Resend ───────────────────────────────────── */
