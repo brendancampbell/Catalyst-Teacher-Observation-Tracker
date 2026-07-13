@@ -345,4 +345,119 @@ total++;
   console.log(`PASS [${passed}/${total}] multiple cat/domain labels escaped`);
 }
 
+/* ── 12. legitimate special-character labels — correct round-trip ─────────
+ *
+ * escapeHtml() must encode characters to valid HTML entities so that email
+ * clients render them as the original readable text.  These are NOT injection
+ * payloads — they are real label names that contain &, apostrophes, parens,
+ * or dashes.  The test asserts:
+ *
+ *   a) The raw character does NOT appear verbatim where it would be ambiguous
+ *      (& must become &amp;, ' must become &#39;).
+ *   b) The correct HTML entity IS present in the output (so the email client
+ *      will render the correct visible character).
+ *   c) No double-encoding occurred (e.g. &amp;amp; must not be present).
+ *   d) Parentheses, hyphens, and digits pass through unchanged.
+ */
+
+interface LegitCase {
+  name: string;
+  catLabel: string;
+  domainLabel: string;
+  /** Entities that must appear in the rendered HTML */
+  requiredEntities: string[];
+  /** Substrings that must NOT appear verbatim (only checked when they would
+   *  be ambiguous — not checked for parens/digits which are never escaped). */
+  forbiddenVerbatim: string[];
+  /** Substrings that must NOT appear (double-encoding guard). */
+  forbiddenDoubleEncoded: string[];
+}
+
+const legitCases: LegitCase[] = [
+  {
+    name:               "ampersand in category (Reading & Writing)",
+    catLabel:           "Reading & Writing",
+    domainLabel:        "Fluency",
+    requiredEntities:   ["Reading &amp; Writing"],
+    forbiddenVerbatim:  [],               // "&" alone appears inside &amp; — checked via entity
+    forbiddenDoubleEncoded: ["&amp;amp;"],
+  },
+  {
+    name:               "ampersand in domain (Wait Time & Pacing)",
+    catLabel:           "Instruction",
+    domainLabel:        "Wait Time & Pacing",
+    requiredEntities:   ["Wait Time &amp; Pacing"],
+    forbiddenVerbatim:  [],
+    forbiddenDoubleEncoded: ["&amp;amp;"],
+  },
+  {
+    name:               "apostrophe in category (Student's Work)",
+    catLabel:           "Student's Work",
+    domainLabel:        "Portfolio Quality",
+    requiredEntities:   ["Student&#39;s Work"],
+    forbiddenVerbatim:  ["Student's Work"],   // raw ' must be encoded
+    forbiddenDoubleEncoded: ["&#39;&#39;", "&amp;#39;"],
+  },
+  {
+    name:               "apostrophe in domain (Teacher's Moves)",
+    catLabel:           "Culture",
+    domainLabel:        "Teacher's Moves",
+    requiredEntities:   ["Teacher&#39;s Moves"],
+    forbiddenVerbatim:  ["Teacher's Moves"],
+    forbiddenDoubleEncoded: ["&#39;&#39;", "&amp;#39;"],
+  },
+  {
+    name:               "parenthesized abbreviation (ELL (English Language Learner))",
+    catLabel:           "ELL Support",
+    domainLabel:        "ELL (English Language Learner)",
+    requiredEntities:   ["ELL (English Language Learner)"],  // parens pass through unchanged
+    forbiddenVerbatim:  [],
+    forbiddenDoubleEncoded: [],
+  },
+  {
+    name:               "combined — ampersand + apostrophe + parens",
+    catLabel:           "Math & Science (Gr. 6–8)",
+    domainLabel:        "Student's Problem-Solving",
+    requiredEntities:   ["Math &amp; Science (Gr. 6–8)", "Student&#39;s Problem-Solving"],
+    forbiddenVerbatim:  ["Math & Science", "Student's Problem"],
+    forbiddenDoubleEncoded: ["&amp;amp;", "&amp;#39;"],
+  },
+];
+
+console.log("\n--- legitimate special-character labels (correct round-trip) ---");
+for (const tc of legitCases) {
+  total++;
+  const html = buildHtmlEmail({
+    ...BASE,
+    observer: "Coach A",
+    course:   "Algebra",
+    scoreMap: { d1: 2 },
+    categories: [
+      { label: tc.catLabel, domains: [{ slug: "d1", label: tc.domainLabel }] },
+    ],
+  });
+
+  for (const entity of tc.requiredEntities) {
+    assert(
+      html.includes(entity),
+      `${tc.name}: expected entity "${entity}" not found in HTML`,
+    );
+  }
+  for (const raw of tc.forbiddenVerbatim) {
+    assert(
+      !html.includes(raw),
+      `${tc.name}: raw string "${raw}" must not appear verbatim`,
+    );
+  }
+  for (const dbl of tc.forbiddenDoubleEncoded) {
+    assert(
+      !html.includes(dbl),
+      `${tc.name}: double-encoded sequence "${dbl}" must not appear`,
+    );
+  }
+
+  passed++;
+  console.log(`PASS [${passed}/${total}] ${tc.name}`);
+}
+
 console.log(`\nAll ${passed}/${total} HTML-injection tests passed.`);
