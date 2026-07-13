@@ -18,7 +18,7 @@
 
 import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ObservationPage, { localDraftKey } from "@/pages/observation";
 import type { LocalDraft } from "@/pages/observation";
@@ -240,6 +240,59 @@ describe("ObservationPage — draft restore round-trip", () => {
   });
 
   /* ── Action step field tests ────────────────────────────────────── */
+
+  it("write + restore: action step fields are written to localStorage on input and restored on remount", async () => {
+    /* ── Phase 1: user enters action step text → localStorage is written ── */
+    const { unmount } = renderPage();
+
+    /* Wait for Teacher A to be auto-selected (guarantees teacherId state is set) */
+    const select = await screen.findByRole("combobox", {}, { timeout: 4000 }) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("emp-001"), { timeout: 4000 });
+
+    /* Switch to Teacher B — no pre-seeded draft for B, so draftJustLoaded stays false
+       and the NEXT form change will immediately write to localStorage.              */
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "emp-002" } });
+    });
+    await waitFor(() => expect(select.value).toBe("emp-002"), { timeout: 4000 });
+
+    const actionStepArea = () =>
+      screen.getByPlaceholderText(
+        "Describe the action step for this teacher…",
+      ) as HTMLTextAreaElement;
+
+    /* localStorage.setItem is called synchronously in the autosave useEffect */
+    await act(async () => {
+      fireEvent.change(actionStepArea(), { target: { value: "Use exit tickets" } });
+    });
+
+    const keyB = localDraftKey(USER_ID, RUBRIC_ID, "emp-002");
+    await waitFor(() => {
+      const raw = localStorage.getItem(keyB);
+      expect(raw).not.toBeNull();
+      const draft = JSON.parse(raw!) as LocalDraft;
+      /* All three action-step fields must be present and correct */
+      expect(draft.actionStepText).toBe("Use exit tickets");
+      expect(Object.hasOwn(draft, "actionStepDueDate")).toBe(true);
+      expect(Object.hasOwn(draft, "masterActionStepId")).toBe(true);
+    }, { timeout: 4000 });
+
+    unmount();
+
+    /* ── Phase 2: remount → switch back to Teacher B → fields restore ── */
+    renderPage();
+
+    const select2 = await screen.findByRole("combobox", {}, { timeout: 4000 }) as HTMLSelectElement;
+    await waitFor(() => expect(select2.value).not.toBe(""), { timeout: 4000 });
+    await act(async () => {
+      fireEvent.change(select2, { target: { value: "emp-002" } });
+    });
+
+    await waitFor(
+      () => expect(actionStepArea().value).toBe("Use exit tickets"),
+      { timeout: 4000 },
+    );
+  });
 
   it("restores action step text and due date from localStorage on mount", async () => {
     const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
