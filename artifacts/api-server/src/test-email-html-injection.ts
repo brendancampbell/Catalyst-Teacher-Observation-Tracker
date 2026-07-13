@@ -251,4 +251,98 @@ for (const payload of richPayloads) {
   console.log(`PASS [${passed}/${total}] rich payload: ${payload.slice(0, 55)}`);
 }
 
+/* ── 9. score table cat.label — goes through escapeHtml() ─── */
+
+const catLabelPayloads: Array<[string, string]> = [
+  ["script tag",      '<script>alert(1)</script>'],
+  ["attribute break", '" onmouseover="alert(1)"'],
+  ["img onerror",     '<img src=x onerror=alert(1)>'],
+  ["angle bracket",   '<b>Instruction</b>'],
+  ["ampersand",       'A & B Category'],
+  ["combined xss",    '"><script>alert(1)</script>'],
+];
+
+console.log("\n--- score table cat.label (escapeHtml) ---");
+for (const [name, payload] of catLabelPayloads) {
+  total++;
+  const html = buildHtmlEmail({
+    ...BASE,
+    observer: "Coach A",
+    course: "Algebra",
+    categories: [
+      { label: payload, domains: [{ slug: "d1", label: "Safe Domain" }] },
+    ],
+  });
+  assertPlainFieldSafe(html, payload, `cat.label[${name}]`);
+  assert(
+    !html.includes(payload),
+    `cat.label[${name}]: raw payload appears verbatim in output`
+  );
+  passed++;
+  console.log(`PASS [${passed}/${total}] cat.label ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 10. score table domain.label — goes through escapeHtml() ─ */
+
+const domainLabelPayloads: Array<[string, string]> = [
+  ["script tag",      '<script>alert(1)</script>'],
+  ["attribute break", '" onmouseover="alert(1)"'],
+  ["img onerror",     '<img src=x onerror=alert(1)>'],
+  ["angle bracket",   '<em>Engagement</em>'],
+  ["ampersand",       'Wait Time & Pacing'],
+  ["combined xss",    "'><script>alert(1)</script>"],
+];
+
+console.log("\n--- score table domain.label (escapeHtml) ---");
+for (const [name, payload] of domainLabelPayloads) {
+  total++;
+  const html = buildHtmlEmail({
+    ...BASE,
+    observer: "Coach A",
+    course: "Algebra",
+    scoreMap: { "d1": 3 },
+    categories: [
+      { label: "Safe Category", domains: [{ slug: "d1", label: payload }] },
+    ],
+  });
+  assertPlainFieldSafe(html, payload, `domain.label[${name}]`);
+  assert(
+    !html.includes(payload),
+    `domain.label[${name}]: raw payload appears verbatim in output`
+  );
+  passed++;
+  console.log(`PASS [${passed}/${total}] domain.label ${name}: ${payload.slice(0, 55)}`);
+}
+
+/* ── 11. multiple categories and domains all escaped ────────── */
+
+console.log("\n--- multiple cat/domain labels all escaped ---");
+total++;
+{
+  const html = buildHtmlEmail({
+    ...BASE,
+    observer: "Coach A",
+    course: "Algebra",
+    scoreMap: { "d1": 2, "d2": 4 },
+    categories: [
+      {
+        label: '<b>Cat One</b>',
+        domains: [{ slug: "d1", label: '<em>Domain One</em>' }],
+      },
+      {
+        label: '<b>Cat Two</b>',
+        domains: [{ slug: "d2", label: '<em>Domain Two</em>' }],
+      },
+    ],
+  });
+  const rawTags = ["<b>Cat One</b>", "<b>Cat Two</b>", "<em>Domain One</em>", "<em>Domain Two</em>"];
+  for (const tag of rawTags) {
+    assert(!html.includes(tag), `multiple labels: raw tag "${tag}" must not appear in output`);
+  }
+  assert(html.includes("&lt;b&gt;Cat One&lt;/b&gt;"), "cat.label tags must be escaped");
+  assert(html.includes("&lt;em&gt;Domain One&lt;/em&gt;"), "domain.label tags must be escaped");
+  passed++;
+  console.log(`PASS [${passed}/${total}] multiple cat/domain labels escaped`);
+}
+
 console.log(`\nAll ${passed}/${total} HTML-injection tests passed.`);

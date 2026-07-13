@@ -119,14 +119,14 @@ export function buildHtmlEmail(params: {
   for (const cat of categories) {
     scoreTableRows += `
       <tr>
-        <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${cat.label}</td>
+        <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${escapeHtml(cat.label)}</td>
       </tr>`;
     let catTotal = 0, catCount = 0;
     for (const domain of cat.domains) {
       const val = scoreMap[domain.slug];
       scoreTableRows += `
       <tr style="border-bottom:1px solid #e2e8f0;">
-        <td style="padding:8px 14px;font-size:13px;color:#374151;">${domain.label}</td>
+        <td style="padding:8px 14px;font-size:13px;color:#374151;">${escapeHtml(domain.label)}</td>
         <td style="padding:8px 6px;text-align:center;">
           <span style="display:inline-block;background:${scoreBg(val)};color:${scoreColor(val)};border-radius:4px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${scoreText(val)}</span>
         </td>
