@@ -451,7 +451,7 @@ export default function Dashboard() {
     .filter((a): a is number => a !== null);
   const statAvg = teacherAvgsForStat.length
     ? teacherAvgsForStat.reduce((a, b) => a + b, 0) / teacherAvgsForStat.length
-    : 0;
+    : null;
 
   const hasFilters = !!(subject.length || grade.length || proficiency.length);
 
@@ -1171,10 +1171,10 @@ export default function Dashboard() {
                       );
                     })}
                     <td
-                      className={`text-center font-bold py-1.5 ${statAvg ? getScoreColor(statAvg) : "text-slate-400"}`}
+                      className={`text-center font-bold py-1.5 ${statAvg !== null ? getScoreColor(statAvg) : "text-slate-400"}`}
                       style={{ borderLeft: `2px solid ${YELLOW}`, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20 }}
                     >
-                      {statAvg ? statAvg.toFixed(1) : "—"}
+                      {statAvg !== null ? statAvg.toFixed(1) : "—"}
                     </td>
                     {/* Blank proficient cell in footer */}
                     <td style={{ borderLeft: `2px solid ${YELLOW}` }} />
