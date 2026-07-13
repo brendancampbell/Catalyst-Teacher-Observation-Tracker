@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { apiFetch, HttpError, User } from "@/lib/api";
+import { apiFetch, HttpError, User, setUnauthorizedHandler } from "@/lib/api";
 
 interface AuthContextType {
   user: User | null;
@@ -37,6 +37,19 @@ function isAuthError(err: unknown): boolean {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /* Register the centralized 401 handler for the lifetime of AuthProvider.
+     Any apiFetch call that receives a 401 will fire this before throwing,
+     clearing state and navigating to the login page without the caller
+     needing to handle it.                                                  */
+  useEffect(() => {
+    const loginUrl = (import.meta.env.BASE_URL as string).replace(/\/$/, "") + "/";
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      window.location.replace(loginUrl);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const refetch = useCallback(async () => {
     try {

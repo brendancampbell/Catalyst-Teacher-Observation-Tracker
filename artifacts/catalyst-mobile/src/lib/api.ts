@@ -39,6 +39,16 @@ export class HttpError extends Error {
   }
 }
 
+/* ── Centralized 401 handler ───────────────────────────────────────────────
+   Registered by AuthProvider on mount; torn down on unmount.
+   Called synchronously before throwing, so the redirect fires before any
+   React Query retry or component error state can render.                   */
+let _unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  _unauthorizedHandler = fn;
+}
+
 export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
@@ -47,7 +57,11 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new HttpError(res.status, text || `HTTP ${res.status}`);
+    const err = new HttpError(res.status, text || `HTTP ${res.status}`);
+    if (res.status === 401 && _unauthorizedHandler) {
+      _unauthorizedHandler();
+    }
+    throw err;
   }
   return res.json() as Promise<T>;
 }
