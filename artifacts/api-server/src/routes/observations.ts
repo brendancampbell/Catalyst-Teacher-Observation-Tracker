@@ -674,6 +674,15 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       }
     }
 
+    /* Look up any action step already created for this observation so we can
+       upsert rather than insert a duplicate on repeated autosaves.           */
+    let existingStepForObs: typeof actionSteps.$inferSelect | null = null;
+    if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
+      existingStepForObs = await db.query.actionSteps.findFirst({
+        where: eq(actionSteps.assignedDuringObservationId, obsId),
+      }) ?? null;
+    }
+
     const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
     const isPublishing = existing.status === "draft" && resolvedStatus === "published";
 
@@ -716,14 +725,24 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       }
 
       if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
-        await tx.insert(actionSteps).values({
-          teacherEmployeeId:           existing.observedEmployeeId,
-          assignedByEmployeeId:        currentUser.employeeId,
-          assignedDuringObservationId: obsId,
-          text:                        newActionStep.text,
-          dueDate:                     newActionStep.dueDate,
-          status:                      "open",
-        });
+        if (existingStepForObs) {
+          /* Upsert: update text/dueDate only if the step is still open.
+             If it was already mastered, leave it untouched.              */
+          if (existingStepForObs.status === "open") {
+            await tx.update(actionSteps)
+              .set({ text: newActionStep.text, dueDate: newActionStep.dueDate })
+              .where(eq(actionSteps.id, existingStepForObs.id));
+          }
+        } else {
+          await tx.insert(actionSteps).values({
+            teacherEmployeeId:           existing.observedEmployeeId,
+            assignedByEmployeeId:        currentUser.employeeId,
+            assignedDuringObservationId: obsId,
+            text:                        newActionStep.text,
+            dueDate:                     newActionStep.dueDate,
+            status:                      "open",
+          });
+        }
       }
 
       return [updated!];
