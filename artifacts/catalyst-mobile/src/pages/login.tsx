@@ -18,8 +18,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      const isNetworkAdmin = user.role === "NETWORK_ADMIN";
-      if (!selectedSchool && isNetworkAdmin) {
+      const isNetworkScope = user.role === "NETWORK_ADMIN" || user.role === "NETWORK_LEADER";
+      if (!selectedSchool && isNetworkScope) {
         navigate("/school-picker");
       } else if (!selectedRubric) {
         navigate("/rubric-picker");
