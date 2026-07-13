@@ -378,6 +378,13 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
   }
 });
 
+/* ── Self-deactivation guard ──────────────────────────────────────
+   Returns true when a user is about to set their own account to
+   inactive. Used by both the general update and toggle-active routes. */
+function isSelfDeactivation(currentUser: Express.User, empId: string, isActive: boolean | undefined): boolean {
+  return empId === currentUser.employeeId && isActive === false;
+}
+
 /* ── PATCH /api/people/:employeeId ───────────────────────────────
    Update a person's fields.
    SCHOOL_LEADER: own school, school-scoped roles only.
@@ -431,6 +438,10 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     }
     if (!isNetworkAdmin && role && !SCHOOL_ASSIGNABLE_ROLES.includes(role) && role !== "NO_ACCESS") {
       res.status(403).json({ error: "School Leaders can only assign Coach or School Leader roles" }); return;
+    }
+
+    if (isSelfDeactivation(currentUser, empId, isActive)) {
+      res.status(400).json({ error: "You cannot deactivate your own account" }); return;
     }
 
     const effectiveRole     = role     ?? target.role;
@@ -487,12 +498,12 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
     const isNetworkAdmin = currentUser.role === "NETWORK_ADMIN";
     const empId = String(req.params.employeeId);
 
-    if (empId === currentUser.employeeId) {
-      res.status(400).json({ error: "You cannot deactivate your own account" }); return;
-    }
-
     const target = await db.query.people.findFirst({ where: eq(people.employeeId, empId) });
     if (!target) { res.status(404).json({ error: "Person not found" }); return; }
+
+    if (isSelfDeactivation(currentUser, empId, !target.isActive)) {
+      res.status(400).json({ error: "You cannot deactivate your own account" }); return;
+    }
 
     if (!isNetworkAdmin) {
       if (target.schoolId !== currentUser.schoolId) {
