@@ -12,6 +12,7 @@ import {
   deleteObservation,
 } from "@/lib/api";
 import { FileEdit, Trash2, RotateCcw, FileX, Loader2, AlertCircle } from "lucide-react";
+import { isNetworkScope } from "@/lib/roles";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -32,7 +33,7 @@ export default function DraftsPage() {
   const queryClient = useQueryClient();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
+  const networkScope = isNetworkScope(user);
 
   const [deleting, setDeleting] = useState<string | null>(null);
   const [resumeLoading, setResumeLoading] = useState<string | null>(null);
@@ -67,7 +68,7 @@ export default function DraftsPage() {
 
       setSelectedRubric(rubric);
 
-      if (!isNetworkScope && user?.schoolId && !selectedSchool) {
+      if (!networkScope && user?.schoolId && !selectedSchool) {
         setSelectedSchool({ id: user.schoolId, displayName: user.schoolName ?? "My School" });
       }
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, School } from "@/lib/api";
+import { isNetworkScope } from "@/lib/roles";
 import { ChevronRight, School as SchoolIcon, AlertCircle, Loader2 } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -15,15 +16,15 @@ export default function SchoolPickerPage() {
   const { setSelectedSchool } = useApp();
   const [, navigate] = useLocation();
 
-  const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
+  const networkScope = isNetworkScope(user);
 
   useEffect(() => {
     if (!user) {
       navigate("/");
-    } else if (!isNetworkScope) {
+    } else if (!networkScope) {
       navigate("/rubric-picker");
     }
-  }, [user, isNetworkScope]);
+  }, [user, networkScope]);
 
   const { data: schools, isLoading, isError, refetch } = useQuery<School[]>({
     queryKey: ["schools"],

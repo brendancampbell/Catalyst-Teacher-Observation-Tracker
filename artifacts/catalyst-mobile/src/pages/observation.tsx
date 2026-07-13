@@ -15,6 +15,7 @@ import {
   fetchMyDrafts,
 } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
+import { isNetworkScope } from "@/lib/roles";
 import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -66,14 +67,14 @@ export default function ObservationPage() {
 
   const effectiveSchoolId = selectedSchool?.id ?? user?.schoolId ?? null;
 
-  const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
+  const networkScope = isNetworkScope(user);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate("/"); return; }
-    if (isNetworkScope && !selectedSchool) { navigate("/school-picker"); return; }
+    if (networkScope && !selectedSchool) { navigate("/school-picker"); return; }
     if (!selectedRubric) { navigate("/rubric-picker"); return; }
-  }, [user, authLoading, selectedSchool, selectedRubric, isNetworkScope]);
+  }, [user, authLoading, selectedSchool, selectedRubric, networkScope]);
 
   const { data: teachers, isLoading: loadingTeachers, isError: errorTeachers } = useQuery<Teacher[]>({
     queryKey: ["teachers", effectiveSchoolId],
@@ -406,7 +407,7 @@ export default function ObservationPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader
         subtitle={subtitle}
-        onSwitchSchool={isNetworkScope ? handleSwitchSchool : undefined}
+        onSwitchSchool={networkScope ? handleSwitchSchool : undefined}
       />
 
       {/* Confirmation overlay */}

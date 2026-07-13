@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, RubricSet } from "@/lib/api";
+import { isNetworkScope } from "@/lib/roles";
 import { ChevronRight, FileText, AlertCircle, Loader2, School, Users, Microscope, BookOpen } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -15,21 +16,21 @@ export default function RubricPickerPage() {
   const { selectedSchool, setSelectedSchool, setSelectedRubric } = useApp();
   const [, navigate] = useLocation();
 
-  const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
+  const networkScope = isNetworkScope(user);
 
   useEffect(() => {
     if (!user) {
       navigate("/");
       return;
     }
-    if (isNetworkScope && !selectedSchool) {
+    if (networkScope && !selectedSchool) {
       navigate("/school-picker");
       return;
     }
-    if (!isNetworkScope && !selectedSchool && user.schoolId) {
+    if (!networkScope && !selectedSchool && user.schoolId) {
       setSelectedSchool({ id: user.schoolId, displayName: user.schoolName ?? "My School" });
     }
-  }, [user, selectedSchool, isNetworkScope]);
+  }, [user, selectedSchool, networkScope]);
 
   const { data: rubricSets, isLoading, isError, refetch } = useQuery<RubricSet[]>({
     queryKey: ["rubricSets"],
@@ -56,7 +57,7 @@ export default function RubricPickerPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader
         subtitle={schoolName}
-        onSwitchSchool={isNetworkScope ? handleSwitchSchool : undefined}
+        onSwitchSchool={networkScope ? handleSwitchSchool : undefined}
       />
 
       <div className="flex-1 overflow-y-auto">

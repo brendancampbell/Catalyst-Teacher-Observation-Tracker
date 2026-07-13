@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
+import { isNetworkScope } from "@/lib/roles";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -15,8 +16,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      const isNetworkScope = user.role === "NETWORK_ADMIN" || user.role === "NETWORK_LEADER";
-      if (!selectedSchool && isNetworkScope) {
+      if (!selectedSchool && isNetworkScope(user)) {
         navigate("/school-picker");
       } else if (!selectedRubric) {
         navigate("/rubric-picker");
