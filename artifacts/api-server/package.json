@@ -23,7 +23,8 @@
     "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts",
     "test:coach-admin-block": "tsx src/test-coach-admin-block.ts",
     "test:session-expiry": "tsx src/test-session-expiry.ts",
-    "test:rubric-category-domain-validation": "tsx src/test-rubric-category-domain-validation.ts"
+    "test:rubric-category-domain-validation": "tsx src/test-rubric-category-domain-validation.ts",
+    "test:action-steps-e2e": "tsx --test src/test-action-steps-e2e.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
