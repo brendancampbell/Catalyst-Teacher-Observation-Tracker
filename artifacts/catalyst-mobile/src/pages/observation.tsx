@@ -54,7 +54,7 @@ interface LocalDraft {
 }
 
 export default function ObservationPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { selectedSchool, selectedRubric, setSelectedSchool } = useApp();
   const [, navigate] = useLocation();
   const search = useSearch();
@@ -69,10 +69,11 @@ export default function ObservationPage() {
   const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { navigate("/"); return; }
     if (isNetworkScope && !selectedSchool) { navigate("/school-picker"); return; }
     if (!selectedRubric) { navigate("/rubric-picker"); return; }
-  }, [user, selectedSchool, selectedRubric, isNetworkScope]);
+  }, [user, authLoading, selectedSchool, selectedRubric, isNetworkScope]);
 
   const { data: teachers, isLoading: loadingTeachers, isError: errorTeachers } = useQuery<Teacher[]>({
     queryKey: ["teachers", effectiveSchoolId],
@@ -107,6 +108,8 @@ export default function ObservationPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [localDraftRestored, setLocalDraftRestored] = useState(false);
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const [draftCheckDone, setDraftCheckDone] = useState(false);
 
   const draftIdRef = useRef<string | null>(null);
   const draftJustLoaded = useRef(false);
@@ -196,8 +199,16 @@ export default function ObservationPage() {
       const match = allDrafts.find((d) => d.id === id);
       if (match) {
         loadDraftIntoForm(match);
+      } else {
+        setDraftLoadError(
+          "This observation could not be loaded — it may belong to a different school or has been deleted.",
+        );
       }
-    } catch { /* silently ignore */ }
+    } catch {
+      setDraftLoadError("Failed to load the requested observation. Please try again.");
+    } finally {
+      setDraftCheckDone(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -414,7 +425,25 @@ export default function ObservationPage() {
           </div>
         )}
 
-        {!isLoading && !isError && teachers && rubricData && (
+        {draftLoadError && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4 px-6 text-center">
+            <AlertCircle size={40} className="text-red-400" />
+            <div>
+              <p className="text-sm font-semibold text-red-600 mb-1">Observation Not Accessible</p>
+              <p className="text-sm text-slate-500">{draftLoadError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setDraftLoadError(null); navigate(`${basePath}/drafts`); }}
+              className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ backgroundColor: NAVY }}
+            >
+              Back to My Drafts
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !isError && !draftLoadError && (!resumeDraftIdParam || draftCheckDone) && teachers && rubricData && (
           <form id="obs-form" onSubmit={handleSubmit} className="px-4 pt-4 flex flex-col gap-4">
 
             {/* No-teachers notice */}
