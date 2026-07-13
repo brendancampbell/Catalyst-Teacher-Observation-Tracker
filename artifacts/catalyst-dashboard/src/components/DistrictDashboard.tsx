@@ -41,7 +41,7 @@ function computeCatSubAvgs(
       .map((d) => domainAverages[d.id] ?? null)
       .filter((v): v is number => v !== null);
     result[cat.id] = vals.length
-      ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+      ? vals.reduce((a, b) => a + b, 0) / vals.length
       : null;
   }
   return result;
@@ -51,7 +51,7 @@ function computeCatSubAvgs(
 function computeOverall(catSubAvgs: Record<string, number | null>): number | null {
   const vals = Object.values(catSubAvgs).filter((v): v is number => v !== null);
   return vals.length
-    ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
+    ? vals.reduce((a, b) => a + b, 0) / vals.length
     : null;
 }
 
@@ -114,7 +114,7 @@ function buildDisplayRows(
     const domainAverages: Record<string, number | null> = {};
     for (const slug of allSlugs) {
       const cnt = domainCounts[slug] ?? 0;
-      domainAverages[slug] = cnt > 0 ? Math.round((domainSums[slug] / cnt) * 10) / 10 : null;
+      domainAverages[slug] = cnt > 0 ? domainSums[slug] / cnt : null;
     }
 
     const catSubAvgs    = computeCatSubAvgs(domainAverages, categories);
