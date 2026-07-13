@@ -81,11 +81,11 @@ type SelectFn = typeof db.select;
 let originalSelect: SelectFn;
 
 function patchSelect(result: ChainResult) {
-  (db as Record<string, unknown>).select = () => makeSelectChain(result);
+  (db as unknown as Record<string, unknown>).select = () => makeSelectChain(result);
 }
 
 function restoreSelect() {
-  (db as Record<string, unknown>).select = originalSelect;
+  (db as unknown as Record<string, unknown>).select = originalSelect;
 }
 
 /* ── Test suite ───────────────────────────────────────────────────────────── */
@@ -207,8 +207,8 @@ describe("applyImpersonation middleware", () => {
 
     assert.equal(res._status, undefined, "Should not send any HTTP response");
     assert.ok(nextCalled, "next() must be called on success");
-    assert.equal(req.user.employeeId, "TARGET_001", "req.user.employeeId must be the target's");
-    assert.equal(req.user.role, "TEACHER", "req.user.role must be the target's");
+    assert.equal(req.user!.employeeId, "TARGET_001", "req.user.employeeId must be the target's");
+    assert.equal(req.user!.role, "TEACHER", "req.user.role must be the target's");
     assert.equal(
       (req as Request & { realUser?: Express.User }).realUser?.employeeId,
       "ADMIN_001",
@@ -233,7 +233,7 @@ describe("applyImpersonation middleware", () => {
     assert.equal(res._status, undefined, "Should not send any HTTP response");
     assert.ok(nextCalled, "next() must be called");
     assert.ok(!selectCalled, "DB must not be queried when there is no impersonation session");
-    assert.equal(req.user.employeeId, "ADMIN_001", "req.user must be unchanged");
+    assert.equal(req.user!.employeeId, "ADMIN_001", "req.user must be unchanged");
   });
 
   /* 6 ── Unauthenticated request → passes through ─────────────────────────── */
