@@ -10,6 +10,7 @@ import { configurePassport } from "./lib/passport";
 import { pool } from "@workspace/db";
 import { applyImpersonation } from "./middleware/impersonation";
 import { buildCsrfMiddleware } from "./middleware/csrf";
+import { isProduction } from "./config/env";
 
 const PgStore = connectPgSimple(session);
 
@@ -38,8 +39,6 @@ app.use(
     },
   }),
 );
-
-const isProduction = process.env.NODE_ENV === "production";
 
 /* ── CORS ────────────────────────────────────────────────────────────
    Exact-origin allowlist: REPLIT_DEV_DOMAIN + localhost only.

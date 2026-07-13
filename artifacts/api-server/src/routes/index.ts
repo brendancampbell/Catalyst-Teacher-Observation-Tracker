@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
-import devAuthRouter from "./dev-auth";
 import dashboardRouter from "./dashboard";
 import districtRouter from "./district";
 import teachersRouter from "./teachers";
@@ -13,12 +12,17 @@ import aiRouter from "./ai";
 import emailRouter from "./email";
 import peopleRouter from "./people";
 import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middleware/auth";
+import { isProduction } from "../config/env";
 
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
-/* Dev-only auth bypass — disabled in production inside the handler */
-router.use("/auth", devAuthRouter);
+/* Dev-only auth bypass — route is never registered in production */
+if (!isProduction) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: devAuthRouter } = require("./dev-auth") as { default: import("express").Router };
+  router.use("/auth", devAuthRouter);
+}
 /* Health check — no auth, must be publicly reachable for deployment probe */
 router.use(healthRouter);
 
