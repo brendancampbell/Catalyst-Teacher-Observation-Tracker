@@ -11,9 +11,25 @@ import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import { UserProvider, useUser } from "@/context/UserContext";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
+import { HttpError } from "@/lib/api";
 import { type ReactNode, useEffect } from "react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      /* Never retry 401s — the centralized handler in UserProvider already
+         triggered a redirect; retrying would fire the handler again.       */
+      retry: (failureCount, error) => {
+        if (error instanceof HttpError && error.status === 401) return false;
+        return failureCount < 3;
+      },
+      /* Prevent React Query from surfacing 401 errors as query error state
+         (the page is already navigating away when this fires).             */
+      throwOnError: (error: unknown) =>
+        !(error instanceof HttpError && error.status === 401),
+    },
+  },
+});
 
 const NAVY = "#1034B4";
 

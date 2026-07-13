@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { setUnauthorizedHandler } from "@/lib/api";
 
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
 
@@ -65,6 +66,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => { fetchMe(); }, []);
+
+  /* Register the centralized 401 handler only while a user is authenticated.
+     - fetchMe calls fetch() directly, so the initial /me 401 (unauthenticated
+       visitor) is handled by fetchMe's own else-branch — no redirect loop.
+     - Once logged in, any apiFetch 401 (session expiry mid-use) fires this:
+       clears state and hard-navigates to the login page exactly once.
+     - didRedirect guard prevents concurrent 401s from stacking redirects.   */
+  useEffect(() => {
+    if (isLoading || !currentUser) {
+      setUnauthorizedHandler(null);
+      return;
+    }
+    const loginUrl = `${BASE}/login`;
+    let didRedirect = false;
+    setUnauthorizedHandler(() => {
+      if (didRedirect) return;
+      didRedirect = true;
+      setCurrentUser(null);
+      setIsImpersonating(false);
+      setRealUser(null);
+      window.location.replace(loginUrl);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [isLoading, currentUser]);
 
   return (
     <UserContext.Provider value={{ currentUser, isLoading, refetch: fetchMe, isImpersonating, realUser }}>
