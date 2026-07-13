@@ -384,14 +384,32 @@ router.post(
       .limit(10) : [];
 
     let prevScoreMap: Record<string, number> = {};
-    for (const prior of priorObs) {
-      if (prior.id === Number(observationId)) continue;
-      const priorScores = await db
+    const candidateIds = priorObs
+      .map((p) => p.id)
+      .filter((id) => id !== Number(observationId));
+
+    if (candidateIds.length > 0) {
+      const allCandidateScores = await db
         .select()
         .from(observationScores)
-        .where(eq(observationScores.observationId, prior.id));
-      prevScoreMap = Object.fromEntries(priorScores.map((r) => [r.domainSlug, r.score]));
-      break;
+        .where(inArray(observationScores.observationId, candidateIds));
+
+      /* Group fetched rows by observationId so we can pick the winner
+         in the same order priorObs was sorted (most-recent first). */
+      const scoresByObs = new Map<number, typeof allCandidateScores>();
+      for (const row of allCandidateScores) {
+        const bucket = scoresByObs.get(row.observationId) ?? [];
+        bucket.push(row);
+        scoresByObs.set(row.observationId, bucket);
+      }
+
+      for (const id of candidateIds) {
+        const rows = scoresByObs.get(id);
+        if (rows && rows.length > 0) {
+          prevScoreMap = Object.fromEntries(rows.map((r) => [r.domainSlug, r.score]));
+          break;
+        }
+      }
     }
 
     /* ── Load rubric categories + domains ──────────────────── */
