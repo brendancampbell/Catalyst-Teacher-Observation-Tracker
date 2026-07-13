@@ -536,7 +536,8 @@ export default function ActionCenterPage() {
       for (const d of allDomains) {
         const obs = t.observations;
         if (!obs?.length) continue;
-        const last = obs[obs.length - 1];
+        const sorted = [...obs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const last = sorted[sorted.length - 1];
         const s = last?.scores?.[d.id];
         if (s !== undefined) vals.push(s as number);
       }
@@ -560,7 +561,8 @@ export default function ActionCenterPage() {
     const teacherData: TD[] = [];
     for (const t of allTeachers) {
       if (!t.observations?.length) continue;
-      const last = t.observations[t.observations.length - 1];
+      const sorted = [...t.observations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const last = sorted[sorted.length - 1];
       if (!last?.scores) continue;
       teacherData.push({
         subject: t.subject || "Other",

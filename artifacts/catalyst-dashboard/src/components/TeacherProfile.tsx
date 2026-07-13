@@ -199,7 +199,8 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
         .map((o) => o.scores[d.id] as Score | undefined)
         .filter((s): s is Score => s !== undefined);
       const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
-      const definedVals = activeTeacher.observations
+      const definedVals = [...activeTeacher.observations]
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .flatMap((o) => (o.scores[d.id] !== undefined ? [o.scores[d.id] as Score] : []));
       const trend = definedVals.length >= 2
         ? definedVals[definedVals.length - 1] - definedVals[0]
