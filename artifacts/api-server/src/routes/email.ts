@@ -335,22 +335,29 @@ router.post(
     });
     if (!obs) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    /* ── Authorization: school-scoped users may only access their own school ── */
+    /* ── Load teacher early — needed for both auth and email recipient ── */
+    const teacher = obs.observedEmployeeId
+      ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observedEmployeeId) })
+      : null;
+    if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
+
+    /* ── Authorization: school-scoped users may only access their own school ──
+         TEACHER-target observations store schoolId = null on the observation row;
+         the teacher's actual school is on their people record.
+         SCHOOL-target observations store schoolId directly on obs.schoolId.      */
     if (!isNetworkScope) {
       if (!currentUser.schoolId) {
         res.status(403).json({ error: "No school assigned to this user" });
         return;
       }
-      if (obs.schoolId !== currentUser.schoolId) {
+      const effectiveSchoolId = obs.observedEmployeeId
+        ? teacher.schoolId
+        : obs.schoolId;
+      if (effectiveSchoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Access denied" });
         return;
       }
     }
-
-    const teacher = obs.observedEmployeeId
-      ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observedEmployeeId) })
-      : null;
-    if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
 
     /* ── Use the teacher's email address from the database ── */
     const teacherEmail = teacher.email;
