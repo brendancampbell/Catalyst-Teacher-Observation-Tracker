@@ -209,7 +209,7 @@ export function buildHtmlEmail(params: {
             </tr>` : ""}
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Observer</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${observer}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(observer)}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Teacher</td>
@@ -217,15 +217,15 @@ export function buildHtmlEmail(params: {
             </tr>
             ${teacherSubject ? `<tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Subject</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacherSubject}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(teacherSubject)}</td>
             </tr>` : ""}
             ${gradeLabel ? `<tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Grade</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${gradeLabel}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(gradeLabel)}</td>
             </tr>` : ""}
             ${course ? `<tr>
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Course</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${course}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeHtml(course)}</td>
             </tr>` : ""}
           </table>
         </td>
