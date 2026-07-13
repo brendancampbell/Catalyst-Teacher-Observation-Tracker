@@ -130,18 +130,39 @@ router.post("/bulk", requireNetworkAdmin, async (req, res) => {
 
 /* DELETE /api/admin/schools/:id — delete school (NETWORK_ADMIN only) */
 router.delete("/:id", requireNetworkAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
     const id = Number(req.params.id);
-    const teacherCount = (await db.select().from(people).where(eq(people.schoolId, id))).length;
-    if (teacherCount > 0) {
-      res.status(409).json({ error: `Cannot delete: ${teacherCount} person/people are assigned to this school.` });
+    await client.query("BEGIN");
+
+    // Lock the school row FOR UPDATE. Any concurrent INSERT/UPDATE that sets
+    // people.school_id = id must first acquire a KEY SHARE lock on this row,
+    // which conflicts with FOR UPDATE — blocking until our transaction ends.
+    await client.query("SELECT id FROM schools WHERE id = $1 FOR UPDATE", [id]);
+
+    // Re-check assignment count while holding the lock; no concurrent
+    // assignment can slip in between this check and the DELETE below.
+    const { rows } = await client.query(
+      "SELECT COUNT(*)::int AS cnt FROM people WHERE school_id = $1",
+      [id],
+    );
+    const cnt: number = rows[0].cnt;
+
+    if (cnt > 0) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: `Cannot delete: ${cnt} person/people are assigned to this school.` });
       return;
     }
-    await db.delete(schools).where(eq(schools.id, id));
+
+    await client.query("DELETE FROM schools WHERE id = $1", [id]);
+    await client.query("COMMIT");
     res.status(204).end();
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
     console.error("DELETE /admin/schools/:id error:", err);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
   }
 });
 
