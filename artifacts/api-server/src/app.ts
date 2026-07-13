@@ -59,9 +59,11 @@ const buildAllowedOrigins = (): string[] => {
   return origins;
 };
 
+const allowedOrigins = buildAllowedOrigins();
+
 app.use(
   cors({
-    origin: buildAllowedOrigins(),
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
@@ -94,7 +96,7 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(buildCsrfMiddleware(buildAllowedOrigins()));
+app.use(buildCsrfMiddleware(allowedOrigins));
 app.use(applyImpersonation);
 
 /* ── Legacy redirect: /gbf-mobile/* → /catalyst-mobile/* ────────────────
