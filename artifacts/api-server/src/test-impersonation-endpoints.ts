@@ -17,6 +17,7 @@
  *   7. /impersonate targeting another NETWORK_ADMIN → 403
  *   8. /impersonate with missing body → 400
  *   9. Admin logs out while impersonation is active → 401 + no DB session row
+ *  10. Session row deleted from DB (TTL expiry simulation) → 401 on /me
  */
 
 import { test, describe, before, after } from "node:test";
@@ -339,6 +340,50 @@ describe("Impersonation start/stop endpoint authorization", () => {
         `Session table must have no row for sid="${sid}" after logout, but found ${result.rows.length} row(s)`,
       );
     }
+  });
+  /* 10 ── Expired session (row deleted) → 401 on /me ────────────────────────
+     Simulates TTL expiry by deleting the session row from the store directly.
+     The cookie still has a valid signature, but connect-pg-simple cannot find
+     the row, so passport deserialises nothing and the request is unauthenticated. */
+
+  test("10 — Deleting session row from the store (TTL expiry simulation) causes /me to return 401", async () => {
+    const adminJar = await loginAs(ADMIN_EID);
+
+    /* Start impersonation so the session has both fields populated */
+    const startRes = await request("POST", "/auth/impersonate", { employeeId: TARGET_EID }, adminJar);
+    assert.equal(startRes.status, 200, `Expected 200 starting impersonation, got ${startRes.status}`);
+
+    const impersonatingJar = startRes.jar;
+
+    /* Confirm /me works before we tamper with the session store */
+    const meBeforeRes = await request("GET", "/auth/me", undefined, impersonatingJar);
+    assert.equal(meBeforeRes.status, 200, `/me should work before deletion, got ${meBeforeRes.status}`);
+
+    /* Extract the raw session ID from the cookie:
+       Cookie: connect.sid=s%3A<sid>.<signature>
+       Decoded: s:<sid>.<signature>                                             */
+    const rawCookieValue = impersonatingJar.cookieHeader.split("=").slice(1).join("=");
+    const decoded = decodeURIComponent(rawCookieValue);
+    const sid: string | null = decoded.startsWith("s:")
+      ? (decoded.slice(2).split(".")[0] ?? null)
+      : null;
+
+    assert.ok(sid, "Could not extract sid from cookie — cookie format may have changed");
+
+    /* Simulate TTL expiry by deleting the row directly */
+    await pool.query(`DELETE FROM session WHERE sid = $1`, [sid]);
+
+    /* Verify it is gone */
+    const check = await pool.query<{ sid: string }>(`SELECT sid FROM session WHERE sid = $1`, [sid]);
+    assert.equal(check.rows.length, 0, "Session row should be deleted before testing /me");
+
+    /* /me with the now-orphaned cookie must return 401 */
+    const meAfterRes = await request("GET", "/auth/me", undefined, impersonatingJar);
+    assert.equal(
+      meAfterRes.status,
+      401,
+      `/me must return 401 after session row is deleted (TTL expiry), got ${meAfterRes.status}: ${JSON.stringify(meAfterRes.body)}`,
+    );
   });
 });
 
