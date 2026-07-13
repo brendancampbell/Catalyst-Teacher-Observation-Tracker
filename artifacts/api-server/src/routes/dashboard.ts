@@ -5,6 +5,11 @@ import {
   observations, observationScores, schools,
 } from "@workspace/db/schema";
 import { eq, inArray, and, ne } from "drizzle-orm";
+import { TtlCache } from "../lib/ttl-cache";
+
+/* Network-wide (schoolId=null) responses are cached for 2 minutes.
+   School-scoped calls are already cheap and bypass the cache entirely. */
+const dashboardCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 
@@ -24,6 +29,17 @@ router.get("/", async (req, res) => {
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` });
       return;
+    }
+
+    /* ── Cache check (network-wide only) ─────────────────────────────
+       School-scoped calls are cheap and always fresh; only the "all
+       schools" path is expensive enough to warrant caching.           */
+    const cacheKey = schoolIdParam === null
+      ? `dashboard:${rubricSet.slug}:wt=${walkthroughsOnly}`
+      : null;
+    if (cacheKey) {
+      const hit = dashboardCache.get(cacheKey);
+      if (hit) { res.setHeader("X-Cache", "HIT"); res.json(hit); return; }
     }
 
     const categories = await db.query.rubricCategories.findMany({
@@ -119,7 +135,7 @@ router.get("/", async (req, res) => {
         })),
     }));
 
-    res.json({
+    const result = {
       rubricSet:       { id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name, gradeSpan: rubricSet.gradeSpan, target: rubricSet.target },
       schoolGradeSpan: schoolGradeSpan,
       categories: categories.map((cat) => ({
@@ -128,7 +144,10 @@ router.get("/", async (req, res) => {
         domains: (cat.domains ?? []).map((d) => ({ id: d.slug, label: d.name, description: d.description ?? undefined })),
       })),
       teachers: teacherData,
-    });
+    };
+    if (cacheKey) dashboardCache.set(cacheKey, result);
+    res.setHeader("X-Cache", cacheKey ? "MISS" : "BYPASS");
+    res.json(result);
   } catch (err) {
     console.error("GET /dashboard error:", err);
     res.status(500).json({ error: "Internal server error" });

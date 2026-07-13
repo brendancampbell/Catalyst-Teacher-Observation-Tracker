@@ -3,6 +3,11 @@ import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
 import { eq, and, max, sql, inArray, isNotNull } from "drizzle-orm";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { TtlCache } from "../lib/ttl-cache";
+
+/* Network-averages loads all teachers + observations + scores to compute a
+   single aggregate object.  Cache the result per rubricSet+scope for 2 min. */
+const networkAvgsCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 
@@ -39,6 +44,15 @@ router.get("/network-averages", requireAuth, async (req, res) => {
     });
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` }); return;
+    }
+
+    /* ── Cache check ──────────────────────────────────────────────────
+       Network-averages loads all teachers + all observations + all
+       scores per request.  Cache the compact aggregate for 2 minutes.  */
+    const cacheKey = `network-avgs:${rubricSet.slug}:scope=${scopedSchoolId ?? "all"}`;
+    {
+      const hit = networkAvgsCache.get(cacheKey);
+      if (hit) { res.setHeader("X-Cache", "HIT"); res.json(hit); return; }
     }
 
     const categories = await db.query.rubricCategories.findMany({
@@ -136,7 +150,10 @@ router.get("/network-averages", requireAuth, async (req, res) => {
       domainAverages[slug] = cnt > 0 ? Math.round((domainSums[slug] / cnt) * 100) / 100 : null;
     }
 
-    res.json({ domainAverages });
+    const result = { domainAverages };
+    networkAvgsCache.set(cacheKey, result);
+    res.setHeader("X-Cache", "MISS");
+    res.json(result);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
       res.status(403).json({ error: err.message }); return;

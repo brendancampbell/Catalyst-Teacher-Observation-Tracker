@@ -5,6 +5,11 @@ import {
   observations, observationScores,
 } from "@workspace/db/schema";
 import { eq, inArray, and, isNotNull, desc } from "drizzle-orm";
+import { TtlCache } from "../lib/ttl-cache";
+
+/* District summary loads every teacher + observation + score in memory to
+   compute per-school aggregates.  Cache the final aggregate for 2 minutes. */
+const districtCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
 
@@ -30,6 +35,15 @@ router.get("/summary", async (req, res) => {
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` });
       return;
+    }
+
+    /* ── Cache check ──────────────────────────────────────────────────
+       The summary aggregates every teacher + observation + score across
+       the network.  Cache the finished aggregate per unique param set.  */
+    const cacheKey = `district:${rubricSet.slug}:${scoreType}:wt=${walkthroughsOnly}`;
+    {
+      const hit = districtCache.get(cacheKey);
+      if (hit) { res.setHeader("X-Cache", "HIT"); res.json(hit); return; }
     }
 
     const categories = await db.query.rubricCategories.findMany({
@@ -133,7 +147,10 @@ router.get("/summary", async (req, res) => {
         };
       });
 
-      res.json({ rubricSet: rubricSetInfo, categories: categoriesOut, schools: schoolRows });
+      const resultB = { rubricSet: rubricSetInfo, categories: categoriesOut, schools: schoolRows };
+      districtCache.set(cacheKey, resultB);
+      res.setHeader("X-Cache", "MISS");
+      res.json(resultB);
       return;
     }
 
@@ -244,7 +261,10 @@ router.get("/summary", async (req, res) => {
       };
     });
 
-    res.json({ rubricSet: rubricSetInfo, categories: categoriesOut, schools: schoolRows });
+    const resultA = { rubricSet: rubricSetInfo, categories: categoriesOut, schools: schoolRows };
+    districtCache.set(cacheKey, resultA);
+    res.setHeader("X-Cache", "MISS");
+    res.json(resultA);
   } catch (err) {
     console.error("GET /district/summary error:", err);
     res.status(500).json({ error: "Internal server error" });
