@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import { isProduction } from "../config/env";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -22,7 +23,6 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 export function buildCsrfMiddleware(allowedOrigins: string[]): RequestHandler {
   const allowed = new Set(allowedOrigins);
-  const isProduction = process.env.NODE_ENV === "production";
 
   return (req, res, next) => {
     if (SAFE_METHODS.has(req.method)) {
