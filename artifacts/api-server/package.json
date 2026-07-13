@@ -24,7 +24,8 @@
     "test:coach-admin-block": "tsx src/test-coach-admin-block.ts",
     "test:session-expiry": "tsx src/test-session-expiry.ts",
     "test:rubric-category-domain-validation": "tsx src/test-rubric-category-domain-validation.ts",
-    "test:action-steps-e2e": "tsx --test src/test-action-steps-e2e.ts"
+    "test:action-steps-e2e": "tsx --test src/test-action-steps-e2e.ts",
+    "seed:teachers": "tsx src/seed-teachers.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
