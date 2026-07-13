@@ -17,7 +17,8 @@ import { type ReactNode, useEffect } from "react";
 
 function TeacherProfileRoute() {
   const { employeeId } = useParams<{ employeeId: string }>();
-  return <TeacherProfilePage employeeId={employeeId ?? ""} />;
+  const teacherName = new URLSearchParams(window.location.search).get("name") ?? undefined;
+  return <TeacherProfilePage employeeId={employeeId ?? ""} teacherName={teacherName} />;
 }
 
 const queryClient = new QueryClient({

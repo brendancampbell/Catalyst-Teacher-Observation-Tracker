@@ -29,9 +29,10 @@ function daysOverdue(dueDate: string): number {
 
 interface Props {
   employeeId: string;
+  teacherName?: string;
 }
 
-export default function TeacherProfilePage({ employeeId }: Props) {
+export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -71,30 +72,29 @@ export default function TeacherProfilePage({ employeeId }: Props) {
       className="h-full overflow-hidden flex flex-col"
       style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}
     >
-      {/* Simple page header */}
+      {/* Page header */}
       <header
         className="shrink-0 flex items-center gap-4 px-5 py-3 border-b"
         style={{ backgroundColor: NAVY, borderColor: "#0D2A8C" }}
       >
         <button
           onClick={() => navigate(baseUrl + "/action-center")}
-          className="flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80"
+          className="flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80 shrink-0"
           style={{ color: "rgba(255,255,255,0.85)" }}
         >
           <ChevronLeft size={16} /> Action Center
         </button>
-        <h1
-          className="font-bold uppercase tracking-wider text-white text-xl"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}
-        >
-          Action Steps
-        </h1>
-        <span
-          className="ml-1 text-xs font-semibold px-2 py-0.5 rounded"
-          style={{ backgroundColor: YELLOW, color: NAVY }}
-        >
-          {employeeId}
-        </span>
+        <div className="flex flex-col min-w-0">
+          <h1
+            className="font-bold uppercase tracking-wider text-white leading-tight truncate"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 20 }}
+          >
+            {teacherName ? `${teacherName} — Action Steps` : "Action Steps"}
+          </h1>
+          <span className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.55)" }}>
+            {employeeId}
+          </span>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">

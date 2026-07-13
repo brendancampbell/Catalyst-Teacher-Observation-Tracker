@@ -1586,7 +1586,7 @@ export default function ActionCenterPage() {
                               <tr
                                 key={item.id}
                                 className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                onClick={() => navigate(`${baseUrl}/teacher/${item.teacherEmployeeId}`)}
+                                onClick={() => navigate(`${baseUrl}/teacher/${item.teacherEmployeeId}?name=${encodeURIComponent(item.teacherName)}`)}
                               >
                                 <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>
                                   {item.teacherName}
