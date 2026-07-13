@@ -1,13 +1,24 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { School, RubricSet } from "@/lib/api";
 
-const RUBRIC_LS_KEY = "catalyst-mobile-selected-rubric";
+const RUBRIC_LS_KEY  = "catalyst-mobile-selected-rubric";
+const SCHOOL_LS_KEY  = "catalyst-mobile-selected-school";
 
 function loadStoredRubric(): RubricSet | null {
   try {
     const raw = localStorage.getItem(RUBRIC_LS_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as RubricSet;
+  } catch {
+    return null;
+  }
+}
+
+function loadStoredSchool(): School | null {
+  try {
+    const raw = localStorage.getItem(SCHOOL_LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as School;
   } catch {
     return null;
   }
@@ -23,8 +34,19 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(loadStoredSchool);
   const [selectedRubric, setSelectedRubric] = useState<RubricSet | null>(loadStoredRubric);
+
+  function handleSetSelectedSchool(s: School | null) {
+    setSelectedSchool(s);
+    try {
+      if (s) {
+        localStorage.setItem(SCHOOL_LS_KEY, JSON.stringify(s));
+      } else {
+        localStorage.removeItem(SCHOOL_LS_KEY);
+      }
+    } catch { /* ignore */ }
+  }
 
   function handleSetSelectedRubric(r: RubricSet | null) {
     setSelectedRubric(r);
@@ -38,7 +60,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ selectedSchool, setSelectedSchool, selectedRubric, setSelectedRubric: handleSetSelectedRubric }}>
+    <AppContext.Provider value={{ selectedSchool, setSelectedSchool: handleSetSelectedSchool, selectedRubric, setSelectedRubric: handleSetSelectedRubric }}>
       {children}
     </AppContext.Provider>
   );
