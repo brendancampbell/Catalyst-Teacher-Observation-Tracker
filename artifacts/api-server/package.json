@@ -16,7 +16,8 @@
     "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts",
     "test:email-injection": "tsx src/test-email-html-injection.ts",
     "test:return-to-redirect": "tsx src/test-return-to-redirect.ts",
-    "test:coach-cross-school-auth": "tsx src/test-coach-cross-school-auth.ts"
+    "test:coach-cross-school-auth": "tsx src/test-coach-cross-school-auth.ts",
+    "test:observation-score-validation": "tsx src/test-observation-score-validation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

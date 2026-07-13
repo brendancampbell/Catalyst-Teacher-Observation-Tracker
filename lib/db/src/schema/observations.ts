@@ -34,6 +34,9 @@ export const observationScores = pgTable("observation_scores", {
 export const insertObservationSchema = createInsertSchema(observations).omit({ id: true });
 export const insertObservationScoreSchema = createInsertSchema(observationScores).omit({ id: true });
 
+/* Canonical score-value schema — score must be exactly 0, 0.5, or 1. */
+export const observationScoreValueSchema = z.union([z.literal(0), z.literal(0.5), z.literal(1)]);
+
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type InsertObservationScore = z.infer<typeof insertObservationScoreSchema>;
 export type Observation = typeof observations.$inferSelect;

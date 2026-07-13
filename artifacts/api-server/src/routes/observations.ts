@@ -1,9 +1,52 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { observations, observationScores, people, rubricSets, schools } from "@workspace/db/schema";
+import {
+  observations, observationScores, people, rubricSets, schools,
+  rubricCategories, rubricDomains, observationScoreValueSchema,
+} from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
 const router = Router();
+
+/* ── validateScores ──────────────────────────────────────────────────
+   Returns { ok: true } when every entry in `scores` has a value in
+   {0, 0.5, 1} AND every key is a domain slug that belongs to the
+   given rubricSetId. Returns { ok: false, error } otherwise.
+   Must be called BEFORE any observation_scores insert or delete so
+   corrupt data never reaches the database.                           */
+async function validateScores(
+  scores: Record<string, unknown>,
+  rubricSetId: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (const [slug, value] of Object.entries(scores)) {
+    const parsed = observationScoreValueSchema.safeParse(Number(value));
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: `Invalid score for domain '${slug}': must be 0, 0.5, or 1 (got ${JSON.stringify(value)})`,
+      };
+    }
+  }
+
+  const validDomains = await db
+    .select({ slug: rubricDomains.slug })
+    .from(rubricDomains)
+    .innerJoin(rubricCategories, eq(rubricDomains.categoryId, rubricCategories.id))
+    .where(eq(rubricCategories.rubricSetId, rubricSetId));
+
+  const validSlugs = new Set(validDomains.map((d) => d.slug));
+
+  for (const slug of Object.keys(scores)) {
+    if (!validSlugs.has(slug)) {
+      return {
+        ok: false,
+        error: `Unknown domain slug '${slug}' for rubric set ${rubricSetId}`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
 
 /* ── GET /api/observations/my-latest-rubric ─────────────────────────
    Returns the slug of the rubric set containing the current user's
@@ -270,6 +313,17 @@ router.post("/", async (req, res) => {
         return;
       }
 
+      if (scores && typeof scores === "object") {
+        const scoreValidation = await validateScores(
+          scores as Record<string, unknown>,
+          Number(resolvedRubricSetId),
+        );
+        if (!scoreValidation.ok) {
+          res.status(400).json({ error: scoreValidation.error });
+          return;
+        }
+      }
+
       const [obs] = await db.insert(observations).values({
         observedEmployeeId:  null,
         schoolId:            Number(schoolId),
@@ -328,6 +382,17 @@ router.post("/", async (req, res) => {
       const target = await db.query.people.findFirst({ where: eq(people.employeeId, resolvedObservedId) });
       if (!target || target.schoolId !== creator.schoolId) {
         res.status(403).json({ error: "Cannot create an observation for a person outside your school" });
+        return;
+      }
+    }
+
+    if (scores && typeof scores === "object") {
+      const scoreValidation = await validateScores(
+        scores as Record<string, unknown>,
+        Number(resolvedRubricSetId),
+      );
+      if (!scoreValidation.ok) {
+        res.status(400).json({ error: scoreValidation.error });
         return;
       }
     }
@@ -465,6 +530,14 @@ router.put("/:id", async (req, res) => {
       .returning();
 
     if (scores && typeof scores === "object") {
+      const scoreValidation = await validateScores(
+        scores as Record<string, unknown>,
+        existing.rubricSetId,
+      );
+      if (!scoreValidation.ok) {
+        res.status(400).json({ error: scoreValidation.error });
+        return;
+      }
       await db.delete(observationScores).where(eq(observationScores.observationId, obsId));
       const scoreRows = Object.entries(scores as Record<string, number>).map(([domainSlug, score]) => ({
         observationId: obsId,
