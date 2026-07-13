@@ -21,7 +21,8 @@
     "test:email-school-scope-auth": "tsx src/test-email-school-scope-auth.ts",
     "test:impersonation-endpoints": "tsx src/test-impersonation-endpoints.ts",
     "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts",
-    "test:coach-admin-block": "tsx src/test-coach-admin-block.ts"
+    "test:coach-admin-block": "tsx src/test-coach-admin-block.ts",
+    "test:session-expiry": "tsx src/test-session-expiry.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
