@@ -18,7 +18,8 @@
     "test:return-to-redirect": "tsx src/test-return-to-redirect.ts",
     "test:coach-cross-school-auth": "tsx src/test-coach-cross-school-auth.ts",
     "test:observation-score-validation": "tsx src/test-observation-score-validation.ts",
-    "test:email-school-scope-auth": "tsx src/test-email-school-scope-auth.ts"
+    "test:email-school-scope-auth": "tsx src/test-email-school-scope-auth.ts",
+    "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
