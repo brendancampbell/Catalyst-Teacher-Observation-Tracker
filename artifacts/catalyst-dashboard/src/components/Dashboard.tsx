@@ -50,30 +50,29 @@ function getQuarterDomainScore(teacher: Teacher, domainId: string): number | nul
   return vals.length ? avg(vals as number[]) : null;
 }
 
-/* Category sub-average for a teacher: avg of domain scores within that category. */
-function getCategoryAvg(teacher: Teacher, catDomains: DomainEntry[], viewMode: ViewMode): number | null {
-  const domainScores = catDomains
-    .map((d) =>
-      viewMode === "periodAvg"
-        ? getQuarterDomainScore(teacher, d.id)
-        : getMostRecentDomainScore(teacher, d.id),
-    )
+/* Category sub-average for one or more teachers.
+   Single teacher: pass a one-element array.
+   Group rollup:   pass all teachers in the group → result is avg of per-teacher avgs. */
+function calcCategoryAvg(teachers: Teacher[], catDomains: DomainEntry[], viewMode: ViewMode): number | null {
+  const vals = teachers
+    .map((t) => {
+      const domainScores = catDomains
+        .map((d) => viewMode === "periodAvg" ? getQuarterDomainScore(t, d.id) : getMostRecentDomainScore(t, d.id))
+        .filter((s): s is number => s !== null);
+      return domainScores.length ? avg(domainScores) : null;
+    })
     .filter((s): s is number => s !== null);
-  return domainScores.length ? avg(domainScores) : null;
+  return vals.length ? avg(vals) : null;
 }
 
-/* Overall teacher average = average of category sub-averages (shared canonical impl). */
-function getTeacherOverallAvg(teacher: Teacher, categories: CategoryEntry[], viewMode: ViewMode): number | null {
-  const scores: Record<string, number | undefined> = {};
-  for (const c of categories) {
-    for (const d of c.domains) {
-      const v = viewMode === "periodAvg"
-        ? getQuarterDomainScore(teacher, d.id)
-        : getMostRecentDomainScore(teacher, d.id);
-      if (v !== null) scores[d.id] = v;
-    }
-  }
-  return calcOverallAvgFromScores(scores, categories);
+/* Overall average = avg of category sub-avgs.
+   Single teacher: pass a one-element array.
+   Group rollup:   pass all teachers in the group. */
+function calcOverallAvg(teachers: Teacher[], categories: CategoryEntry[], viewMode: ViewMode): number | null {
+  const catAvgs = categories
+    .map((c) => calcCategoryAvg(teachers, c.domains, viewMode))
+    .filter((s): s is number => s !== null);
+  return catAvgs.length ? avg(catAvgs) : null;
 }
 
 /* Domain-level avg across multiple teachers (for footer and group cells). */
@@ -129,21 +128,6 @@ function getGroupDomainScore(groupTeachers: Teacher[], domainId: string, viewMod
   return scores.length ? avg(scores) : null;
 }
 
-/* Group category sub-average = avg of per-teacher category avgs within group. */
-function getGroupCategoryAvg(groupTeachers: Teacher[], catDomains: DomainEntry[], viewMode: ViewMode): number | null {
-  const vals = groupTeachers
-    .map((t) => getCategoryAvg(t, catDomains, viewMode))
-    .filter((s): s is number => s !== null);
-  return vals.length ? avg(vals) : null;
-}
-
-/* Group overall avg = avg of group category sub-avgs. */
-function getGroupOverallAvg(groupTeachers: Teacher[], categories: CategoryEntry[], viewMode: ViewMode): number | null {
-  const catAvgs = categories
-    .map((c) => getGroupCategoryAvg(groupTeachers, c.domains, viewMode))
-    .filter((s): s is number => s !== null);
-  return catAvgs.length ? avg(catAvgs) : null;
-}
 
 /* ── Constants ──────────────────────────────────────── */
 
@@ -370,17 +354,17 @@ export default function Dashboard() {
         return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [teachers, subject, grade, viewBy, rubricSetAudience]);
+  }, [teachers, subject, grade, rubricSetAudience]);
 
   const groupRows = useMemo(
     () => (viewBy !== "teacher" ? buildGroups(filtered, viewBy) : []),
     [filtered, viewBy],
   );
 
-  const teacherAvgFn = (t: Teacher) => getTeacherOverallAvg(t, categories, viewMode);
+  const teacherAvgFn = (t: Teacher) => calcOverallAvg([t], categories, viewMode);
 
   const groupAvgs = useMemo(
-    () => groupRows.map((g) => getGroupOverallAvg(g.teachers, categories, viewMode)),
+    () => groupRows.map((g) => calcOverallAvg(g.teachers, categories, viewMode)),
     [groupRows, categories, viewMode],
   );
 
@@ -406,7 +390,7 @@ export default function Dashboard() {
   const profGroupRows = useMemo(() => {
     if (!profActive) return groupRows;
     return groupRows.filter((g) => {
-      const a = getGroupOverallAvg(g.teachers, categories, viewMode);
+      const a = calcOverallAvg(g.teachers, categories, viewMode);
       if (a === null) return false;
       return profActive === "Proficient" ? a >= 0.7 : a < 0.7;
     });
@@ -938,7 +922,7 @@ export default function Dashboard() {
                           </td>
 
                           {categories.map((cat, catIdx) => {
-                            const catAvg = getCategoryAvg(teacher, cat.domains, viewMode);
+                            const catAvg = calcCategoryAvg([teacher], cat.domains, viewMode);
                             return (
                               <Fragment key={cat.id}>
                                 {cat.domains.map((domain, di) => {
@@ -1007,7 +991,7 @@ export default function Dashboard() {
                     </tr>
                   ) : (
                     profGroupRows.map((group, rowIdx) => {
-                      const groupAvg = getGroupOverallAvg(group.teachers, categories, viewMode);
+                      const groupAvg = calcOverallAvg(group.teachers, categories, viewMode);
                       const isEven   = rowIdx % 2 === 0;
                       return (
                         <tr
@@ -1033,7 +1017,7 @@ export default function Dashboard() {
 
                           {/* Averaged domain score cells + category sub-avg */}
                           {categories.map((cat, catIdx) => {
-                            const catAvg = getGroupCategoryAvg(group.teachers, cat.domains, viewMode);
+                            const catAvg = calcCategoryAvg(group.teachers, cat.domains, viewMode);
                             return (
                               <Fragment key={cat.id}>
                                 {cat.domains.map((domain, di) => {
@@ -1114,15 +1098,10 @@ export default function Dashboard() {
                     </td>
                     {categories.map((cat, catIdx) => {
                       const catFooterAvg: number | null = viewBy === "teacher"
-                        ? (() => {
-                            const vals = profFiltered
-                              .map((t) => getCategoryAvg(t, cat.domains, viewMode))
-                              .filter((s): s is number => s !== null);
-                            return vals.length ? avg(vals) : null;
-                          })()
+                        ? calcCategoryAvg(profFiltered, cat.domains, viewMode)
                         : (() => {
                             const vals = profGroupRows
-                              .map((g) => getGroupCategoryAvg(g.teachers, cat.domains, viewMode))
+                              .map((g) => calcCategoryAvg(g.teachers, cat.domains, viewMode))
                               .filter((s): s is number => s !== null);
                             return vals.length ? avg(vals) : null;
                           })();
