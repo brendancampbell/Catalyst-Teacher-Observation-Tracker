@@ -15,7 +15,6 @@ export default function RubricPickerPage() {
   const { selectedSchool, setSelectedSchool, setSelectedRubric } = useApp();
   const [, navigate] = useLocation();
 
-  const isNetworkAdmin = user?.role === "NETWORK_ADMIN";
   const isNetworkScope = user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER";
 
   useEffect(() => {
@@ -57,7 +56,7 @@ export default function RubricPickerPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader
         subtitle={schoolName}
-        onSwitchSchool={isNetworkAdmin ? handleSwitchSchool : undefined}
+        onSwitchSchool={isNetworkScope ? handleSwitchSchool : undefined}
       />
 
       <div className="flex-1 overflow-y-auto">

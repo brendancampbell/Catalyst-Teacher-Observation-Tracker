@@ -59,7 +59,6 @@ export default function ObservationPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
 
-  const isNetworkAdmin = user?.role === "NETWORK_ADMIN";
   const canMarkWalkthrough =
     user?.role === "NETWORK_ADMIN" ||
     user?.role === "NETWORK_LEADER" ||
@@ -384,7 +383,7 @@ export default function ObservationPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <AppHeader
         subtitle={subtitle}
-        onSwitchSchool={isNetworkAdmin ? handleSwitchSchool : undefined}
+        onSwitchSchool={isNetworkScope ? handleSwitchSchool : undefined}
       />
 
       {/* Confirmation overlay */}
