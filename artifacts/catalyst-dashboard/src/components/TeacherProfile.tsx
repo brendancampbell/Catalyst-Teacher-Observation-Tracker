@@ -94,7 +94,7 @@ function ObservationCard({ obs, index, categories, onClick }: { obs: Observation
             <div className="flex flex-wrap gap-2">
               {cat.domains.map((d) => {
                 const s = obs.scores[d.id] as Score | undefined;
-                if (!s) return null;
+                if (s === undefined) return null;
                 return (
                   <div key={d.id} className="flex items-center gap-1.5">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded ${getScoreColorExact(s)}`}>
