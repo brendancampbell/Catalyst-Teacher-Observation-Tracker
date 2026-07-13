@@ -39,8 +39,8 @@ interface RubricData {
   categories: RubricCategory[];
 }
 
-function localDraftKey(userId: number | undefined, rubricSetId: number | undefined): string {
-  return `catalyst-mobile-draft-${userId ?? "anon"}-${rubricSetId ?? "0"}`;
+function localDraftKey(userId: number | undefined, rubricSetId: number | undefined, teacherId: string | undefined): string {
+  return `catalyst-mobile-draft-${userId ?? "anon"}-${rubricSetId ?? "0"}-${teacherId ?? "0"}`;
 }
 
 interface LocalDraft {
@@ -174,7 +174,7 @@ export default function ObservationPage() {
       /* silently ignore — draft detection is best-effort */
     }
 
-    const lsKey = localDraftKey(user?.id, rubricSetId);
+    const lsKey = localDraftKey(user?.id, rubricSetId, forTeacherId);
     try {
       const raw = localStorage.getItem(lsKey);
       if (raw) {
@@ -248,7 +248,7 @@ export default function ObservationPage() {
       return;
     }
 
-    const lsKey = localDraftKey(user?.id, selectedRubric.id);
+    const lsKey = localDraftKey(user?.id, selectedRubric.id, teacherId);
     const lsDraft: LocalDraft = {
       teacherId,
       date,
@@ -314,7 +314,7 @@ export default function ObservationPage() {
 
   function clearLocalDraft() {
     if (!user?.id || !selectedRubric?.id) return;
-    try { localStorage.removeItem(localDraftKey(user.id, selectedRubric.id)); } catch { /* ignore */ }
+    try { localStorage.removeItem(localDraftKey(user.id, selectedRubric.id, teacherId)); } catch { /* ignore */ }
   }
 
   function resetForm() {
