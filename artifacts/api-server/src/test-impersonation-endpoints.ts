@@ -16,6 +16,7 @@
  *   6. /impersonate with an inactive person → 403
  *   7. /impersonate targeting another NETWORK_ADMIN → 403
  *   8. /impersonate with missing body → 400
+ *   9. Admin logs out while impersonation is active → 401 + no DB session row
  */
 
 import { test, describe, before, after } from "node:test";
@@ -285,6 +286,59 @@ describe("Impersonation start/stop endpoint authorization", () => {
       400,
       `Expected 400 for missing employeeId, got ${res.status}: ${JSON.stringify(res.body)}`,
     );
+  });
+
+  /* 9 ── Logout while impersonating destroys session ───────────────────────── */
+
+  test("9 — Admin logout while impersonation is active destroys the session (401 + no DB row)", async () => {
+    const adminJar = await loginAs(ADMIN_EID);
+
+    /* Start impersonation */
+    const startRes = await request("POST", "/auth/impersonate", { employeeId: TARGET_EID }, adminJar);
+    assert.equal(startRes.status, 200, `Expected 200 starting impersonation, got ${startRes.status}`);
+
+    const impersonatingJar = startRes.jar;
+
+    /* Extract the raw session ID from the cookie so we can query the DB later.
+       Cookie value looks like: connect.sid=s%3A<sid>.<signature>
+       After decoding: s:<sid>.<signature>                                       */
+    const rawCookieValue = impersonatingJar.cookieHeader.split("=").slice(1).join("=");
+    const decoded = decodeURIComponent(rawCookieValue);
+    const sid: string | null = decoded.startsWith("s:")
+      ? (decoded.slice(2).split(".")[0] ?? null)
+      : null;
+
+    /* Logout while impersonation is still active */
+    const logoutRes = await fetch(`${BASE}/auth/logout`, {
+      method: "POST",
+      headers: { Cookie: impersonatingJar.cookieHeader },
+      redirect: "manual",
+    });
+    assert.ok(
+      logoutRes.status >= 200 && logoutRes.status < 400,
+      `Expected logout to succeed (2xx/3xx), got ${logoutRes.status}`,
+    );
+
+    /* Subsequent /me with the same cookie must return 401 */
+    const meRes = await request("GET", "/auth/me", undefined, impersonatingJar);
+    assert.equal(
+      meRes.status,
+      401,
+      `/me should return 401 after logout during impersonation, got ${meRes.status}: ${JSON.stringify(meRes.body)}`,
+    );
+
+    /* No lingering session row should remain in the DB */
+    if (sid) {
+      const result = await pool.query<{ sid: string }>(
+        `SELECT sid FROM session WHERE sid = $1`,
+        [sid],
+      );
+      assert.equal(
+        result.rows.length,
+        0,
+        `Session table must have no row for sid="${sid}" after logout, but found ${result.rows.length} row(s)`,
+      );
+    }
   });
 });
 
