@@ -260,7 +260,11 @@ describe("ObservationPage — draft restore round-trip", () => {
       ) as HTMLTextAreaElement;
 
     await waitFor(
-      () => expect(actionStepArea().value).toBe("Use cold call technique"),
+      () => {
+        expect(actionStepArea().value).toBe("Use cold call technique");
+        /* Also assert the due date input is hydrated with the saved date */
+        expect(screen.getByDisplayValue("2026-09-01")).toBeTruthy();
+      },
       { timeout: 4000 },
     );
   });
@@ -320,9 +324,12 @@ describe("ObservationPage — draft restore round-trip", () => {
         "Describe the action step for this teacher…",
       ) as HTMLTextAreaElement;
 
-    /* Draft loads for Teacher A */
+    /* Draft loads for Teacher A — verify both text and date */
     await waitFor(
-      () => expect(actionStepArea().value).toBe("Improve wait time"),
+      () => {
+        expect(actionStepArea().value).toBe("Improve wait time");
+        expect(screen.getByDisplayValue("2026-09-15")).toBeTruthy();
+      },
       { timeout: 4000 },
     );
 
@@ -331,7 +338,11 @@ describe("ObservationPage — draft restore round-trip", () => {
     fireEvent.change(select, { target: { value: "emp-002" } });
 
     await waitFor(
-      () => expect(actionStepArea().value).toBe(""),
+      () => {
+        expect(actionStepArea().value).toBe("");
+        /* Due date value must also be cleared */
+        expect(screen.queryByDisplayValue("2026-09-15")).toBeNull();
+      },
       { timeout: 4000 },
     );
   });
