@@ -38,18 +38,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  /* Register the centralized 401 handler for the lifetime of AuthProvider.
-     Any apiFetch call that receives a 401 will fire this before throwing,
-     clearing state and navigating to the login page without the caller
-     needing to handle it.                                                  */
+  /* Register the centralized 401 handler only while a user is authenticated.
+     - Before the initial /me completes (isLoading true): no handler, so the
+       expected 401 for unauthenticated visitors is handled by the catch below
+       without triggering a redirect loop.
+     - After /me: handler registered iff user !== null (has a session).
+     - On any mid-session 401: clears user + redirects to login exactly once
+       (didRedirect guard prevents duplicate redirects from concurrent calls). */
   useEffect(() => {
+    if (isLoading || !user) {
+      setUnauthorizedHandler(null);
+      return;
+    }
     const loginUrl = (import.meta.env.BASE_URL as string).replace(/\/$/, "") + "/";
+    let didRedirect = false;
     setUnauthorizedHandler(() => {
+      if (didRedirect) return;
+      didRedirect = true;
       setUser(null);
       window.location.replace(loginUrl);
     });
     return () => setUnauthorizedHandler(null);
-  }, []);
+  }, [isLoading, user]);
 
   const refetch = useCallback(async () => {
     try {
