@@ -9,6 +9,7 @@ import type {
   DraftObservation,
   CreateObservationPayload,
   UpdateObservationPayload,
+  ActionStep,
 } from "@workspace/api-types";
 
 export type {
@@ -19,6 +20,7 @@ export type {
   RubricCategory,
   Score,
   DraftObservation,
+  ActionStep,
 };
 
 export type { TeacherRow };

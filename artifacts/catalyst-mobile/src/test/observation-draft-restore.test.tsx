@@ -118,6 +118,9 @@ function makeDraft(teacherId: string, strengths: string): LocalDraft {
     strengths,
     growthAreas: "Pacing",
     isWalkthrough: false,
+    actionStepText: "",
+    actionStepDueDate: "",
+    masterActionStepId: null,
     savedAt: Date.now(),
   };
 }

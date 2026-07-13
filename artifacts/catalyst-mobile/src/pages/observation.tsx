@@ -10,13 +10,14 @@ import {
   RubricCategory,
   Score,
   DraftObservation,
+  ActionStep,
   createObservation,
   updateObservation,
   fetchMyDrafts,
 } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import { isNetworkScope } from "@/lib/roles";
-import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff } from "lucide-react";
+import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff, RefreshCw } from "lucide-react";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -39,7 +40,7 @@ interface RubricData {
   categories: RubricCategory[];
 }
 
-export function localDraftKey(userId: number | undefined, rubricSetId: number | undefined, teacherId: string | undefined): string {
+export function localDraftKey(userId: string | number | undefined, rubricSetId: number | undefined, teacherId: string | undefined): string {
   return `catalyst-mobile-draft-${userId ?? "anon"}-${rubricSetId ?? "0"}-${teacherId ?? "0"}`;
 }
 
@@ -51,6 +52,9 @@ export interface LocalDraft {
   strengths: string;
   growthAreas: string;
   isWalkthrough: boolean;
+  actionStepText: string;
+  actionStepDueDate: string;
+  masterActionStepId: number | null;
   savedAt: number;
 }
 
@@ -106,6 +110,14 @@ export default function ObservationPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showIncompleteDialog, setShowIncompleteDialog] = useState(false);
 
+  /* ── Action step state ──────────────────────────────────────────── */
+  const [lastActionStep, setLastActionStep] = useState<ActionStep | null>(null);
+  const [loadingLastActionStep, setLoadingLastActionStep] = useState(false);
+  const [markMastered, setMarkMastered] = useState(false);
+  const [actionStepText, setActionStepText] = useState("");
+  const [actionStepDueDate, setActionStepDueDate] = useState("");
+  const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
+
   const [draftId, setDraftId] = useState<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
@@ -144,6 +156,24 @@ export default function ObservationPage() {
 
   const allDomains = rubricData?.categories.flatMap((c) => c.domains) ?? [];
   const scoredCount = allDomains.filter((d) => scores[d.slug] !== undefined).length;
+
+  /* ── Fetch last action step on teacher change ───────────────────── */
+  const fetchLastActionStep = useCallback(async (tid: string) => {
+    if (!tid) return;
+    setLoadingLastActionStep(true);
+    setLastActionStep(null);
+    setMarkMastered(false);
+    try {
+      const result = await apiFetch<ActionStep | null>(
+        `/api/action-steps/latest?teacherEmployeeId=${encodeURIComponent(tid)}`,
+      );
+      setLastActionStep(result);
+    } catch {
+      setLastActionStep(null);
+    } finally {
+      setLoadingLastActionStep(false);
+    }
+  }, []);
 
   function loadDraftIntoForm(draft: DraftObservation) {
     draftJustLoaded.current = true;
@@ -187,6 +217,9 @@ export default function ObservationPage() {
           setStrengths(ld.strengths);
           setGrowthAreas(ld.growthAreas);
           setIsWalkthrough(ld.isWalkthrough);
+          setActionStepText(ld.actionStepText ?? "");
+          setActionStepDueDate(ld.actionStepDueDate ?? "");
+          setMarkMastered(ld.masterActionStepId != null);
           setLocalDraftRestored(true);
         }
       }
@@ -231,8 +264,37 @@ export default function ObservationPage() {
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
     setLocalDraftRestored(false);
+    setActionStepText("");
+    setActionStepDueDate("");
+    setActionStepDueDateError(null);
+    setMarkMastered(false);
     checkForDraft(teacherId, selectedRubric.id);
+    fetchLastActionStep(teacherId);
   }, [teacherId]);
+
+  /* ── Action step validation ─────────────────────────────────────── */
+  const hasActionStepText = actionStepText.trim().length > 0;
+  const hasActionStepDate = actionStepDueDate.length > 0;
+  const actionStepPartiallyFilled = hasActionStepText || hasActionStepDate;
+
+  function validateActionStepDueDate(dueDateVal: string): string | null {
+    if (!dueDateVal) return null;
+    if (dueDateVal < todayIso!) return "Due date must be today or later.";
+    return null;
+  }
+
+  function handleActionStepDueDateChange(val: string) {
+    setActionStepDueDate(val);
+    setActionStepDueDateError(validateActionStepDueDate(val));
+  }
+
+  function handleRepeatLast() {
+    if (!lastActionStep) return;
+    setActionStepText(lastActionStep.text);
+    setActionStepDueDate(lastActionStep.dueDate);
+    const err = validateActionStepDueDate(lastActionStep.dueDate);
+    setActionStepDueDateError(err);
+  }
 
   const scoresJson = JSON.stringify(scores);
   useEffect(() => {
@@ -240,13 +302,18 @@ export default function ObservationPage() {
     const hasContent =
       Object.keys(scores).length > 0 ||
       strengths.trim().length > 0 ||
-      growthAreas.trim().length > 0;
+      growthAreas.trim().length > 0 ||
+      actionStepText.trim().length > 0 ||
+      actionStepDueDate.length > 0;
     if (!hasContent) return;
 
     if (draftJustLoaded.current) {
       draftJustLoaded.current = false;
       return;
     }
+
+    const masterActionStepId =
+      markMastered && lastActionStep?.status === "open" ? lastActionStep.id : null;
 
     const lsKey = localDraftKey(user?.id, selectedRubric.id, teacherId);
     const lsDraft: LocalDraft = {
@@ -257,6 +324,9 @@ export default function ObservationPage() {
       strengths,
       growthAreas,
       isWalkthrough,
+      actionStepText,
+      actionStepDueDate,
+      masterActionStepId,
       savedAt: Date.now(),
     };
     try { localStorage.setItem(lsKey, JSON.stringify(lsDraft)); } catch { /* ignore */ }
@@ -264,6 +334,12 @@ export default function ObservationPage() {
     setAutoSaveStatus("saving");
 
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+    const newActionStepDraft =
+      actionStepText.trim().length > 0 && actionStepDueDate.length > 0
+        ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
+        : undefined;
+
     const timer = setTimeout(async () => {
       if (isSubmittingRef.current) return;
       try {
@@ -276,6 +352,8 @@ export default function ObservationPage() {
             growthAreas: growthAreas || undefined,
             scores: scoresRecord,
             status: "draft",
+            newActionStep: newActionStepDraft,
+            masterActionStepId: masterActionStepId ?? undefined,
           });
           savedId = obs.id;
         } else {
@@ -288,9 +366,11 @@ export default function ObservationPage() {
             strengths: strengths || undefined,
             growthAreas: growthAreas || undefined,
             observer: user?.name,
-            observerId: user?.id,
+            observerId: user?.id != null ? Number(user.id) : undefined,
             isWalkthrough,
             status: "draft",
+            newActionStep: newActionStepDraft,
+            masterActionStepId: masterActionStepId ?? undefined,
           });
           savedId = obs.id;
           setDraftId(savedId);
@@ -310,7 +390,7 @@ export default function ObservationPage() {
       clearTimeout(timer);
       autoSaveTimerRef.current = null;
     };
-  }, [teacherId, date, course, scoresJson, strengths, growthAreas, isWalkthrough]);
+  }, [teacherId, date, course, scoresJson, strengths, growthAreas, isWalkthrough, actionStepText, actionStepDueDate, markMastered]);
 
   function clearLocalDraft() {
     if (!user?.id || !selectedRubric?.id) return;
@@ -331,15 +411,48 @@ export default function ObservationPage() {
     setStrengths("");
     setGrowthAreas("");
     setIsWalkthrough(false);
+    setActionStepText("");
+    setActionStepDueDate("");
+    setActionStepDueDateError(null);
+    setMarkMastered(false);
+    setLastActionStep(null);
     setSubmitError(null);
   }
 
   async function doSubmit() {
     if (!teacherId || !selectedRubric) return;
+
+    /* Validate action step fields before submitting */
+    if (actionStepPartiallyFilled) {
+      if (!hasActionStepText) {
+        setSubmitError("Please enter an action step description, or clear the due date.");
+        return;
+      }
+      if (!hasActionStepDate) {
+        setSubmitError("Please enter a due date for the action step.");
+        return;
+      }
+      const dueDateErr = validateActionStepDueDate(actionStepDueDate);
+      if (dueDateErr) {
+        setActionStepDueDateError(dueDateErr);
+        setSubmitError("Action step due date must be today or later.");
+        return;
+      }
+    }
+
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     setSaving(true);
     isSubmittingRef.current = true;
     setSubmitError(null);
+
+    const newActionStepPayload =
+      hasActionStepText && hasActionStepDate
+        ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
+        : undefined;
+
+    const masterActionStepIdPayload =
+      markMastered && lastActionStep?.status === "open" ? lastActionStep.id : undefined;
+
     try {
       const currentDraftId = draftIdRef.current;
       if (currentDraftId) {
@@ -348,6 +461,8 @@ export default function ObservationPage() {
           growthAreas: growthAreas || undefined,
           scores: scores as Record<string, Score>,
           status: "published",
+          newActionStep: newActionStepPayload,
+          masterActionStepId: masterActionStepIdPayload,
         });
       } else {
         await apiFetch("/api/observations", {
@@ -361,6 +476,8 @@ export default function ObservationPage() {
             growthAreas: growthAreas || null,
             scores: Object.fromEntries(Object.entries(scores).filter(([, v]) => v !== undefined)),
             isWalkthrough,
+            newActionStep: newActionStepPayload,
+            masterActionStepId: masterActionStepIdPayload,
           }),
         });
       }
@@ -708,6 +825,155 @@ export default function ObservationPage() {
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white text-slate-800"
                   rows={3}
                 />
+              </div>
+            </div>
+
+            {/* ── Action Steps section ──────────────────────────────── */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
+              <p
+                className="text-xs font-bold uppercase tracking-wider"
+                style={{ color: NAVY }}
+              >
+                → Action Step
+              </p>
+
+              {/* Loading spinner */}
+              {loadingLastActionStep && (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Loader2 size={12} className="animate-spin" /> Loading previous action step…
+                </div>
+              )}
+
+              {/* Last action step banner */}
+              {!loadingLastActionStep && lastActionStep && (
+                <div
+                  className="rounded-lg px-3 py-3 space-y-2"
+                  style={{
+                    backgroundColor: lastActionStep.status === "mastered" ? "#F0FDF4" : "#FFF7ED",
+                    border: `1.5px solid ${lastActionStep.status === "mastered" ? "#86EFAC" : "#FED7AA"}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-xs font-bold uppercase tracking-wider"
+                      style={{ color: lastActionStep.status === "mastered" ? "#15803D" : "#C2410C" }}
+                    >
+                      {lastActionStep.status === "mastered"
+                        ? "✓ Previous Action Step (Mastered)"
+                        : "↻ Previous Action Step (Open)"}
+                    </span>
+                    {lastActionStep.dueDate < todayIso! && lastActionStep.status === "open" && (
+                      <span
+                        className="text-xs font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}
+                      >
+                        Overdue
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800 leading-snug">{lastActionStep.text}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                    <span>
+                      Assigned:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {new Date(lastActionStep.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    </span>
+                    <span>
+                      Due:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {(() => {
+                          const [y, m, d] = lastActionStep.dueDate.split("-").map(Number);
+                          return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                        })()}
+                      </span>
+                    </span>
+                    {lastActionStep.assignedByName && (
+                      <span>
+                        By:{" "}
+                        <span className="font-semibold text-slate-700">{lastActionStep.assignedByName}</span>
+                      </span>
+                    )}
+                    {lastActionStep.status === "mastered" && lastActionStep.masteredAt && (
+                      <span>
+                        Mastered:{" "}
+                        <span className="font-semibold text-green-700">
+                          {new Date(lastActionStep.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Mark mastered checkbox — only for open steps */}
+                  {lastActionStep.status === "open" && (
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={markMastered}
+                        onChange={(e) => setMarkMastered(e.target.checked)}
+                        className="w-4 h-4 rounded accent-green-600"
+                      />
+                      <span className="text-xs font-semibold text-green-700">
+                        Mark this action step mastered during this observation
+                      </span>
+                    </label>
+                  )}
+
+                  {/* Repeat last button — available for all prior steps */}
+                  <button
+                    type="button"
+                    onClick={handleRepeatLast}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
+                    style={{ borderColor: "#CBD5E1", color: "#475569" }}
+                  >
+                    <RefreshCw size={11} /> Repeat last action step
+                  </button>
+                </div>
+              )}
+
+              {/* New action step textarea */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  New Action Step <span className="font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={actionStepText}
+                  onChange={(e) => setActionStepText(e.target.value)}
+                  placeholder="Describe the action step for this teacher…"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 bg-white text-slate-800"
+                  style={{ borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined }}
+                  rows={3}
+                />
+                {actionStepPartiallyFilled && !hasActionStepText && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> Description is required when a due date is set.
+                  </p>
+                )}
+              </div>
+
+              {/* Due date picker */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  Due Date <span className="font-normal">(required if action step is entered)</span>
+                </label>
+                <input
+                  type="date"
+                  value={actionStepDueDate}
+                  min={todayIso}
+                  onChange={(e) => handleActionStepDueDateChange(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                  style={{ borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
+                />
+                {actionStepPartiallyFilled && !hasActionStepDate && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
+                  </p>
+                )}
+                {actionStepDueDateError && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> {actionStepDueDateError}
+                  </p>
+                )}
               </div>
             </div>
 
