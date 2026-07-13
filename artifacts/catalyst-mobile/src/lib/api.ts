@@ -30,6 +30,15 @@ export type Teacher = TeacherRow;
 
 const BASE = "";
 
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
 export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
@@ -38,7 +47,7 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    throw new HttpError(res.status, text || `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
 }

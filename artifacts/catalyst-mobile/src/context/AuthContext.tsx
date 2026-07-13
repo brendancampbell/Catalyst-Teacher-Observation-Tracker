@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
-import { apiFetch, User } from "@/lib/api";
+import { apiFetch, HttpError, User } from "@/lib/api";
 
 interface AuthContextType {
   user: User | null;
@@ -10,23 +10,53 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+
+async function fetchMeWithRetry(): Promise<User> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await apiFetch<User>("/api/auth/me");
+    } catch (err) {
+      if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+        throw err;
+      }
+      lastError = err;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+  throw lastError;
+}
+
+function isAuthError(err: unknown): boolean {
+  return err instanceof HttpError && (err.status === 401 || err.status === 403);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refetch = useCallback(async () => {
     try {
-      const u = await apiFetch<User>("/api/auth/me");
+      const u = await fetchMeWithRetry();
       setUser(u);
-    } catch {
-      setUser(null);
+    } catch (err) {
+      if (isAuthError(err)) {
+        setUser(null);
+      }
     }
   }, []);
 
   useEffect(() => {
-    apiFetch<User>("/api/auth/me")
+    fetchMeWithRetry()
       .then(setUser)
-      .catch(() => setUser(null))
+      .catch((err) => {
+        if (isAuthError(err)) {
+          setUser(null);
+        }
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
