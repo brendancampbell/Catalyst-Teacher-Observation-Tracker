@@ -72,8 +72,19 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
       delete req.session.impersonatingEmployeeId;
       delete req.session.realEmployeeId;
     }
-  } catch {
-    /* on error, proceed as real user */
+  } catch (err) {
+    console.error(
+      "[impersonation] DB error resolving impersonated identity",
+      {
+        impersonatingEmployeeId,
+        adminEmployeeId: req.user.employeeId,
+        error: err,
+      }
+    );
+    delete req.session.impersonatingEmployeeId;
+    delete req.session.realEmployeeId;
+    res.status(500).json({ error: "Failed to resolve impersonated identity. Impersonation session cleared." });
+    return;
   }
 
   next();
