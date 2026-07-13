@@ -369,10 +369,20 @@ export default function Dashboard() {
   );
 
   /* ── Audience-hidden count (for notice banner) ─────── */
+  // Count teachers who pass the current subject/grade filters but are hidden
+  // by audience mismatch — not drawn from the full unfiltered roster.
+  const subjectGradeFiltered = useMemo(() => {
+    return teachers.filter((t) => {
+      if (subject.length && !subject.includes(t.subject ?? "")) return false;
+      if (grade.length && !t.gradeLevel.some((g) => grade.includes(g))) return false;
+      return true;
+    });
+  }, [teachers, subject, grade]);
+
   const hiddenByAudience = useMemo(() => {
     if (rubricSetAudience === "ALL") return 0;
-    return teachers.filter((t) => !teacherMatchesAudience(t.subject, rubricSetAudience)).length;
-  }, [teachers, rubricSetAudience]);
+    return subjectGradeFiltered.filter((t) => !teacherMatchesAudience(t.subject, rubricSetAudience)).length;
+  }, [subjectGradeFiltered, rubricSetAudience]);
 
   /* ── Proficiency filter (applied after subject/grade) ── */
   const profActive = proficiency.length === 1 ? proficiency[0] : null;
