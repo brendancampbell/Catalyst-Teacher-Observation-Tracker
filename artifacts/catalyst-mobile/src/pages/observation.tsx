@@ -103,6 +103,7 @@ export default function ObservationPage() {
   const [saving, setSaving] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showIncompleteDialog, setShowIncompleteDialog] = useState(false);
 
   const [draftId, setDraftId] = useState<string | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -332,8 +333,7 @@ export default function ObservationPage() {
     setSubmitError(null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSubmit() {
     if (!teacherId || !selectedRubric) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     setSaving(true);
@@ -378,6 +378,18 @@ export default function ObservationPage() {
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!teacherId || !selectedRubric) return;
+    /* Show incomplete-rubric warning when domains are partially scored,
+       unless this is a walkthrough (walkthroughs skip full coverage).   */
+    if (!isWalkthrough && allDomains.length > 0 && scoredCount < allDomains.length) {
+      setShowIncompleteDialog(true);
+      return;
+    }
+    await doSubmit();
+  }
+
   function handleSwitchSchool() {
     setSelectedSchool(null);
     navigate("/school-picker");
@@ -406,6 +418,43 @@ export default function ObservationPage() {
               Observation Saved!
             </p>
             <p className="text-sm text-slate-500 text-center">The form will reset for your next observation.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Incomplete-rubric confirmation dialog */}
+      {showIncompleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 w-full max-w-xs">
+            <p className="font-bold text-center" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: NAVY, letterSpacing: 1 }}>
+              Incomplete Rubric
+            </p>
+            <p className="text-sm text-slate-600 text-center leading-relaxed">
+              You've only scored <span className="font-bold" style={{ color: NAVY }}>{scoredCount}</span> of{" "}
+              <span className="font-bold" style={{ color: NAVY }}>{allDomains.length}</span> domains.
+              Submit anyway?
+            </p>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowIncompleteDialog(false);
+                  await doSubmit();
+                }}
+                className="w-full py-2.5 rounded-lg text-sm font-bold text-white"
+                style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
+              >
+                Submit Anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowIncompleteDialog(false)}
+                className="w-full py-2.5 rounded-lg text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                style={{ fontSize: 14 }}
+              >
+                Keep Scoring
+              </button>
+            </div>
           </div>
         </div>
       )}
