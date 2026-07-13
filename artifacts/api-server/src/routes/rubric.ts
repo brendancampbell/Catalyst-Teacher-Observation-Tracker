@@ -1,8 +1,15 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
+import {
+  rubricSets, rubricCategories, rubricDomains, observationScores,
+  insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
+} from "@workspace/db/schema";
 import { asc, count, eq, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
+
+function firstZodError(err: { issues: { message: string }[] }): string {
+  return err.issues[0]?.message ?? "Validation error";
+}
 
 const router = Router();
 
@@ -214,9 +221,17 @@ router.put("/categories/reorder", requireNetworkAdmin, async (req, res) => {
 /* ── PUT /api/rubric/categories/:id ────────────────────────────── */
 router.put("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, displayOrder } = req.body;
+    const parsed = patchRubricCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      res.status(400).json({ error: "Nothing to update" });
+      return;
+    }
     const [updated] = await db.update(rubricCategories)
-      .set({ ...(name && { name }), ...(displayOrder !== undefined && { displayOrder }) })
+      .set(parsed.data)
       .where(eq(rubricCategories.id, Number(req.params.id)))
       .returning();
     if (!updated) { res.status(404).json({ error: "Category not found" }); return; }
@@ -241,10 +256,13 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/categories/:id/domains ───────────────────── */
 router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, slug, displayOrder, description } = req.body;
-    if (!name || !slug) { res.status(400).json({ error: "name and slug required" }); return; }
+    const parsed = insertRubricDomainSchema.omit({ categoryId: true }).safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
     const [dom] = await db.insert(rubricDomains)
-      .values({ categoryId: Number(req.params.id), name, slug, displayOrder: displayOrder ?? 0, ...(description ? { description } : {}) })
+      .values({ ...parsed.data, categoryId: Number(req.params.id) })
       .returning();
     res.status(201).json(dom);
   } catch (err) {
@@ -273,14 +291,44 @@ router.put("/domains/reorder", requireNetworkAdmin, async (req, res) => {
 /* ── PUT /api/rubric/domains/:id ────────────────────────────────── */
 router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, slug, displayOrder, description } = req.body;
+    const parsed = patchRubricDomainSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      res.status(400).json({ error: "Nothing to update" });
+      return;
+    }
+
+    /* ── Slug-rename guard ─────────────────────────────────────────
+       domainSlug in observation_scores has no FK — it is matched by
+       value throughout reporting, AI, and email routes. Silently
+       renaming it would orphan all historical scores.              */
+    if (parsed.data.slug !== undefined) {
+      const domainId = Number(req.params.id);
+      const current = await db.query.rubricDomains.findFirst({
+        where: eq(rubricDomains.id, domainId),
+      });
+      if (!current) { res.status(404).json({ error: "Domain not found" }); return; }
+
+      if (parsed.data.slug !== current.slug) {
+        const [{ affectedScores }] = await db
+          .select({ affectedScores: count() })
+          .from(observationScores)
+          .where(eq(observationScores.domainSlug, current.slug));
+
+        if (affectedScores > 0) {
+          res.status(409).json({
+            error: `Cannot rename slug '${current.slug}' — ${affectedScores} observation score row${affectedScores === 1 ? "" : "s"} reference it. Migrate those rows before renaming.`,
+          });
+          return;
+        }
+      }
+    }
+
     const [updated] = await db.update(rubricDomains)
-      .set({
-        ...(name && { name }),
-        ...(slug && { slug }),
-        ...(displayOrder !== undefined && { displayOrder }),
-        ...(description !== undefined && { description }),
-      })
+      .set(parsed.data)
       .where(eq(rubricDomains.id, Number(req.params.id)))
       .returning();
     if (!updated) { res.status(404).json({ error: "Domain not found" }); return; }

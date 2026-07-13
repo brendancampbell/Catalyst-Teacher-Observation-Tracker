@@ -36,7 +36,31 @@ export const rubricDomains = pgTable("rubric_domains", {
 
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
 export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true });
-export const insertRubricDomainSchema = createInsertSchema(rubricDomains).omit({ id: true });
+
+/* Domain slug must be lowercase letters, numbers, and hyphens.
+   Accepts single-character slugs (e.g. "d") as well as multi-segment
+   slugs (e.g. "my-domain-1"). Uppercase and underscores are rejected
+   because domainSlug is matched by value in observation_scores rows. */
+export const domainSlugSchema = z
+  .string()
+  .min(1, "slug is required")
+  .regex(
+    /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/,
+    "Slug must be lowercase letters, numbers, and hyphens only (e.g. 'my-domain-1')",
+  );
+
+export const insertRubricDomainSchema = createInsertSchema(rubricDomains)
+  .omit({ id: true })
+  .extend({ slug: domainSlugSchema });
+
+/* Patch schemas — partial updates that omit the FK fields callers never supply. */
+export const patchRubricCategorySchema = createInsertSchema(rubricCategories)
+  .omit({ id: true, rubricSetId: true })
+  .partial();
+
+export const patchRubricDomainSchema = insertRubricDomainSchema
+  .omit({ categoryId: true })
+  .partial();
 
 export type InsertRubricSet = z.infer<typeof insertRubricSetSchema>;
 export type InsertRubricCategory = z.infer<typeof insertRubricCategorySchema>;
