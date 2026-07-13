@@ -4,6 +4,28 @@ import { School, RubricSet } from "@/lib/api";
 const RUBRIC_LS_KEY  = "catalyst-mobile-selected-rubric";
 const SCHOOL_LS_KEY  = "catalyst-mobile-selected-school";
 
+const DRAFT_KEY_PREFIX = "catalyst-mobile-draft-";
+
+function purgeStaleDraftKeys(): void {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(DRAFT_KEY_PREFIX)) continue;
+      const suffix = key.slice(DRAFT_KEY_PREFIX.length);
+      const parts = suffix.split("-");
+      if (parts.length < 3) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) {
+      localStorage.removeItem(key);
+    }
+  } catch { /* ignore – storage may be unavailable */ }
+}
+
+purgeStaleDraftKeys();
+
 function loadStoredRubric(): RubricSet | null {
   try {
     const raw = localStorage.getItem(RUBRIC_LS_KEY);
