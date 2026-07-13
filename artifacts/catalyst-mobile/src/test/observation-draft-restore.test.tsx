@@ -159,6 +159,11 @@ describe("ObservationPage — draft restore round-trip", () => {
       if (url.includes("/api/rubric")) {
         return Promise.resolve(RUBRIC_DATA);
       }
+      if (url.includes("/api/action-steps/latest")) {
+        /* Return null so the action step banner does not render and
+           avoids crashing on lastActionStep.dueDate when no prior step. */
+        return Promise.resolve(null);
+      }
       return Promise.resolve({});
     });
   });
@@ -230,6 +235,103 @@ describe("ObservationPage — draft restore round-trip", () => {
     fireEvent.change(select, { target: { value: "emp-001" } });
     await waitFor(
       () => expect(strengthsField().value).toBe("Great use of cold call"),
+      { timeout: 4000 },
+    );
+  });
+
+  /* ── Action step field tests ────────────────────────────────────── */
+
+  it("restores action step text and due date from localStorage on mount", async () => {
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", "Solid lesson structure"),
+        actionStepText: "Use cold call technique",
+        actionStepDueDate: "2026-09-01",
+      }),
+    );
+
+    renderPage();
+
+    const actionStepArea = () =>
+      screen.getByPlaceholderText(
+        "Describe the action step for this teacher…",
+      ) as HTMLTextAreaElement;
+
+    await waitFor(
+      () => expect(actionStepArea().value).toBe("Use cold call technique"),
+      { timeout: 4000 },
+    );
+  });
+
+  it("restores markMastered (checkbox checked) when masterActionStepId is saved in the draft", async () => {
+    /* Override mock so the page has a last action step to check off */
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/people")) return Promise.resolve([TEACHER_A, TEACHER_B]);
+      if (url.includes("/api/rubric")) return Promise.resolve(RUBRIC_DATA);
+      if (url.includes("/api/action-steps/latest")) {
+        return Promise.resolve({
+          id: 55,
+          teacherEmployeeId: "emp-001",
+          assignedByEmployeeId: "emp-admin",
+          text: "Prior step from last observation",
+          dueDate: "2026-08-15",
+          status: "open",
+          assignedAt: new Date().toISOString(),
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", "Great momentum"),
+        masterActionStepId: 55,
+      }),
+    );
+
+    renderPage();
+
+    /* Checkbox only renders when lastActionStep is open; verify it ends up checked */
+    await waitFor(
+      () => expect(screen.getByRole("checkbox")).toBeChecked(),
+      { timeout: 4000 },
+    );
+  });
+
+  it("switching teachers clears action step text and due date fields", async () => {
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", "Great routines"),
+        actionStepText: "Improve wait time",
+        actionStepDueDate: "2026-09-15",
+      }),
+    );
+
+    renderPage();
+
+    const actionStepArea = () =>
+      screen.getByPlaceholderText(
+        "Describe the action step for this teacher…",
+      ) as HTMLTextAreaElement;
+
+    /* Draft loads for Teacher A */
+    await waitFor(
+      () => expect(actionStepArea().value).toBe("Improve wait time"),
+      { timeout: 4000 },
+    );
+
+    /* Switch to Teacher B — no draft for B → action step fields clear */
+    const select = screen.getByRole("combobox");
+    fireEvent.change(select, { target: { value: "emp-002" } });
+
+    await waitFor(
+      () => expect(actionStepArea().value).toBe(""),
       { timeout: 4000 },
     );
   });
