@@ -992,11 +992,22 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         }}>
                           {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
                         </select>
-                        {isNetworkAdmin && (
-                          <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
-                            {((["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(editRole as PersonRole) ? homeOfficeSchools : realSchools).map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
-                          </select>
-                        )}
+                        {isNetworkAdmin && (() => {
+                          const isNR = (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(editRole as PersonRole);
+                          const roleList = isNR ? homeOfficeSchools : realSchools;
+                          /* If the current school isn't in the role-appropriate list (e.g. stale
+                             data or mismatched assignment), add it so the dropdown is never blank. */
+                          const currentInList = roleList.some((s) => s.id === editSchoolId);
+                          const currentSchool = !currentInList && editSchoolId !== null
+                            ? schools.find((s) => s.id === editSchoolId)
+                            : undefined;
+                          const optionList = currentSchool ? [currentSchool, ...roleList] : roleList;
+                          return (
+                            <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
+                              {optionList.map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
+                            </select>
+                          );
+                        })()}
                         <select className={`${selCls} min-w-[180px]`} value={editDept} onChange={(e) => setEditDept(e.target.value)}>
                           <option value="">— Department —</option>
                           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -1063,12 +1074,12 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                     </td>
                     {isNetworkAdmin && (
                       <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 160 }}>
-                        <span className="block truncate">{p.schoolName ?? <span className="text-slate-300 italic">—</span>}</span>
+                        <span className="block truncate">{p.schoolName ?? schools.find((s) => s.id === p.schoolId)?.displayName ?? <span className="text-slate-300 italic">—</span>}</span>
                       </td>
                     )}
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors" title="Edit" onClick={() => startEdit(p)}>
+                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" title={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"} disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
                           <Pencil size={13} />
                         </button>
                         <button
