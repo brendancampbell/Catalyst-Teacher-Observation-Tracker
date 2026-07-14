@@ -383,13 +383,35 @@ export default function ActionCenterPage() {
   });
 
   /* ── Dashboard data ──────────────────────────────────── */
-  const { data: quarters = [] } = useQuery<RubricSetRow[]>({
+  const { data: quarters = [], isLoading: quartersLoading } = useQuery<RubricSetRow[]>({
     queryKey: ["quarters"],
     queryFn:  () => fetchRubricSets(),
     staleTime: 60_000,
   });
 
-  const activeQuarter        = rubricFromUrl ?? quarters[0]?.slug ?? "Q1";
+  /* Validate the URL rubric against the loaded list.  While quarters are
+     still loading we cannot validate, so we hold off (treat as absent) to
+     avoid firing queries with a stale/deleted slug.  Once loaded, if the
+     slug doesn't exist we fall back to the first available rubric and
+     silently replace the URL so the stale param is gone on the next visit. */
+  const rawRubricFromUrl = searchParams.get("rubric") ?? undefined;
+  const rubricValid      = !quartersLoading && rawRubricFromUrl
+    ? quarters.some((q) => q.slug === rawRubricFromUrl)
+    : false;
+  const validatedRubric  = quartersLoading ? undefined
+    : rubricValid ? rawRubricFromUrl
+    : undefined;
+
+  useEffect(() => {
+    if (quartersLoading || !rawRubricFromUrl || quarters.length === 0) return;
+    if (!quarters.some((q) => q.slug === rawRubricFromUrl)) {
+      const sp = new URLSearchParams(window.location.search);
+      sp.set("rubric", quarters[0].slug);
+      window.location.replace(`${window.location.pathname}?${sp.toString()}`);
+    }
+  }, [quartersLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeQuarter        = validatedRubric ?? quarters[0]?.slug;
   const activeQuarterObj     = quarters.find((q) => q.slug === activeQuarter);
   const activeQuarterId      = activeQuarterObj?.id ?? quarters[0]?.id ?? 0;
   const activeQuarterAudience: "STEM" | "HUMANITIES" | "ALL" = activeQuarterObj?.subjectAudience ?? "ALL";
