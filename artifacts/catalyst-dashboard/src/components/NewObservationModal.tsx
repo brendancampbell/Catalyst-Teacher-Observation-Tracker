@@ -1319,7 +1319,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                       className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
                       style={markMastered
                         ? { backgroundColor: "#16a34a", borderColor: "#16a34a", color: "white" }
-                        : { backgroundColor: "white", borderColor: "#CBD5E1", color: "#475569" }
+                        : { backgroundColor: "white", borderColor: "#16a34a", color: "#16a34a" }
                       }
                     >
                       {markMastered ? <>✓ Mastered</> : <>Mark Action Step as Mastered</>}
@@ -1331,8 +1331,8 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                         setNewActionStepDueDate(latestActionStep.dueDate);
                         setActionStepDueDateError(null);
                       }}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
-                      style={{ backgroundColor: "white", borderColor: "#CBD5E1", color: "#475569" }}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
+                      style={{ backgroundColor: "white", borderColor: "#dc2626", color: "#dc2626" }}
                     >
                       <RefreshCw size={11} /> Repeat last action step
                     </button>
