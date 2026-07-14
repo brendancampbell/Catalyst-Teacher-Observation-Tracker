@@ -1081,7 +1081,7 @@ export default function ActionCenterPage() {
                           border: "none",
                         }}
                       >
-                        {schoolAvg >= 0.7 ? "Proficient" : "Not Yet"}
+                        {schoolAvg >= 0.7 ? "Proficient" : "Not Proficient"}
                       </Badge>
                     )}
                   </div>
