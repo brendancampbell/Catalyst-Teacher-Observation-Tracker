@@ -1305,7 +1305,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>Assigned: <span className="font-semibold text-slate-700">{new Date(latestActionStep.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                   <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = latestActionStep.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                  {latestActionStep.assignedByName && <span>By: <span className="font-semibold text-slate-700">{latestActionStep.assignedByName}</span></span>}
+                  {latestActionStep.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{latestActionStep.assignedByName}</span></span>}
                   {latestActionStep.status === "mastered" && latestActionStep.masteredAt && (
                     <span>Mastered: <span className="font-semibold text-green-700">{new Date(latestActionStep.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                   )}
