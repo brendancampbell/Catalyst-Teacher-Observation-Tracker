@@ -1,0 +1,69 @@
+Add an "Action Step" feature to the Catalyst observation tracker, alongside the existing Glows (strengths) and Grows (growthAreas) fields on observations. This is the most important field on an observation: a concrete, dated next step assigned to a teacher, which can later be marked mastered.
+
+## Data model
+
+Add a new `action_steps` table (lib/db/src/schema/, follow the existing style in observations.ts):
+
+- id: serial PK
+- teacherEmployeeId: text, references people.employeeId, NOT NULL — whose action step this is
+- assignedByEmployeeId: text, references people.employeeId, NOT NULL — the coach/observer who assigned it
+- assignedDuringObservationId: integer, references observations.id, onDelete "set null", NOT NULL at creation — the observation where this action step was assigned
+- text: text, NOT NULL
+- dueDate: date, NOT NULL
+- status: text, NOT NULL, default "open" — either "open" or "mastered"
+- masteredAt: timestamp with timezone, nullable
+- masteredByEmployeeId: text, references people.employeeId, nullable
+- masteredDuringObservationId: integer, references observations.id, onDelete "set null", nullable — set only if mastery was marked while submitting a later observation; null if marked standalone from the Teacher Profile
+- createdAt: timestamp with timezone, default now()
+
+Add a Zod insert schema (createInsertSchema + a refine for status enum) following the pattern already used for observationScoreValueSchema in the same directory. Write and run the Drizzle migration.
+
+## Backend API (artifacts/api-server)
+
+Reuse the existing school/role scoping pattern already used for observations and teacher data (the same checks used in routes/observations.ts and routes/action-center.ts) — don't invent a new authorization model.
+
+1. Extend `POST /api/observations` and `PUT /api/observations/:id` to optionally accept:
+   - `newActionStep: { text: string, dueDate: string }` — creates one new action_steps row linked to this observation via assignedDuringObservationId. Validate dueDate is present whenever newActionStep is provided, and that dueDate is on or after today's date.
+   - `masterActionStepId: number` — marks that specific existing action step as mastered: status="mastered", masteredAt=now, masteredByEmployeeId=the acting observer, masteredDuringObservationId=this observation's id. Validate the action step belongs to the same teacher and is currently "open" before allowing this.
+
+2. New routes:
+   - `GET /api/action-steps?teacherEmployeeId=X` — full chronological history for a teacher (for Teacher Profile), newest first, each row including who assigned it, who/when it was mastered if applicable.
+   - `GET /api/action-steps/latest?teacherEmployeeId=X` — the single most recently assigned action step for a teacher (by createdAt), regardless of status. Used by the observation form to show the "last action step" banner before a new observation is created.
+   - `PATCH /api/action-steps/:id/master` — mark mastered standalone from the Teacher Profile, no observation involved: status="mastered", masteredAt=now, masteredByEmployeeId=current acting user, masteredDuringObservationId=null. Reject if already mastered.
+   - `PATCH /api/action-steps/:id` — edit text/dueDate while status is still "open"; reject (400) if the action step is already mastered.
+   - `GET /api/action-steps/overdue` — all currently open action steps where dueDate < today, scoped to the caller's role/school/network exactly like the existing overdue-observations logic in action-center.ts, sorted by most overdue first. Include teacher name, action step text, due date, days overdue, and who assigned it.
+
+Add integration tests for the cross-school scoping on all new/extended endpoints, following the existing test style in this repo (e.g. test-observations-cross-school-auth.ts) — a SCHOOL_LEADER must not be able to read, assign, or master action steps for a teacher outside their own school.
+
+## Dashboard frontend (artifacts/catalyst-dashboard)
+
+**NewObservationModal.tsx** (the "assign/repeat" flow):
+- On opening the modal for a given teacher, fetch GET /api/action-steps/latest and show a banner above the Glows/Grows fields: the action step text, due date, who assigned it and when, and its status — "Open" or "Mastered on [date]".
+- If the last action step is still open, show a "Mark this action step mastered" checkbox inline in that banner (wires to masterActionStepId on submit).
+- Below the banner, add a single "Action Step" textarea and a due-date picker (optional field overall, but if either is filled, both are required and dueDate must be today or later before submit is allowed).
+- Add a "Repeat last action step" button (only shown if a last action step exists) that pre-fills the Action Step textarea and due-date picker with the last action step's exact text and due date, editable afterward. If the carried-over due date has already passed, block submission with a clear inline validation message until the coach updates it to a future date — do not silently reset it.
+- Include newActionStep and masterActionStepId in the create/update payload, and add both to the autosave-draft dependency array and payload alongside isWalkthrough (this repo has a known bug pattern of fields being in the dependency array but not the actual save payload — double check this doesn't happen here).
+
+**ObservationDetailModal.tsx**: show the action step assigned during that specific observation (if any) and whether the previous one was marked mastered during it, read-only, in the same visual style as the Glows/Grows sections.
+
+**TeacherProfile.tsx**: add an "Action Steps" section showing the full history from GET /api/action-steps (text, due date, assigned by, assigned date, status, mastered by/date if applicable). Any currently-open row gets a "Mark Mastered" button wired to PATCH /api/action-steps/:id/master. Visually flag any open row whose due date has passed (e.g. a red "Overdue" badge).
+
+**action-center.tsx**: in the existing Intervention tab's sub-tab bar (the `interventionTab` state, currently `"rescore" | "overdue" | "calibration"` — note "overdue" is already taken by the existing "Overdue Observations" sub-tab, so use a new key like "overdueActionSteps"), add a new sub-tab "Overdue Action Steps" that lists the result of GET /api/action-steps/overdue in the same visual style as the existing Overdue Observations list, with a count badge. Clicking a row navigates to that teacher's profile.
+
+## Mobile frontend (artifacts/catalyst-mobile)
+
+The mobile app has no teacher-profile page, so Action Step history/tracking stays dashboard-only. In `observation.tsx`, mirror the dashboard's observation-form behavior only:
+- On selecting a teacher, fetch GET /api/action-steps/latest and show the same banner (text, due date, assigned by/when, status) with an inline "Mark mastered" checkbox if open.
+- Add the Action Step textarea + due-date field, optional overall, both required together, dueDate must be today or later.
+- Add the same "Repeat last action step" button with the same carried-over-but-must-be-future-to-submit validation.
+- Include the same fields in the existing draft-autosave payload (both the localStorage backup and the backend draft sync) so an in-progress action step isn't lost on reload, same as the rest of the form.
+
+## Email (artifacts/api-server/src/routes/email.ts)
+
+Add a third section to the observation summary email, styled consistently with the existing Glows/Grows sections (richToEmailHtml, same escaping/sanitization already in place — do not introduce a new unescaped interpolation):
+- If the previous action step was marked mastered during this observation: "✓ Action Step Mastered — [text], mastered [date]".
+- Else if a previous action step exists and is still open: "Action Step (Still Open) — [text], due [date]".
+- If a new action step was assigned in this observation: "New Action Step — [text], due [date]".
+- If there was no previous action step and none was assigned, omit the section entirely.
+
+Run typecheck and the existing test suite when done, and add regression tests for the new endpoints and the cross-school scoping on all of them.
