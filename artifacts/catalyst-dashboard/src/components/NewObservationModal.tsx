@@ -1291,11 +1291,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                   <label className="block text-xs font-semibold text-slate-500 mb-1">Action Step</label>
                   <textarea
                     ref={(el) => {
-                      if (el) {
+                      if (el && el.value) {
                         el.style.height = "auto";
                         el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
                       }
                     }}
+                    rows={1}
                     value={newActionStepText}
                     onChange={(e) => {
                       const el = e.target;
@@ -1306,7 +1307,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     }}
                     placeholder="Describe the specific action step for this teacher…"
                     className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
-                    style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 36 }}
+                    style={{ fontFamily: "'Libre Franklin', sans-serif" }}
                   />
                 </div>
                 <div className="shrink-0" style={{ width: 148 }}>
