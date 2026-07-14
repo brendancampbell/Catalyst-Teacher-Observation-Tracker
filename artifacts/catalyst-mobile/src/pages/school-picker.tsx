@@ -78,7 +78,7 @@ export default function SchoolPickerPage() {
                 <p className="text-sm text-slate-400">No schools found</p>
               </div>
             )}
-            {schools.map((school) => (
+            {schools.filter((s) => !s.isHomeOffice).map((school) => (
               <button
                 key={school.id}
                 onClick={() => handleSelect(school)}

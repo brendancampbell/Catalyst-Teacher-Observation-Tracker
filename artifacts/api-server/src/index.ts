@@ -184,6 +184,14 @@ async function ensureSchools(): Promise<void> {
       `);
     }
 
+    /* ── Step 9: One-time cleanup — clear includeInFeedbackTracker for HO users ── */
+    await client.query(`
+      UPDATE people
+         SET include_in_feedback_tracker = FALSE
+       WHERE include_in_feedback_tracker = TRUE
+         AND school_id IN (SELECT id FROM schools WHERE is_home_office = TRUE)
+    `);
+
     logger.info("Schools: schema and seed complete");
   } finally {
     client.release();

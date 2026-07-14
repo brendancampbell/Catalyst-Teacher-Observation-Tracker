@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { requireRole, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 
@@ -119,6 +119,9 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
     }
     if (feedbackOnly) {
       conditions.push(eq(people.includeInFeedbackTracker, true));
+      /* Explicitly exclude Home Office school users — they are admin/network
+         staff and should never appear as observable teachers.               */
+      conditions.push(or(isNull(schools.isHomeOffice), eq(schools.isHomeOffice, false))!);
     }
 
     if (conditions.length === 1) {
