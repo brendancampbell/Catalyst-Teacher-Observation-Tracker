@@ -926,30 +926,31 @@ export default function ObservationPage() {
                     )}
                   </div>
 
-                  {/* Mark mastered checkbox — only for open steps */}
-                  {lastActionStep.status === "open" && (
-                    <label className="flex items-center gap-2 cursor-pointer mt-1">
-                      <input
-                        type="checkbox"
-                        checked={markMastered}
-                        onChange={(e) => setMarkMastered(e.target.checked)}
-                        className="w-4 h-4 rounded accent-green-600"
-                      />
-                      <span className="text-xs font-semibold text-green-700">
-                        Mark this action step mastered during this observation
-                      </span>
-                    </label>
-                  )}
-
-                  {/* Repeat last button — available for all prior steps */}
-                  <button
-                    type="button"
-                    onClick={handleRepeatLast}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
-                    style={{ borderColor: "#CBD5E1", color: "#475569" }}
-                  >
-                    <RefreshCw size={11} /> Repeat last action step
-                  </button>
+                  {/* Action buttons row */}
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {lastActionStep.status === "open" && (
+                      <button
+                        type="button"
+                        onClick={() => setMarkMastered(!markMastered)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
+                        style={markMastered
+                          ? { backgroundColor: "#16a34a", borderColor: "#16a34a", color: "#fff" }
+                          : { borderColor: "#16a34a", color: "#15803d", backgroundColor: "transparent" }
+                        }
+                      >
+                        <CheckCircle size={13} />
+                        {markMastered ? "Marked as Mastered" : "Mark as Mastered"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleRepeatLast}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
+                      style={{ borderColor: "#CBD5E1", color: "#475569" }}
+                    >
+                      <RefreshCw size={11} /> Repeat last action step
+                    </button>
+                  </div>
                 </div>
               )}
 
