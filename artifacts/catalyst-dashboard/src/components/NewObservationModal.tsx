@@ -1310,32 +1310,33 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     <span>Mastered: <span className="font-semibold text-green-700">{new Date(latestActionStep.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                   )}
                 </div>
-                {/* Mark mastered checkbox — only for open steps */}
+                {/* Two-button row — only for open steps */}
                 {latestActionStep.status === "open" && (
-                  <label className="flex items-center gap-2 cursor-pointer mt-1">
-                    <input
-                      type="checkbox"
-                      checked={markMastered}
-                      onChange={(e) => setMarkMastered(e.target.checked)}
-                      className="w-4 h-4 rounded accent-green-600"
-                    />
-                    <span className="text-xs font-semibold text-green-700">Mark this action step mastered during this observation</span>
-                  </label>
-                )}
-                {/* Repeat button */}
-                {latestActionStep.status === "open" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewActionStepText(latestActionStep.text);
-                      setNewActionStepDueDate(latestActionStep.dueDate);
-                      setActionStepDueDateError(null);
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
-                    style={{ borderColor: "#CBD5E1", color: "#475569" }}
-                  >
-                    <RefreshCw size={11} /> Repeat last action step
-                  </button>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setMarkMastered((prev) => !prev)}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
+                      style={markMastered
+                        ? { backgroundColor: "#16a34a", borderColor: "#16a34a", color: "white" }
+                        : { backgroundColor: "white", borderColor: "#CBD5E1", color: "#475569" }
+                      }
+                    >
+                      {markMastered ? <>✓ Mastered</> : <>Mark Action Step as Mastered</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewActionStepText(latestActionStep.text);
+                        setNewActionStepDueDate(latestActionStep.dueDate);
+                        setActionStepDueDateError(null);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors hover:bg-slate-50"
+                      style={{ backgroundColor: "white", borderColor: "#CBD5E1", color: "#475569" }}
+                    >
+                      <RefreshCw size={11} /> Repeat last action step
+                    </button>
+                  </div>
                 )}
               </div>
             )}
