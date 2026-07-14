@@ -1183,7 +1183,7 @@ export default function ActionCenterPage() {
                         <thead>
                           <tr style={{ backgroundColor: NAVY }}>
                             {["Domain", "Score", ""].map((h, i) => (
-                              <th key={i} className={`px-4 py-2.5 text-white font-bold uppercase tracking-wider text-xs${i > 0 ? " text-right" : " text-left"}`}
+                              <th key={i} className={`px-4 py-2.5 text-white font-bold uppercase tracking-wider text-sm${i > 0 ? " text-right" : " text-left"}`}
                                 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", width: i === 1 ? 56 : i === 2 ? "40%" : undefined }}>
                                 {h}
                               </th>
@@ -1239,12 +1239,12 @@ export default function ActionCenterPage() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr style={{ backgroundColor: NAVY }}>
-                                <th className="text-left px-4 py-2.5 text-white font-bold uppercase tracking-wider text-xs"
+                                <th className="text-left px-4 py-2.5 text-white font-bold uppercase tracking-wider text-sm"
                                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 120 }}>Domain</th>
-                                <th className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-xs text-center"
+                                <th className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-sm text-center"
                                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 52 }}>School</th>
                                 {segments.map((s) => (
-                                  <th key={s} className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-xs text-center"
+                                  <th key={s} className="px-3 py-2.5 text-white font-bold uppercase tracking-wider text-sm text-center"
                                     style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: 52 }}
                                     title={`${segLabel}: ${s}`}>
                                     {domainSeg === "grade" ? `Gr ${s}` : s.length > 7 ? s.slice(0, 6) + "…" : s}
@@ -1310,7 +1310,7 @@ export default function ActionCenterPage() {
                             <tr style={{ backgroundColor: NAVY }}>
                               {["Domain", "School", "Network", "Δ"].map((h, i) => (
                                 <th key={i}
-                                  className={`py-2.5 text-white font-bold uppercase tracking-wider text-xs${i === 0 ? " text-left px-4" : " text-center px-3"}`}
+                                  className={`py-2.5 text-white font-bold uppercase tracking-wider text-sm${i === 0 ? " text-left px-4" : " text-center px-3"}`}
                                   style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", minWidth: i === 0 ? 90 : 44 }}>
                                   {h}
                                 </th>
