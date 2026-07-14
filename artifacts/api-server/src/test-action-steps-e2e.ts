@@ -16,6 +16,8 @@
  *   5.  PATCH /api/action-steps/:id/master → step moves to mastered status
  *   6.  GET /api/action-steps?teacherEmployeeId=X → step now shows status "mastered"
  *   7.  GET /api/action-steps/overdue → mastered step no longer appears
+ *   8.  POST /api/observations with masterActionStepId → step transitions to "mastered"
+ *   9.  POST /api/observations without masterActionStepId → step status unchanged ("open")
  */
 
 import { test, describe, before, after } from "node:test";
@@ -82,6 +84,12 @@ let rubricSetId: number;
 const ACTION_STEP_TEXT =
   "E2E: Practice naming students before posing questions to increase cold-call engagement";
 
+/* State for mark-mastered integration tests (checkpoints 8 & 9) */
+let masterTestStepId: number;          /* step submitted with markMastered=true  */
+let masterTestObsId: number;           /* observation that carries masterActionStepId */
+let noMasterTestStepId: number;        /* step submitted WITHOUT markMastered     */
+let noMasterTestObsId: number;         /* observation with no masterActionStepId  */
+
 describe("Action Steps — end-to-end flow", () => {
   before(async () => {
     /* Resolve an existing school and rubric set to attach test data to */
@@ -134,8 +142,20 @@ describe("Action Steps — end-to-end flow", () => {
     if (createdStepId) {
       await db.delete(actionSteps).where(eq(actionSteps.id, createdStepId)).catch(() => {});
     }
+    if (masterTestStepId) {
+      await db.delete(actionSteps).where(eq(actionSteps.id, masterTestStepId)).catch(() => {});
+    }
+    if (noMasterTestStepId) {
+      await db.delete(actionSteps).where(eq(actionSteps.id, noMasterTestStepId)).catch(() => {});
+    }
     if (createdObsId) {
       await db.delete(observations).where(eq(observations.id, createdObsId)).catch(() => {});
+    }
+    if (masterTestObsId) {
+      await db.delete(observations).where(eq(observations.id, masterTestObsId)).catch(() => {});
+    }
+    if (noMasterTestObsId) {
+      await db.delete(observations).where(eq(observations.id, noMasterTestObsId)).catch(() => {});
     }
     await db
       .delete(people)
@@ -303,6 +323,127 @@ describe("Action Steps — end-to-end flow", () => {
     assert.ok(
       !stillPresent,
       `Mastered step ${createdStepId} should NOT appear in the overdue list`,
+    );
+  });
+
+  /* ── Checkpoint 8 ────────────────────────────────────────────────
+     POST /observations with masterActionStepId records mastery.
+     Mirrors the 'Mark as Mastered' button path in the form:
+     the UI sends masterActionStepId on submit, the server must
+     transition that step to status="mastered" inside the transaction. */
+  test("8 — POST /observations with masterActionStepId transitions the step to mastered", async () => {
+    /* Seed a fresh open action step directly in the DB.
+       (Mirrors how test 4 backdates via DB — fastest and cleanest.)  */
+    const [seededStep] = await db.insert(actionSteps).values({
+      teacherEmployeeId:    TEACHER_EID,
+      assignedByEmployeeId: ADMIN_EID,
+      text:                 "E2E CP8: Step that should be marked mastered via observation submit",
+      dueDate:              "2027-12-31",
+      status:               "open",
+    }).returning();
+    assert.ok(seededStep, "Should have inserted a test action step");
+    masterTestStepId = seededStep.id;
+
+    /* POST a new observation carrying masterActionStepId */
+    const res = await request("POST", "/observations", {
+      teacherId:           TEACHER_EID,
+      rubricSetId:         rubricSetId,
+      date:                "2026-07-14",
+      time:                "10:00",
+      course:              "E2E Mark Mastered Test",
+      scores:              {},
+      strengths:           "Good energy",
+      growthAreas:         "Transitions",
+      observer:            "E2E Test Suite",
+      isWalkthrough:       false,
+      status:              "published",
+      masterActionStepId:  masterTestStepId,
+    }, adminJar);
+
+    assert.ok(
+      res.status === 200 || res.status === 201,
+      `Expected 200 or 201, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    const body = res.body as { id?: string | number };
+    assert.ok(body.id, "Response should include id");
+    masterTestObsId = Number(body.id);
+
+    /* Confirm the action step row is now mastered in the DB */
+    const step = await db.query.actionSteps.findFirst({
+      where: eq(actionSteps.id, masterTestStepId),
+    });
+    assert.ok(step, "Action step should still exist");
+    assert.equal(
+      step.status,
+      "mastered",
+      `Expected step status 'mastered', got '${step.status}'`,
+    );
+    assert.ok(step.masteredAt, "masteredAt should be set after mastering");
+    assert.equal(
+      step.masteredByEmployeeId,
+      ADMIN_EID,
+      "masteredByEmployeeId should be the submitting admin",
+    );
+    assert.equal(
+      step.masteredDuringObservationId,
+      masterTestObsId,
+      "masteredDuringObservationId should reference the new observation",
+    );
+  });
+
+  /* ── Checkpoint 9 ────────────────────────────────────────────────
+     POST /observations WITHOUT masterActionStepId leaves the step
+     untouched — i.e. markMastered=false (the default) must not
+     accidentally flip any step to mastered.                          */
+  test("9 — POST /observations without masterActionStepId leaves step status unchanged", async () => {
+    /* Seed another open action step */
+    const [seededStep] = await db.insert(actionSteps).values({
+      teacherEmployeeId:    TEACHER_EID,
+      assignedByEmployeeId: ADMIN_EID,
+      text:                 "E2E CP9: Step that should remain open (no markMastered)",
+      dueDate:              "2027-12-31",
+      status:               "open",
+    }).returning();
+    assert.ok(seededStep, "Should have inserted a test action step");
+    noMasterTestStepId = seededStep.id;
+
+    /* POST a new observation with NO masterActionStepId */
+    const res = await request("POST", "/observations", {
+      teacherId:     TEACHER_EID,
+      rubricSetId:   rubricSetId,
+      date:          "2026-07-14",
+      time:          "11:00",
+      course:        "E2E No Mark Mastered Test",
+      scores:        {},
+      strengths:     "Consistent routines",
+      growthAreas:   "Wait time",
+      observer:      "E2E Test Suite",
+      isWalkthrough: false,
+      status:        "published",
+    }, adminJar);
+
+    assert.ok(
+      res.status === 200 || res.status === 201,
+      `Expected 200 or 201, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    const body = res.body as { id?: string | number };
+    assert.ok(body.id, "Response should include id");
+    noMasterTestObsId = Number(body.id);
+
+    /* Confirm the seeded step is still open — not accidentally mastered */
+    const step = await db.query.actionSteps.findFirst({
+      where: eq(actionSteps.id, noMasterTestStepId),
+    });
+    assert.ok(step, "Action step should still exist");
+    assert.equal(
+      step.status,
+      "open",
+      `Expected step status 'open' (unchanged), got '${step.status}'`,
+    );
+    assert.equal(
+      step.masteredAt,
+      null,
+      "masteredAt should remain null when masterActionStepId was not sent",
     );
   });
 });
