@@ -309,7 +309,7 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
             className="font-bold uppercase tracking-wide"
             style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
           >
-            Action Steps
+            Most Recent Action Step
           </h2>
         </div>
         {!loading && (
