@@ -945,12 +945,22 @@ export default function ObservationPage() {
                       Action Step
                     </label>
                     <textarea
+                      ref={(el) => {
+                        if (el) {
+                          el.style.height = "auto";
+                          el.style.height = `${el.scrollHeight}px`;
+                        }
+                      }}
                       value={actionStepText}
-                      onChange={(e) => setActionStepText(e.target.value)}
+                      onChange={(e) => {
+                        const el = e.target;
+                        el.style.height = "auto";
+                        el.style.height = `${el.scrollHeight}px`;
+                        setActionStepText(e.target.value);
+                      }}
                       placeholder="Describe the action step for this teacher…"
-                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 bg-white text-slate-800"
-                      style={{ borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined }}
-                      rows={3}
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 bg-white text-slate-800"
+                      style={{ borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined, minHeight: 80 }}
                     />
                     {actionStepPartiallyFilled && !hasActionStepText && (
                       <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
