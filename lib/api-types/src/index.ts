@@ -67,12 +67,13 @@ export type GradeSpan = typeof GRADE_SPANS[number];
 
 /** Simple school record (used by the mobile app). */
 export interface School {
-  id:           number;
-  displayName:  string;
-  fullName?:    string | null;
+  id:            number;
+  displayName:   string;
+  fullName?:     string | null;
   abbreviation?: string | null;
-  region?:      string;
-  gradeSpan?:   string;
+  region?:       string;
+  gradeSpan?:    string;
+  isHomeOffice?: boolean;
 }
 
 /** Full admin school record with explicit nullability. */
@@ -83,6 +84,7 @@ export interface AdminSchool {
   abbreviation: string | null;
   region:       string | null;
   gradeSpan:    string | null;
+  isHomeOffice: boolean;
 }
 
 export interface SchoolPayload {

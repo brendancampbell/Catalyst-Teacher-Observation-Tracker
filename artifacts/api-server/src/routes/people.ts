@@ -8,6 +8,7 @@ import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 const router = Router();
 
 const SCHOOL_ASSIGNABLE_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER"];
+const NETWORK_ROLES: UserRole[] = ["NETWORK_LEADER", "NETWORK_ADMIN"];
 const ALL_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN", "NO_ACCESS"];
 
 const PEOPLE_SELECT = {
@@ -28,6 +29,53 @@ const PEOPLE_SELECT = {
 
 function withName<T extends { firstName: string; lastName: string; gradeLevel: string[] | null }>(row: T) {
   return { ...row, name: `${row.firstName} ${row.lastName}`.trim(), gradeLevel: row.gradeLevel ?? [] };
+}
+
+/** Look up a school and return its isHomeOffice flag, or null if not found. */
+async function getSchoolHomeOfficeFlag(schoolId: number): Promise<boolean | null> {
+  const [row] = await db.select({ isHomeOffice: schools.isHomeOffice }).from(schools).where(eq(schools.id, schoolId));
+  return row ? row.isHomeOffice : null;
+}
+
+/**
+ * Validate that the role/school combination is legal:
+ * - COACH / SCHOOL_LEADER → schoolId must exist and point to a real (non-home-office) school
+ * - NETWORK_LEADER / NETWORK_ADMIN → schoolId must exist and point to the Home Office school
+ * - includeInFeedbackTracker=true → schoolId must exist and point to a real (non-home-office) school
+ * Returns an error string if invalid, or null if valid.
+ */
+async function validateRoleSchool(
+  role: string,
+  schoolId: number | null,
+  includeInFeedbackTracker: boolean,
+): Promise<string | null> {
+  if (!schoolId) return "School is required for all users";
+
+  const isSchoolRole   = SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole);
+  const isNetworkRole  = NETWORK_ROLES.includes(role as UserRole);
+
+  if (isSchoolRole) {
+    if (!schoolId) return "Coaches and School Leaders must be assigned to a school";
+    const isHO = await getSchoolHomeOfficeFlag(schoolId);
+    if (isHO === null) return "School not found";
+    if (isHO) return "Coaches and School Leaders must be assigned to a real school, not Home Office";
+  }
+
+  if (isNetworkRole) {
+    if (!schoolId) return "Network Leaders and Network Admins must be assigned to the Home Office school";
+    const isHO = await getSchoolHomeOfficeFlag(schoolId);
+    if (isHO === null) return "School not found";
+    if (!isHO) return "Network Leaders and Network Admins must be assigned to the Home Office school";
+  }
+
+  if (includeInFeedbackTracker) {
+    if (!schoolId) return "Feedback tracker participants must be assigned to a school";
+    const isHO = await getSchoolHomeOfficeFlag(schoolId);
+    if (isHO === null) return "School not found";
+    if (isHO) return "Feedback tracker participants must be assigned to a real school, not Home Office";
+  }
+
+  return null;
 }
 
 /* ── GET /api/people ──────────────────────────────────────────────
@@ -142,11 +190,14 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
 
     const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : currentUser.schoolId;
 
-    if (SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && !assignedSchoolId) {
-      res.status(400).json({ error: "Coaches and School Leaders must be assigned to a school" }); return;
-    }
-    if ((includeInFeedbackTracker ?? false) && !assignedSchoolId) {
-      res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
+    /* ── Role/school Home Office validation ── */
+    const roleSchoolError = await validateRoleSchool(
+      role,
+      assignedSchoolId,
+      includeInFeedbackTracker ?? false,
+    );
+    if (roleSchoolError) {
+      res.status(400).json({ error: roleSchoolError }); return;
     }
 
     const trimmedEmpId = employeeId?.trim();
@@ -214,8 +265,10 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       id: schools.id,
       displayName: schools.displayName,
       fullName: schools.fullName,
+      isHomeOffice: schools.isHomeOffice,
     }).from(schools);
     const schoolIdSet = new Set<number>(allSchools.map((s) => s.id));
+    const schoolHomeOfficeMap = new Map<number, boolean>(allSchools.map((s) => [s.id, s.isHomeOffice]));
     /* Build lookup: fullName takes priority, fall back to displayName */
     const schoolNameMap = new Map<string, number>();
     for (const s of allSchools) {
@@ -327,13 +380,50 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         continue;
       }
 
-      if (SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && !schoolId) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a school" });
+      /* ── Universal: school is required for every user ── */
+      if (!schoolId) {
+        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "School is required for all users" });
         continue;
       }
-      if (includeInFB && !schoolId) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a school" });
-        continue;
+
+      /* ── Role/school Home Office validation ── */
+      const isSchoolRole   = SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole);
+      const isNetworkRole  = NETWORK_ROLES.includes(role as UserRole);
+
+      if (isSchoolRole) {
+        if (!schoolId) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a school" });
+          continue;
+        }
+        const isHO = schoolHomeOfficeMap.get(schoolId);
+        if (isHO) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a real school, not Home Office" });
+          continue;
+        }
+      }
+
+      if (isNetworkRole) {
+        if (!schoolId) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Network Leaders and Network Admins must be assigned to the Home Office school" });
+          continue;
+        }
+        const isHO = schoolHomeOfficeMap.get(schoolId);
+        if (!isHO) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Network Leaders and Network Admins must be assigned to the Home Office school" });
+          continue;
+        }
+      }
+
+      if (includeInFB) {
+        if (!schoolId) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a school" });
+          continue;
+        }
+        const isHO = schoolHomeOfficeMap.get(schoolId);
+        if (isHO) {
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a real school, not Home Office" });
+          continue;
+        }
       }
 
       if (!employeeIdRaw) {
@@ -448,11 +538,23 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     const effectiveSchoolId = (isNetworkAdmin && schoolId !== undefined) ? schoolId : target.schoolId;
     const effectiveInFT     = includeInFeedbackTracker !== undefined ? includeInFeedbackTracker : target.includeInFeedbackTracker;
 
-    if (effectiveRole === "SCHOOL_LEADER" && !effectiveSchoolId) {
-      res.status(400).json({ error: "School Leaders must be assigned to a school" }); return;
-    }
-    if (effectiveInFT && !effectiveSchoolId) {
-      res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
+    /* ── Role/school Home Office validation (network admin only — school leaders
+          can't change schoolId so no new constraint to enforce on their requests) ── */
+    if (isNetworkAdmin) {
+      const roleSchoolError = await validateRoleSchool(
+        effectiveRole,
+        effectiveSchoolId,
+        effectiveInFT,
+      );
+      if (roleSchoolError) {
+        res.status(400).json({ error: roleSchoolError }); return;
+      }
+    } else {
+      /* Even for school leaders, enforce that feedback tracker participants
+         have a real school (their own school is always real, so this is a safety check). */
+      if (effectiveInFT && !effectiveSchoolId) {
+        res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
+      }
     }
 
     const updates: Record<string, unknown> = {};

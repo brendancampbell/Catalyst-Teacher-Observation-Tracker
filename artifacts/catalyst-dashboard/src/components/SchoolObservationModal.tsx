@@ -137,7 +137,7 @@ export default function SchoolObservationModal({
                   className={inputBase}
                 >
                   <option value="">Select school…</option>
-                  {schools.map((s) => (
+                  {schools.filter((s) => !s.isHomeOffice).map((s) => (
                     <option key={s.id} value={s.id}>{s.displayName}</option>
                   ))}
                 </select>

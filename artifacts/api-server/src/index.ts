@@ -159,6 +159,31 @@ async function ensureSchools(): Promise<void> {
         ALTER COLUMN abbreviation SET NOT NULL
     `);
 
+    /* ── Step 7: Add is_home_office column if missing ── */
+    const { rows: hoColRows } = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS(
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'schools' AND column_name = 'is_home_office'
+      ) AS exists
+    `);
+    if (!hoColRows[0].exists) {
+      logger.info("Schools: adding is_home_office column");
+      await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS is_home_office BOOLEAN NOT NULL DEFAULT FALSE`);
+    }
+
+    /* ── Step 8: Ensure the Home Office pseudo-school row exists ── */
+    const { rows: hoRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(SELECT 1 FROM schools WHERE is_home_office = TRUE) AS exists`,
+    );
+    if (!hoRows[0].exists) {
+      logger.info("Schools: inserting Home Office pseudo-school");
+      await client.query(`
+        INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span, is_home_office, is_active)
+        VALUES ('Home Office', 'Home Office', 'HO', '', '', TRUE, TRUE)
+        ON CONFLICT (abbreviation) DO UPDATE SET is_home_office = TRUE
+      `);
+    }
+
     logger.info("Schools: schema and seed complete");
   } finally {
     client.release();

@@ -313,6 +313,47 @@ async function migrate() {
     /* ── 13. Add unique constraint on schools.abbreviation ── */
     await ensureUnique(client, "schools_abbreviation_unique", "schools", "abbreviation");
 
+    /* ── 14. Add is_home_office column to schools ── */
+    const { rows: homeOfficeColRows } = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS(
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'schools' AND column_name = 'is_home_office'
+      ) AS exists
+    `);
+    if (!homeOfficeColRows[0].exists) {
+      const { rows: schoolsExists3 } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schools') AS exists`,
+      );
+      if (schoolsExists3[0].exists) {
+        console.log("  Schools: adding is_home_office column…");
+        await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS is_home_office BOOLEAN NOT NULL DEFAULT FALSE`);
+        console.log("  Done.");
+      }
+    }
+
+    /* ── 15. Ensure the Home Office pseudo-school exists ── */
+    {
+      const { rows: schoolsExists4 } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schools') AS exists`,
+      );
+      if (schoolsExists4[0].exists) {
+        const { rows: hoRows } = await client.query<{ exists: boolean }>(
+          `SELECT EXISTS(SELECT 1 FROM schools WHERE is_home_office = TRUE) AS exists`,
+        );
+        if (!hoRows[0].exists) {
+          console.log("  Inserting Home Office pseudo-school…");
+          await client.query(`
+            INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span, is_home_office, is_active)
+            VALUES ('Home Office', 'Home Office', 'HO', '', '', TRUE, TRUE)
+            ON CONFLICT (abbreviation) DO UPDATE SET is_home_office = TRUE
+          `);
+          console.log("  Done.");
+        } else {
+          console.log("  Home Office pseudo-school: already exists.");
+        }
+      }
+    }
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

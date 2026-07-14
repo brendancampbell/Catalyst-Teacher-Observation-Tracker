@@ -133,6 +133,14 @@ router.delete("/:id", requireNetworkAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
     const id = Number(req.params.id);
+
+    /* Prevent deletion of the Home Office pseudo-school */
+    const [school] = await db.select({ isHomeOffice: schools.isHomeOffice }).from(schools).where(eq(schools.id, id));
+    if (school?.isHomeOffice) {
+      res.status(409).json({ error: "Cannot delete the Home Office school — it is a system record." });
+      return;
+    }
+
     await client.query("BEGIN");
 
     // Lock the school row FOR UPDATE. Any concurrent INSERT/UPDATE that sets

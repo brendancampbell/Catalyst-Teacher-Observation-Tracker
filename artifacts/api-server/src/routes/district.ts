@@ -52,7 +52,7 @@ router.get("/summary", async (req, res) => {
       with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
     });
 
-    const allSchools  = await db.select().from(schools).orderBy(schools.displayName);
+    const allSchools  = await db.select().from(schools).where(eq(schools.isHomeOffice, false)).orderBy(schools.displayName);
     const allDomains  = categories.flatMap((c) => c.domains ?? []);
     const allSlugs    = allDomains.map((d) => d.slug);
 
