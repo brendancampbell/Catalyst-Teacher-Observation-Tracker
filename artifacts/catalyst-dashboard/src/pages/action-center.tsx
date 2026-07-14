@@ -105,143 +105,6 @@ function parseMarkdownTable(lines: string[]): { headers: string[]; rows: string[
   };
 }
 
-function renderPlainAIText(text: string): React.ReactNode {
-  const paragraphs = text.split(/\n\n+/);
-  const nodes: React.ReactNode[] = [];
-
-  paragraphs.forEach((para, pi) => {
-    const isLastPara = pi === paragraphs.length - 1;
-    const lines = para.split("\n");
-
-    /* ── Markdown table ───────────────────────────────────────────── */
-    const isPipeBlock = lines.filter((l) => l.trim().startsWith("|")).length >= 2;
-    if (isPipeBlock) {
-      const table = parseMarkdownTable(lines);
-      if (table) {
-        nodes.push(
-          <div key={`${pi}-table`} style={{ overflowX: "auto", marginBottom: isLastPara ? 0 : 12 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              {table.headers.length > 0 && (
-                <thead>
-                  <tr>
-                    {table.headers.map((h, hi) => (
-                      <th
-                        key={hi}
-                        style={{
-                          backgroundColor: NAVY,
-                          color: "white",
-                          padding: "6px 10px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontFamily: "'Libre Franklin', sans-serif",
-                          whiteSpace: "nowrap",
-                          borderBottom: `2px solid ${YELLOW}`,
-                        }}
-                      >
-                        {renderInlineText(h)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-              )}
-              <tbody>
-                {table.rows.map((row, ri) => (
-                  <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "white" : "#F8FAFC" }}>
-                    {row.map((cell, ci) => (
-                      <td
-                        key={ci}
-                        style={{
-                          padding: "5px 10px",
-                          borderBottom: "1px solid #E2E8F0",
-                          verticalAlign: "top",
-                          lineHeight: "1.5",
-                        }}
-                      >
-                        {renderInlineText(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>,
-        );
-        return;
-      }
-    }
-
-    const hasListItems = lines.some((line) => {
-      const t = line.trim();
-      return /^[-*]\s+/.test(t) || /^\d+\.\s+/.test(t);
-    });
-
-    if (hasListItems) {
-      lines.forEach((line, li) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-
-        const bulletMatch = trimmed.match(/^[-*]\s+([\s\S]*)/);
-        const numberedMatch = trimmed.match(/^(\d+)\.\s+([\s\S]*)/);
-
-        if (bulletMatch) {
-          nodes.push(
-            <div key={`${pi}-${li}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
-              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
-              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(bulletMatch[1])}</span>
-            </div>,
-          );
-        } else if (numberedMatch) {
-          nodes.push(
-            <div key={`${pi}-${li}`} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
-              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5", minWidth: 18 }}>{numberedMatch[1]}.</span>
-              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(numberedMatch[2])}</span>
-            </div>,
-          );
-        } else {
-          nodes.push(
-            <p key={`${pi}-${li}`} style={{ margin: 0, marginBottom: 6 }}>
-              {renderInlineText(trimmed)}
-            </p>,
-          );
-        }
-      });
-      if (!isLastPara) nodes.push(<div key={`${pi}-gap`} style={{ height: 3 }} />);
-    } else {
-      const segments = para.split("**");
-      const inlineNodes = segments.flatMap((part, partI) => {
-        if (partI % 2 === 1) {
-          if (/^\s*[\d,\.%]+\s*$/.test(part)) return [<span key={`b${partI}`}>{part}</span>];
-          return [<strong key={`b${partI}`} style={{ fontWeight: 600 }}>{part}</strong>];
-        }
-        const plines = part.split("\n");
-        return plines.flatMap((pline, li) =>
-          li < plines.length - 1 ? [pline, <br key={`br${partI}-${li}`} />] : [pline],
-        );
-      });
-      nodes.push(
-        <p key={pi} style={{ margin: 0, marginBottom: isLastPara ? 0 : 8 }}>
-          {inlineNodes}
-        </p>,
-      );
-    }
-  });
-
-  return <>{nodes}</>;
-}
-
-function isAnalysisNarrative(text: string): boolean {
-  const lines = text.split("\n");
-  return lines.some((line) => {
-    const stripped = line.replace(/\*\*/g, "").trim();
-    return (
-      stripped.length >= 4 &&
-      stripped === stripped.toUpperCase() &&
-      /[A-Z]/.test(stripped) &&
-      !/^\d/.test(stripped)
-    );
-  });
-}
-
 function AINarrativeRenderer({ text }: { text: string }) {
   const rawLines = text.split("\n");
 
@@ -355,12 +218,23 @@ function AINarrativeRenderer({ text }: { text: string }) {
         }
 
         /* Bullet point */
-        if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-          const content = trimmed.replace(/^[-•]\s+/, "");
+        if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
+          const content = trimmed.replace(/^[-•*]\s+/, "");
           return (
             <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
               <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(content)}</span>
+            </div>
+          );
+        }
+
+        /* Numbered list item */
+        const numberedMatch = trimmed.match(/^(\d+)\.\s+([\s\S]*)/);
+        if (numberedMatch) {
+          return (
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5", minWidth: 18 }}>{numberedMatch[1]}.</span>
+              <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(numberedMatch[2])}</span>
             </div>
           );
         }
@@ -1960,17 +1834,15 @@ export default function ActionCenterPage() {
                                   boxShadow:       "none",
                                 }}
                               >
-                                {msg.role === "ai" && isAnalysisNarrative(msg.text)
+                                {msg.role === "ai"
                                   ? <AINarrativeRenderer text={msg.text} />
-                                  : msg.role === "ai"
-                                    ? renderPlainAIText(msg.text)
-                                    : msg.text.split("**").map((part, pi) => {
-                                        if (pi % 2 === 1) {
-                                          if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
-                                          return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
-                                        }
-                                        return part;
-                                      })
+                                  : msg.text.split("**").map((part, pi) => {
+                                      if (pi % 2 === 1) {
+                                        if (/^\s*[\d,\.%]+\s*$/.test(part)) return part;
+                                        return <strong key={pi} style={{ fontWeight: 600 }}>{part}</strong>;
+                                      }
+                                      return part;
+                                    })
                                 }
                               </div>
                               {msg.role === "ai" && msg.nextSteps && msg.nextSteps.length > 0 && (
@@ -2030,9 +1902,7 @@ export default function ActionCenterPage() {
                           >
                             {(() => {
                               const display = stripNextStepsSentinel(streamingText);
-                              return isAnalysisNarrative(display)
-                                ? <><AINarrativeRenderer text={display} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
-                                : <>{renderPlainAIText(display)}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>;
+                              return <><AINarrativeRenderer text={display} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>;
                             })()}
                           </div>
                         </div>
