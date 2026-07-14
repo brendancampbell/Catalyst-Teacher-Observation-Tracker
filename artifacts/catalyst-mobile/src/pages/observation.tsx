@@ -807,11 +807,22 @@ export default function ObservationPage() {
                   ✦ Teacher Strengths (Glows)
                 </label>
                 <textarea
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
                   value={strengths}
-                  onChange={(e) => setStrengths(e.target.value)}
+                  onChange={(e) => {
+                    const el = e.target;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                    setStrengths(e.target.value);
+                  }}
                   placeholder="What is this teacher doing well?"
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-300 bg-white text-slate-800"
-                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-green-300 bg-white text-slate-800"
+                  style={{ minHeight: 80 }}
                 />
               </div>
               <div>
@@ -819,11 +830,22 @@ export default function ObservationPage() {
                   ↑ Growth Areas (Grows)
                 </label>
                 <textarea
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
                   value={growthAreas}
-                  onChange={(e) => setGrowthAreas(e.target.value)}
+                  onChange={(e) => {
+                    const el = e.target;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                    setGrowthAreas(e.target.value);
+                  }}
                   placeholder="Where should this teacher focus next?"
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white text-slate-800"
-                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white text-slate-800"
+                  style={{ minHeight: 80 }}
                 />
               </div>
             </div>
