@@ -10,7 +10,8 @@
  *
  * Scenarios:
  *   1. SCHOOL_LEADER sets role=NETWORK_LEADER on a person in their school → 403
- *   2. SCHOOL_LEADER sets role=SCHOOL_LEADER on a COACH in their school   → 200
+ *   2. SCHOOL_LEADER sets role=NETWORK_ADMIN   on a person in their school → 403
+ *   3. SCHOOL_LEADER sets role=COACH           on a person in their school → 200
  */
 
 import { test, describe, before, after } from "node:test";
@@ -113,15 +114,14 @@ describe("PATCH /api/people/:employeeId — SCHOOL_LEADER role escalation guard"
   /* 1 ── SCHOOL_LEADER → NETWORK_LEADER promotion → 403 ───────────────── */
 
   test("1 — SCHOOL_LEADER sets role=NETWORK_LEADER → 403", async () => {
-    /* Insert a COACH in the same school as the SCHOOL_LEADER */
     const empId = makeEmployeeId();
     testPersonEmployeeIds.push(empId);
     const ts = Date.now() + Math.floor(Math.random() * 1_000_000);
     await db.insert(people).values({
       employeeId:               empId,
       firstName:                "Test",
-      lastName:                 `RE${ts}`,
-      email:                    `test.re.${ts}@example.com`,
+      lastName:                 `RE1${ts}`,
+      email:                    `test.re1.${ts}@example.com`,
       role:                     "COACH",
       schoolId:                 schoolId,
       includeInFeedbackTracker: false,
@@ -142,9 +142,9 @@ describe("PATCH /api/people/:employeeId — SCHOOL_LEADER role escalation guard"
     );
   });
 
-  /* 2 ── SCHOOL_LEADER promotes COACH → SCHOOL_LEADER → 200 ───────────── */
+  /* 2 ── SCHOOL_LEADER → NETWORK_ADMIN promotion → 403 ────────────────── */
 
-  test("2 — SCHOOL_LEADER sets role=SCHOOL_LEADER on a COACH → 200", async () => {
+  test("2 — SCHOOL_LEADER sets role=NETWORK_ADMIN → 403", async () => {
     const empId = makeEmployeeId();
     testPersonEmployeeIds.push(empId);
     const ts = Date.now() + Math.floor(Math.random() * 1_000_000);
@@ -159,7 +159,38 @@ describe("PATCH /api/people/:employeeId — SCHOOL_LEADER role escalation guard"
       isActive:                 true,
     });
 
-    const patchRes = await apiPatch(`/people/${empId}`, { role: "SCHOOL_LEADER" }, slJar);
+    const patchRes = await apiPatch(`/people/${empId}`, { role: "NETWORK_ADMIN" }, slJar);
+
+    assert.equal(
+      patchRes.status,
+      403,
+      `Expected 403, got ${patchRes.status}: ${JSON.stringify(patchRes.body)}`,
+    );
+    const body = patchRes.body as { error?: string };
+    assert.ok(
+      typeof body.error === "string" && body.error.length > 0,
+      `Expected a non-empty error message. Got: "${body.error}"`,
+    );
+  });
+
+  /* 3 ── SCHOOL_LEADER assigns COACH role → 200 ────────────────────────── */
+
+  test("3 — SCHOOL_LEADER sets role=COACH on a person in their school → 200", async () => {
+    const empId = makeEmployeeId();
+    testPersonEmployeeIds.push(empId);
+    const ts = Date.now() + Math.floor(Math.random() * 1_000_000);
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 `RE3${ts}`,
+      email:                    `test.re3.${ts}@example.com`,
+      role:                     "SCHOOL_LEADER",
+      schoolId:                 schoolId,
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+
+    const patchRes = await apiPatch(`/people/${empId}`, { role: "COACH" }, slJar);
 
     assert.equal(
       patchRes.status,
