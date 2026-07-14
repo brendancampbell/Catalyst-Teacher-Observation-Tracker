@@ -105,7 +105,7 @@ function parseMarkdownTable(lines: string[]): { headers: string[]; rows: string[
   };
 }
 
-function AINarrativeRenderer({ text }: { text: string }) {
+export function AINarrativeRenderer({ text }: { text: string }) {
   const rawLines = text.split("\n");
 
   /* Pre-group consecutive |-prefixed lines into table segments so we can
