@@ -165,6 +165,64 @@ describe("AINarrativeRenderer — bullet list", () => {
   });
 });
 
+describe("AINarrativeRenderer — nested bullet list", () => {
+  it("renders nested bullet text content visibly", () => {
+    const { container } = render(<AINarrativeRenderer text={"- Top item\n  - Sub item"} />);
+    expect(container.textContent).toContain("Sub item");
+  });
+
+  it("indents nested bullets with a left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"- Top item\n  - Sub item"} />);
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "16px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+
+  it("uses ◦ symbol for nested bullets instead of •", () => {
+    const { container } = render(<AINarrativeRenderer text={"  - Sub item"} />);
+    expect(container.textContent).toContain("◦");
+    expect(container.textContent).not.toContain("•");
+  });
+
+  it("top-level bullets still use • symbol", () => {
+    const { container } = render(<AINarrativeRenderer text={"- Top item"} />);
+    expect(container.textContent).toContain("•");
+    expect(container.textContent).not.toContain("◦");
+  });
+
+  it("top-level bullets have no left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"- Top item"} />);
+    const bulletDiv = Array.from(container.querySelectorAll("div")).find(
+      (d) => d.style.display === "flex",
+    );
+    expect(bulletDiv?.style.marginLeft ?? "").not.toBe("16px");
+  });
+});
+
+describe("AINarrativeRenderer — nested numbered list", () => {
+  it("renders nested numbered item text visibly", () => {
+    const { container } = render(<AINarrativeRenderer text={"1. Top step\n  1. Sub step"} />);
+    expect(container.textContent).toContain("Sub step");
+  });
+
+  it("indents nested numbered items with a left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"  1. Sub step"} />);
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "16px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+
+  it("top-level numbered items have no left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"1. Top step"} />);
+    const numberedDiv = Array.from(container.querySelectorAll("div")).find(
+      (d) => d.style.display === "flex",
+    );
+    expect(numberedDiv?.style.marginLeft ?? "").not.toBe("16px");
+  });
+});
+
 describe("AINarrativeRenderer — numbered list", () => {
   it("renders numbered item text visibly", () => {
     const { container } = render(<AINarrativeRenderer text="1. First priority: schedule calibration" />);

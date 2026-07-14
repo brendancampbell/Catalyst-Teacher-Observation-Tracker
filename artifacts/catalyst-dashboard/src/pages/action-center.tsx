@@ -220,9 +220,11 @@ export function AINarrativeRenderer({ text }: { text: string }) {
         /* Bullet point */
         if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
           const content = trimmed.replace(/^[-•*]\s+/, "");
+          const leadingSpaces = (line.match(/^(\s+)/) ?? [""])[0].length;
+          const isNested = leadingSpaces >= 2;
           return (
-            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
-              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>•</span>
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: isNested ? 16 : 0 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>{isNested ? "◦" : "•"}</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(content)}</span>
             </div>
           );
@@ -231,8 +233,10 @@ export function AINarrativeRenderer({ text }: { text: string }) {
         /* Numbered list item */
         const numberedMatch = trimmed.match(/^(\d+)\.\s+([\s\S]*)/);
         if (numberedMatch) {
+          const leadingSpaces = (line.match(/^(\s+)/) ?? [""])[0].length;
+          const isNested = leadingSpaces >= 2;
           return (
-            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: isNested ? 16 : 0 }}>
               <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5", minWidth: 18 }}>{numberedMatch[1]}.</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(numberedMatch[2])}</span>
             </div>
