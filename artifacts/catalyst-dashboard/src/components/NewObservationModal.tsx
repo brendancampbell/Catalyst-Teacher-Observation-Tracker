@@ -1293,20 +1293,20 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     ref={(el) => {
                       if (el) {
                         el.style.height = "auto";
-                        el.style.height = `${el.scrollHeight}px`;
+                        el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
                       }
                     }}
                     value={newActionStepText}
                     onChange={(e) => {
                       const el = e.target;
                       el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
+                      el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
                       setNewActionStepText(e.target.value);
                       setActionStepDueDateError(null);
                     }}
                     placeholder="Describe the specific action step for this teacher…"
-                    className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-hidden"
-                    style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 72 }}
+                    className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
+                    style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 36 }}
                   />
                 </div>
                 <div className="shrink-0" style={{ width: 148 }}>
