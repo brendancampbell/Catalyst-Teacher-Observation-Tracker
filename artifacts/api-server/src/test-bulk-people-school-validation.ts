@@ -20,7 +20,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { eq, inArray } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { people } from "@workspace/db/schema";
+import { people, schools } from "@workspace/db/schema";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const NETWORK_ADMIN_ID = "U10"; /* Brendan Campbell — NETWORK_ADMIN */
@@ -98,9 +98,20 @@ const REAL_FULL_NAME    = "North Star Academy Lincoln Park Elementary School";
 
 describe("POST /api/people/bulk — school-name validation", () => {
   let jar: Jar;
+  let homeOfficeSchoolName: string;
 
   before(async () => {
     jar = await loginAs(NETWORK_ADMIN_ID);
+
+    /* Discover the Home Office pseudo-school name from the DB so the tests are
+       not coupled to a specific string or ID. */
+    const [hoRow] = await db
+      .select({ displayName: schools.displayName })
+      .from(schools)
+      .where(eq(schools.isHomeOffice, true))
+      .limit(1);
+    assert.ok(hoRow, "Home Office school must exist in the DB (inserted by server bootstrap)");
+    homeOfficeSchoolName = hoRow.displayName;
   });
 
   after(async () => {
@@ -149,11 +160,11 @@ describe("POST /api/people/bulk — school-name validation", () => {
     );
   });
 
-  /* 3 ── No school field for a network-level role ─────────────────────── */
+  /* 3 ── No school field for any role → error ──────────────────────────── */
 
-  test("3 — omitted school field for network-level role → person created without error", async () => {
+  test("3 — omitted school field → error row: school is required for all users", async () => {
     const person = makePerson({ role: "NETWORK_LEADER" });
-    // deliberately no `school` key
+    // deliberately no `school` key — server requires a school for every person
 
     const res = await apiPost("/people/bulk", [person], jar);
 
@@ -163,7 +174,11 @@ describe("POST /api/people/bulk — school-name validation", () => {
 
     const row = body.results![0];
     assert.ok(row, "Expected at least one result row");
-    assert.notEqual(row.status, "error", `Expected created/skipped, got error: "${row.reason}"`);
+    assert.equal(row.status, "error", `Expected "error", got "${row.status}"`);
+    assert.ok(
+      row.reason?.toLowerCase().includes("school"),
+      `reason should mention school requirement. Got: "${row.reason}"`,
+    );
   });
 
   /* 4 ── Valid displayName ─────────────────────────────────────────────── */
@@ -240,6 +255,62 @@ describe("POST /api/people/bulk — school-name validation", () => {
       badRow.reason?.includes(badSchool),
       `Bad row reason should include "${badSchool}". Got: "${badRow.reason}"`,
     );
+  });
+
+  /* 7 ── Coach assigned to Home Office → error ─────────────────────────── */
+
+  test("7 — Coach assigned to Home Office school → error row mentioning Home Office", async () => {
+    const person = makePerson({ role: "COACH", school: homeOfficeSchoolName });
+
+    const res = await apiPost("/people/bulk", [person], jar);
+
+    assert.equal(res.status, 200, `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results?: { status: string; reason?: string }[] };
+    assert.ok(Array.isArray(body.results), "Response must have a results array");
+
+    const row = body.results![0];
+    assert.ok(row, "Expected at least one result row");
+    assert.equal(row.status, "error", `Expected "error", got "${row.status}"`);
+    assert.ok(
+      row.reason?.toLowerCase().includes("home office"),
+      `reason should mention "Home Office". Got: "${row.reason}"`,
+    );
+  });
+
+  /* 8 ── Network Leader assigned to real school → error ────────────────── */
+
+  test("8 — Network Leader assigned to real school → error row mentioning Home Office", async () => {
+    const person = makePerson({ role: "NETWORK_LEADER", school: REAL_DISPLAY_NAME });
+
+    const res = await apiPost("/people/bulk", [person], jar);
+
+    assert.equal(res.status, 200, `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results?: { status: string; reason?: string }[] };
+    assert.ok(Array.isArray(body.results), "Response must have a results array");
+
+    const row = body.results![0];
+    assert.ok(row, "Expected at least one result row");
+    assert.equal(row.status, "error", `Expected "error", got "${row.status}"`);
+    assert.ok(
+      row.reason?.toLowerCase().includes("home office"),
+      `reason should mention "Home Office". Got: "${row.reason}"`,
+    );
+  });
+
+  /* 9 ── Network Leader assigned to Home Office → succeeds ─────────────── */
+
+  test("9 — Network Leader assigned to Home Office school → person created", async () => {
+    const person = makePerson({ role: "NETWORK_LEADER", school: homeOfficeSchoolName });
+
+    const res = await apiPost("/people/bulk", [person], jar);
+
+    assert.equal(res.status, 200, `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results?: { status: string; reason?: string }[] };
+    assert.ok(Array.isArray(body.results), "Response must have a results array");
+
+    const row = body.results![0];
+    assert.ok(row, "Expected at least one result row");
+    assert.equal(row.status, "created", `Expected "created", got "${row.status}": ${row.reason}`);
   });
 });
 
