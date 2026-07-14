@@ -393,6 +393,7 @@ export async function fetchAIChat(message: string, schoolId?: number | null, ses
 
 export interface StreamChatMeta {
   matchedTeachers?: string[];
+  nextSteps?: string[];
 }
 
 export async function streamAIChat(

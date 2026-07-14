@@ -63,7 +63,22 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
   return { label: `Due in ${diffDays}d`, color: "#16a34a", urgent: false };
 }
 
-type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured; matchedTeachers?: string[] };
+type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured; matchedTeachers?: string[]; nextSteps?: string[] };
+
+/* Strips the NEXT_STEPS_JSON sentinel line from AI response text so the raw
+   sentinel is never visible to the user. Also handles partial sentinels that
+   occur when a response is stopped mid-stream. */
+function stripNextStepsSentinel(text: string): string {
+  return text.replace(/\n+NEXT_STEPS_JSON:.*$/s, "").trimEnd();
+}
+
+/* Parses the NEXT_STEPS_JSON sentinel from a DB-stored AI message, used when
+   restoring chip rows from chat history. */
+function parseNextStepsFromSentinel(text: string): string[] {
+  const m = text.match(/\nNEXT_STEPS_JSON:(\[.*?\])\s*$/s);
+  if (!m) return [];
+  try { return JSON.parse(m[1]) as string[]; } catch { return []; }
+}
 
 /* ── Narrative helpers ──────────────────────────────── */
 
@@ -308,6 +323,17 @@ function AINarrativeRenderer({ text }: { text: string }) {
               </p>
             );
           }
+          if (level >= 3) {
+            /* Style B — Libre Franklin subheading with yellow left accent bar */
+            return (
+              <div key={si} style={{ marginTop: si > 0 ? 14 : 0, marginBottom: 5, borderLeft: `3px solid ${YELLOW}`, paddingLeft: 8 }}>
+                <span style={{ fontFamily: "'Libre Franklin', sans-serif", fontSize: 13, color: NAVY, fontWeight: 700 }}>
+                  {content}
+                </span>
+              </div>
+            );
+          }
+          /* level === 2 — Style A: Bebas Neue with yellow underline */
           return (
             <div key={si} style={{ marginTop: si > 0 ? 20 : 0, marginBottom: 8 }}>
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: NAVY, letterSpacing: "0.04em", fontWeight: "bold", paddingBottom: 3, borderBottom: `2.5px solid ${YELLOW}`, display: "inline-block" }}>
@@ -768,10 +794,14 @@ export default function ActionCenterPage() {
     persistSelectedChat(id);
     try {
       const messages = await fetchChatSessionMessages(id);
-      const mapped: ChatMsg[] = messages.map((m) => ({
-        role: m.role === "user" ? "user" as const : "ai" as const,
-        text: m.content,
-      }));
+      const mapped: ChatMsg[] = messages.map((m) => {
+        const role = m.role === "user" ? "user" as const : "ai" as const;
+        if (role === "ai") {
+          const nextSteps = parseNextStepsFromSentinel(m.content);
+          return { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
+        }
+        return { role, text: m.content };
+      });
       /* Restore the instant analysis card if one was saved for this session */
       const stored = localStorage.getItem(`catalyst-instant-analysis-${id}`);
       if (stored && mapped.length > 0 && mapped[0].role === "ai") {
@@ -817,7 +847,7 @@ export default function ActionCenterPage() {
     abortControllerRef.current = null;
     setChatTyping(false);
     if (streamingText) {
-      setChatMsgs((prev) => [...prev, { role: "ai", text: streamingText }]);
+      setChatMsgs((prev) => [...prev, { role: "ai", text: stripNextStepsSentinel(streamingText) }]);
       setStreamingText("");
     }
   }
@@ -874,9 +904,11 @@ export default function ActionCenterPage() {
 
       /* Commit the complete message and clear the streaming buffer */
       if (activeChatIdRef.current === sessionId) {
-        const finalText = accumulated || "I wasn't able to generate a response. Please try again.";
+        const rawText = accumulated || "I wasn't able to generate a response. Please try again.";
+        const finalText = stripNextStepsSentinel(rawText);
         const finalMsg: ChatMsg = { role: "ai", text: finalText };
         if (meta.matchedTeachers?.length) finalMsg.matchedTeachers = meta.matchedTeachers;
+        if (meta.nextSteps?.length) finalMsg.nextSteps = meta.nextSteps;
         setChatMsgs((prev) => [...prev, finalMsg]);
         setStreamingText("");
       }
@@ -1941,6 +1973,24 @@ export default function ActionCenterPage() {
                                       })
                                 }
                               </div>
+                              {msg.role === "ai" && msg.nextSteps && msg.nextSteps.length > 0 && (
+                                <div className="px-1">
+                                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 6, fontFamily: "'Libre Franklin', sans-serif" }}>Potential Next Steps:</div>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                    {msg.nextSteps.map((chip, ci) => (
+                                      <button
+                                        key={ci}
+                                        onClick={() => handleSendChat(chip)}
+                                        style={{ fontSize: 12, fontWeight: 500, color: NAVY, border: `1.5px solid ${NAVY}`, borderRadius: 20, padding: "4px 12px", background: "white", cursor: "pointer", transition: "background 0.12s", fontFamily: "'Libre Franklin', sans-serif" }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = "#EEF2FF"; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = "white"; }}
+                                      >
+                                        {chip}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {msg.role === "ai" && msg.matchedTeachers && msg.matchedTeachers.length > 0 && (
                                 <div className="flex items-center gap-1.5 flex-wrap px-1">
                                   <span style={{ fontSize: 11, color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>Looked at data for:</span>
@@ -1978,10 +2028,12 @@ export default function ActionCenterPage() {
                               boxShadow:       "none",
                             }}
                           >
-                            {isAnalysisNarrative(streamingText)
-                              ? <><AINarrativeRenderer text={streamingText} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
-                              : <>{renderPlainAIText(streamingText)}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
-                            }
+                            {(() => {
+                              const display = stripNextStepsSentinel(streamingText);
+                              return isAnalysisNarrative(display)
+                                ? <><AINarrativeRenderer text={display} /><span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>
+                                : <>{renderPlainAIText(display)}<span className="inline-block w-0.5 h-3.5 bg-slate-400 ml-0.5 align-middle animate-pulse" /></>;
+                            })()}
                           </div>
                         </div>
                       )}

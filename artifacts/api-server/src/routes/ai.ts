@@ -756,9 +756,19 @@ router.post("/chat/stream", async (req, res) => {
         .where(eq(chatSessions.id, sessionId));
     }
 
-    /* Emit matched-teacher metadata before closing the stream */
-    if (matchedTeachers.length > 0) {
-      res.write(`data: [META]${JSON.stringify({ matchedTeachers })}\n\n`);
+    /* Parse next-step chip suggestions from the sentinel the AI appends as its
+       last line. The sentinel is kept in fullReply (and therefore in the DB)
+       so that history loading can re-parse it; the client strips it visually. */
+    const nextStepsMatch = fullReply.match(/\nNEXT_STEPS_JSON:(\[.*?\])\s*$/s);
+    let nextSteps: string[] = [];
+    try { if (nextStepsMatch) nextSteps = JSON.parse(nextStepsMatch[1]) as string[]; } catch { /* malformed */ }
+
+    /* Emit combined metadata before closing the stream */
+    const metaPayload: { matchedTeachers?: string[]; nextSteps?: string[] } = {};
+    if (matchedTeachers.length > 0) metaPayload.matchedTeachers = matchedTeachers;
+    if (nextSteps.length > 0)       metaPayload.nextSteps = nextSteps;
+    if (Object.keys(metaPayload).length > 0) {
+      res.write(`data: [META]${JSON.stringify(metaPayload)}\n\n`);
     }
 
     res.write("data: [DONE]\n\n");

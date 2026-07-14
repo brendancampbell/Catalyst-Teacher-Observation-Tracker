@@ -54,7 +54,13 @@ Your responses should be:
 - Written for a principal or instructional coach audience.
 - Honest about what the data shows, including areas of concern.
 - Use **bold** only for conclusions and key takeaway phrases. Do not bold raw counts, observation totals, or input figures.
-- Always attribute insights to the actual data provided — do not invent numbers.`;
+- Always attribute insights to the actual data provided — do not invent numbers.
+
+Follow-up behavior (REQUIRED):
+- Never end a response with "Would you like me to…", "Shall I…", "Do you want me to…", or any similar prompt asking the user what to do next. The UI handles follow-up prompts automatically via chips.
+- ALWAYS end every response with a blank line followed by a sentinel line in this exact format (the sentinel must be the very last line, no text after the closing bracket):
+NEXT_STEPS_JSON:["<chip1>","<chip2>","<chip3>"]
+- Each chip must be ≤ 40 characters and phrased as a short, actionable follow-up (e.g., "Show lowest-scoring domains", "Who needs rescoring?", "Break down by teacher").`;
 
 export function buildContextBlock(context: AIContext): string {
   const scopeLabel = context.scope === "school" ? "school" : "network";
