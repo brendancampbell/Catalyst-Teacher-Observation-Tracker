@@ -1,12 +1,23 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { CheckCircle2, AlertCircle, ChevronLeft, Loader2 } from "lucide-react";
-import { fetchActionSteps, masterActionStep, fetchPeople } from "@/lib/api";
-import type { ActionStep } from "@/lib/api";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import {
+  fetchActionSteps,
+  masterActionStep,
+  fetchPeople,
+  fetchDashboard,
+  fetchRubricSets,
+  createObservation,
+} from "@/lib/api";
+import type { ActionStep, CategoryEntry, DomainEntry, RubricSetRow } from "@/lib/api";
+import type { Score, Teacher } from "@/data/dummy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import AppHeader from "@/components/AppHeader";
+import { NewObservationModal } from "@/components/NewObservationModal";
+import { useUser } from "@/context/UserContext";
 
-const NAVY = "#1034B4";
+const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 
 function formatDate(iso: string): string {
@@ -37,33 +48,61 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   const [, navigate] = useLocation();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+  const { currentUser } = useUser();
+
+  /* ── Modal state ─────────────────────────────────────── */
+  const [newObsOpen, setNewObsOpen] = useState(false);
+  const [saving,     setSaving]     = useState(false);
+
+  /* ── Action steps for this teacher ──────────────────── */
   const {
     data: actionSteps = [],
     isLoading,
     isError,
   } = useQuery<ActionStep[]>({
     queryKey: ["action-steps", employeeId],
-    queryFn: () => fetchActionSteps(employeeId),
+    queryFn:  () => fetchActionSteps(employeeId),
     staleTime: 30_000,
-    enabled: !!employeeId,
+    enabled:   !!employeeId,
   });
 
-  /* Resolve teacher name from the people list when the prop isn't supplied
-     (e.g. direct URL access or navigation without ?name= query param).
-     The query is skipped entirely when teacherName is already known.      */
+  /* Resolve teacher name from the people list when the prop isn't supplied */
   const { data: resolvedName } = useQuery<string | undefined>({
     queryKey: ["person-name", employeeId],
-    queryFn: async () => {
-      const all = await fetchPeople();
+    queryFn:  async () => {
+      const all   = await fetchPeople();
       const match = all.find((p) => p.employeeId === employeeId);
       return match ? `${match.firstName} ${match.lastName}`.trim() : undefined;
     },
     staleTime: 5 * 60_000,
-    enabled: !teacherName && !!employeeId,
+    enabled:   !teacherName && !!employeeId,
   });
 
   const displayName = teacherName ?? resolvedName;
 
+  /* ── Rubric sets (for modal) ─────────────────────────── */
+  const { data: quarters = [] } = useQuery<RubricSetRow[]>({
+    queryKey: ["quarters"],
+    queryFn:  () => fetchRubricSets(),
+    staleTime: 60_000,
+  });
+
+  const activeQuarter   = quarters[0]?.slug ?? "Q1";
+  const activeQuarterId = quarters[0]?.id   ?? 0;
+
+  /* ── Dashboard data (teachers + rubric structure for modal) ── */
+  const { data: dashData } = useQuery({
+    queryKey: ["dashboard", activeQuarter, currentUser?.schoolId],
+    queryFn:  () => fetchDashboard(activeQuarter, currentUser?.schoolId),
+    staleTime: 60_000,
+    enabled:   !!activeQuarter,
+  });
+
+  const allTeachers: Teacher[]      = dashData?.teachers   ?? [];
+  const categories:  CategoryEntry[] = dashData?.categories ?? [];
+  const allDomains:  DomainEntry[]   = categories.flatMap((c) => c.domains);
+
+  /* ── Mark mastered ───────────────────────────────────── */
   const [masteringId, setMasteringId] = useState<number | null>(null);
 
   async function handleMaster(id: number) {
@@ -72,46 +111,77 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
       await masterActionStep(id);
       queryClient.invalidateQueries({ queryKey: ["action-steps", employeeId] });
       queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
-    } catch {
-      /* silent */
+    } catch { /* silent */ }
+    finally { setMasteringId(null); }
+  }
+
+  /* ── Submit observation from modal ───────────────────── */
+  async function handleSubmitObs(
+    teacherId:            string,
+    date:                 string,
+    scores:               Record<string, Score>,
+    strengths:            string,
+    growthAreas:          string,
+    isWalkthrough:        boolean,
+    time:                 string,
+    course:               string,
+    _draftId?:            string,
+    newActionStep?:       { text: string; dueDate: string },
+    masterActionStepId?:  number,
+  ): Promise<string> {
+    setSaving(true);
+    try {
+      const obs = await createObservation({
+        teacherId,
+        rubricSetId:        activeQuarterId,
+        date,
+        time:               time        || undefined,
+        course:             course      || undefined,
+        scores,
+        strengths:          strengths   || undefined,
+        growthAreas:        growthAreas || undefined,
+        observer:           currentUser?.name ?? "Unknown",
+        observerId:         currentUser?.id,
+        isWalkthrough,
+        newActionStep,
+        masterActionStepId,
+      });
+      queryClient.invalidateQueries({ queryKey: ["action-steps", employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      return obs.id;
+    } catch (err) {
+      console.error("Failed to save observation:", err);
+      return "";
     } finally {
-      setMasteringId(null);
+      setSaving(false);
     }
   }
 
-  const today = todayIso();
-  const openSteps = actionSteps.filter((s) => s.status === "open");
+  const today      = todayIso();
+  const openSteps  = actionSteps.filter((s) => s.status === "open");
   const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
+
+  const returnUrl = encodeURIComponent(`/teacher/${employeeId}`);
 
   return (
     <div
       className="h-full overflow-hidden flex flex-col"
       style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}
     >
-      {/* Page header */}
-      <header
-        className="shrink-0 flex items-center gap-4 px-5 py-3 border-b"
-        style={{ backgroundColor: NAVY, borderColor: "#0D2A8C" }}
-      >
-        <button
-          onClick={() => navigate(baseUrl + "/action-center")}
-          className="flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80 shrink-0"
-          style={{ color: "rgba(255,255,255,0.85)" }}
-        >
-          <ChevronLeft size={16} /> Action Center
-        </button>
-        <div className="flex flex-col min-w-0">
-          <h1
-            className="font-bold uppercase tracking-wider text-white leading-tight truncate"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 20 }}
-          >
-            {displayName ? `${displayName} — Action Steps` : "Action Steps"}
-          </h1>
-          <span className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.55)" }}>
-            {employeeId}
-          </span>
-        </div>
-      </header>
+      <AppHeader
+        backHref={`${baseUrl}/action-center`}
+        backLabel="Action Center"
+        schoolAbbreviation={displayName ?? undefined}
+        basePath={baseUrl}
+        onAddObservation={() => setNewObsOpen(true)}
+        draftsHref={`${baseUrl}/drafts?returnUrl=${returnUrl}`}
+        actionCenterHref={`${baseUrl}/action-center`}
+        userName={currentUser?.name ?? ""}
+        userEmail={currentUser?.email}
+        userRole={currentUser?.role ?? "SCHOOL_LEADER"}
+        canAdmin={currentUser?.role !== "COACH"}
+      />
 
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         {isLoading ? (
@@ -158,16 +228,16 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
                 </CardHeader>
                 <CardContent className="px-5 pb-5 space-y-3">
                   {openSteps.map((step) => {
-                    const overdue = step.dueDate < today;
-                    const days = overdue ? daysOverdue(step.dueDate) : 0;
+                    const overdue  = step.dueDate < today;
+                    const days     = overdue ? daysOverdue(step.dueDate) : 0;
                     const mastering = masteringId === step.id;
                     return (
                       <div
                         key={step.id}
                         className="rounded-lg border p-4 space-y-2"
                         style={{
-                          borderColor: overdue ? "#fca5a5" : "#e2e8f0",
-                          backgroundColor: overdue ? "#FFF5F5" : "white",
+                          borderColor:       overdue ? "#fca5a5" : "#e2e8f0",
+                          backgroundColor:   overdue ? "#FFF5F5" : "white",
                         }}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -288,6 +358,26 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
           </>
         )}
       </div>
+
+      {/* New Observation Modal */}
+      <NewObservationModal
+        teachers={allTeachers}
+        categories={categories}
+        allDomains={allDomains}
+        open={newObsOpen}
+        onOpenChange={setNewObsOpen}
+        canMarkWalkthrough={
+          currentUser?.role === "NETWORK_ADMIN" ||
+          currentUser?.role === "NETWORK_LEADER" ||
+          currentUser?.role === "SCHOOL_LEADER"
+        }
+        defaultTeacherId={employeeId}
+        observerName={currentUser?.name}
+        rubricSetId={activeQuarterId || undefined}
+        onSubmit={handleSubmitObs}
+        saving={saving}
+        freshStart
+      />
     </div>
   );
 }
