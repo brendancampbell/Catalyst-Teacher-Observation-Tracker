@@ -658,6 +658,68 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         </td>
       </tr>
 
+      ${(() => {
+        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const masteredStep = (markMastered && latestActionStep?.status === "open")
+          ? { text: latestActionStep.text, masteredByName: observerName }
+          : undefined;
+        const stillOpenStep = (latestActionStep?.status === "open" && !markMastered)
+          ? { text: latestActionStep.text, dueDate: latestActionStep.dueDate, assignedByName: latestActionStep.assignedByName }
+          : undefined;
+        const newStep = (newActionStepText.trim() && newActionStepDueDate)
+          ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
+          : undefined;
+        if (!masteredStep && !stillOpenStep && !newStep) return "";
+        let rows = "";
+        if (masteredStep) {
+          const byLine = masteredStep.masteredByName
+            ? ` <span style="color:#6b7280;font-size:12px;">— mastered by ${esc(masteredStep.masteredByName)}</span>`
+            : "";
+          rows += `
+            <tr style="border-bottom:1px solid #d1fae5;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#065f46;background:#ecfdf5;width:110px;">✔ Mastered</td>
+              <td style="padding:8px 14px;font-size:13px;color:#064e3b;">${richToEmailHtml(masteredStep.text, "#064e3b")}${byLine}</td>
+            </tr>`;
+        }
+        if (stillOpenStep) {
+          const assignedLine = stillOpenStep.assignedByName
+            ? ` <span style="color:#6b7280;font-size:12px;">— assigned by ${esc(stillOpenStep.assignedByName)}</span>`
+            : "";
+          rows += `
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;width:110px;">⏳ Still Open</td>
+              <td style="padding:8px 14px;font-size:13px;color:#78350f;">${richToEmailHtml(stillOpenStep.text, "#78350f")}<br/><span style="font-size:11px;color:#92400e;">Due: ${esc(stillOpenStep.dueDate)}</span>${assignedLine}</td>
+            </tr>`;
+        }
+        if (newStep) {
+          rows += `
+            <tr>
+              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#1d4ed8;background:#eff6ff;width:110px;">🎯 New Step</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e3a8a;">${richToEmailHtml(newStep.text, "#1e3a8a")}<br/><span style="font-size:11px;color:#1e40af;">Due: ${esc(newStep.dueDate)}</span></td>
+            </tr>`;
+        }
+        return `
+      <!-- Action Steps -->
+      <tr>
+        <td style="padding:16px 28px 0 28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
+            <tr>
+              <td style="padding:14px 16px 6px 16px;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0369a1;">◎ Action Step</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 6px 6px 6px;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden;">
+                  ${rows}
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`;
+      })()}
+
       <!-- Spacer -->
       <tr><td style="height:24px;font-size:0;line-height:0;">&nbsp;</td></tr>
 
