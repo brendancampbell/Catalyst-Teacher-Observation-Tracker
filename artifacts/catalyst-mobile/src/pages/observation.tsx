@@ -914,7 +914,7 @@ export default function ObservationPage() {
                     </span>
                     {lastActionStep.assignedByName && (
                       <span>
-                        By:{" "}
+                        Assigned By:{" "}
                         <span className="font-semibold text-slate-700">{lastActionStep.assignedByName}</span>
                       </span>
                     )}

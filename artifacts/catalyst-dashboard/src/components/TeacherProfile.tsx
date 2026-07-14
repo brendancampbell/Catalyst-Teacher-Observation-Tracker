@@ -230,7 +230,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
                         <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                         <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                        {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                        {step.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
                       </div>
                     </div>
                   );
@@ -256,12 +256,12 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                     <p className="text-sm font-medium text-slate-700 leading-snug line-through decoration-green-400">{step.text}</p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
                       <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
-                      {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                      {step.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
                       <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
                       {step.masteredAt && (
                         <span>Mastered: <span className="font-semibold text-green-700">{new Date(step.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                       )}
-                      {step.masteredByName && <span>Mastered by: <span className="font-semibold text-green-700">{step.masteredByName}</span></span>}
+                      {step.masteredByName && <span>Marked as Mastered By: <span className="font-semibold text-green-700">{step.masteredByName}</span></span>}
                     </div>
                   </div>
                 ))}
@@ -352,7 +352,7 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
               </p>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                 <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = preview.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                {preview.assignedByName && <span>By: <span className="font-semibold text-slate-700">{preview.assignedByName}</span></span>}
+                {preview.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{preview.assignedByName}</span></span>}
               </div>
               <p className="text-xs text-slate-400 mt-1">Tap to see all action steps →</p>
             </div>
