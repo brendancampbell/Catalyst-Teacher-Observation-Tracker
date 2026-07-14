@@ -1074,7 +1074,17 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                     </td>
                     {isNetworkAdmin && (
                       <td className="px-4 py-2 text-slate-500 whitespace-nowrap" style={{ opacity: p.isActive ? 1 : 0.5, maxWidth: 160 }}>
-                        <span className="block truncate">{p.schoolName ?? schools.find((s) => s.id === p.schoolId)?.displayName ?? <span className="text-slate-300 italic">—</span>}</span>
+                        {(() => {
+                          const resolved = p.schoolName ?? schools.find((s) => s.id === p.schoolId)?.displayName;
+                          if (resolved) return <span className="block truncate">{resolved}</span>;
+                          if (p.schoolId !== null) return (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 cursor-help" title={`School record not found (ID ${p.schoolId}) — this assignment may be orphaned. Re-assign this person to a valid school.`}>
+                              <AlertCircle size={12} className="shrink-0" />
+                              Unknown school #{p.schoolId}
+                            </span>
+                          );
+                          return <span className="text-slate-300 italic">—</span>;
+                        })()}
                       </td>
                     )}
                     <td className="px-4 py-2 whitespace-nowrap">
