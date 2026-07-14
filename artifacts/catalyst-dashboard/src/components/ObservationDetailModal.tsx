@@ -96,22 +96,27 @@ export function ObservationDetailModal({
   const [draftGrowth, setDraftGrowth]   = useState(observation.growthAreas ?? "");
 
   /* ── Action step data ──────────────────────────────────────────── */
-  const [assignedStep, setAssignedStep]   = useState<ActionStep | null | undefined>(undefined);
-  const [masteredStep, setMasteredStep]   = useState<ActionStep | null | undefined>(undefined);
+  const [assignedSteps, setAssignedSteps] = useState<ActionStep[]>([]);
+  const [masteredSteps, setMasteredSteps] = useState<ActionStep[]>([]);
 
   useEffect(() => {
     if (!open || !teacher.employeeId) {
-      setAssignedStep(undefined);
-      setMasteredStep(undefined);
+      setAssignedSteps([]);
+      setMasteredSteps([]);
       return;
     }
     let cancelled = false;
     fetchActionSteps(teacher.employeeId).then((steps) => {
       if (cancelled) return;
-      setAssignedStep(steps.find((s) => s.assignedDuringObservationId === observation.id) ?? null);
-      setMasteredStep(steps.find((s) => s.masteredDuringObservationId === observation.id) ?? null);
+      // Use == (loose equality) to handle the string/number mismatch between
+      // observation.id (string from frontend) and assignedDuringObservationId
+      // (number serialised from the DB integer column).
+      // eslint-disable-next-line eqeqeq
+      setAssignedSteps(steps.filter((s) => s.assignedDuringObservationId != null && s.assignedDuringObservationId == observation.id));
+      // eslint-disable-next-line eqeqeq
+      setMasteredSteps(steps.filter((s) => s.masteredDuringObservationId != null && s.masteredDuringObservationId == observation.id));
     }).catch(() => {
-      if (!cancelled) { setAssignedStep(null); setMasteredStep(null); }
+      if (!cancelled) { setAssignedSteps([]); setMasteredSteps([]); }
     });
     return () => { cancelled = true; };
   }, [open, teacher.employeeId, observation.id]);
@@ -318,7 +323,7 @@ export function ObservationDetailModal({
             ))}
 
             {/* ── Action Steps Section ──────────────────────────── */}
-            {(assignedStep || masteredStep) && (
+            {(assignedSteps.length > 0 || masteredSteps.length > 0) && (
               <div
                 className="rounded-lg px-4 py-3 space-y-3"
                 style={{ backgroundColor: "#F8FAFC", border: "1.5px solid #dde3f0" }}
@@ -326,29 +331,29 @@ export function ObservationDetailModal({
                 <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#1034B4" }}>
                   → Action Steps
                 </p>
-                {masteredStep && (
-                  <div className="space-y-1 pb-2 border-b border-slate-100">
+                {masteredSteps.map((step) => (
+                  <div key={step.id} className="space-y-1 pb-2 border-b border-slate-100 last:pb-0 last:border-b-0">
                     <p className="text-xs font-semibold text-green-700">✓ Marked Mastered During This Observation</p>
-                    <p className="text-sm text-slate-800 font-semibold leading-snug">{masteredStep.text}</p>
+                    <p className="text-sm text-slate-800 font-semibold leading-snug">{step.text}</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                      {masteredStep.assignedByName && <span>Assigned by: {masteredStep.assignedByName}</span>}
-                      <span>Due was: {(() => { const [y, m, d] = masteredStep.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span>
+                      {step.assignedByName && <span>Assigned by: {step.assignedByName}</span>}
+                      <span>Due was: {(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span>
                     </div>
                   </div>
-                )}
-                {assignedStep && (
-                  <div className="space-y-1">
+                ))}
+                {assignedSteps.map((step) => (
+                  <div key={step.id} className="space-y-1">
                     <p className="text-xs font-semibold" style={{ color: "#C2410C" }}>↻ New Action Step Assigned</p>
-                    <p className="text-sm text-slate-800 font-semibold leading-snug">{assignedStep.text}</p>
+                    <p className="text-sm text-slate-800 font-semibold leading-snug">{step.text}</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                      <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = assignedStep.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                      {assignedStep.status === "mastered" && <span className="text-green-600 font-semibold">Mastered</span>}
-                      {assignedStep.status === "open" && assignedStep.dueDate < new Date().toISOString().split("T")[0]! && (
+                      <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                      {step.status === "mastered" && <span className="text-green-600 font-semibold">Mastered</span>}
+                      {step.status === "open" && step.dueDate < new Date().toISOString().split("T")[0]! && (
                         <span className="font-semibold text-red-600">Overdue</span>
                       )}
                     </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
 
