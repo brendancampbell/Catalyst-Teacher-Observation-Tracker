@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
@@ -133,6 +133,236 @@ function ObservationCard({ obs, index, categories, onClick }: { obs: Observation
   );
 }
 
+interface ActionStepsDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  actionSteps: ActionStep[];
+  canEdit: boolean;
+  masteringId: number | null;
+  handleMasterStep: (id: number) => void;
+}
+
+function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, handleMasterStep }: ActionStepsDrawerProps) {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const openSteps = actionSteps.filter((s) => s.status === "open");
+  const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} aria-hidden="true" />
+      <div
+        className="fixed right-0 top-0 h-full w-full max-w-lg bg-white z-50 shadow-2xl flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Action Steps"
+      >
+        <div
+          className="px-5 py-4 flex items-center justify-between gap-2 shrink-0"
+          style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} style={{ color: NAVY }} />
+            <h2
+              className="font-bold uppercase tracking-wide"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 20, letterSpacing: "0.02em" }}
+            >
+              Action Steps
+            </h2>
+            <span
+              className="text-sm font-semibold rounded-full px-2.5 py-0.5"
+              style={{ backgroundColor: YELLOW, color: NAVY }}
+            >
+              {actionSteps.length}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded hover:bg-slate-100 transition-colors"
+            aria-label="Close"
+          >
+            <X size={18} className="text-slate-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {actionSteps.length === 0 && (
+            <p className="text-sm text-slate-400 italic py-2">No action steps recorded yet.</p>
+          )}
+
+          {openSteps.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Open</p>
+              <div className="space-y-3">
+                {openSteps.map((step) => {
+                  const isOverdue = step.dueDate < todayIso;
+                  return (
+                    <div
+                      key={step.id}
+                      className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
+                      style={{ border: isOverdue ? "1.5px solid #FCA5A5" : "1px solid #dde3f0" }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <AlertCircle size={14} className={isOverdue ? "text-red-500" : "text-amber-500"} />
+                          {isOverdue && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
+                              Overdue
+                            </span>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            disabled={masteringId === step.id}
+                            onClick={() => handleMasterStep(step.id)}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded transition-colors disabled:opacity-50"
+                            style={{ backgroundColor: "#DCFCE7", color: "#15803D" }}
+                          >
+                            <CheckCircle2 size={13} />
+                            {masteringId === step.id ? "Saving…" : "Mark Mastered"}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-slate-800 leading-snug">{step.text}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                        <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                        <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                        {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {masteredSteps.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mastered</p>
+              <div className="space-y-3">
+                {masteredSteps.map((step) => (
+                  <div
+                    key={step.id}
+                    className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
+                    style={{ border: "1.5px solid #86EFAC" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-green-600" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-green-700">Mastered</span>
+                    </div>
+                    <p className="text-sm font-medium text-slate-700 leading-snug line-through decoration-green-400">{step.text}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                      <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                      {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                      <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                      {step.masteredAt && (
+                        <span>Mastered: <span className="font-semibold text-green-700">{new Date(step.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+                      )}
+                      {step.masteredByName && <span>Mastered by: <span className="font-semibold text-green-700">{step.masteredByName}</span></span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+interface ActionStepsCardProps {
+  actionSteps: ActionStep[];
+  loading: boolean;
+  onClick: () => void;
+}
+
+function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps) {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const openSteps = actionSteps.filter((s) => s.status === "open");
+  const preview = openSteps.length > 0
+    ? [...openSteps].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+    : actionSteps.length > 0
+    ? [...actionSteps].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+    : null;
+
+  return (
+    <div
+      className="bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+      style={{ border: "1px solid #dde3f0" }}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      aria-label="Open Action Steps"
+    >
+      <div
+        className="px-4 py-3 flex items-center justify-between gap-2"
+        style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}
+      >
+        <div className="flex items-center gap-2">
+          <CheckCircle2 size={16} style={{ color: NAVY }} />
+          <h2
+            className="font-bold uppercase tracking-wide"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
+          >
+            Action Steps
+          </h2>
+        </div>
+        {!loading && (
+          <span
+            className="text-sm font-semibold rounded-full px-2.5 py-0.5"
+            style={{ backgroundColor: YELLOW, color: NAVY }}
+          >
+            {actionSteps.length}
+          </span>
+        )}
+      </div>
+
+      <div className="px-4 py-4">
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Clock size={14} className="animate-spin" /> Loading…
+          </div>
+        )}
+        {!loading && !preview && (
+          <p className="text-sm text-slate-400 italic">No action steps yet.</p>
+        )}
+        {!loading && preview && (() => {
+          const isOpen = preview.status === "open";
+          const isOverdue = isOpen && preview.dueDate < todayIso;
+          return (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                {isOpen
+                  ? <AlertCircle size={13} className={isOverdue ? "text-red-500" : "text-amber-500"} />
+                  : <CheckCircle2 size={13} className="text-green-600" />}
+                <span
+                  className="text-xs font-bold uppercase tracking-wide"
+                  style={{ color: isOpen ? (isOverdue ? "#B91C1C" : "#92400E") : "#15803D" }}
+                >
+                  {isOpen ? (isOverdue ? "Overdue" : "Open") : "Mastered"}
+                </span>
+              </div>
+              <p className={`text-sm font-semibold text-slate-800 leading-snug${!isOpen ? " line-through decoration-green-400" : ""}`}>
+                {preview.text}
+              </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = preview.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                {preview.assignedByName && <span>By: <span className="font-semibold text-slate-700">{preview.assignedByName}</span></span>}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Tap to see all action steps →</p>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   teacher: Teacher;
   onBack: () => void;
@@ -156,6 +386,9 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
   /* ── Observation modal state ──────────────────────────────────── */
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [localObsOverrides, setLocalObsOverrides] = useState<Record<string, Observation>>({});
+
+  /* ── Action Steps drawer ──────────────────────────────────────── */
+  const [actionStepsDrawerOpen, setActionStepsDrawerOpen] = useState(false);
 
   /* ── Action Steps ─────────────────────────────────────────────── */
   const [actionSteps, setActionSteps] = useState<ActionStep[]>([]);
@@ -485,8 +718,15 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             </div>
           </div>
 
-          {/* RIGHT: Growth Areas (Grows) */}
+          {/* RIGHT: Action Steps → Glows → Grows */}
           <div className="lg:col-span-2 space-y-4">
+            {teacher.employeeId && (
+              <ActionStepsCard
+                actionSteps={actionSteps}
+                loading={actionStepsLoading}
+                onClick={() => setActionStepsDrawerOpen(true)}
+              />
+            )}
             {recent && (
               <>
                 <div
@@ -572,112 +812,17 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
           </div>
         </div>
 
-        {/* ── Action Steps ──────────────────────────────────── */}
-        {teacher.employeeId && (
-          <div>
-            <h2
-              className="font-bold uppercase tracking-wide mb-3"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.02em" }}
-            >
-              Action Steps
-              {!actionStepsLoading && (
-                <span
-                  className="ml-3 text-base font-semibold rounded-full px-2.5 py-0.5"
-                  style={{ backgroundColor: YELLOW, color: NAVY }}
-                >
-                  {actionSteps.length}
-                </span>
-              )}
-            </h2>
-
-            {actionStepsLoading && (
-              <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
-                <Clock size={14} className="animate-spin" /> Loading action steps…
-              </div>
-            )}
-
-            {!actionStepsLoading && actionSteps.length === 0 && (
-              <p className="text-sm text-slate-400 italic py-2">No action steps recorded yet.</p>
-            )}
-
-            {!actionStepsLoading && openSteps.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Open</p>
-                <div className="space-y-3">
-                  {openSteps.map((step) => {
-                    const isOverdue = step.dueDate < todayIsoProfile;
-                    return (
-                      <div
-                        key={step.id}
-                        className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
-                        style={{ border: isOverdue ? "1.5px solid #FCA5A5" : "1px solid #dde3f0" }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <AlertCircle size={14} className={isOverdue ? "text-red-500" : "text-amber-500"} />
-                            {isOverdue && (
-                              <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
-                                Overdue
-                              </span>
-                            )}
-                          </div>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              disabled={masteringId === step.id}
-                              onClick={() => handleMasterStep(step.id)}
-                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded transition-colors disabled:opacity-50"
-                              style={{ backgroundColor: "#DCFCE7", color: "#15803D" }}
-                            >
-                              <CheckCircle2 size={13} />
-                              {masteringId === step.id ? "Saving…" : "Mark Mastered"}
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-sm font-semibold text-slate-800 leading-snug">{step.text}</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-                          <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
-                          <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                          {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {!actionStepsLoading && masteredSteps.length > 0 && (
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Mastered</p>
-                <div className="space-y-3">
-                  {masteredSteps.map((step) => (
-                    <div
-                      key={step.id}
-                      className="bg-white rounded-xl shadow-sm px-4 py-3 space-y-2"
-                      style={{ border: "1.5px solid #86EFAC" }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-green-600" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-green-700">Mastered</span>
-                      </div>
-                      <p className="text-sm font-medium text-slate-700 leading-snug line-through decoration-green-400">{step.text}</p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-                        <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
-                        {step.masteredAt && (
-                          <span>Mastered: <span className="font-semibold text-green-700">{new Date(step.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
-                        )}
-                        {step.assignedByName && <span>By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
       </main>
+
+      {/* ── Action Steps drawer ───────────────────────────── */}
+      <ActionStepsDrawer
+        open={actionStepsDrawerOpen}
+        onClose={() => setActionStepsDrawerOpen(false)}
+        actionSteps={actionSteps}
+        canEdit={canEdit}
+        masteringId={masteringId}
+        handleMasterStep={handleMasterStep}
+      />
 
       {/* ── Observation detail modal ──────────────────────── */}
       {selectedObservation && (
