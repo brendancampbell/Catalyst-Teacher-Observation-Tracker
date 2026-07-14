@@ -867,24 +867,26 @@ export default function ObservationPage() {
               )}
 
               {/* Last action step banner */}
-              {!loadingLastActionStep && lastActionStep && (
+              {!loadingLastActionStep && lastActionStep && (() => {
+                const displayMastered = lastActionStep.status === "mastered" || (lastActionStep.status === "open" && markMastered);
+                return (
                 <div
                   className="rounded-lg px-3 py-3 space-y-2"
                   style={{
-                    backgroundColor: lastActionStep.status === "mastered" ? "#F0FDF4" : "#FFF7ED",
-                    border: `1.5px solid ${lastActionStep.status === "mastered" ? "#86EFAC" : "#FED7AA"}`,
+                    backgroundColor: displayMastered ? "#F0FDF4" : "#FFF7ED",
+                    border: `1.5px solid ${displayMastered ? "#86EFAC" : "#FED7AA"}`,
                   }}
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className="text-xs font-bold uppercase tracking-wider"
-                      style={{ color: lastActionStep.status === "mastered" ? "#15803D" : "#C2410C" }}
+                      style={{ color: displayMastered ? "#15803D" : "#C2410C" }}
                     >
-                      {lastActionStep.status === "mastered"
+                      {displayMastered
                         ? "✓ Previous Action Step (Mastered)"
                         : "↻ Previous Action Step (Open)"}
                     </span>
-                    {lastActionStep.dueDate < todayIso! && lastActionStep.status === "open" && (
+                    {lastActionStep.dueDate < todayIso! && !displayMastered && (
                       <span
                         className="text-xs font-bold px-1.5 py-0.5 rounded"
                         style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}
@@ -952,7 +954,8 @@ export default function ObservationPage() {
                     </button>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* New action step — distinctive box with inline layout */}
               <div
