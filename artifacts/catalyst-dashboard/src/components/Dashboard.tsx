@@ -1194,7 +1194,7 @@ export default function Dashboard() {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={(v) => { setNewObsOpen(v); if (!v) setNewObsDefaultTeacherId(undefined); }}
-        canMarkWalkthrough={currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "SCHOOL_LEADER"}
+        canMarkWalkthrough={true}
         defaultTeacherId={newObsDefaultTeacherId}
         observerName={currentUser?.name}
         rubricSetId={rubricSetId ?? undefined}

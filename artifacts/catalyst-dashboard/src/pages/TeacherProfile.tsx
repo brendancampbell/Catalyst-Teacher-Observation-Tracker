@@ -366,11 +366,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         allDomains={allDomains}
         open={newObsOpen}
         onOpenChange={setNewObsOpen}
-        canMarkWalkthrough={
-          currentUser?.role === "NETWORK_ADMIN" ||
-          currentUser?.role === "NETWORK_LEADER" ||
-          currentUser?.role === "SCHOOL_LEADER"
-        }
+        canMarkWalkthrough={true}
         defaultTeacherId={employeeId}
         observerName={currentUser?.name}
         rubricSetId={activeQuarterId || undefined}

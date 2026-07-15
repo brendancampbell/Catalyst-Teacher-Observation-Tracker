@@ -64,10 +64,6 @@ export default function ObservationPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
 
-  const canMarkWalkthrough =
-    user?.role === "NETWORK_ADMIN" ||
-    user?.role === "NETWORK_LEADER" ||
-    user?.role === "SCHOOL_LEADER";
 
   const effectiveSchoolId = selectedSchool?.id ?? user?.schoolId ?? null;
 
@@ -701,33 +697,6 @@ export default function ObservationPage() {
               />
             </div>
 
-            {/* Walkthrough toggle */}
-            {canMarkWalkthrough && (
-              <div
-                className="flex items-center justify-between px-4 py-3 rounded-xl"
-                style={{ backgroundColor: isWalkthrough ? "#EEF1FB" : "#f8fafc", border: `1.5px solid ${isWalkthrough ? NAVY : "#dde3f0"}` }}
-              >
-                <div className="flex-1 min-w-0 pr-3">
-                  <p className="font-bold text-sm" style={{ color: NAVY }}>Walkthrough / Rescore</p>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-snug">
-                    Count as an official walkthrough. Teachers below 0.7 go to rescore queue.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isWalkthrough}
-                  onClick={() => setIsWalkthrough((v) => !v)}
-                  className="relative shrink-0 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
-                >
-                  <span
-                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                    style={{ transform: isWalkthrough ? "translateX(20px)" : "translateX(0)" }}
-                  />
-                </button>
-              </div>
-            )}
 
             {/* Progress bar */}
             <div className="flex items-center gap-3">
@@ -1068,6 +1037,35 @@ export default function ObservationPage() {
                 )}
               </div>
             </div>
+            {/* Walkthrough toggle — inline in action row */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isWalkthrough}
+              onClick={() => setIsWalkthrough((v) => !v)}
+              className="flex items-center gap-1.5 shrink-0 px-2 py-1.5 rounded-lg border transition-colors"
+              style={{
+                borderColor:     isWalkthrough ? NAVY : "#cbd5e1",
+                backgroundColor: isWalkthrough ? "#EEF1FB" : "transparent",
+              }}
+            >
+              <span
+                className="font-semibold text-xs"
+                style={{ color: isWalkthrough ? NAVY : "#64748b" }}
+              >
+                Walkthrough
+              </span>
+              <span
+                className="relative inline-flex w-9 h-5 rounded-full transition-colors shrink-0"
+                style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
+              >
+                <span
+                  className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                  style={{ transform: isWalkthrough ? "translateX(16px)" : "translateX(0)" }}
+                />
+              </span>
+            </button>
+
             <button
               type="submit"
               form="obs-form"

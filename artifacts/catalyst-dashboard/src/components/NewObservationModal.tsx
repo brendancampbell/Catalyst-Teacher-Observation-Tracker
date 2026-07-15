@@ -1187,33 +1187,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
               />
             </div>
 
-            {/* Walkthrough / Rescore toggle */}
-            {canMarkWalkthrough && (
-              <div
-                className="flex items-center justify-between px-4 py-3 rounded-lg"
-                style={{ backgroundColor: isWalkthrough ? "#EEF1FB" : "#f8fafc", border: `1.5px solid ${isWalkthrough ? NAVY : "#dde3f0"}` }}
-              >
-                <div>
-                  <p className="font-bold text-sm" style={{ color: NAVY }}>Walkthrough / Rescore</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Count this as an official walkthrough or rescore. Teachers averaging below 0.7 will be added to the rescore queue.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isWalkthrough}
-                  onClick={() => setIsWalkthrough((v) => !v)}
-                  className="relative shrink-0 ml-4 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
-                >
-                  <span
-                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                    style={{ transform: isWalkthrough ? "translateX(20px)" : "translateX(0)" }}
-                  />
-                </button>
-              </div>
-            )}
 
             {/* Progress indicator */}
             <div className="flex items-center gap-3">
@@ -1478,7 +1451,36 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 <span className="text-xs text-red-500 shrink-0">⚠ Draft not saved</span>
               )}
             </div>
-            <div className="flex gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2 shrink-0 flex-wrap justify-end">
+              {/* Walkthrough toggle — inline in action row */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isWalkthrough}
+                onClick={() => setIsWalkthrough((v) => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-colors"
+                style={{
+                  borderColor:     isWalkthrough ? NAVY : "#cbd5e1",
+                  backgroundColor: isWalkthrough ? "#EEF1FB" : "white",
+                }}
+              >
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: isWalkthrough ? NAVY : "#64748b" }}
+                >
+                  Walkthrough
+                </span>
+                <span
+                  className="relative inline-flex w-9 h-5 rounded-full transition-colors shrink-0"
+                  style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: isWalkthrough ? "translateX(16px)" : "translateX(0)" }}
+                  />
+                </span>
+              </button>
+
               <DialogPrimitive.Close
                 className="px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
               >
