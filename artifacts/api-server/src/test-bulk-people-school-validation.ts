@@ -22,6 +22,8 @@ import { eq, inArray } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 
+const SL_HO_EID = "TST_BULK_SL_HOMEOFFICE"; /* temp SCHOOL_LEADER whose schoolId = Home Office */
+
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const NETWORK_ADMIN_ID = "U10"; /* Brendan Campbell — NETWORK_ADMIN */
 
@@ -99,22 +101,41 @@ const REAL_FULL_NAME    = "North Star Academy Lincoln Park Elementary School";
 describe("POST /api/people/bulk — school-name validation", () => {
   let jar: Jar;
   let homeOfficeSchoolName: string;
+  let homeOfficeSchoolId: number;
 
   before(async () => {
     jar = await loginAs(NETWORK_ADMIN_ID);
 
-    /* Discover the Home Office pseudo-school name from the DB so the tests are
-       not coupled to a specific string or ID. */
+    /* Discover the Home Office pseudo-school name and ID from the DB so the
+       tests are not coupled to a specific string or ID. */
     const [hoRow] = await db
-      .select({ displayName: schools.displayName })
+      .select({ id: schools.id, displayName: schools.displayName })
       .from(schools)
       .where(eq(schools.isHomeOffice, true))
       .limit(1);
     assert.ok(hoRow, "Home Office school must exist in the DB (inserted by server bootstrap)");
     homeOfficeSchoolName = hoRow.displayName;
+    homeOfficeSchoolId   = hoRow.id;
+
+    /* Insert a temporary SCHOOL_LEADER whose schoolId points to Home Office.
+       This simulates an edge-case misconfiguration we want the bulk-import
+       endpoint to reject cleanly. */
+    await db.insert(people).values({
+      employeeId:               SL_HO_EID,
+      firstName:                "Test",
+      lastName:                 "BulkSLHomeOffice",
+      email:                    "tst.bulk.sl.homeoffice@example.com",
+      role:                     "SCHOOL_LEADER",
+      schoolId:                 homeOfficeSchoolId,
+      isActive:                 true,
+      includeInFeedbackTracker: false,
+    }).onConflictDoNothing();
   });
 
   after(async () => {
+    await db.delete(people)
+      .where(eq(people.employeeId, SL_HO_EID))
+      .catch(() => {});
     await cleanup();
   });
 
@@ -311,6 +332,30 @@ describe("POST /api/people/bulk — school-name validation", () => {
     const row = body.results![0];
     assert.ok(row, "Expected at least one result row");
     assert.equal(row.status, "created", `Expected "created", got "${row.status}": ${row.reason}`);
+  });
+
+  /* 10 ── SCHOOL_LEADER whose schoolId = Home Office cannot import a COACH ─ */
+
+  test("10 — SCHOOL_LEADER with Home Office schoolId cannot bulk-import a COACH → error mentioning Home Office", async () => {
+    /* Log in as the temporary SCHOOL_LEADER whose schoolId is Home Office.
+       For non-NETWORK_ADMIN callers the server uses currentUser.schoolId as
+       the import target school, so no `school` field is sent in the row. */
+    const slJar = await loginAs(SL_HO_EID);
+    const person = makePerson({ role: "COACH" });
+
+    const res = await apiPost("/people/bulk", [person], slJar);
+
+    assert.equal(res.status, 200, `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results?: { status: string; reason?: string }[] };
+    assert.ok(Array.isArray(body.results), "Response must have a results array");
+
+    const row = body.results![0];
+    assert.ok(row, "Expected at least one result row");
+    assert.equal(row.status, "error", `Expected "error", got "${row.status}": ${row.reason}`);
+    assert.ok(
+      row.reason?.toLowerCase().includes("home office"),
+      `reason should mention "Home Office". Got: "${row.reason}"`,
+    );
   });
 });
 
