@@ -422,6 +422,7 @@ export interface QualitativeTheme {
   teacherCount:     number;
   observationCount: number;
   teacherIds:       string[];
+  teacherNames:     string[];
   observationIds:   number[];
 }
 

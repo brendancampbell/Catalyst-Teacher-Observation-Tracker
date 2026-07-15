@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, RefreshCw, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Users, ExternalLink } from "lucide-react";
+import { Sparkles, RefreshCw, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,23 +34,17 @@ function formatDateTime(iso: string): string {
 function ThemeRow({
   theme,
   accent,
-  basePath,
-  schoolId,
-  rubricSlug,
 }: {
-  theme:      QualitativeTheme;
-  accent:     "green" | "orange";
-  basePath:   string;
-  schoolId:   number | null;
-  rubricSlug: string;
+  theme:  QualitativeTheme;
+  accent: "green" | "orange";
 }) {
   const [open, setOpen] = useState(false);
   const color = accent === "green" ? "#15803d" : "#c2410c";
   const bg    = accent === "green" ? "#f0fdf4" : "#fff7ed";
 
-  const dashboardHref = schoolId != null
-    ? `${basePath}?school=${schoolId}&rubric=${encodeURIComponent(rubricSlug)}`
-    : `${basePath}?rubric=${encodeURIComponent(rubricSlug)}`;
+  const displayNames = theme.teacherNames && theme.teacherNames.length > 0
+    ? theme.teacherNames
+    : theme.teacherIds;
 
   return (
     <div
@@ -78,27 +72,21 @@ function ThemeRow({
       </button>
 
       {open && (
-        <div className="px-4 py-3 border-t text-xs space-y-2" style={{ borderColor: accent === "green" ? "#bbf7d0" : "#fed7aa", backgroundColor: "white" }}>
+        <div className="px-4 py-3 border-t text-xs space-y-1.5" style={{ borderColor: accent === "green" ? "#bbf7d0" : "#fed7aa", backgroundColor: "white" }}>
           <p className="text-slate-500">
             Appears in <strong>{theme.observationCount}</strong> observation{theme.observationCount !== 1 ? "s" : ""} across{" "}
             <strong>{theme.teacherCount}</strong> teacher{theme.teacherCount !== 1 ? "s" : ""}.
           </p>
-          <p className="text-slate-400">Teacher IDs: {theme.teacherIds.join(", ")}</p>
-          <a
-            href={dashboardHref}
-            className="inline-flex items-center gap-1 font-semibold transition-colors hover:underline"
-            style={{ color: NAVY }}
-          >
-            <ExternalLink size={11} />
-            View teachers in dashboard
-          </a>
+          <p className="text-slate-500">
+            <span className="font-semibold">Teachers: </span>{displayNames.join(", ")}
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props) {
+export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
   const queryClient = useQueryClient();
 
   const { data: cacheData, isLoading: cacheLoading } = useQuery({
@@ -128,10 +116,10 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
               <Sparkles size={17} style={{ color: YELLOW }} />
-              Qualitative Themes
+              Qualitative Trends
             </CardTitle>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              {schoolName} · {rubricSlug}
+              {schoolName} · {rubricSlug} · based on observer comments (glows, grows & action steps)
             </p>
           </div>
 
@@ -187,8 +175,8 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
         {!cacheLoading && generating && (
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <RefreshCw size={22} className="animate-spin" style={{ color: NAVY }} />
-            <p className="text-sm font-semibold" style={{ color: NAVY }}>Analyzing observations…</p>
-            <p className="text-xs text-slate-400">Claude is reading all glows, grows, and action steps for this school and period. This usually takes 15–30 seconds.</p>
+            <p className="text-sm font-semibold" style={{ color: NAVY }}>Analyzing observation comments…</p>
+            <p className="text-xs text-slate-400">Reading all glows, grows, and action steps for this school and period. This usually takes 15–30 seconds.</p>
           </div>
         )}
 
@@ -204,7 +192,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
             <Sparkles size={24} className="text-slate-300" />
             <p className="text-sm font-semibold text-slate-500">No summary yet</p>
             <p className="text-xs text-slate-400 max-w-xs">
-              Click <strong>Generate Summary</strong> to analyze all observation glows, grows, and action steps for this school and period.
+              Click <strong>Generate Summary</strong> to find recurring themes in observer comments (glows, grows, and action steps) across teachers at this school.
             </p>
           </div>
         )}
@@ -218,15 +206,15 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
               <h3 className="flex items-center gap-2 text-sm font-bold mb-3" style={{ color: "#15803d" }}>
                 <span>✦</span> Recurring Glows
                 <span className="text-xs font-normal text-slate-400">
-                  — themes appearing across multiple teachers
+                  — strengths appearing across multiple teachers' comments
                 </span>
               </h3>
               {result.recurringGlows.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">No recurring glows identified across multiple teachers yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {result.recurringGlows.map((theme, i) => (
-                    <ThemeRow key={i} theme={theme} accent="green" basePath={basePath} schoolId={schoolId} rubricSlug={rubricSlug} />
+                  {result.recurringGlows.map((theme: QualitativeTheme, i: number) => (
+                    <ThemeRow key={i} theme={theme} accent="green" />
                   ))}
                 </div>
               )}
@@ -237,15 +225,15 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
               <h3 className="flex items-center gap-2 text-sm font-bold mb-3" style={{ color: "#c2410c" }}>
                 <span>↑</span> Recurring Grows
                 <span className="text-xs font-normal text-slate-400">
-                  — themes appearing across multiple teachers
+                  — growth areas appearing across multiple teachers' comments
                 </span>
               </h3>
               {result.recurringGrows.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">No recurring grows identified across multiple teachers yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {result.recurringGrows.map((theme, i) => (
-                    <ThemeRow key={i} theme={theme} accent="orange" basePath={basePath} schoolId={schoolId} rubricSlug={rubricSlug} />
+                  {result.recurringGrows.map((theme: QualitativeTheme, i: number) => (
+                    <ThemeRow key={i} theme={theme} accent="orange" />
                   ))}
                 </div>
               )}
@@ -282,7 +270,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug, basePath }: Props)
                     <Clock size={12} /> Grow themes with no action step assigned
                   </p>
                   <ul className="space-y-1">
-                    {result.actionStepFollowThrough.growsWithNoActionStep.map((theme, i) => (
+                    {result.actionStepFollowThrough.growsWithNoActionStep.map((theme: string, i: number) => (
                       <li key={i} className="text-xs text-amber-700 flex items-start gap-1.5">
                         <span className="mt-0.5 shrink-0">·</span>
                         {theme}

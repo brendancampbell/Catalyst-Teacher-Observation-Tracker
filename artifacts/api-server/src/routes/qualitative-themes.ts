@@ -145,6 +145,7 @@ router.post("/generate", async (req, res) => {
         strengths:          observations.strengths,
         growthAreas:        observations.growthAreas,
         teacherName:        sql<string>`${people.firstName} || ' ' || ${people.lastName}`,
+        teacherLastName:    people.lastName,
       })
       .from(observations)
       .leftJoin(people, eq(people.employeeId, observations.observedEmployeeId))
@@ -155,6 +156,14 @@ router.post("/generate", async (req, res) => {
         eq(observations.target, "TEACHER"),
       ))
       .orderBy(observations.date);
+
+    /* ── Build employee ID → last name lookup ── */
+    const teacherIdToLastName: Record<string, string> = {};
+    for (const row of obsRows) {
+      if (row.observedEmployeeId && row.teacherLastName) {
+        teacherIdToLastName[row.observedEmployeeId] = row.teacherLastName;
+      }
+    }
 
     if (obsRows.length === 0) {
       return res.status(400).json({ error: "No published observations found for this school and rubric period." });
@@ -207,7 +216,9 @@ router.post("/generate", async (req, res) => {
 RUBRIC PERIOD: ${rubricSlug} — ${rubricSet.name}
 TOTAL OBSERVATIONS: ${obsRows.length}
 
-OBSERVATIONS:
+IMPORTANT: This report is based EXCLUSIVELY on the written qualitative comments in STRENGTHS and GROWTH AREAS fields — the narrative feedback written by observers. Do NOT reference or infer from numerical scores. Your analysis must come directly from the text of the comments below.
+
+OBSERVATIONS (qualitative comments only — STRENGTHS and GROWTH AREAS written by observers):
 ${obsBlock}
 
 ACTION STEPS (for reference when identifying grows that lack follow-up):
@@ -215,14 +226,15 @@ ${stepsBlock}
 
 ---
 
-TASK: Identify recurring qualitative themes from the STRENGTHS and GROWTH AREAS above.
-A theme is "recurring" only if it appears in observations from at least 2 DIFFERENT teachers.
+TASK: Identify recurring qualitative themes from the STRENGTHS and GROWTH AREAS comment text above.
+A theme is "recurring" only if similar language or concepts appear in observations from at least 2 DIFFERENT teachers.
+Base every theme directly on specific language from the comment text — do not invent or infer from scores.
 
 Return ONLY a valid JSON object (no markdown fences, no explanation):
 {
   "recurringGlows": [
     {
-      "theme": "Concise 1-2 sentence description of the shared strength",
+      "theme": "Concise 1-2 sentence description of the shared strength, drawn from comment language",
       "teacherCount": <integer>,
       "observationCount": <integer>,
       "teacherIds": ["<exact employeeId>", ...],
@@ -231,7 +243,7 @@ Return ONLY a valid JSON object (no markdown fences, no explanation):
   ],
   "recurringGrows": [
     {
-      "theme": "Concise 1-2 sentence description of the shared growth area",
+      "theme": "Concise 1-2 sentence description of the shared growth area, drawn from comment language",
       "teacherCount": <integer>,
       "observationCount": <integer>,
       "teacherIds": ["<exact employeeId>", ...],
@@ -243,6 +255,7 @@ Return ONLY a valid JSON object (no markdown fences, no explanation):
 
 Rules:
 - Only include themes that appear across 2+ DIFFERENT teachers
+- Base themes on the written comment text, not on numerical scores
 - teacherIds must be exact employeeId strings from the data above
 - observationIds must be exact numeric IDs from the data above
 - growsWithNoActionStep: copy the "theme" label from recurringGrows entries that have no corresponding action step addressing them
@@ -266,11 +279,21 @@ Rules:
       return res.status(502).json({ error: "AI returned an invalid response. Please try again." });
     }
 
+    /* ── Enrich each theme with teacher last names ── */
+    function enrichThemes(
+      themes: { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[],
+    ) {
+      return themes.map((t) => ({
+        ...t,
+        teacherNames: t.teacherIds.map((id) => teacherIdToLastName[id] ?? id),
+      }));
+    }
+
     /* ── Merge into final result ── */
     const result = {
       schoolName:     school.displayName,
-      recurringGlows: parsed.recurringGlows ?? [],
-      recurringGrows: parsed.recurringGrows ?? [],
+      recurringGlows: enrichThemes(parsed.recurringGlows ?? []),
+      recurringGrows: enrichThemes(parsed.recurringGrows ?? []),
       actionStepFollowThrough: {
         open:                  openCount,
         overdue:               overdueCount,
