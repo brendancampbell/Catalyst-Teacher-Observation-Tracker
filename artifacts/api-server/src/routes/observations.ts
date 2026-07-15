@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { db } from "@workspace/db";
 import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
@@ -21,7 +21,7 @@ const observationMutationLimiter = rateLimit({
   limit: 30,
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;
-    return user?.employeeId ?? req.ip ?? "unknown";
+    return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
   },
   handler: (req, res) => {
     req.log.warn(
