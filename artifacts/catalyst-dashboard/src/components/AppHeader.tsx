@@ -20,6 +20,34 @@ function RubricIcon({ target, subjectAudience, size = 13 }: { target?: "TEACHER"
   return <User size={size} />;
 }
 
+function Tooltip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="relative group/tip">
+      {children}
+      {/*
+        Tooltip pill: only appears on pointer-capable (non-touch) devices.
+        `[@media(hover:hover)]` keeps it off sticky-hover touch screens.
+        The button icons are already `hidden sm:flex` so mobile never reaches this,
+        but the +Observation button IS shown on mobile — the media-query guard
+        prevents the tooltip from sticking after a tap.
+      */}
+      <div
+        className="
+          absolute top-full left-1/2 -translate-x-1/2 mt-2
+          px-2.5 py-1 rounded-full text-white text-[11px] font-semibold whitespace-nowrap
+          pointer-events-none select-none z-50
+          opacity-0 [@media(hover:hover)]:group-hover/tip:opacity-100
+          transition-opacity duration-150
+        "
+        style={{ backgroundColor: "#1e293b", boxShadow: "0 2px 8px rgba(0,0,0,0.25)" }}
+        aria-hidden="true"
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
 interface AppHeaderProps {
   subtitle?: string;
   schoolAbbreviation?: string | null;
@@ -193,37 +221,40 @@ export default function AppHeader({
               }}
             >
               {onAddObservation && (
-                <button
-                  onClick={onAddObservation}
-                  title="Add Observation"
-                  className="h-8 flex items-center gap-1.5 px-2.5 rounded transition-opacity hover:opacity-90 shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
-                >
-                  <Plus size={14} strokeWidth={3} />
-                  <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
-                </button>
+                <Tooltip label="Add Observation">
+                  <button
+                    onClick={onAddObservation}
+                    className="h-8 flex items-center gap-1.5 px-2.5 rounded transition-opacity hover:opacity-90 shrink-0"
+                    style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
+                  >
+                    <Plus size={14} strokeWidth={3} />
+                    <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
+                  </button>
+                </Tooltip>
               )}
 
               {draftsHref && (
-                <a
-                  href={draftsHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
-                  title="My Drafts"
-                  style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
-                >
-                  <FileEdit size={15} />
-                </a>
+                <Tooltip label="My Drafts">
+                  <a
+                    href={draftsHref}
+                    className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-colors hover:bg-white/20 shrink-0"
+                    style={{ backgroundColor: "white", color: NAVY, textDecoration: "none" }}
+                  >
+                    <FileEdit size={15} />
+                  </a>
+                </Tooltip>
               )}
 
               {actionCenterHref && (
-                <a
-                  href={actionCenterHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-opacity hover:opacity-80 shrink-0"
-                  title={actionCenterLabel}
-                  style={{ backgroundColor: YELLOW, color: NAVY, textDecoration: "none" }}
-                >
-                  <Activity size={15} />
-                </a>
+                <Tooltip label={actionCenterLabel}>
+                  <a
+                    href={actionCenterHref}
+                    className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-colors hover:bg-white/20 shrink-0"
+                    style={{ backgroundColor: "white", color: NAVY, textDecoration: "none" }}
+                  >
+                    <Activity size={15} />
+                  </a>
+                </Tooltip>
               )}
             </div>
             )}
