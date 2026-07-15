@@ -39,7 +39,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
       {/* ── Trigger ── */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded px-2 py-1.5 transition-colors"
+        className="flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:opacity-90"
         style={{
           backgroundColor: "rgba(255,255,255,0.1)",
           border: "1px solid rgba(255,255,255,0.15)",
@@ -49,7 +49,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
       >
         {/* Avatar */}
         <div
-          className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold shrink-0"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
           style={{ backgroundColor: YELLOW, color: NAVY }}
         >
           {initials}

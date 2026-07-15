@@ -148,7 +148,7 @@ export default function AppHeader({
                 <button
                   type="button"
                   onClick={() => setRubricOpen((v) => !v)}
-                  className="flex items-center rounded px-2 py-1.5 transition-colors hover:opacity-90"
+                  className="flex items-center rounded-full px-3 py-1.5 transition-colors hover:opacity-90"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.1)",
                     border: "1px solid rgba(255,255,255,0.15)",
@@ -230,12 +230,12 @@ export default function AppHeader({
               <Tooltip label="My Drafts">
                 <a
                   href={draftsHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 shrink-0"
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20 shrink-0"
                   style={{
                     color: YELLOW,
                     textDecoration: "none",
-                    border: `1.5px solid rgba(255,181,0,0.45)`,
-                    backgroundColor: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    backgroundColor: "rgba(255,255,255,0.1)",
                   }}
                 >
                   <FileEdit size={15} />
@@ -247,12 +247,12 @@ export default function AppHeader({
               <Tooltip label={actionCenterLabel}>
                 <a
                   href={actionCenterHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 shrink-0"
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20 shrink-0"
                   style={{
                     color: YELLOW,
                     textDecoration: "none",
-                    border: `1.5px solid rgba(255,181,0,0.45)`,
-                    backgroundColor: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    backgroundColor: "rgba(255,255,255,0.1)",
                   }}
                 >
                   <Activity size={15} />
