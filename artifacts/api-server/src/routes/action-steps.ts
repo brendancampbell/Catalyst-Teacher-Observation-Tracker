@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { actionSteps, people, observations, schools } from "@workspace/db/schema";
 import { eq, and, desc, lt, sql, asc } from "drizzle-orm";
-import { requireAuth, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 
 type SchoolCheckResult = "ok" | "not_found" | "inactive";
 
@@ -184,9 +184,8 @@ router.get("/overdue", requireAuth, async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
+      const access = await assertNetworkSchoolAccess(currentUser, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = effectiveSchoolId(currentUser, requested);
 

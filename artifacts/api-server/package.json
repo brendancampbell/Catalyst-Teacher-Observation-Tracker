@@ -27,7 +27,8 @@
     "test:action-steps-e2e": "tsx --test src/test-action-steps-e2e.ts",
     "seed:teachers": "tsx src/seed-teachers.ts",
     "test:demo-teachers": "tsx src/test-demo-teachers-visibility.ts",
-    "test:patch-people-role-escalation": "tsx src/test-patch-people-role-escalation.ts"
+    "test:patch-people-role-escalation": "tsx src/test-patch-people-role-escalation.ts",
+    "test:network-school-isolation": "tsx --test src/test-network-school-isolation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
 import { eq, and, max, sql, inArray, isNotNull } from "drizzle-orm";
-import { requireAuth, effectiveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { TtlCache } from "../lib/ttl-cache";
 
 /* Network-averages loads all teachers + observations + scores to compute a
@@ -172,9 +172,8 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
+      const access = await assertNetworkSchoolAccess(user, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 
@@ -220,9 +219,8 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
+      const access = await assertNetworkSchoolAccess(user, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 

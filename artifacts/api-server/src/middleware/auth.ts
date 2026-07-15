@@ -1,4 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
+import { db } from "@workspace/db";
+import { schools } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";
 
@@ -69,6 +72,77 @@ export function effectiveSchoolId(
     return user.schoolId;
   }
   return requestedSchoolId ?? null;
+}
+
+/* ── assertNetworkSchoolAccess ────────────────────────────────────
+   For NETWORK_LEADER and NETWORK_ADMIN: verifies the requested
+   schoolId is an active, non-archived school that belongs to the
+   requesting user's network.
+   "Same network" is derived from the region field:
+     • If the user has no schoolId or is assigned to a home-office
+       school they have organisation-wide access — any active school
+       is permitted.
+     • If the user is assigned to a non-home-office school their
+       network is the region of that school; only schools in the
+       same region are accessible.
+   Returns a unified 403 for any denied school — never 404 or 422 —
+   to prevent school-ID enumeration.
+   For school-scoped roles (COACH, SCHOOL_LEADER) this is a no-op:
+   effectiveSchoolId ignores any requested value and pins to the
+   user's own school.                                               */
+export async function assertNetworkSchoolAccess(
+  user: Express.User,
+  schoolId: number,
+): Promise<{ ok: true } | { ok: false; status: 403; error: string }> {
+  const role = user.role as UserRole;
+  if (role !== "NETWORK_LEADER" && role !== "NETWORK_ADMIN") {
+    return { ok: true };
+  }
+
+  /* Verify the requested school exists and is active */
+  const [requestedSchool] = await db
+    .select({
+      id:         schools.id,
+      isActive:   schools.isActive,
+      isArchived: schools.isArchived,
+      region:     schools.region,
+    })
+    .from(schools)
+    .where(eq(schools.id, schoolId))
+    .limit(1);
+
+  if (!requestedSchool || !requestedSchool.isActive || requestedSchool.isArchived) {
+    return { ok: false, status: 403, error: "School not found or not accessible" };
+  }
+
+  /* No school assigned → organisation-wide admin, allow any active school */
+  if (!user.schoolId) {
+    return { ok: true };
+  }
+
+  /* Derive the user's network region from their assigned school */
+  const [userSchool] = await db
+    .select({ region: schools.region, isHomeOffice: schools.isHomeOffice })
+    .from(schools)
+    .where(eq(schools.id, user.schoolId))
+    .limit(1);
+
+  if (!userSchool) {
+    /* User's school no longer exists — treat as access denied */
+    return { ok: false, status: 403, error: "School not found or not accessible" };
+  }
+
+  /* Home-office school → organisation-wide access, not region-restricted */
+  if (userSchool.isHomeOffice) {
+    return { ok: true };
+  }
+
+  /* Non-home-office assignment → restrict to the user's region */
+  if (requestedSchool.region !== userSchool.region) {
+    return { ok: false, status: 403, error: "School not found or not accessible" };
+  }
+
+  return { ok: true };
 }
 
 /* ── enforceSchoolScope ──────────────────────────────────────────

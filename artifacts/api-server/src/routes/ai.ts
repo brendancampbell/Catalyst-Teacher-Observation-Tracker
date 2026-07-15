@@ -21,7 +21,7 @@ import {
   type CalibrationFlag,
   type DomainAvg,
 } from "../services/ai-service";
-import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError } from "../middleware/auth";
+import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 
 const router = Router();
 
@@ -680,6 +680,11 @@ router.post("/chat/stream", async (req, res) => {
       res.status(400).json({ error: "message is required" }); return;
     }
 
+    if (reqSchoolId != null) {
+      const access = await assertNetworkSchoolAccess(user, reqSchoolId);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
+
     if (sessionId != null) {
       const [sess] = await db
         .select({ id: chatSessions.id })
@@ -808,6 +813,11 @@ router.post("/chat", async (req, res) => {
       res.status(400).json({ error: "message is required" }); return;
     }
 
+    if (reqSchoolId != null) {
+      const access = await assertNetworkSchoolAccess(user, reqSchoolId);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
+
     /* Verify sessionId ownership if provided */
     if (sessionId != null) {
       const [sess] = await db
@@ -892,9 +902,8 @@ router.get("/insights", async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
+      const access = await assertNetworkSchoolAccess(user, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
@@ -948,9 +957,8 @@ router.get("/calibration-flags", async (req, res) => {
       res.status(400).json({ error: "Invalid schoolId" }); return;
     }
     if (requested !== null) {
-      const check = await checkSchool(requested);
-      if (check === "not_found") { res.status(404).json({ error: "School not found" }); return; }
-      if (check === "inactive")  { res.status(422).json({ error: "School is inactive" }); return; }
+      const access = await assertNetworkSchoolAccess(user, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
@@ -978,6 +986,11 @@ router.post("/analysis", async (req, res) => {
       schoolId?: number | null;
       sessionId?: number | null;
     };
+
+    if (reqSchoolId != null) {
+      const access = await assertNetworkSchoolAccess(user, reqSchoolId);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
 
     const slug = rubricSetSlug?.trim() || "Q1";
 
