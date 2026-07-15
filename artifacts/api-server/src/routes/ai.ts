@@ -11,7 +11,7 @@ import {
   chatSessions,
   chatMessages,
 } from "@workspace/db/schema";
-import { eq, and, inArray, sql, desc } from "drizzle-orm";
+import { eq, and, inArray, sql, desc, or, isNull } from "drizzle-orm";
 import {
   generateAIResponseRaw,
   generateAIResponseStreamRaw,
@@ -557,8 +557,20 @@ async function buildTeacherBreakdowns(
 /* ── Helper: fetch glows & grows per teacher (published obs only, last 5) ── */
 async function buildGlowsGrowsData(
   personIds: string[],
+  scopedSchoolId: number | null,
 ): Promise<Map<string, GlowGrowEntry[]>> {
   if (!personIds.length) return new Map();
+
+  /*
+   * School-scope guard: when scopedSchoolId is set we only include observations
+   * that were explicitly recorded at that school (observations.schoolId = scopedSchoolId)
+   * OR that carry no school tag at all (null — backward-compat for old rows).
+   * This prevents a teacher who transferred from School B to School A from
+   * leaking their School-B coaching notes into School A's AI context.
+   */
+  const schoolFilter = scopedSchoolId !== null
+    ? or(isNull(observations.schoolId), eq(observations.schoolId, scopedSchoolId))
+    : undefined;
 
   const rows = await db
     .select({
@@ -572,6 +584,7 @@ async function buildGlowsGrowsData(
       and(
         inArray(observations.observedEmployeeId, personIds),
         eq(observations.status, "published"),
+        schoolFilter,
       ),
     )
     .orderBy(desc(observations.date));
@@ -592,16 +605,24 @@ async function buildGlowsGrowsData(
 /* ── Helper: fetch action steps per teacher (school-scoped via personIds) ── */
 async function buildActionStepsData(
   personIds: string[],
+  scopedSchoolId: number | null,
 ): Promise<Map<string, ActionStepEntry[]>> {
   if (!personIds.length) return new Map();
 
   /*
-   * Security note: personIds is always derived from getScopedPeople(), which
-   * filters by schoolId (or network scope). Querying action steps by
-   * teacherEmployeeId IN (personIds) guarantees users see only steps
-   * belonging to teachers in their own school/scope.
+   * School-scope guard: when scopedSchoolId is set we LEFT JOIN to the
+   * assignedDuringObservationId observation and only include rows where:
+   *   (a) the action step has no linked observation (assignedDuringObservationId IS NULL)
+   *   (b) the linked observation has no school tag (backward-compat for old rows)
+   *   (c) the linked observation was recorded at the current school
+   *
+   * This prevents a teacher who transferred from School B to School A from
+   * leaking their School-B action steps into School A's AI context.
+   *
+   * personIds is always derived from getScopedPeople(), which already filters
+   * by people.schoolId — this adds a second layer of school isolation.
    */
-  const rows = await db
+  const query = db
     .select({
       teacherEmployeeId: actionSteps.teacherEmployeeId,
       text:              actionSteps.text,
@@ -611,7 +632,21 @@ async function buildActionStepsData(
       createdAt:         actionSteps.createdAt,
     })
     .from(actionSteps)
-    .where(inArray(actionSteps.teacherEmployeeId, personIds))
+    .leftJoin(observations, eq(observations.id, actionSteps.assignedDuringObservationId));
+
+  const rows = await query
+    .where(
+      scopedSchoolId !== null
+        ? and(
+            inArray(actionSteps.teacherEmployeeId, personIds),
+            or(
+              isNull(actionSteps.assignedDuringObservationId),
+              isNull(observations.schoolId),
+              eq(observations.schoolId, scopedSchoolId),
+            ),
+          )
+        : inArray(actionSteps.teacherEmployeeId, personIds),
+    )
     .orderBy(actionSteps.createdAt);
 
   const result = new Map<string, ActionStepEntry[]>();
@@ -634,6 +669,7 @@ async function buildCombinedContext(
   personIds: string[],
   scopedPeople: Array<{ employeeId: string; firstName: string; lastName: string }>,
   scope: "school" | "network",
+  scopedSchoolId: number | null,
   rescoreQueueCount: number,
   totalObservations: number,
   allRubricSets: Array<{ id: number; slug: string; name: string }>,
@@ -691,8 +727,8 @@ async function buildCombinedContext(
     }));
     const [teacherSection, glowsGrowsMap, actionStepsMap] = await Promise.all([
       buildTeacherBreakdowns(allAsMatched, allRubricSets),
-      buildGlowsGrowsData(personIds),
-      buildActionStepsData(personIds),
+      buildGlowsGrowsData(personIds, scopedSchoolId),
+      buildActionStepsData(personIds, scopedSchoolId),
     ]);
     if (teacherSection) contextStr += "\n\n" + teacherSection;
 
@@ -747,8 +783,8 @@ async function buildCombinedContext(
   }));
   const [teacherSectionMulti, glowsGrowsMapMulti, actionStepsMapMulti] = await Promise.all([
     buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets),
-    buildGlowsGrowsData(personIds),
-    buildActionStepsData(personIds),
+    buildGlowsGrowsData(personIds, scopedSchoolId),
+    buildActionStepsData(personIds, scopedSchoolId),
   ]);
   if (teacherSectionMulti) blocks.push(teacherSectionMulti);
 
@@ -828,6 +864,7 @@ router.post("/chat/stream", async (req, res) => {
       personIds,
       scopedPeople,
       scope,
+      scopedSchoolId,
       rescoreRows.length,
       totalObservations,
       allRubricSets,
@@ -963,6 +1000,7 @@ router.post("/chat", async (req, res) => {
       personIds,
       scopedPeople,
       scope,
+      scopedSchoolId,
       rescoreRows.length,
       totalObservations,
       allRubricSets,
@@ -1346,6 +1384,7 @@ router.post("/chat/context", async (req, res) => {
       personIds,
       scopedPeople,
       scope,
+      scopedSchoolId,
       rescoreRows.length,
       totalObservations,
       allRubricSets,

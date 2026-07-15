@@ -29,7 +29,8 @@
     "test:demo-teachers": "tsx src/test-demo-teachers-visibility.ts",
     "test:patch-people-role-escalation": "tsx src/test-patch-people-role-escalation.ts",
     "test:network-school-isolation": "tsx --test src/test-network-school-isolation.ts",
-    "test:ai-qualitative-school-scope": "tsx --test src/test-ai-qualitative-school-scope.ts"
+    "test:ai-qualitative-school-scope": "tsx --test src/test-ai-qualitative-school-scope.ts",
+    "test:ai-teacher-transfer-scope": "tsx --test src/test-ai-teacher-transfer-scope.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
