@@ -211,52 +211,53 @@ export default function AppHeader({
               </div>
             )}
 
-            {/* Action buttons grouped in one semi-transparent wrapper */}
-            {(onAddObservation || draftsHref || actionCenterHref) && (
-            <div
-              className="flex items-center gap-2 rounded px-2 py-1.5"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
-              }}
-            >
-              {onAddObservation && (
-                <Tooltip label="Add Observation">
-                  <button
-                    onClick={onAddObservation}
-                    className="h-8 flex items-center gap-1.5 px-2.5 rounded transition-opacity hover:opacity-90 shrink-0"
-                    style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
-                  >
-                    <Plus size={14} strokeWidth={3} />
-                    <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
-                  </button>
-                </Tooltip>
-              )}
+            {/* +Observation — standalone yellow pill */}
+            {onAddObservation && (
+              <Tooltip label="Add Observation">
+                <button
+                  onClick={onAddObservation}
+                  className="h-8 flex items-center gap-1.5 px-3 rounded-full transition-opacity hover:opacity-90 shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
+                >
+                  <Plus size={14} strokeWidth={3} />
+                  <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
+                </button>
+              </Tooltip>
+            )}
 
-              {draftsHref && (
-                <Tooltip label="My Drafts">
-                  <a
-                    href={draftsHref}
-                    className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-colors hover:bg-white/20 shrink-0"
-                    style={{ backgroundColor: "white", color: NAVY, textDecoration: "none" }}
-                  >
-                    <FileEdit size={15} />
-                  </a>
-                </Tooltip>
-              )}
+            {/* Icon ghost pills — separate from CTA */}
+            {draftsHref && (
+              <Tooltip label="My Drafts">
+                <a
+                  href={draftsHref}
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 shrink-0"
+                  style={{
+                    color: YELLOW,
+                    textDecoration: "none",
+                    border: `1.5px solid rgba(255,181,0,0.45)`,
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                  }}
+                >
+                  <FileEdit size={15} />
+                </a>
+              </Tooltip>
+            )}
 
-              {actionCenterHref && (
-                <Tooltip label={actionCenterLabel}>
-                  <a
-                    href={actionCenterHref}
-                    className="hidden sm:flex w-8 h-8 items-center justify-center rounded transition-colors hover:bg-white/20 shrink-0"
-                    style={{ backgroundColor: "white", color: NAVY, textDecoration: "none" }}
-                  >
-                    <Activity size={15} />
-                  </a>
-                </Tooltip>
-              )}
-            </div>
+            {actionCenterHref && (
+              <Tooltip label={actionCenterLabel}>
+                <a
+                  href={actionCenterHref}
+                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 shrink-0"
+                  style={{
+                    color: YELLOW,
+                    textDecoration: "none",
+                    border: `1.5px solid rgba(255,181,0,0.45)`,
+                    backgroundColor: "rgba(255,255,255,0.07)",
+                  }}
+                >
+                  <Activity size={15} />
+                </a>
+              </Tooltip>
             )}
 
             <UserMenuDropdown
