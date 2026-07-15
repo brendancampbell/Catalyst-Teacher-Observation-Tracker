@@ -20,7 +20,6 @@ import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
 import { TeacherProfile } from "@/components/TeacherProfile";
 import DistrictDashboard from "@/components/DistrictDashboard";
-import { ScrollFadeContainer } from "@/components/ui/ScrollFadeContainer";
 
 type ViewMode = "recent" | "periodAvg" | "walkthroughs";
 type ViewBy   = "teacher" | "subject" | "grade";
@@ -729,7 +728,7 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div className="flex-1 min-h-0">
-        <ScrollFadeContainer className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }} frozenWidth={180}>
+        <div className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
               <thead className="sticky top-0 z-20">
 
@@ -1177,7 +1176,7 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
-        </ScrollFadeContainer>
+        </div>
         </div>
 
         <footer className="text-center pt-1 pb-2 shrink-0" style={{ color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
