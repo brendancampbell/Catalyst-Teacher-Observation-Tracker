@@ -189,17 +189,19 @@ export interface RubricCategory {
 
 /** A single observation record as returned by API responses. */
 export interface Observation {
-  id:           string;
-  date:         string;
-  time?:        string;
-  course?:      string;
-  scores:       Record<string, Score>;
-  strengths?:   string;
-  growthAreas?: string;
-  observer:     string;
-  isWalkthrough?: boolean;
-  editedBy?:    string;
-  editedAt?:    string;
+  id:                  string;
+  date:                string;
+  time?:               string;
+  course?:             string;
+  scores:              Record<string, Score>;
+  strengths?:          string;
+  growthAreas?:        string;
+  observer:            string;
+  observerEmployeeId?: string | null;
+  observerEmail?:      string | null;
+  isWalkthrough?:      boolean;
+  editedBy?:           string;
+  editedAt?:           string;
 }
 
 /**

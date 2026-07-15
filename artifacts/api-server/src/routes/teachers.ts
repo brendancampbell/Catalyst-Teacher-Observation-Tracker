@@ -63,12 +63,14 @@ router.get("/:id", async (req, res) => {
       observations: obsRows
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({
-          id:          String(o.id),
-          date:        o.date,
-          strengths:   o.strengths ?? undefined,
-          growthAreas: o.growthAreas ?? undefined,
-          observer:    o.observer,
-          scores:      scoresByObs.get(o.id) ?? {},
+          id:                 String(o.id),
+          date:               o.date,
+          strengths:          o.strengths ?? undefined,
+          growthAreas:        o.growthAreas ?? undefined,
+          observer:           o.observer,
+          observerEmployeeId: o.observerEmployeeId ?? undefined,
+          observerEmail:      o.observerEmail ?? undefined,
+          scores:             scoresByObs.get(o.id) ?? {},
         })),
     });
   } catch (err) {

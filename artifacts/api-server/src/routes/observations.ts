@@ -222,15 +222,17 @@ router.get("/", async (req, res) => {
     }
 
     res.json(rows.map((o) => ({
-      id:          String(o.id),
-      schoolId:    o.schoolId,
-      target:      o.target,
-      date:        o.date,
-      strengths:   o.strengths ?? undefined,
-      growthAreas: o.growthAreas ?? undefined,
-      observer:    o.observer,
-      status:      o.status,
-      scores:      scoresByObs.get(o.id) ?? {},
+      id:                 String(o.id),
+      schoolId:           o.schoolId,
+      target:             o.target,
+      date:               o.date,
+      strengths:          o.strengths ?? undefined,
+      growthAreas:        o.growthAreas ?? undefined,
+      observer:           o.observer,
+      observerEmployeeId: o.observerEmployeeId ?? undefined,
+      observerEmail:      o.observerEmail ?? undefined,
+      status:             o.status,
+      scores:             scoresByObs.get(o.id) ?? {},
     })));
   } catch (err) {
     console.error("GET /observations error:", err);
@@ -281,18 +283,20 @@ router.get("/:id", async (req, res) => {
       .where(eq(observationScores.observationId, obsId));
 
     res.json({
-      id:            String(existing.id),
-      date:          existing.date,
-      time:          existing.time ?? undefined,
-      course:        existing.course ?? undefined,
-      isWalkthrough: existing.isWalkthrough,
-      strengths:     existing.strengths ?? undefined,
-      growthAreas:   existing.growthAreas ?? undefined,
-      observer:      existing.observer,
-      status:        existing.status,
-      target:        existing.target,
-      schoolId:      existing.schoolId ?? undefined,
-      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      id:                 String(existing.id),
+      date:               existing.date,
+      time:               existing.time ?? undefined,
+      course:             existing.course ?? undefined,
+      isWalkthrough:      existing.isWalkthrough,
+      strengths:          existing.strengths ?? undefined,
+      growthAreas:        existing.growthAreas ?? undefined,
+      observer:           existing.observer,
+      observerEmployeeId: existing.observerEmployeeId ?? undefined,
+      observerEmail:      existing.observerEmail ?? undefined,
+      status:             existing.status,
+      target:             existing.target,
+      schoolId:           existing.schoolId ?? undefined,
+      scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("GET /observations/:id error:", err);
@@ -366,6 +370,7 @@ router.post("/", async (req, res) => {
         growthAreas:         growthAreas || null,
         observer:            observer || creator.name,
         observerEmployeeId:  creator.employeeId,
+        observerEmail:       creator.email,
         isWalkthrough:       false,
         status:              resolvedStatus,
         target:              "SCHOOL",
@@ -388,15 +393,17 @@ router.post("/", async (req, res) => {
       networkAvgsCache.invalidatePrefix("network-avgs:");
 
       res.status(201).json({
-        id:          String(obs.id),
-        schoolId:    obs.schoolId,
-        target:      obs.target,
-        date:        obs.date,
-        strengths:   obs.strengths ?? undefined,
-        growthAreas: obs.growthAreas ?? undefined,
-        observer:    obs.observer,
-        status:      obs.status,
-        scores:      Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+        id:                 String(obs.id),
+        schoolId:           obs.schoolId,
+        target:             obs.target,
+        date:               obs.date,
+        strengths:          obs.strengths ?? undefined,
+        growthAreas:        obs.growthAreas ?? undefined,
+        observer:           obs.observer,
+        observerEmployeeId: obs.observerEmployeeId ?? undefined,
+        observerEmail:      obs.observerEmail ?? undefined,
+        status:             obs.status,
+        scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
       });
       return;
     }
@@ -482,6 +489,7 @@ router.post("/", async (req, res) => {
         growthAreas:         growthAreas || null,
         observer:            observer || creator.name,
         observerEmployeeId:  creator.employeeId,
+        observerEmail:       creator.email,
         isWalkthrough:       !!isWalkthrough,
         status:              resolvedStatus,
         target:              "TEACHER",
@@ -555,16 +563,18 @@ router.post("/", async (req, res) => {
     networkAvgsCache.invalidatePrefix("network-avgs:");
 
     res.status(201).json({
-      id:            String(obs.id),
-      date:          obs.date,
-      time:          obs.time ?? undefined,
-      course:        obs.course ?? undefined,
-      isWalkthrough: obs.isWalkthrough,
-      strengths:     obs.strengths ?? undefined,
-      growthAreas:   obs.growthAreas ?? undefined,
-      observer:      obs.observer,
-      status:        obs.status,
-      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      id:                 String(obs.id),
+      date:               obs.date,
+      time:               obs.time ?? undefined,
+      course:             obs.course ?? undefined,
+      isWalkthrough:      obs.isWalkthrough,
+      strengths:          obs.strengths ?? undefined,
+      growthAreas:        obs.growthAreas ?? undefined,
+      observer:           obs.observer,
+      observerEmployeeId: obs.observerEmployeeId ?? undefined,
+      observerEmail:      obs.observerEmail ?? undefined,
+      status:             obs.status,
+      scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("POST /observations error:", err);
@@ -789,18 +799,20 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     }
 
     res.json({
-      id:            String(updated.id),
-      date:          updated.date,
-      time:          updated.time ?? undefined,
-      course:        updated.course ?? undefined,
-      isWalkthrough: updated.isWalkthrough,
-      strengths:     updated.strengths  ?? undefined,
-      growthAreas:   updated.growthAreas ?? undefined,
-      observer:      updated.observer,
-      status:        updated.status,
-      editedBy:      editedByName,
-      editedAt:      updated.editedAt?.toISOString() ?? undefined,
-      scores:        Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      id:                 String(updated.id),
+      date:               updated.date,
+      time:               updated.time ?? undefined,
+      course:             updated.course ?? undefined,
+      isWalkthrough:      updated.isWalkthrough,
+      strengths:          updated.strengths  ?? undefined,
+      growthAreas:        updated.growthAreas ?? undefined,
+      observer:           updated.observer,
+      observerEmployeeId: updated.observerEmployeeId ?? undefined,
+      observerEmail:      updated.observerEmail ?? undefined,
+      status:             updated.status,
+      editedBy:           editedByName,
+      editedAt:           updated.editedAt?.toISOString() ?? undefined,
+      scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {
     console.error("PUT /observations/:id error:", err);

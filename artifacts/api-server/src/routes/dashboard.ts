@@ -121,17 +121,19 @@ router.get("/", async (req, res) => {
       observations:   (obsByPerson.get(p.employeeId) ?? [])
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({
-          id:            String(o.id),
-          date:          o.date,
-          time:          o.time ?? undefined,
-          course:        o.course ?? undefined,
-          isWalkthrough: o.isWalkthrough,
-          strengths:     o.strengths ?? undefined,
-          growthAreas:   o.growthAreas ?? undefined,
-          observer:      o.observer,
-          editedBy:      o.editedByEmployeeId ? (editorMap.get(o.editedByEmployeeId) ?? undefined) : undefined,
-          editedAt:      o.editedAt?.toISOString() ?? undefined,
-          scores:        scoresByObs.get(o.id) ?? {},
+          id:                 String(o.id),
+          date:               o.date,
+          time:               o.time ?? undefined,
+          course:             o.course ?? undefined,
+          isWalkthrough:      o.isWalkthrough,
+          strengths:          o.strengths ?? undefined,
+          growthAreas:        o.growthAreas ?? undefined,
+          observer:           o.observer,
+          observerEmployeeId: o.observerEmployeeId ?? undefined,
+          observerEmail:      o.observerEmail ?? undefined,
+          editedBy:           o.editedByEmployeeId ? (editorMap.get(o.editedByEmployeeId) ?? undefined) : undefined,
+          editedAt:           o.editedAt?.toISOString() ?? undefined,
+          scores:             scoresByObs.get(o.id) ?? {},
         })),
     }));
 

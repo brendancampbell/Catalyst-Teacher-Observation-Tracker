@@ -11,6 +11,7 @@ export const observations = pgTable("observations", {
   schoolId:            integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
   rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   observerEmployeeId:  text("observer_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
+  observerEmail:       text("observer_email"),
   date:                date("date").notNull(),
   course:              text("course"),
   strengths:           text("strengths"),
