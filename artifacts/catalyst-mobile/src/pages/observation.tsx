@@ -776,7 +776,11 @@ export default function ObservationPage() {
             </div>
 
             {/* ── Action Steps section ──────────────────────────────── */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
+            <div
+              data-testid="action-step-section"
+              className="rounded-xl p-4 shadow-sm flex flex-col gap-3"
+              style={{ backgroundColor: "#EFF6FF", border: "1px solid #93C5FD", borderLeft: "4px solid #1034B4" }}
+            >
               <p
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: NAVY }}
@@ -882,66 +886,61 @@ export default function ObservationPage() {
                 );
               })()}
 
-              {/* New action step — distinctive box with inline layout */}
-              <div
-                className="rounded-lg p-3 bg-blue-50"
-                style={{ border: "1px solid #93C5FD", borderLeft: "4px solid #3B82F6" }}
-              >
-                <p className="text-xs font-bold uppercase tracking-wider mb-2.5" style={{ color: "#1034B4" }}>
-                  → Assign New Action Step <span className="font-normal text-slate-400 normal-case">(optional)</span>
-                </p>
-                <div className="flex flex-col gap-3">
-                  <div className="w-full">
-                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                      Action Step
-                    </label>
-                    <textarea
-                      ref={(el) => {
-                        if (el) {
-                          el.style.height = "auto";
-                          el.style.height = `${el.scrollHeight}px`;
-                        }
-                      }}
-                      value={actionStepText}
-                      onChange={(e) => {
-                        const el = e.target;
+              {/* New action step fields — flat inside the outer blue card */}
+              <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: "#1034B4" }}>
+                → Assign New Action Step <span className="font-normal text-slate-500 normal-case">(optional)</span>
+              </p>
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0 overflow-hidden">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                    Action Step
+                  </label>
+                  <textarea
+                    ref={(el) => {
+                      if (el) {
                         el.style.height = "auto";
                         el.style.height = `${el.scrollHeight}px`;
-                        setActionStepText(e.target.value);
-                      }}
-                      placeholder="Describe the action step for this teacher…"
-                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 bg-white text-slate-800"
-                      style={{ borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined, minHeight: 80 }}
-                    />
-                    {actionStepPartiallyFilled && !hasActionStepText && (
-                      <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} className="shrink-0" /> Description is required when a due date is set.
-                      </p>
-                    )}
-                  </div>
-                  <div className="w-full min-w-0 overflow-hidden">
-                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                      Due Date <span className="font-normal">(required if action step is entered)</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={actionStepDueDate}
-                      min={todayIso}
-                      onChange={(e) => handleActionStepDueDateChange(e.target.value)}
-                      className="w-full min-w-0 px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                      style={{ boxSizing: "border-box", borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
-                    />
-                    {actionStepPartiallyFilled && !hasActionStepDate && (
-                      <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
-                      </p>
-                    )}
-                    {actionStepDueDateError && (
-                      <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} className="shrink-0" /> {actionStepDueDateError}
-                      </p>
-                    )}
-                  </div>
+                      }
+                    }}
+                    value={actionStepText}
+                    onChange={(e) => {
+                      const el = e.target;
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                      setActionStepText(e.target.value);
+                    }}
+                    placeholder="Describe the action step for this teacher…"
+                    className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 bg-white text-slate-800"
+                    style={{ boxSizing: "border-box", borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined, minHeight: 80 }}
+                  />
+                  {actionStepPartiallyFilled && !hasActionStepText && (
+                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" /> Description is required when a due date is set.
+                    </p>
+                  )}
+                </div>
+                <div className="min-w-0 overflow-hidden">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                    Due Date <span className="font-normal">(required if action step is entered)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={actionStepDueDate}
+                    min={todayIso}
+                    onChange={(e) => handleActionStepDueDateChange(e.target.value)}
+                    className="w-full min-w-0 px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                    style={{ boxSizing: "border-box", borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
+                  />
+                  {actionStepPartiallyFilled && !hasActionStepDate && (
+                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
+                    </p>
+                  )}
+                  {actionStepDueDateError && (
+                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle size={11} className="shrink-0" /> {actionStepDueDateError}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

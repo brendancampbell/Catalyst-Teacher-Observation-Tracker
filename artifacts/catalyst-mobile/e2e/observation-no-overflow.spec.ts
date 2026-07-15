@@ -150,9 +150,8 @@ for (const vp of NARROW_VIEWPORTS) {
 
     // ── Test 3: action step section ──────────────────────────────────────────
     test("action step section has no horizontal overflow", async ({ page }) => {
-      // The action-step card is uniquely identified by bg-blue-50 and contains
-      // the action-step textarea and due-date input (observation.tsx lines 930-990).
-      const actionSection = page.locator(".bg-blue-50").first();
+      // The action-step card is identified by data-testid="action-step-section".
+      const actionSection = page.locator('[data-testid="action-step-section"]').first();
       await expect(actionSection).toBeVisible({ timeout: 10_000 });
 
       const result = await actionSection.evaluate((el) => ({
