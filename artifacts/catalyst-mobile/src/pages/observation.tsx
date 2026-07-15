@@ -677,7 +677,7 @@ export default function ObservationPage() {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                  className="w-full max-w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
                 />
               </div>
             </div>
@@ -934,8 +934,8 @@ export default function ObservationPage() {
                 <p className="text-xs font-bold uppercase tracking-wider mb-2.5" style={{ color: "#1034B4" }}>
                   → Assign New Action Step <span className="font-normal text-slate-400 normal-case">(optional)</span>
                 </p>
-                <div className="flex gap-3 items-start flex-wrap">
-                  <div className="flex-1 min-w-0" style={{ minWidth: 140 }}>
+                <div className="flex flex-col gap-3">
+                  <div className="w-full">
                     <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                       Action Step
                     </label>
@@ -963,7 +963,7 @@ export default function ObservationPage() {
                       </p>
                     )}
                   </div>
-                  <div className="shrink-0" style={{ width: 148 }}>
+                  <div className="w-full">
                     <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                       Due Date <span className="font-normal">(required if action step is entered)</span>
                     </label>
@@ -972,7 +972,7 @@ export default function ObservationPage() {
                       value={actionStepDueDate}
                       min={todayIso}
                       onChange={(e) => handleActionStepDueDateChange(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
+                      className="w-full max-w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
                       style={{ borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
                     />
                     {actionStepPartiallyFilled && !hasActionStepDate && (
