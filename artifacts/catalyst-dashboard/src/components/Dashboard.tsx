@@ -729,7 +729,7 @@ export default function Dashboard() {
 
         {/* ── Table ─────────────────────────────────────────── */}
         <div className="flex-1 min-h-0">
-        <ScrollFadeContainer className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }}>
+        <ScrollFadeContainer className="overflow-auto max-h-full bg-white rounded-md shadow-sm" style={{ border: "1px solid #dde3f0" }} frozenWidth={180}>
             <table className="border-collapse text-xs" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
               <thead className="sticky top-0 z-20">
 
