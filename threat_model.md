@@ -21,21 +21,23 @@ Production scope for this scan is the API server plus the Catalyst dashboard and
 - **API to third-party services** — the server calls Google OAuth, Anthropic, and Resend using privileged credentials. Requests crossing this boundary must be scoped and validated.
 - **Public to authenticated boundary** — `/api/auth/google`, `/api/auth/google/callback`, and `/api/app` are public; nearly all other `/api/*` routes assume an authenticated session cookie.
 - **Authenticated to privileged boundary** — role separation between COACH, SCHOOL_LEADER, NETWORK_LEADER, and NETWORK_ADMIN must be enforced server-side on every sensitive route.
+- **Revoked-user boundary** — disabling a user or downgrading them to `NO_ACCESS` must immediately prevent session re-use. Stale sessions should never continue to load privileged identity or fall through to broader data scope.
 - **Primary user to impersonated user boundary** — impersonation changes the effective identity for downstream authorization and must never let an attacker or lower-privileged user act outside approved scope.
 
 ## Scan Anchors
 
 - Production API entry points: `artifacts/api-server/src/index.ts`, `artifacts/api-server/src/app.ts`, `artifacts/api-server/src/routes/index.ts`
-- Highest-risk code areas: `routes/auth.ts`, `routes/observations.ts`, `routes/email.ts`, `routes/ai.ts`, `routes/people.ts`, and frontend rich-text rendering components
+- Highest-risk code areas: `routes/auth.ts`, `routes/observations.ts`, `routes/email.ts`, `routes/ai.ts`, `routes/people.ts`, `lib/passport.ts`, `middleware/auth.ts`, and frontend rich-text rendering components
 - Public surfaces: `/api/auth/google`, `/api/auth/google/callback`, `/api/app`
 - Authenticated surfaces: dashboard, teacher, observation, people, AI, email, impersonation, admin-school routes
+- Expensive external-service surfaces: `/api/ai/chat`, `/api/ai/chat/stream`, `/api/ai/analysis`, `/api/ai/school-summary`, `/api/qualitative-themes/generate`, `/api/email/send-observation`
 - Dev-only or currently unreachable areas usually ignored unless proven reachable: `artifacts/mockup-sandbox`, legacy GBF rename paths beyond the explicit redirect in `app.ts`, and unmounted route files such as `artifacts/api-server/src/routes/users.ts`
 
 ## Threat Categories
 
 ### Spoofing
 
-The application relies on Google OAuth plus server-side sessions. The system must only create sessions for pre-provisioned active users, must bind impersonation to authorized NETWORK_ADMIN actions, and must ensure session state cannot be forged or reused across users.
+The application relies on Google OAuth plus server-side sessions. The system must only create sessions for pre-provisioned active users, must bind impersonation to authorized NETWORK_ADMIN actions, must reject session reuse after deactivation or downgrade to `NO_ACCESS`, and must ensure session state cannot be forged or reused across users.
 
 ### Tampering
 
@@ -47,8 +49,8 @@ Observation history, rubric notes, teacher/staff contact details, and network-wi
 
 ### Denial of Service
 
-Public auth entry points and authenticated AI or email endpoints can trigger external-service work. The application must avoid unbounded expensive operations, especially on AI generation and email sending, and should not allow an attacker to create excessive sessions or outbound workload through repeated authenticated requests.
+Public auth entry points and authenticated AI or email endpoints can trigger external-service work. The application must avoid unbounded expensive operations, especially on AI generation and email sending, and should not allow an attacker to create excessive sessions or outbound workload through repeated authenticated requests. Authenticated AI endpoints in particular should enforce per-user rate limits or quotas because each request can trigger substantial database reads plus Anthropic model usage.
 
 ### Elevation of Privilege
 
-The most important risks are broken access control across school/network boundaries, insecure impersonation behavior, stored client-side code execution through observation content, and any route that lets a lower-privileged user act on behalf of a more privileged workflow. All privileged actions must be enforced on the server rather than hidden only in the UI.
+The most important risks are broken access control across school/network boundaries, insecure impersonation behavior, stale-session access after revocation, stored client-side code execution through observation content, and any route that lets a lower-privileged user act on behalf of a more privileged workflow. All privileged actions must be enforced on the server rather than hidden only in the UI.
