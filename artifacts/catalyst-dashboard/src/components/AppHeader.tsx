@@ -147,6 +147,7 @@ export default function AppHeader({
               <div ref={rubricRef} className="hidden sm:flex sm:items-center relative">
                 <button
                   type="button"
+                  data-testid="header-rubric-pill"
                   onClick={() => setRubricOpen((v) => !v)}
                   className="flex items-center rounded-full px-3 py-1.5 transition-colors hover:opacity-90"
                   style={{
@@ -215,6 +216,7 @@ export default function AppHeader({
             {onAddObservation && (
               <Tooltip label="Add Observation">
                 <button
+                  data-testid="header-add-obs-pill"
                   onClick={onAddObservation}
                   className="flex items-center px-3 py-1.5 rounded-full transition-opacity hover:opacity-90 shrink-0"
                   style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
@@ -230,6 +232,7 @@ export default function AppHeader({
             {/* Icon pair — shared pill */}
             {(draftsHref || actionCenterHref) && (
               <div
+                data-testid="header-icon-pill"
                 className="hidden sm:flex items-center gap-1 rounded-full px-2 py-1.5 shrink-0"
                 style={{
                   backgroundColor: "rgba(255,255,255,0.1)",

@@ -38,6 +38,7 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
     <div ref={ref} className="relative">
       {/* ── Trigger ── */}
       <button
+        data-testid="header-user-pill"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:opacity-90"
         style={{
