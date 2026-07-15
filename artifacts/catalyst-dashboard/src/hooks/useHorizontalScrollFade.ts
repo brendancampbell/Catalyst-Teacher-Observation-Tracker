@@ -1,7 +1,12 @@
 import { useState, useEffect, RefObject } from "react";
 
-export function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): boolean {
-  const [showRightFade, setShowRightFade] = useState(false);
+interface ScrollFadeState {
+  showRightFade: boolean;
+  showLeftFade: boolean;
+}
+
+export function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): ScrollFadeState {
+  const [state, setState] = useState<ScrollFadeState>({ showRightFade: false, showLeftFade: false });
 
   useEffect(() => {
     const el = ref.current;
@@ -11,7 +16,10 @@ export function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): boo
       if (!el) return;
       const hasOverflow = el.scrollWidth > el.clientWidth;
       const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
-      setShowRightFade(hasOverflow && !atEnd);
+      setState({
+        showRightFade: hasOverflow && !atEnd,
+        showLeftFade: el.scrollLeft > 0,
+      });
     }
 
     update();
@@ -26,5 +34,5 @@ export function useHorizontalScrollFade(ref: RefObject<HTMLElement | null>): boo
     };
   }, [ref]);
 
-  return showRightFade;
+  return state;
 }
