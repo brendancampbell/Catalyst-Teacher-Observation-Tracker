@@ -1124,6 +1124,39 @@ router.get("/calibration-flags", async (req, res) => {
   }
 });
 
+/* ── Helper: build a brief overdue action steps summary for Instant Analysis ── */
+function buildOverdueActionStepsSummary(
+  actionStepsMap: Map<string, ActionStepEntry[]>,
+  nameMap: Map<string, string>,
+  today: string,
+): string {
+  const overdue: Array<{ teacherName: string; steps: ActionStepEntry[] }> = [];
+
+  for (const [empId, steps] of actionStepsMap) {
+    const overdueSteps = steps.filter(
+      (s) => s.status === "open" && s.dueDate < today,
+    );
+    if (overdueSteps.length) {
+      overdue.push({ teacherName: nameMap.get(empId) ?? empId, steps: overdueSteps });
+    }
+  }
+
+  if (!overdue.length) return "";
+
+  const lines: string[] = [
+    `## Overdue action steps`,
+    `${overdue.length} teacher(s) have open action steps past their due date:`,
+  ];
+
+  for (const t of overdue) {
+    for (const s of t.steps) {
+      lines.push(`- ${t.teacherName}: "${s.text}" (due ${s.dueDate})`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 /* ── POST /api/ai/analysis ──────────────────────────────────────── */
 router.post("/analysis", async (req, res) => {
   try {
@@ -1145,7 +1178,8 @@ router.post("/analysis", async (req, res) => {
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
     const rubricSetId = await getRubricSetId(slug);
-    const personIds = await getPersonIds(scopedSchoolId);
+    const scopedPeople = await getScopedPeople(scopedSchoolId);
+    const personIds = scopedPeople.map((p) => p.employeeId);
 
     const rescoreRows = personIds.length
       ? await db.select({ employeeId: people.employeeId }).from(people).where(
@@ -1155,9 +1189,10 @@ router.post("/analysis", async (req, res) => {
         )
       : [];
 
-    const [domainAverages, calibrationFlags] = await Promise.all([
+    const [domainAverages, calibrationFlags, actionStepsMap] = await Promise.all([
       buildDomainAverages(personIds, rubricSetId),
       buildCalibrationFlags(personIds, scope, rubricSetId),
+      buildActionStepsData(personIds),
     ]);
 
     const obsCountResult = personIds.length
@@ -1196,7 +1231,14 @@ router.post("/analysis", async (req, res) => {
       calibrationFlags,
     };
 
-    const structured = await generateStructuredInstantAnalysis(context, slug);
+    const nameMap = new Map(
+      scopedPeople.map((p) => [p.employeeId, `${p.firstName} ${p.lastName}`]),
+    );
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const overdueContext = buildOverdueActionStepsSummary(actionStepsMap, nameMap, today);
+
+    const structured = await generateStructuredInstantAnalysis(context, slug, overdueContext || undefined);
 
     /* Persist the narrative context as an assistant message for follow-up questions */
     if (sessionId != null) {

@@ -295,16 +295,27 @@ export interface InstantAnalysisStructured {
 export async function generateStructuredInstantAnalysis(
   context: AIContext,
   rubricSetSlug: string,
+  qualitativeContext?: string,
 ): Promise<InstantAnalysisStructured> {
   const contextBlock = buildContextBlock(context);
   const domainCount = context.domainAverages.length;
   const contextLine = `${rubricSetSlug} rubric set · ${context.totalTeachers} teacher${context.totalTeachers !== 1 ? "s" : ""} · ${context.totalObservations} observation${context.totalObservations !== 1 ? "s" : ""} · ${domainCount} domain${domainCount !== 1 ? "s" : ""}`;
 
-  const prompt = `${contextBlock}
+  const qualSection = qualitativeContext?.trim()
+    ? `\n${qualitativeContext.trim()}\n`
+    : "";
+
+  const flagNote = qualitativeContext?.trim()
+    ? `IMPORTANT — for the flag finding: overdue action steps are the highest-priority flag. If the qualitative section above lists any overdue action steps, the flag finding MUST name how many teachers have overdue steps and frame it as an accountability gap. Only use a calibration or outlier issue as the flag if there are no overdue action steps.`
+    : `For the flag finding: name the single most important calibration or outlier issue.`;
+
+  const prompt = `${contextBlock}${qualSection}
 ---
 You are generating an Instant Analysis card for a school principal's dashboard. The dashboard's Summary tab ALREADY shows raw score tables and domain bars — do NOT repeat numeric tables or per-domain score lists here.
 
 This card shows the SO WHAT (what the pattern means) and NOW WHAT (prioritized next moves).
+
+${flagNote}
 
 Return ONLY valid JSON with exactly this shape — no markdown fences, no extra keys:
 
@@ -323,7 +334,7 @@ Return ONLY valid JSON with exactly this shape — no markdown fences, no extra 
     },
     {
       "type": "flag",
-      "lead": "4–8 word lead clause naming the single calibration or outlier issue",
+      "lead": "4–8 word lead clause naming the single most urgent accountability issue",
       "detail": "One supporting sentence grounded in the actual data."
     }
   ],
