@@ -511,6 +511,8 @@ export interface InstantAnalysisStructured {
   }>;
   chips: [string, string, string];
   narrativeForContext: string;
+  /** Total number of overdue open action steps — injected server-side, 0 if none. */
+  overdueActionStepCount: number;
 }
 
 export async function generateAIAnalysis(

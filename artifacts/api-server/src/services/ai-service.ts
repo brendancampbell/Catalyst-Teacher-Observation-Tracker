@@ -290,6 +290,9 @@ export interface InstantAnalysisStructured {
   }>;
   chips: [string, string, string];
   narrativeForContext: string;
+  /** Total number of overdue open action steps across all teachers in scope.
+   *  Injected server-side after Claude generates the card — not part of the LLM output. */
+  overdueActionStepCount: number;
 }
 
 export async function generateStructuredInstantAnalysis(

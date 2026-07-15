@@ -307,14 +307,32 @@ function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: Ins
         {structured.findings.map((f, i) => {
           const cfg = FINDING_CONFIG[f.type] ?? FINDING_CONFIG.pattern;
           const { Icon } = cfg;
+          const showOverdueBadge = f.type === "flag" && (structured.overdueActionStepCount ?? 0) > 0;
           return (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <div style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: cfg.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
                 <Icon size={13} color={cfg.color} />
               </div>
-              <p style={{ fontSize: 13, lineHeight: 1.55, color: "#1e293b", margin: 0 }}>
-                <strong>{f.lead}</strong>{" — "}{f.detail}
-              </p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, lineHeight: 1.55, color: "#1e293b", margin: 0 }}>
+                  <strong>{f.lead}</strong>{" — "}{f.detail}
+                </p>
+                {showOverdueBadge && (
+                  <span style={{
+                    display: "inline-block",
+                    marginTop: 5,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#B45309",
+                    backgroundColor: "#FEF3C7",
+                    border: "1px solid #FCD34D",
+                    borderRadius: 20,
+                    padding: "1px 8px",
+                  }}>
+                    {structured.overdueActionStepCount} overdue step{structured.overdueActionStepCount !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

@@ -1192,7 +1192,7 @@ router.post("/analysis", async (req, res) => {
     const [domainAverages, calibrationFlags, actionStepsMap] = await Promise.all([
       buildDomainAverages(personIds, rubricSetId),
       buildCalibrationFlags(personIds, scope, rubricSetId),
-      buildActionStepsData(personIds),
+      buildActionStepsData(personIds, scopedSchoolId),
     ]);
 
     const obsCountResult = personIds.length
@@ -1238,7 +1238,15 @@ router.post("/analysis", async (req, res) => {
     const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     const overdueContext = buildOverdueActionStepsSummary(actionStepsMap, nameMap, today);
 
-    const structured = await generateStructuredInstantAnalysis(context, slug, overdueContext || undefined);
+    /* Count total overdue open steps for the badge — computed independently of the
+       LLM call so the number is always accurate even if Claude paraphrases. */
+    let overdueActionStepCount = 0;
+    for (const steps of actionStepsMap.values()) {
+      overdueActionStepCount += steps.filter((s) => s.status === "open" && s.dueDate < today).length;
+    }
+
+    const rawStructured = await generateStructuredInstantAnalysis(context, slug, overdueContext || undefined);
+    const structured: typeof rawStructured = { ...rawStructured, overdueActionStepCount };
 
     /* Persist the narrative context as an assistant message for follow-up questions */
     if (sessionId != null) {
