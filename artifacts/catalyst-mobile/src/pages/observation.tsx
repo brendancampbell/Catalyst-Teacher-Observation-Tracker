@@ -623,7 +623,7 @@ export default function ObservationPage() {
                 </div>
               </div>
 
-              <div className="min-w-0 overflow-hidden">
+              <div className="min-w-0">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                   Observation Date
                 </label>
@@ -633,7 +633,7 @@ export default function ObservationPage() {
                   onChange={(e) => setDate(e.target.value)}
                   required
                   className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                  style={{ boxSizing: "border-box" }}
+                  style={{ boxSizing: "border-box", maxWidth: "100%" }}
                 />
               </div>
             </div>
@@ -919,7 +919,7 @@ export default function ObservationPage() {
                     </p>
                   )}
                 </div>
-                <div className="min-w-0 overflow-hidden">
+                <div className="min-w-0">
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                     Due Date <span className="font-normal">(required if action step is entered)</span>
                   </label>
@@ -929,7 +929,7 @@ export default function ObservationPage() {
                     min={todayIso}
                     onChange={(e) => handleActionStepDueDateChange(e.target.value)}
                     className="w-full min-w-0 px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                    style={{ boxSizing: "border-box", borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
+                    style={{ boxSizing: "border-box", maxWidth: "100%", borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
                   />
                   {actionStepPartiallyFilled && !hasActionStepDate && (
                     <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
