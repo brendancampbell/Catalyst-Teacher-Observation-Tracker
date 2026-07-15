@@ -35,6 +35,7 @@ import {
   type AICalibrationFlag,
   type AIInsightsResponse,
   type AIChatSession,
+  type AIChatMessage,
   type InstantAnalysisStructured,
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
@@ -80,6 +81,33 @@ function parseNextStepsFromSentinel(text: string): string[] {
   const m = text.match(/\nNEXT_STEPS_JSON:(\[.*?\])\s*$/s);
   if (!m) return [];
   try { return JSON.parse(m[1]) as string[]; } catch { return []; }
+}
+
+/* Maps server AIChatMessage[] → ChatMsg[], enriching the first AI message
+   with any instant-analysis structured card persisted in localStorage. */
+function mapServerMessages(messages: AIChatMessage[], sessionId: number): ChatMsg[] {
+  const mapped: ChatMsg[] = messages.map((m) => {
+    const role = m.role === "user" ? "user" as const : "ai" as const;
+    if (role === "ai") {
+      const nextSteps = parseNextStepsFromSentinel(m.content);
+      return { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
+    }
+    return { role, text: m.content };
+  });
+  const stored = localStorage.getItem(`catalyst-instant-analysis-${sessionId}`);
+  if (stored && mapped.length > 0 && mapped[0].role === "ai") {
+    try {
+      const parsed = JSON.parse(stored) as InstantAnalysisStructured;
+      if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
+        mapped[0] = { ...mapped[0], instantAnalysis: parsed };
+      } else {
+        localStorage.removeItem(`catalyst-instant-analysis-${sessionId}`);
+      }
+    } catch {
+      localStorage.removeItem(`catalyst-instant-analysis-${sessionId}`);
+    }
+  }
+  return mapped;
 }
 
 /* ── Narrative helpers ──────────────────────────────── */
@@ -658,13 +686,24 @@ export default function ActionCenterPage() {
   }
 
   /* ── Chat state ──────────────────────────────────────── */
-  const [sessions, setSessions]                     = useState<AIChatSession[]>([]);
   const [activeChatId, setActiveChatId]             = useState<number | null>(null);
   const [chatMsgs, setChatMsgs]                     = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput]                   = useState("");
   const [chatTyping, setChatTyping]                 = useState(false);
   const [streamingText, setStreamingText]           = useState("");
-  const [sessionsLoading, setSessionsLoading]       = useState(false);
+
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery<AIChatSession[]>({
+    queryKey: ["chatSessions"],
+    queryFn:  fetchChatSessions,
+    staleTime: 60_000,
+  });
+
+  const { data: rawServerMessages } = useQuery<AIChatMessage[]>({
+    queryKey: ["chatMessages", activeChatId],
+    queryFn:  () => fetchChatSessionMessages(activeChatId!),
+    enabled:  activeChatId !== null,
+    staleTime: 5 * 60_000,
+  });
   const [renamingId, setRenamingId]                 = useState<number | null>(null);
   const [renameValue, setRenameValue]               = useState("");
   const [deleteConfirmId, setDeleteConfirmId]       = useState<number | null>(null);
@@ -702,6 +741,15 @@ export default function ActionCenterPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs, chatTyping, streamingText]);
 
+  /* Sync server messages into chatMsgs whenever the React Query cache updates.
+     Skip the sync while a stream is active to avoid clobbering in-flight chunks. */
+  useEffect(() => {
+    if (!chatTyping && !streamingText && rawServerMessages && activeChatId !== null) {
+      setChatMsgs(mapServerMessages(rawServerMessages, activeChatId));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawServerMessages]);
+
   /* Reset textarea height when input is cleared (e.g. after send) */
   useEffect(() => {
     if (!chatInput && chatTextareaRef.current) {
@@ -709,68 +757,16 @@ export default function ActionCenterPage() {
     }
   }, [chatInput]);
 
-  async function selectSession(id: number) {
+  function selectSession(id: number) {
     setActiveChatId(id);
     activeChatIdRef.current = id;
     persistSelectedChat(id);
-    try {
-      const messages = await fetchChatSessionMessages(id);
-      const mapped: ChatMsg[] = messages.map((m) => {
-        const role = m.role === "user" ? "user" as const : "ai" as const;
-        if (role === "ai") {
-          const nextSteps = parseNextStepsFromSentinel(m.content);
-          return { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
-        }
-        return { role, text: m.content };
-      });
-      /* Restore the instant analysis card if one was saved for this session */
-      const stored = localStorage.getItem(`catalyst-instant-analysis-${id}`);
-      if (stored && mapped.length > 0 && mapped[0].role === "ai") {
-        try {
-          const parsed = JSON.parse(stored) as InstantAnalysisStructured;
-          /* Only restore if the analysis looks valid — a real result always has findings.
-             Discard stale entries that were generated when there was no data. */
-          if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
-            mapped[0] = { ...mapped[0], instantAnalysis: parsed };
-          } else {
-            localStorage.removeItem(`catalyst-instant-analysis-${id}`);
-          }
-        } catch {
-          localStorage.removeItem(`catalyst-instant-analysis-${id}`);
-        }
-      }
-      setChatMsgs(mapped);
-    } catch {
-      setChatMsgs([]);
-    }
+    /* Serve cached messages immediately — no spinner on repeat visits.
+       useQuery will background-refresh if stale; the sync useEffect above
+       will update chatMsgs when fresh data arrives. */
+    const cached = queryClient.getQueryData<AIChatMessage[]>(["chatMessages", id]);
+    setChatMsgs(cached ? mapServerMessages(cached, id) : []);
   }
-
-  async function loadSessions() {
-    setSessionsLoading(true);
-    try {
-      const list = await fetchChatSessions();
-      setSessions(list);
-      if (list.length === 0) {
-        setActiveChatId(null);
-        activeChatIdRef.current = null;
-        setChatMsgs([]);
-        return;
-      }
-      /* Always start with blank new-chat state — don't auto-select */
-      setActiveChatId(null);
-      activeChatIdRef.current = null;
-      setChatMsgs([]);
-    } catch {
-      /* silent */
-    } finally {
-      setSessionsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadSessions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function handleStopGeneration() {
     abortControllerRef.current?.abort();
@@ -817,7 +813,7 @@ export default function ActionCenterPage() {
         setActiveChatId(newSession.id);
         activeChatIdRef.current = newSession.id;
         persistSelectedChat(newSession.id);
-        setSessions((prev) => [newSession, ...prev]);
+        queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) => [newSession, ...prev]);
       }
 
       let accumulated = "";
@@ -844,10 +840,11 @@ export default function ActionCenterPage() {
       }
 
       const now = new Date().toISOString();
-      setSessions((prev) =>
+      queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) =>
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
+      queryClient.invalidateQueries({ queryKey: ["chatMessages", sessionId] });
     } catch (err) {
       if ((err as Error)?.name === "AbortError") return;
       setChatTyping(false);
@@ -879,7 +876,7 @@ export default function ActionCenterPage() {
       setActiveChatId(newSession.id);
       activeChatIdRef.current = newSession.id;
       persistSelectedChat(newSession.id);
-      setSessions((prev) => [newSession, ...prev]);
+      queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) => [newSession, ...prev]);
       setChatMsgs([]);
       setChatTyping(true);
       setStreamingText("");
@@ -899,10 +896,11 @@ export default function ActionCenterPage() {
       }
 
       const now = new Date().toISOString();
-      setSessions((prev) =>
+      queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) =>
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
+      queryClient.invalidateQueries({ queryKey: ["chatMessages", capturedSessionId!] });
     } catch (err) {
       setChatTyping(false);
       setStreamingText("");
@@ -921,7 +919,7 @@ export default function ActionCenterPage() {
     if (!renameValue.trim()) { setRenamingId(null); return; }
     try {
       const updated = await renameChatSession(id, renameValue.trim());
-      setSessions((prev) => prev.map((s) => s.id === id ? { ...s, title: updated.title } : s));
+      queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) => prev.map((s) => s.id === id ? { ...s, title: updated.title } : s));
     } catch { /* silent */ }
     setRenamingId(null);
   }
@@ -930,7 +928,7 @@ export default function ActionCenterPage() {
     try {
       await deleteChatSession(id);
       const remaining = sessions.filter((s) => s.id !== id);
-      setSessions(remaining);
+      queryClient.setQueryData<AIChatSession[]>(["chatSessions"], remaining);
       setDeleteConfirmId(null);
       if (activeChatIdRef.current === id) {
         if (remaining.length > 0) {
