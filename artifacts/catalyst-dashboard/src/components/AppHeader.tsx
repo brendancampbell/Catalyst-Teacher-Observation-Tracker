@@ -216,8 +216,8 @@ export default function AppHeader({
               <Tooltip label="Add Observation">
                 <button
                   onClick={onAddObservation}
-                  className="h-8 flex items-center gap-1.5 px-3 rounded-full transition-opacity hover:opacity-90 shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.04em" }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-opacity hover:opacity-90 shrink-0"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
                 >
                   <Plus size={14} strokeWidth={3} />
                   <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
@@ -225,39 +225,38 @@ export default function AppHeader({
               </Tooltip>
             )}
 
-            {/* Icon ghost pills — separate from CTA */}
-            {draftsHref && (
-              <Tooltip label="My Drafts">
-                <a
-                  href={draftsHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20 shrink-0"
-                  style={{
-                    color: YELLOW,
-                    textDecoration: "none",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <FileEdit size={15} />
-                </a>
-              </Tooltip>
-            )}
-
-            {actionCenterHref && (
-              <Tooltip label={actionCenterLabel}>
-                <a
-                  href={actionCenterHref}
-                  className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20 shrink-0"
-                  style={{
-                    color: YELLOW,
-                    textDecoration: "none",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    backgroundColor: "rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <Activity size={15} />
-                </a>
-              </Tooltip>
+            {/* Icon pair — shared pill */}
+            {(draftsHref || actionCenterHref) && (
+              <div
+                className="hidden sm:flex items-center gap-1 rounded-full px-2 py-1.5 shrink-0"
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              >
+                {draftsHref && (
+                  <Tooltip label="My Drafts">
+                    <a
+                      href={draftsHref}
+                      className="flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20"
+                      style={{ color: YELLOW, textDecoration: "none" }}
+                    >
+                      <FileEdit size={15} />
+                    </a>
+                  </Tooltip>
+                )}
+                {actionCenterHref && (
+                  <Tooltip label={actionCenterLabel}>
+                    <a
+                      href={actionCenterHref}
+                      className="flex w-8 h-8 items-center justify-center rounded-full transition-colors hover:bg-white/20"
+                      style={{ color: YELLOW, textDecoration: "none" }}
+                    >
+                      <Activity size={15} />
+                    </a>
+                  </Tooltip>
+                )}
+              </div>
             )}
 
             <UserMenuDropdown
