@@ -60,6 +60,9 @@ const XFER_SCHOOL_B_STEP        = "TST_XFER_TEACHER_SCHOOL_B_STEP";
 
 const XFER_SCHOOL_A_STRENGTH    = "TST_XFER_TEACHER_SCHOOL_A_STRENGTH";
 
+/* Legacy observation with NO schoolId — must never appear in any scoped context */
+const XFER_NULL_SCHOOL_STRENGTH = "TST_XFER_TEACHER_NULL_SCHOOL_STRENGTH";
+
 /* ── Employee IDs ────────────────────────────────────────────────────────── */
 const LEADER_A_EID   = "TST_XFER_LEADER_A";
 const NATIVE_A_EID   = "TST_XFER_NATIVE_A";
@@ -273,6 +276,27 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     assert.ok(obsA, "Failed to insert School A native observation");
     createdObsIds.push(obsA.id);
 
+    /* Legacy null-school observation for the transferred teacher (schoolId omitted/null).
+       This simulates an old row that pre-dates the school-tagging requirement.
+       It must NOT appear in any school-scoped AI context (fail-closed). */
+    const [obsNull] = await db
+      .insert(observations)
+      .values({
+        /* schoolId deliberately omitted — defaults to null */
+        observedEmployeeId: XFER_EID,
+        rubricSetId:        rs.id,
+        observerEmployeeId: null,
+        date:               "2025-09-01",
+        observer:           "XFer Test Observer",
+        status:             "published",
+        target:             "TEACHER",
+        strengths:          XFER_NULL_SCHOOL_STRENGTH,
+        growthAreas:        null,
+      })
+      .returning({ id: observations.id });
+    assert.ok(obsNull, "Failed to insert null-school legacy observation");
+    createdObsIds.push(obsNull.id);
+
     /* ── Action steps ─────────────────────────────────────────────────────── */
 
     /* School B action step linked to the School B observation */
@@ -440,6 +464,24 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     assert.ok(
       !contextStr.includes(XFER_SCHOOL_B_STEP),
       `School B action step sentinel must NOT appear in School A's context.\nExcerpt:\n${contextStr?.slice(0, 600)}`,
+    );
+  });
+
+  /* ── 4. Legacy null-school observations are excluded (fail-closed) ────────── */
+
+  test("8 — context does NOT contain legacy null-school observation sentinel for transferred teacher", async () => {
+    const res = await request(
+      "POST",
+      "/ai/chat/context",
+      { message: "Tell me about teacher feedback" },
+      leaderAJar,
+    );
+    assert.equal(res.status, 200);
+    const { contextStr } = res.body as { contextStr: string };
+    assert.ok(typeof contextStr === "string", "contextStr must be a string");
+    assert.ok(
+      !contextStr.includes(XFER_NULL_SCHOOL_STRENGTH),
+      `Null-school legacy observation sentinel must NOT appear in School A's context (fail-closed).\nExcerpt:\n${contextStr?.slice(0, 600)}`,
     );
   });
 });

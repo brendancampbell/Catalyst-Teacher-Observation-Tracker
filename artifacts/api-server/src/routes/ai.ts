@@ -562,14 +562,14 @@ async function buildGlowsGrowsData(
   if (!personIds.length) return new Map();
 
   /*
-   * School-scope guard: when scopedSchoolId is set we only include observations
-   * that were explicitly recorded at that school (observations.schoolId = scopedSchoolId)
-   * OR that carry no school tag at all (null — backward-compat for old rows).
-   * This prevents a teacher who transferred from School B to School A from
-   * leaking their School-B coaching notes into School A's AI context.
+   * School-scope guard: when scopedSchoolId is set, only include observations
+   * that were EXPLICITLY recorded at that school (observations.schoolId = scopedSchoolId).
+   * Rows with a null schoolId are excluded (fail-closed) — they cannot be attributed
+   * to any particular school and may contain coaching notes from a prior placement.
+   * Legacy rows should be backfilled by a separate migration task.
    */
   const schoolFilter = scopedSchoolId !== null
-    ? or(isNull(observations.schoolId), eq(observations.schoolId, scopedSchoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const rows = await db
@@ -611,16 +611,19 @@ async function buildActionStepsData(
 
   /*
    * School-scope guard: when scopedSchoolId is set we LEFT JOIN to the
-   * assignedDuringObservationId observation and only include rows where:
-   *   (a) the action step has no linked observation (assignedDuringObservationId IS NULL)
-   *   (b) the linked observation has no school tag (backward-compat for old rows)
-   *   (c) the linked observation was recorded at the current school
+   * assignedDuringObservationId observation and apply strict school filtering:
    *
-   * This prevents a teacher who transferred from School B to School A from
-   * leaking their School-B action steps into School A's AI context.
+   *   (a) Steps with NO linked observation (assignedDuringObservationId IS NULL) are
+   *       included — we have no school anchor to filter on without a schoolId column on
+   *       action_steps (see follow-up task). These steps are already filtered by
+   *       personIds (school-scoped) and are the lower-risk case.
    *
-   * personIds is always derived from getScopedPeople(), which already filters
-   * by people.schoolId — this adds a second layer of school isolation.
+   *   (b) Steps WITH a linked observation must have observations.schoolId = scopedSchoolId
+   *       exactly. Null-school and other-school observations are excluded (fail-closed).
+   *
+   * This prevents a teacher who transferred from School B to School A from leaking
+   * their School-B action steps (that were assigned during a School-B observation)
+   * into School A's AI context.
    */
   const query = db
     .select({
@@ -641,7 +644,6 @@ async function buildActionStepsData(
             inArray(actionSteps.teacherEmployeeId, personIds),
             or(
               isNull(actionSteps.assignedDuringObservationId),
-              isNull(observations.schoolId),
               eq(observations.schoolId, scopedSchoolId),
             ),
           )
