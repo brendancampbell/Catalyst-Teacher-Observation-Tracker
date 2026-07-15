@@ -27,6 +27,7 @@ import {
   type TeacherQualitativeData,
 } from "../services/ai-service";
 import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
+import { isProduction } from "../config/env";
 
 const router = Router();
 
@@ -1284,6 +1285,81 @@ router.post("/school-summary", async (req, res) => {
     }
     console.error("POST /ai/school-summary error:", err);
     res.status(500).json({ error: "Failed to generate summary. Please try again." });
+  }
+});
+
+/* ── POST /api/ai/chat/context  (DEV-ONLY) ────────────────────────────────
+   Returns the assembled AI context string without calling Claude.
+   Used by regression tests to verify qualitative data is correctly scoped
+   to the requesting user's school without incurring an LLM call.
+   Never available in production.                                           */
+router.post("/chat/context", async (req, res) => {
+  if (isProduction) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  try {
+    const user = req.user as Express.User;
+    if (!user) { res.status(401).json({ error: "Authentication required" }); return; }
+
+    const { message, schoolId: reqSchoolId, rubricSetSlug } = req.body as {
+      message?: string;
+      schoolId?: number | null;
+      rubricSetSlug?: string;
+    };
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" }); return;
+    }
+
+    if (reqSchoolId != null) {
+      const access = await assertNetworkSchoolAccess(user, reqSchoolId);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
+
+    const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
+
+    const [scopedPeople, allRubricSets] = await Promise.all([
+      getScopedPeople(scopedSchoolId),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+    ]);
+    const personIds = scopedPeople.map((p) => p.employeeId);
+
+    const [rescoreRows, obsCountResult] = await Promise.all([
+      personIds.length
+        ? db.select({ employeeId: people.employeeId }).from(people).where(
+            scopedSchoolId !== null
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+          )
+        : Promise.resolve([]),
+      personIds.length
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        : Promise.resolve([{ count: 0 }]),
+    ]);
+
+    const totalObservations = obsCountResult[0]?.count ?? 0;
+
+    const { contextStr, activeRubricSetSlug } = await buildCombinedContext(
+      personIds,
+      scopedPeople,
+      scope,
+      rescoreRows.length,
+      totalObservations,
+      allRubricSets,
+      rubricSetSlug ?? null,
+      message,
+    );
+
+    res.json({ contextStr, activeRubricSetSlug, scopedTeacherCount: personIds.length });
+  } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message }); return;
+    }
+    console.error("POST /ai/chat/context error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
