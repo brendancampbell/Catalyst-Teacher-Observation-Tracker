@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { FileEdit, Trash2, RotateCcw, FileX, Loader2 } from "lucide-react";
+import {
+  FileEdit, Trash2, RotateCcw, FileX, Loader2,
+  CheckSquare, Square, ChevronDown,
+} from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { useUser } from "@/context/UserContext";
 import {
@@ -31,8 +34,30 @@ function formatDate(iso: string): string {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
+
+function isDraftEmpty(draft: DraftObservation): boolean {
+  return (
+    Object.keys(draft.scores).length === 0 &&
+    stripHtml(draft.strengths  ?? "").length === 0 &&
+    stripHtml(draft.growthAreas ?? "").length === 0
+  );
+}
+
+function daysAgoFromDate(iso: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const obs = new Date(iso + "T00:00:00");
+  return Math.round((today.getTime() - obs.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+const STALE_OPTIONS = [
+  { label: "3+ days old",  days: 3  },
+  { label: "7+ days old",  days: 7  },
+  { label: "14+ days old", days: 14 },
+  { label: "30+ days old", days: 30 },
+];
 
 export default function DraftsPage() {
   const { currentUser } = useUser();
@@ -40,9 +65,12 @@ export default function DraftsPage() {
   const baseUrl         = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
   const [, navigate]    = useLocation();
   const search          = useSearch();
-  const [deleting, setDeleting] = useState<string | null>(null);
 
-  /* ── "Back to Dashboard" uses the returnUrl passed from the dashboard ── */
+  const [deleting,      setDeleting]      = useState<string | null>(null);
+  const [bulkDeleting,  setBulkDeleting]  = useState(false);
+  const [selected,      setSelected]      = useState<Set<string>>(new Set());
+  const [staleMenuOpen, setStaleMenuOpen] = useState(false);
+
   const rawReturnUrl = new URLSearchParams(search).get("returnUrl");
   const backHref = rawReturnUrl || `${baseUrl}/`;
 
@@ -64,17 +92,82 @@ export default function DraftsPage() {
     staleTime: 15_000,
   });
 
+  /* ── Selection helpers ──────────────────────────────────────────── */
+  const emptyDraftIds  = useMemo(() => drafts.filter(isDraftEmpty).map((d) => d.id), [drafts]);
+  const allSelected    = drafts.length > 0 && selected.size === drafts.length;
+  const someSelected   = selected.size > 0;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll()   { setSelected(new Set(drafts.map((d) => d.id))); }
+  function deselectAll() { setSelected(new Set()); }
+
+  function selectEmpty() {
+    setSelected(new Set(emptyDraftIds));
+    if (emptyDraftIds.length === 0) {
+      toast({ title: "No empty drafts to select" });
+    }
+  }
+
+  function selectOlderThan(days: number) {
+    const ids = drafts
+      .filter((d) => daysAgoFromDate(d.date) >= days)
+      .map((d) => d.id);
+    setSelected(new Set(ids));
+    setStaleMenuOpen(false);
+    if (ids.length === 0) {
+      toast({ title: `No drafts older than ${days} days` });
+    }
+  }
+
+  function selectEmptyAndOlderThan(days: number) {
+    const ids = drafts
+      .filter((d) => isDraftEmpty(d) && daysAgoFromDate(d.date) >= days)
+      .map((d) => d.id);
+    setSelected(new Set(ids));
+    setStaleMenuOpen(false);
+    if (ids.length === 0) {
+      toast({ title: `No empty drafts older than ${days} days` });
+    }
+  }
+
   /* ── Handlers ───────────────────────────────────────────────────── */
   async function handleDelete(draft: DraftObservation) {
     setDeleting(draft.id);
     try {
       await deleteObservation(draft.id);
+      setSelected((prev) => { const next = new Set(prev); next.delete(draft.id); return next; });
       await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
       toast({ title: "Draft deleted" });
     } catch {
       toast({ title: "Could not delete draft", variant: "destructive" });
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    const count = ids.length;
+    if (!confirm(`Delete ${count} draft${count !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(ids.map((id) => deleteObservation(id)));
+      setSelected(new Set());
+      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      toast({ title: `Deleted ${count} draft${count !== 1 ? "s" : ""}` });
+    } catch {
+      toast({ title: "Some drafts could not be deleted", variant: "destructive" });
+      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -86,12 +179,7 @@ export default function DraftsPage() {
         currentUser?.schoolId ?? null,
       );
       const allDomains = data.categories.flatMap((c) => c.domains);
-      setResumeData({
-        draft,
-        teachers:   data.teachers,
-        categories: data.categories,
-        allDomains,
-      });
+      setResumeData({ draft, teachers: data.teachers, categories: data.categories, allDomains });
       setResumeOpen(true);
     } catch {
       toast({ title: "Could not load draft data", variant: "destructive" });
@@ -152,6 +240,8 @@ export default function DraftsPage() {
 
   if (!currentUser) return null;
 
+  const emptyCount = emptyDraftIds.length;
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
 
@@ -172,26 +262,140 @@ export default function DraftsPage() {
 
       <main className="flex-1 px-4 sm:px-8 py-8 max-w-5xl mx-auto w-full">
 
-        {/* ── Page title ── */}
-        <div className="flex items-center gap-3 mb-6">
-          <div
-            className="w-9 h-9 flex items-center justify-center rounded"
-            style={{ backgroundColor: NAVY }}
-          >
-            <FileEdit size={18} color={YELLOW} />
-          </div>
-          <div>
-            <h1
-              className="text-2xl uppercase leading-none"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+        {/* ── Page title + quick-select toolbar ── */}
+        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 flex items-center justify-center rounded shrink-0"
+              style={{ backgroundColor: NAVY }}
             >
-              My Drafts
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Observations in progress — auto-saved. Submit when you're ready to publish.
-            </p>
+              <FileEdit size={18} color={YELLOW} />
+            </div>
+            <div>
+              <h1
+                className="text-2xl uppercase leading-none"
+                style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+              >
+                My Drafts
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Observations in progress — auto-saved. Submit when you're ready to publish.
+              </p>
+            </div>
           </div>
+
+          {/* Quick-select controls (only shown when there are drafts) */}
+          {!isLoading && !isError && drafts.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Select All / Deselect All toggle */}
+              <button
+                type="button"
+                onClick={allSelected ? deselectAll : selectAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold border transition-colors"
+                style={{
+                  borderColor: NAVY,
+                  color:       allSelected ? "white" : NAVY,
+                  backgroundColor: allSelected ? NAVY : "transparent",
+                }}
+              >
+                {allSelected
+                  ? <CheckSquare size={13} />
+                  : <Square size={13} />}
+                {allSelected ? "Deselect All" : "Select All"}
+              </button>
+
+              {/* Select empty button */}
+              <button
+                type="button"
+                onClick={selectEmpty}
+                disabled={emptyCount === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Select empty{emptyCount > 0 ? ` (${emptyCount})` : ""}
+              </button>
+
+              {/* Select stale dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setStaleMenuOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Select older than…
+                  <ChevronDown size={12} />
+                </button>
+                {staleMenuOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setStaleMenuOpen(false)}
+                    />
+                    <div
+                      className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg border border-slate-200 shadow-lg overflow-hidden min-w-[180px]"
+                    >
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">By observation date</p>
+                      {STALE_OPTIONS.map(({ label, days }) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => selectOlderThan(days)}
+                          className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-100 mt-1" />
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-3 pt-2 pb-1">Empty &amp; old</p>
+                      {STALE_OPTIONS.map(({ label, days }) => (
+                        <button
+                          key={`empty-${days}`}
+                          type="button"
+                          onClick={() => selectEmptyAndOlderThan(days)}
+                          className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          Empty, {label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* ── Bulk-action bar (shown when items are selected) ── */}
+        {someSelected && (
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4 border"
+            style={{ backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold" style={{ color: NAVY }}>
+                {selected.size} draft{selected.size !== 1 ? "s" : ""} selected
+              </span>
+              <button
+                type="button"
+                onClick={deselectAll}
+                className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
+              >
+                Deselect all
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "#DC2626" }}
+            >
+              {bulkDeleting
+                ? <><Loader2 size={13} className="animate-spin" />Deleting…</>
+                : <><Trash2 size={13} />Delete {selected.size}</>}
+            </button>
+          </div>
+        )}
 
         {/* ── Loading ── */}
         {isLoading && (
@@ -235,15 +439,35 @@ export default function DraftsPage() {
               const scoreCount     = Object.keys(draft.scores).length;
               const glows          = draft.strengths  ? stripHtml(draft.strengths)  : null;
               const grows          = draft.growthAreas ? stripHtml(draft.growthAreas) : null;
-              const isBeingDeleted = deleting    === draft.id;
+              const isEmpty        = isDraftEmpty(draft);
+              const isBeingDeleted = deleting      === draft.id;
               const isBeingLoaded  = resumeLoading === draft.id;
+              const isSelected     = selected.has(draft.id);
 
               return (
                 <div
                   key={draft.id}
-                  className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4"
-                  style={{ opacity: isBeingDeleted ? 0.5 : 1, transition: "opacity 0.2s" }}
+                  className="bg-white rounded-xl border shadow-sm px-4 py-4 flex items-start sm:items-center gap-3"
+                  style={{
+                    borderColor:  isSelected ? "#818CF8" : "#E2E8F0",
+                    backgroundColor: isSelected ? "#F5F3FF" : "white",
+                    opacity: isBeingDeleted ? 0.5 : 1,
+                    transition: "opacity 0.2s, background-color 0.15s, border-color 0.15s",
+                  }}
                 >
+                  {/* ── Checkbox ── */}
+                  <button
+                    type="button"
+                    onClick={() => toggleOne(draft.id)}
+                    disabled={isBeingDeleted || isBeingLoaded}
+                    className="shrink-0 mt-0.5 sm:mt-0 text-slate-400 hover:text-indigo-600 transition-colors disabled:opacity-30"
+                    aria-label={isSelected ? "Deselect draft" : "Select draft"}
+                  >
+                    {isSelected
+                      ? <CheckSquare size={18} style={{ color: "#6366F1" }} />
+                      : <Square size={18} />}
+                  </button>
+
                   {/* ── Left: info ── */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -266,13 +490,18 @@ export default function DraftsPage() {
                           Walkthrough
                         </span>
                       )}
+                      {isEmpty && (
+                        <span className="shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                          Empty
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
                       <span>{formatDate(draft.date)}</span>
                       {draft.course && <span>· {draft.course}</span>}
                       <span>
-                        · {scoreCount > 0 ? `${scoreCount} domain${scoreCount !== 1 ? "s" : ""} scored` : "No domains scored yet"}
+                        · {scoreCount > 0 ? `${scoreCount} domain${scoreCount !== 1 ? "s" : ""} scored` : "No domains scored"}
                       </span>
                     </div>
 
@@ -305,14 +534,13 @@ export default function DraftsPage() {
                     >
                       {isBeingLoaded
                         ? <Loader2 size={13} className="animate-spin" />
-                        : <RotateCcw size={13} />
-                      }
+                        : <RotateCcw size={13} />}
                       {isBeingLoaded ? "Loading…" : "Resume"}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(draft)}
-                      disabled={isBeingDeleted || isBeingLoaded}
+                      disabled={isBeingDeleted || isBeingLoaded || bulkDeleting}
                       className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
                     >
                       <Trash2 size={13} />

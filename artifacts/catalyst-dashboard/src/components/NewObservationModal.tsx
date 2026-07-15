@@ -249,10 +249,17 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   /* Auto-save: debounced upsert 2 s after any form change ─────────── */
   useEffect(() => {
     if (!open || !teacherId || !rubricSetId || isSubmittingRef.current) return;
+
+    /* Strip HTML tags before length-checking text fields.
+       Tiptap emits "<p></p>" for an empty editor, which has .trim().length > 0
+       and would erroneously trigger a draft creation on every modal open. */
+    const textContent = (html: string) =>
+      html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+
     const hasContent =
       Object.keys(scores).length > 0 ||
-      strengths.trim().length > 0 ||
-      growthAreas.trim().length > 0 ||
+      textContent(strengths).length > 0 ||
+      textContent(growthAreas).length > 0 ||
       (newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0) ||
       markMastered;
     if (!hasContent) return;
