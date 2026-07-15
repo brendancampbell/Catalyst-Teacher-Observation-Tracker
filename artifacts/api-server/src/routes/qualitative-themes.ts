@@ -18,11 +18,20 @@ import { generateQualitativeThemesSummary } from "../services/ai-service";
 
 const router = Router();
 
+/* ── Shared helper: get teacher employee IDs for a school ─────── */
+async function getTeacherIdsForSchool(schoolId: number): Promise<string[]> {
+  const rows = await db
+    .select({ employeeId: people.employeeId })
+    .from(people)
+    .where(and(eq(people.schoolId, schoolId), eq(people.isActive, true)));
+  return rows.map((r) => r.employeeId).filter((id): id is string => id !== null);
+}
+
 /* ── GET /api/qualitative-themes
    Returns cached result + current obs count for staleness badge. ── */
 router.get("/", async (req, res) => {
   try {
-    const user = req.user as Express.User;
+    const user        = req.user as Express.User;
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : null;
     const rubricSlug  = typeof req.query.rubricSlug === "string" ? req.query.rubricSlug : undefined;
 
@@ -32,7 +41,7 @@ router.get("/", async (req, res) => {
     try {
       resolvedId = await resolveSchoolId(user, rawSchoolId);
     } catch (e) {
-      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: e.message });
+      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: (e as Error).message });
       throw e;
     }
     if (resolvedId == null) return res.status(400).json({ error: "No school resolved for this user." });
@@ -46,15 +55,22 @@ router.get("/", async (req, res) => {
     const [rubricSet] = await db.select().from(rubricSets).where(eq(rubricSets.slug, rubricSlug)).limit(1);
     if (!rubricSet) return res.status(404).json({ error: "Rubric not found" });
 
-    const [countRow] = await db
-      .select({ obsCount: count() })
-      .from(observations)
-      .where(and(
-        eq(observations.schoolId, scopedSchoolId),
-        eq(observations.rubricSetId, rubricSet.id),
-        eq(observations.status, "published"),
-        eq(observations.target, "TEACHER"),
-      ));
+    /* ── Count via teacher IDs so null school_id on obs is not a blocker ── */
+    const teacherIds = await getTeacherIdsForSchool(scopedSchoolId);
+
+    let obsCount = 0;
+    if (teacherIds.length > 0) {
+      const [row] = await db
+        .select({ obsCount: count() })
+        .from(observations)
+        .where(and(
+          inArray(observations.observedEmployeeId, teacherIds),
+          eq(observations.rubricSetId, rubricSet.id),
+          eq(observations.status, "published"),
+          eq(observations.target, "TEACHER"),
+        ));
+      obsCount = row?.obsCount ?? 0;
+    }
 
     const [cached] = await db
       .select()
@@ -73,7 +89,7 @@ router.get("/", async (req, res) => {
             obsCountAtGeneration: cached.obsCountAtGeneration,
           }
         : null,
-      currentObsCount: countRow?.obsCount ?? 0,
+      currentObsCount: obsCount,
     });
   } catch (err) {
     console.error("GET /qualitative-themes error:", err);
@@ -81,8 +97,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ── POST /api/qualitative-themes/generate
-   Generates and caches a qualitative themes summary for the school. ── */
+/* ── POST /api/qualitative-themes/generate ─────────────────────────────────
+   Generates and caches a qualitative themes summary for the school.
+   Observations are found via the teacher roster (people.schoolId) rather than
+   the nullable school_id column on the observation row itself. ── */
 router.post("/generate", async (req, res) => {
   try {
     const user        = req.user as Express.User;
@@ -95,7 +113,7 @@ router.post("/generate", async (req, res) => {
     try {
       resolvedId2 = await resolveSchoolId(user, rawSchoolId);
     } catch (e) {
-      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: e.message });
+      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: (e as Error).message });
       throw e;
     }
     if (resolvedId2 == null) return res.status(400).json({ error: "No school resolved for this user." });
@@ -112,20 +130,26 @@ router.post("/generate", async (req, res) => {
     const [school] = await db.select().from(schools).where(eq(schools.id, scopedSchoolId)).limit(1);
     if (!school) return res.status(404).json({ error: "School not found" });
 
-    /* ── Fetch published teacher observations for this school + rubric ── */
+    /* ── Get teacher roster for this school ─────────────────────── */
+    const teacherIds = await getTeacherIdsForSchool(scopedSchoolId);
+    if (teacherIds.length === 0) {
+      return res.status(400).json({ error: "No active teachers found for this school." });
+    }
+
+    /* ── Fetch published teacher observations via teacher roster ── */
     const obsRows = await db
       .select({
-        id:                  observations.id,
-        observedEmployeeId:  observations.observedEmployeeId,
-        date:                observations.date,
-        strengths:           observations.strengths,
-        growthAreas:         observations.growthAreas,
-        teacherName:         sql<string>`${people.firstName} || ' ' || ${people.lastName}`,
+        id:                 observations.id,
+        observedEmployeeId: observations.observedEmployeeId,
+        date:               observations.date,
+        strengths:          observations.strengths,
+        growthAreas:        observations.growthAreas,
+        teacherName:        sql<string>`${people.firstName} || ' ' || ${people.lastName}`,
       })
       .from(observations)
       .leftJoin(people, eq(people.employeeId, observations.observedEmployeeId))
       .where(and(
-        eq(observations.schoolId, scopedSchoolId),
+        inArray(observations.observedEmployeeId, teacherIds),
         eq(observations.rubricSetId, rubricSet.id),
         eq(observations.status, "published"),
         eq(observations.target, "TEACHER"),
@@ -137,12 +161,12 @@ router.post("/generate", async (req, res) => {
     }
 
     /* ── Fetch action steps for the observed teachers ── */
-    const teacherIds = [...new Set(
+    const observedIds = [...new Set(
       obsRows.map((o) => o.observedEmployeeId).filter((id): id is string => id !== null),
     )];
 
-    const today       = new Date().toISOString().split("T")[0]!;
-    const allSteps    = teacherIds.length > 0
+    const today    = new Date().toISOString().split("T")[0]!;
+    const allSteps = observedIds.length > 0
       ? await db.select({
           teacherEmployeeId: actionSteps.teacherEmployeeId,
           text:              actionSteps.text,
@@ -150,7 +174,7 @@ router.post("/generate", async (req, res) => {
           dueDate:           actionSteps.dueDate,
         })
         .from(actionSteps)
-        .where(inArray(actionSteps.teacherEmployeeId, teacherIds))
+        .where(inArray(actionSteps.teacherEmployeeId, observedIds))
       : [];
 
     /* ── Server-side action step counts ── */
@@ -165,7 +189,7 @@ router.post("/generate", async (req, res) => {
       }
     }
 
-    /* ── Build context block for AI ── */
+    /* ── Build AI context block ── */
     const obsBlock = obsRows.map((obs) => [
       `[Obs #${obs.id} | Teacher: ${obs.teacherName ?? "Unknown"} (${obs.observedEmployeeId ?? "??"}) | Date: ${obs.date}]`,
       `STRENGTHS: ${obs.strengths?.trim() || "(none recorded)"}`,
@@ -227,10 +251,10 @@ Rules:
     /* ── Call AI ── */
     const rawResponse = await generateQualitativeThemesSummary(prompt);
 
-    /* ── Parse JSON — strip markdown fences if model adds them ── */
+    /* ── Parse JSON (strip markdown fences if model adds them) ── */
     let parsed: {
-      recurringGlows:       { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
-      recurringGrows:       { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
+      recurringGlows:        { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
+      recurringGrows:        { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
       growsWithNoActionStep: string[];
     };
 

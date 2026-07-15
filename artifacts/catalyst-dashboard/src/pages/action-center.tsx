@@ -1391,13 +1391,16 @@ export default function ActionCenterPage() {
             </div>
 
             {/* ── Qualitative Themes ────────────────────────────── */}
-            {schoolId != null && rubricFromUrl && (
-              <QualitativeThemesCard
-                schoolId={schoolId}
-                rubricSlug={rubricFromUrl}
-                basePath={baseUrl}
-              />
-            )}
+            {(() => {
+              const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
+              return effectiveSchoolId != null && rubricFromUrl ? (
+                <QualitativeThemesCard
+                  schoolId={effectiveSchoolId}
+                  rubricSlug={rubricFromUrl}
+                  basePath={baseUrl}
+                />
+              ) : null;
+            })()}
 
           </TabsContent>
 
