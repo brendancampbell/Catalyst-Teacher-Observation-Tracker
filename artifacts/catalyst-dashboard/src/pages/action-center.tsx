@@ -962,9 +962,11 @@ export default function ActionCenterPage() {
               {[
                 { value: "summary",      label: "Summary",       icon: <BarChart2   size={15} /> },
                 { value: "intervention", label: "Intervention",  icon: <Activity    size={15} /> },
-                { value: "analysis",     label: "Data Assistant", icon: <Sparkles size={15} /> },
-                ...(currentUser?.role === "NETWORK_LEADER" || currentUser?.role === "NETWORK_ADMIN"
-                  ? [{ value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> }]
+                ...(currentUser?.role === "NETWORK_ADMIN"
+                  ? [
+                      { value: "analysis",        label: "Data Assistant",              icon: <Sparkles  size={15} /> },
+                      { value: "report-generator", label: "Walkthrough Report Generator", icon: <FileText size={15} /> },
+                    ]
                   : []),
               ].map(({ value, label, icon }) => (
                 <TabsTrigger
