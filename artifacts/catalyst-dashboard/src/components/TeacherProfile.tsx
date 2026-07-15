@@ -741,7 +741,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     <Star size={16} className="text-green-600" />
                     <h2
                       className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#16a34a", fontSize: 18, letterSpacing: "0.02em" }}
                     >
                       ✦ Teacher Strengths (Glows)
                     </h2>
@@ -767,7 +767,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
                     <CalendarDays size={16} className="text-orange-600" />
                     <h2
                       className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#ea580c", fontSize: 18, letterSpacing: "0.02em" }}
                     >
                       ↑ Growth Areas (Grows)
                     </h2>
