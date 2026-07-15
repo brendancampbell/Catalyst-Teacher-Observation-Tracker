@@ -627,14 +627,16 @@ export default function ObservationPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                   Observation Date
                 </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                  style={{ boxSizing: "border-box", maxWidth: "100%" }}
-                />
+                <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
+                    style={{ boxSizing: "border-box", border: "none", display: "block" }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -923,14 +925,19 @@ export default function ObservationPage() {
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">
                     Due Date <span className="font-normal">(required if action step is entered)</span>
                   </label>
-                  <input
-                    type="date"
-                    value={actionStepDueDate}
-                    min={todayIso}
-                    onChange={(e) => handleActionStepDueDateChange(e.target.value)}
-                    className="w-full min-w-0 px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 bg-white text-slate-800"
-                    style={{ boxSizing: "border-box", maxWidth: "100%", borderColor: (actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0" }}
-                  />
+                  <div
+                    className="w-full overflow-hidden rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500"
+                    style={{ border: `1px solid ${(actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0"}` }}
+                  >
+                    <input
+                      type="date"
+                      value={actionStepDueDate}
+                      min={todayIso}
+                      onChange={(e) => handleActionStepDueDateChange(e.target.value)}
+                      className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
+                      style={{ boxSizing: "border-box", border: "none", display: "block" }}
+                    />
+                  </div>
                   {actionStepPartiallyFilled && !hasActionStepDate && (
                     <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
                       <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
