@@ -1090,6 +1090,18 @@ export default function ActionCenterPage() {
               </Card>
             </div>
 
+            {/* ── Qualitative Trends ────────────────────────────── */}
+            {(() => {
+              const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
+              return effectiveSchoolId != null && rubricFromUrl ? (
+                <QualitativeThemesCard
+                  schoolId={effectiveSchoolId}
+                  rubricSlug={rubricFromUrl}
+                  basePath={baseUrl}
+                />
+              ) : null;
+            })()}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
               {/* ── Domain Comparison — left two thirds ───────────── */}
@@ -1305,17 +1317,6 @@ export default function ActionCenterPage() {
 
             </div>
 
-            {/* ── Qualitative Themes ────────────────────────────── */}
-            {(() => {
-              const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
-              return effectiveSchoolId != null && rubricFromUrl ? (
-                <QualitativeThemesCard
-                  schoolId={effectiveSchoolId}
-                  rubricSlug={rubricFromUrl}
-                  basePath={baseUrl}
-                />
-              ) : null;
-            })()}
 
           </TabsContent>
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, RefreshCw, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Users } from "lucide-react";
+import { Sparkles, RefreshCw, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Users, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,7 @@ function ThemeRow({
 
 export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
   const queryClient = useQueryClient();
+  const [collapsed, setCollapsed] = useState(false);
 
   const { data: cacheData, isLoading: cacheLoading } = useQuery({
     queryKey: ["qualitative-themes", schoolId, rubricSlug],
@@ -124,7 +125,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {hasNewObs && (
+            {hasNewObs && !collapsed && (
               <Badge
                 className="text-xs font-bold px-2 py-0.5"
                 style={{ backgroundColor: "#FEF9C3", color: "#92400E", border: "1px solid #FDE68A" }}
@@ -133,30 +134,42 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
               </Badge>
             )}
 
-            <Button
-              size="sm"
-              onClick={() => generate()}
-              disabled={generating || cacheLoading || schoolId == null}
-              className="flex items-center gap-1.5 font-bold text-xs px-3 h-8"
-              style={{
-                backgroundColor: YELLOW,
-                color:           NAVY,
-                fontFamily:      "'Bebas Neue', sans-serif",
-                fontSize:        14,
-                letterSpacing:   "0.04em",
-              }}
+            {!collapsed && (
+              <Button
+                size="sm"
+                onClick={() => generate()}
+                disabled={generating || cacheLoading || schoolId == null}
+                className="flex items-center gap-1.5 font-bold text-xs px-3 h-8"
+                style={{
+                  backgroundColor: YELLOW,
+                  color:           NAVY,
+                  fontFamily:      "'Bebas Neue', sans-serif",
+                  fontSize:        14,
+                  letterSpacing:   "0.04em",
+                }}
+              >
+                {generating ? (
+                  <RefreshCw size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                {result ? "Regenerate" : "Generate Summary"}
+              </Button>
+            )}
+
+            <button
+              onClick={() => setCollapsed((v) => !v)}
+              className="flex items-center gap-1 text-xs font-semibold rounded-md px-2 h-8 transition-colors hover:bg-slate-100"
+              style={{ color: "#64748b" }}
+              title={collapsed ? "Expand" : "Collapse"}
             >
-              {generating ? (
-                <RefreshCw size={13} className="animate-spin" />
-              ) : (
-                <Sparkles size={13} />
-              )}
-              {result ? "Regenerate" : "Generate Summary"}
-            </Button>
+              <ChevronsUpDown size={14} />
+              {collapsed ? "Expand" : "Collapse"}
+            </button>
           </div>
         </div>
 
-        {cached && (
+        {cached && !collapsed && (
           <p className="text-xs text-slate-400 mt-1">
             Last updated {formatDateTime(cached.generatedAt)}
             {" · "}based on {cached.obsCountAtGeneration} observation{cached.obsCountAtGeneration !== 1 ? "s" : ""}
@@ -164,6 +177,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
         )}
       </CardHeader>
 
+      {!collapsed && (
       <CardContent className="px-5 pb-5">
         {/* Loading / error / empty states */}
         {cacheLoading && (
@@ -290,6 +304,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
