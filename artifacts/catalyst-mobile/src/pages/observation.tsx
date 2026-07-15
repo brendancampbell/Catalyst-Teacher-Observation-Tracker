@@ -783,13 +783,6 @@ export default function ObservationPage() {
               className="rounded-xl p-4 shadow-sm flex flex-col gap-3"
               style={{ backgroundColor: "#EFF6FF", border: "1px solid #93C5FD", borderLeft: "4px solid #1034B4" }}
             >
-              <p
-                className="text-xs font-bold uppercase tracking-wider"
-                style={{ color: NAVY }}
-              >
-                → Action Step
-              </p>
-
               {/* Loading spinner */}
               {loadingLastActionStep && (
                 <div className="flex items-center gap-2 text-xs text-slate-400">
