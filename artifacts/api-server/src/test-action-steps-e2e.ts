@@ -18,6 +18,9 @@
  *   7.  GET /api/action-steps/overdue → mastered step no longer appears
  *   8.  POST /api/observations with masterActionStepId → step transitions to "mastered"
  *   9.  POST /api/observations without masterActionStepId → step status unchanged ("open")
+ *  10.  PUT /api/observations/:id (draft→published) with masterActionStepId → step mastered in DB
+ *         Covers the mobile form's draft-save-then-submit path where the observer
+ *         checks "Mark as Mastered" while editing a previously saved draft.
  */
 
 import { test, describe, before, after } from "node:test";
@@ -90,6 +93,10 @@ let masterTestObsId: number;           /* observation that carries masterActionS
 let noMasterTestStepId: number;        /* step submitted WITHOUT markMastered     */
 let noMasterTestObsId: number;         /* observation with no masterActionStepId  */
 
+/* State for checkpoint 10 — draft→published PUT path */
+let draftPutStepId: number;            /* open step to be mastered via PUT        */
+let draftPutObsId: number;             /* draft observation ID                    */
+
 describe("Action Steps — end-to-end flow", () => {
   before(async () => {
     /* Resolve an existing school and rubric set to attach test data to */
@@ -148,6 +155,9 @@ describe("Action Steps — end-to-end flow", () => {
     if (noMasterTestStepId) {
       await db.delete(actionSteps).where(eq(actionSteps.id, noMasterTestStepId)).catch(() => {});
     }
+    if (draftPutStepId) {
+      await db.delete(actionSteps).where(eq(actionSteps.id, draftPutStepId)).catch(() => {});
+    }
     if (createdObsId) {
       await db.delete(observations).where(eq(observations.id, createdObsId)).catch(() => {});
     }
@@ -156,6 +166,9 @@ describe("Action Steps — end-to-end flow", () => {
     }
     if (noMasterTestObsId) {
       await db.delete(observations).where(eq(observations.id, noMasterTestObsId)).catch(() => {});
+    }
+    if (draftPutObsId) {
+      await db.delete(observations).where(eq(observations.id, draftPutObsId)).catch(() => {});
     }
     await db
       .delete(people)
@@ -388,6 +401,85 @@ describe("Action Steps — end-to-end flow", () => {
       step.masteredDuringObservationId,
       masterTestObsId,
       "masteredDuringObservationId should reference the new observation",
+    );
+  });
+
+  /* ── Checkpoint 10 ───────────────────────────────────────────────
+     PUT /observations/:id (draft → published) with masterActionStepId
+     persists mastery in the DB.  This is the mobile form's primary
+     submit path: the observer saves a draft during the visit, then
+     taps "Mark as Mastered" and hits Submit — the frontend calls
+     PUT with status="published" and masterActionStepId set.           */
+  test("10 — PUT /observations/:id draft→published with masterActionStepId marks step mastered in DB", async () => {
+    /* Create a draft observation first */
+    const draftRes = await request("POST", "/observations", {
+      teacherId:     TEACHER_EID,
+      rubricSetId:   rubricSetId,
+      date:          "2026-07-15",
+      time:          "08:00",
+      course:        "E2E CP10: Draft-then-publish mark mastered",
+      scores:        {},
+      strengths:     "Wait time improving",
+      growthAreas:   "Cold-call equity",
+      observer:      "E2E Test Suite",
+      isWalkthrough: false,
+      status:        "draft",
+    }, adminJar);
+
+    assert.ok(
+      draftRes.status === 200 || draftRes.status === 201,
+      `Draft POST expected 200/201, got ${draftRes.status}: ${JSON.stringify(draftRes.body)}`,
+    );
+    const draftBody = draftRes.body as { id?: string | number };
+    assert.ok(draftBody.id, "Draft response should include id");
+    draftPutObsId = Number(draftBody.id);
+
+    /* Seed an open action step for the same teacher */
+    const [seededStep] = await db.insert(actionSteps).values({
+      teacherEmployeeId:    TEACHER_EID,
+      assignedByEmployeeId: ADMIN_EID,
+      text:                 "E2E CP10: Step to be mastered when draft is published",
+      dueDate:              "2027-12-31",
+      status:               "open",
+    }).returning();
+    assert.ok(seededStep, "Should have inserted a test action step");
+    draftPutStepId = seededStep.id;
+
+    /* PUT to publish the draft, carrying masterActionStepId */
+    const putRes = await request(
+      "PUT",
+      `/observations/${draftPutObsId}`,
+      {
+        status:             "published",
+        masterActionStepId: draftPutStepId,
+      },
+      adminJar,
+    );
+    assert.ok(
+      putRes.status === 200 || putRes.status === 201,
+      `PUT expected 200/201, got ${putRes.status}: ${JSON.stringify(putRes.body)}`,
+    );
+
+    /* Confirm the action step row is mastered in the DB */
+    const step = await db.query.actionSteps.findFirst({
+      where: eq(actionSteps.id, draftPutStepId),
+    });
+    assert.ok(step, "Action step should still exist after PUT");
+    assert.equal(
+      step.status,
+      "mastered",
+      `Expected status 'mastered' after draft publish, got '${step.status}'`,
+    );
+    assert.ok(step.masteredAt, "masteredAt should be set");
+    assert.equal(
+      step.masteredByEmployeeId,
+      ADMIN_EID,
+      "masteredByEmployeeId should be the submitting user",
+    );
+    assert.equal(
+      step.masteredDuringObservationId,
+      draftPutObsId,
+      "masteredDuringObservationId should reference the published observation",
     );
   });
 
