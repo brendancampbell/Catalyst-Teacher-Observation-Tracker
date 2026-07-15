@@ -53,6 +53,7 @@ import { Button } from "@/components/ui/button";
 const NAVY                  = "#1034B4";
 const YELLOW                = "#FFB500";
 const PROFICIENCY_THRESHOLD = 0.7;
+const WARNING_THRESHOLD     = 0.5;
 
 function getDueStatus(dueDateStr: string | null): { label: string; color: string; urgent: boolean } {
   if (!dueDateStr) return { label: "No due date", color: "#94a3b8", urgent: false };
@@ -1172,8 +1173,8 @@ export default function ActionCenterPage() {
                         <tbody className="divide-y divide-slate-100">
                           {domainCompData.sortedDomains.map((d) => {
                             const avg    = domainCompData.schoolAvgs[d.id];
-                            const color  = avg === null ? "#94a3b8" : avg >= PROFICIENCY_THRESHOLD ? "#15803d" : avg >= 0.5 ? "#b45309" : "#b91c1c";
-                            const fillBg = avg === null ? "#cbd5e1" : avg >= PROFICIENCY_THRESHOLD ? "#16a34a" : avg >= 0.5 ? "#d97706" : "#dc2626";
+                            const color  = avg === null ? "#94a3b8" : avg >= PROFICIENCY_THRESHOLD ? "#15803d" : avg >= WARNING_THRESHOLD ? "#b45309" : "#b91c1c";
+                            const fillBg = avg === null ? "#cbd5e1" : avg >= PROFICIENCY_THRESHOLD ? "#16a34a" : avg >= WARNING_THRESHOLD ? "#d97706" : "#dc2626";
                             return (
                               <tr key={d.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-4 py-2.5 text-slate-700 text-sm font-medium">{d.label}</td>
@@ -1203,7 +1204,7 @@ export default function ActionCenterPage() {
                       function scoreCell(val: number | null | undefined, schoolAvg: number | null | undefined) {
                         if (val === null || val === undefined) return <span className="text-slate-300">—</span>;
                         const isGap = schoolAvg !== null && schoolAvg !== undefined && (schoolAvg - val) >= 0.3;
-                        const clr   = val >= PROFICIENCY_THRESHOLD ? "#15803d" : val >= 0.5 ? "#92400e" : "#b91c1c";
+                        const clr   = val >= PROFICIENCY_THRESHOLD ? "#15803d" : val >= WARNING_THRESHOLD ? "#92400e" : "#b91c1c";
                         return (
                           <span className="font-bold tabular-nums text-xs" style={{ color: isGap ? "#dc2626" : clr }}>
                             {isGap && <span className="mr-0.5 text-red-500">▼</span>}
@@ -1303,8 +1304,8 @@ export default function ActionCenterPage() {
                               const schoolVal  = domainCompData.schoolAvgs[d.id];
                               const networkVal = networkCompData.networkAvgs[d.id];
                               const delta      = schoolVal !== null && networkVal !== null ? schoolVal - networkVal : null;
-                              const schoolClr  = schoolVal  === null ? "#94a3b8" : schoolVal  >= PROFICIENCY_THRESHOLD ? "#15803d" : schoolVal  >= 0.5 ? "#92400e" : "#b91c1c";
-                              const networkClr = networkVal === null ? "#94a3b8" : networkVal >= PROFICIENCY_THRESHOLD ? "#15803d" : networkVal >= 0.5 ? "#92400e" : "#b91c1c";
+                              const schoolClr  = schoolVal  === null ? "#94a3b8" : schoolVal  >= PROFICIENCY_THRESHOLD ? "#15803d" : schoolVal  >= WARNING_THRESHOLD ? "#92400e" : "#b91c1c";
+                              const networkClr = networkVal === null ? "#94a3b8" : networkVal >= PROFICIENCY_THRESHOLD ? "#15803d" : networkVal >= WARNING_THRESHOLD ? "#92400e" : "#b91c1c";
                               const deltaClr   = delta === null ? "#94a3b8" : delta > 0.02 ? "#15803d" : delta < -0.02 ? "#b91c1c" : "#64748b";
                               const deltaLabel = delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}`;
                               return (
