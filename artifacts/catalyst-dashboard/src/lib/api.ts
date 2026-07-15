@@ -549,6 +549,38 @@ export async function fetchOverdueActionSteps(schoolId?: number | null): Promise
   return apiFetch<OverdueActionStep[]>(`/action-steps/overdue${qs}`);
 }
 
+/* ── Qualitative Themes ─────────────────────────────────────────── */
+
+export type {
+  QualitativeTheme,
+  QualitativeThemesResult,
+  QualitativeThemesCacheResponse,
+} from "@workspace/api-types";
+
+import type {
+  QualitativeThemesResult,
+  QualitativeThemesCacheResponse,
+} from "@workspace/api-types";
+
+export async function fetchQualitativeThemes(
+  schoolId: number | string,
+  rubricSlug: string,
+): Promise<QualitativeThemesCacheResponse> {
+  return apiFetch<QualitativeThemesCacheResponse>(
+    `/qualitative-themes?schoolId=${schoolId}&rubricSlug=${encodeURIComponent(rubricSlug)}`,
+  );
+}
+
+export async function generateQualitativeThemes(
+  schoolId: number | string,
+  rubricSlug: string,
+): Promise<QualitativeThemesResult> {
+  return apiFetch<QualitativeThemesResult>("/qualitative-themes/generate", {
+    method: "POST",
+    body:   JSON.stringify({ schoolId, rubricSlug }),
+  });
+}
+
 /* ── Email ──────────────────────────────────────────────────────── */
 
 export async function sendObservationEmail(payload: {

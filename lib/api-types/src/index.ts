@@ -414,3 +414,34 @@ export interface AICalibrationFlag {
   networkScore: number;
   delta:        number;
 }
+
+/* ── Qualitative Themes ─────────────────────────────────────────── */
+
+export interface QualitativeTheme {
+  theme:            string;
+  teacherCount:     number;
+  observationCount: number;
+  teacherIds:       string[];
+  observationIds:   number[];
+}
+
+export interface QualitativeThemesResult {
+  schoolName: string;
+  recurringGlows: QualitativeTheme[];
+  recurringGrows: QualitativeTheme[];
+  actionStepFollowThrough: {
+    open:                  number;
+    overdue:               number;
+    resolved:              number;
+    growsWithNoActionStep: string[];
+  };
+}
+
+export interface QualitativeThemesCacheResponse {
+  cache: {
+    result:               QualitativeThemesResult;
+    generatedAt:          string;
+    obsCountAtGeneration: number;
+  } | null;
+  currentObsCount: number;
+}

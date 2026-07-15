@@ -1,0 +1,283 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import {
+  observations,
+  people,
+  schools,
+  rubricSets,
+  actionSteps,
+  qualitativeThemesCache,
+} from "@workspace/db/schema";
+import { eq, and, inArray, sql, count } from "drizzle-orm";
+import {
+  effectiveSchoolId as resolveSchoolId,
+  NoSchoolAssignedError,
+  assertNetworkSchoolAccess,
+} from "../middleware/auth";
+import { generateQualitativeThemesSummary } from "../services/ai-service";
+
+const router = Router();
+
+/* ── GET /api/qualitative-themes
+   Returns cached result + current obs count for staleness badge. ── */
+router.get("/", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : null;
+    const rubricSlug  = typeof req.query.rubricSlug === "string" ? req.query.rubricSlug : undefined;
+
+    if (!rubricSlug) return res.status(400).json({ error: "rubricSlug required" });
+
+    let resolvedId: number | null;
+    try {
+      resolvedId = await resolveSchoolId(user, rawSchoolId);
+    } catch (e) {
+      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (resolvedId == null) return res.status(400).json({ error: "No school resolved for this user." });
+    let scopedSchoolId: number = resolvedId;
+
+    if (rawSchoolId && rawSchoolId !== scopedSchoolId) {
+      await assertNetworkSchoolAccess(user, rawSchoolId);
+      scopedSchoolId = rawSchoolId;
+    }
+
+    const [rubricSet] = await db.select().from(rubricSets).where(eq(rubricSets.slug, rubricSlug)).limit(1);
+    if (!rubricSet) return res.status(404).json({ error: "Rubric not found" });
+
+    const [countRow] = await db
+      .select({ obsCount: count() })
+      .from(observations)
+      .where(and(
+        eq(observations.schoolId, scopedSchoolId),
+        eq(observations.rubricSetId, rubricSet.id),
+        eq(observations.status, "published"),
+        eq(observations.target, "TEACHER"),
+      ));
+
+    const [cached] = await db
+      .select()
+      .from(qualitativeThemesCache)
+      .where(and(
+        eq(qualitativeThemesCache.schoolId, scopedSchoolId),
+        eq(qualitativeThemesCache.rubricSlug, rubricSlug),
+      ))
+      .limit(1);
+
+    return res.json({
+      cache: cached
+        ? {
+            result:               cached.result,
+            generatedAt:          cached.generatedAt.toISOString(),
+            obsCountAtGeneration: cached.obsCountAtGeneration,
+          }
+        : null,
+      currentObsCount: countRow?.obsCount ?? 0,
+    });
+  } catch (err) {
+    console.error("GET /qualitative-themes error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── POST /api/qualitative-themes/generate
+   Generates and caches a qualitative themes summary for the school. ── */
+router.post("/generate", async (req, res) => {
+  try {
+    const user        = req.user as Express.User;
+    const rawSchoolId = req.body.schoolId ? Number(req.body.schoolId) : null;
+    const rubricSlug  = typeof req.body.rubricSlug === "string" ? req.body.rubricSlug : undefined;
+
+    if (!rubricSlug) return res.status(400).json({ error: "rubricSlug required" });
+
+    let resolvedId2: number | null;
+    try {
+      resolvedId2 = await resolveSchoolId(user, rawSchoolId);
+    } catch (e) {
+      if (e instanceof NoSchoolAssignedError) return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (resolvedId2 == null) return res.status(400).json({ error: "No school resolved for this user." });
+    let scopedSchoolId: number = resolvedId2;
+
+    if (rawSchoolId && rawSchoolId !== scopedSchoolId) {
+      await assertNetworkSchoolAccess(user, rawSchoolId);
+      scopedSchoolId = rawSchoolId;
+    }
+
+    const [rubricSet] = await db.select().from(rubricSets).where(eq(rubricSets.slug, rubricSlug)).limit(1);
+    if (!rubricSet) return res.status(404).json({ error: "Rubric not found" });
+
+    const [school] = await db.select().from(schools).where(eq(schools.id, scopedSchoolId)).limit(1);
+    if (!school) return res.status(404).json({ error: "School not found" });
+
+    /* ── Fetch published teacher observations for this school + rubric ── */
+    const obsRows = await db
+      .select({
+        id:                  observations.id,
+        observedEmployeeId:  observations.observedEmployeeId,
+        date:                observations.date,
+        strengths:           observations.strengths,
+        growthAreas:         observations.growthAreas,
+        teacherName:         sql<string>`${people.firstName} || ' ' || ${people.lastName}`,
+      })
+      .from(observations)
+      .leftJoin(people, eq(people.employeeId, observations.observedEmployeeId))
+      .where(and(
+        eq(observations.schoolId, scopedSchoolId),
+        eq(observations.rubricSetId, rubricSet.id),
+        eq(observations.status, "published"),
+        eq(observations.target, "TEACHER"),
+      ))
+      .orderBy(observations.date);
+
+    if (obsRows.length === 0) {
+      return res.status(400).json({ error: "No published observations found for this school and rubric period." });
+    }
+
+    /* ── Fetch action steps for the observed teachers ── */
+    const teacherIds = [...new Set(
+      obsRows.map((o) => o.observedEmployeeId).filter((id): id is string => id !== null),
+    )];
+
+    const today       = new Date().toISOString().split("T")[0]!;
+    const allSteps    = teacherIds.length > 0
+      ? await db.select({
+          teacherEmployeeId: actionSteps.teacherEmployeeId,
+          text:              actionSteps.text,
+          status:            actionSteps.status,
+          dueDate:           actionSteps.dueDate,
+        })
+        .from(actionSteps)
+        .where(inArray(actionSteps.teacherEmployeeId, teacherIds))
+      : [];
+
+    /* ── Server-side action step counts ── */
+    let openCount = 0, overdueCount = 0, resolvedCount = 0;
+    for (const s of allSteps) {
+      if (s.status === "mastered") {
+        resolvedCount++;
+      } else if (s.dueDate && s.dueDate < today) {
+        overdueCount++;
+      } else {
+        openCount++;
+      }
+    }
+
+    /* ── Build context block for AI ── */
+    const obsBlock = obsRows.map((obs) => [
+      `[Obs #${obs.id} | Teacher: ${obs.teacherName ?? "Unknown"} (${obs.observedEmployeeId ?? "??"}) | Date: ${obs.date}]`,
+      `STRENGTHS: ${obs.strengths?.trim() || "(none recorded)"}`,
+      `GROWTH AREAS: ${obs.growthAreas?.trim() || "(none recorded)"}`,
+    ].join("\n")).join("\n\n");
+
+    const stepsBlock = allSteps.length > 0
+      ? allSteps.map((s) => {
+          const status = s.status === "mastered" ? "resolved" : s.dueDate && s.dueDate < today ? "overdue" : "open";
+          return `- ${s.teacherEmployeeId} | ${status} | "${s.text}"`;
+        }).join("\n")
+      : "(no action steps found)";
+
+    const prompt = `SCHOOL: ${school.displayName} (ID: ${scopedSchoolId})
+RUBRIC PERIOD: ${rubricSlug} — ${rubricSet.name}
+TOTAL OBSERVATIONS: ${obsRows.length}
+
+OBSERVATIONS:
+${obsBlock}
+
+ACTION STEPS (for reference when identifying grows that lack follow-up):
+${stepsBlock}
+
+---
+
+TASK: Identify recurring qualitative themes from the STRENGTHS and GROWTH AREAS above.
+A theme is "recurring" only if it appears in observations from at least 2 DIFFERENT teachers.
+
+Return ONLY a valid JSON object (no markdown fences, no explanation):
+{
+  "recurringGlows": [
+    {
+      "theme": "Concise 1-2 sentence description of the shared strength",
+      "teacherCount": <integer>,
+      "observationCount": <integer>,
+      "teacherIds": ["<exact employeeId>", ...],
+      "observationIds": [<exact integer obs id>, ...]
+    }
+  ],
+  "recurringGrows": [
+    {
+      "theme": "Concise 1-2 sentence description of the shared growth area",
+      "teacherCount": <integer>,
+      "observationCount": <integer>,
+      "teacherIds": ["<exact employeeId>", ...],
+      "observationIds": [<exact integer obs id>, ...]
+    }
+  ],
+  "growsWithNoActionStep": ["exact theme label from recurringGrows", ...]
+}
+
+Rules:
+- Only include themes that appear across 2+ DIFFERENT teachers
+- teacherIds must be exact employeeId strings from the data above
+- observationIds must be exact numeric IDs from the data above
+- growsWithNoActionStep: copy the "theme" label from recurringGrows entries that have no corresponding action step addressing them
+- Return [] for any section with no qualifying themes`;
+
+    /* ── Call AI ── */
+    const rawResponse = await generateQualitativeThemesSummary(prompt);
+
+    /* ── Parse JSON — strip markdown fences if model adds them ── */
+    let parsed: {
+      recurringGlows:       { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
+      recurringGrows:       { theme: string; teacherCount: number; observationCount: number; teacherIds: string[]; observationIds: number[] }[];
+      growsWithNoActionStep: string[];
+    };
+
+    try {
+      const clean = rawResponse.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+      parsed = JSON.parse(clean);
+    } catch {
+      console.error("Failed to parse AI qualitative themes response:", rawResponse);
+      return res.status(502).json({ error: "AI returned an invalid response. Please try again." });
+    }
+
+    /* ── Merge into final result ── */
+    const result = {
+      schoolName:     school.displayName,
+      recurringGlows: parsed.recurringGlows ?? [],
+      recurringGrows: parsed.recurringGrows ?? [],
+      actionStepFollowThrough: {
+        open:                  openCount,
+        overdue:               overdueCount,
+        resolved:              resolvedCount,
+        growsWithNoActionStep: parsed.growsWithNoActionStep ?? [],
+      },
+    };
+
+    /* ── Upsert cache ── */
+    await db.insert(qualitativeThemesCache)
+      .values({
+        schoolId:             scopedSchoolId,
+        rubricSlug,
+        result,
+        generatedAt:          new Date(),
+        obsCountAtGeneration: obsRows.length,
+      })
+      .onConflictDoUpdate({
+        target: [qualitativeThemesCache.schoolId, qualitativeThemesCache.rubricSlug],
+        set: {
+          result,
+          generatedAt:          new Date(),
+          obsCountAtGeneration: obsRows.length,
+        },
+      });
+
+    return res.json(result);
+  } catch (err) {
+    console.error("POST /qualitative-themes/generate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export default router;

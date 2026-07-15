@@ -12,6 +12,7 @@ import actionStepsRouter from "./action-steps";
 import aiRouter from "./ai";
 import emailRouter from "./email";
 import peopleRouter from "./people";
+import qualitativeThemesRouter from "./qualitative-themes";
 import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middleware/auth";
 import { isProduction } from "../config/env";
 
@@ -36,7 +37,8 @@ router.use("/people",       requireAuth, peopleRouter);
 router.use("/admin/schools",requireAuth, requireNetworkScope, adminSchoolsRouter);
 router.use("/action-center",requireAuth, actionCenterRouter);
 router.use("/action-steps", requireAuth, actionStepsRouter);
-router.use("/ai",           requireAuth, aiRouter);
-router.use("/email",        requireAuth, emailRouter);
+router.use("/ai",                  requireAuth, aiRouter);
+router.use("/email",               requireAuth, emailRouter);
+router.use("/qualitative-themes",  requireAuth, qualitativeThemesRouter);
 
 export default router;

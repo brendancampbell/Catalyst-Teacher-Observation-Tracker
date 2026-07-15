@@ -39,6 +39,7 @@ import {
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { NewObservationModal } from "@/components/NewObservationModal";
+import { QualitativeThemesCard } from "@/components/QualitativeThemesCard";
 import { useUser } from "@/context/UserContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1289,6 +1290,15 @@ export default function ActionCenterPage() {
               </Card>
 
             </div>
+
+            {/* ── Qualitative Themes ────────────────────────────── */}
+            {schoolId != null && rubricFromUrl && (
+              <QualitativeThemesCard
+                schoolId={schoolId}
+                rubricSlug={rubricFromUrl}
+                basePath={baseUrl}
+              />
+            )}
 
           </TabsContent>
 
