@@ -528,6 +528,19 @@ export async function generateAIAnalysis(
   });
 }
 
+export async function generateQualitativeSummary(
+  rubricSetSlug: string,
+  schoolId?: number | null,
+): Promise<{ summary: string }> {
+  return apiFetch<{ summary: string }>("/ai/school-summary", {
+    method: "POST",
+    body: JSON.stringify({
+      rubricSetSlug,
+      ...(schoolId != null ? { schoolId } : {}),
+    }),
+  });
+}
+
 /* ── Action Steps ──────────────────────────────────────────────── */
 
 import type { ActionStep, OverdueActionStep } from "@workspace/api-types";

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   observations,
   observationScores,
+  actionSteps,
   people,
   schools,
   rubricDomains,
@@ -17,9 +18,13 @@ import {
   generateAnalysisSummary,
   generateStructuredInstantAnalysis,
   buildContextBlock,
+  buildQualitativeSection,
   type AIContext,
   type CalibrationFlag,
   type DomainAvg,
+  type GlowGrowEntry,
+  type ActionStepEntry,
+  type TeacherQualitativeData,
 } from "../services/ai-service";
 import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 
@@ -548,6 +553,81 @@ async function buildTeacherBreakdowns(
   return lines.join("\n");
 }
 
+/* ── Helper: fetch glows & grows per teacher (published obs only, last 5) ── */
+async function buildGlowsGrowsData(
+  personIds: string[],
+): Promise<Map<string, GlowGrowEntry[]>> {
+  if (!personIds.length) return new Map();
+
+  const rows = await db
+    .select({
+      observedEmployeeId: observations.observedEmployeeId,
+      date:               observations.date,
+      strengths:          observations.strengths,
+      growthAreas:        observations.growthAreas,
+    })
+    .from(observations)
+    .where(
+      and(
+        inArray(observations.observedEmployeeId, personIds),
+        eq(observations.status, "published"),
+      ),
+    )
+    .orderBy(desc(observations.date));
+
+  /* Group by teacher, cap at 5 most-recent per teacher with any text */
+  const result = new Map<string, GlowGrowEntry[]>();
+  for (const r of rows) {
+    if (!r.observedEmployeeId) continue;
+    if (!r.strengths && !r.growthAreas) continue;
+    const bucket = result.get(r.observedEmployeeId) ?? [];
+    if (bucket.length >= 5) continue;
+    bucket.push({ date: r.date, strengths: r.strengths, growthAreas: r.growthAreas });
+    result.set(r.observedEmployeeId, bucket);
+  }
+  return result;
+}
+
+/* ── Helper: fetch action steps per teacher (school-scoped via personIds) ── */
+async function buildActionStepsData(
+  personIds: string[],
+): Promise<Map<string, ActionStepEntry[]>> {
+  if (!personIds.length) return new Map();
+
+  /*
+   * Security note: personIds is always derived from getScopedPeople(), which
+   * filters by schoolId (or network scope). Querying action steps by
+   * teacherEmployeeId IN (personIds) guarantees users see only steps
+   * belonging to teachers in their own school/scope.
+   */
+  const rows = await db
+    .select({
+      teacherEmployeeId: actionSteps.teacherEmployeeId,
+      text:              actionSteps.text,
+      dueDate:           actionSteps.dueDate,
+      status:            actionSteps.status,
+      masteredAt:        actionSteps.masteredAt,
+      createdAt:         actionSteps.createdAt,
+    })
+    .from(actionSteps)
+    .where(inArray(actionSteps.teacherEmployeeId, personIds))
+    .orderBy(actionSteps.createdAt);
+
+  const result = new Map<string, ActionStepEntry[]>();
+  for (const r of rows) {
+    const bucket = result.get(r.teacherEmployeeId) ?? [];
+    bucket.push({
+      text:       r.text,
+      dueDate:    r.dueDate,
+      status:     r.status,
+      masteredAt: r.masteredAt,
+      createdAt:  r.createdAt,
+    });
+    result.set(r.teacherEmployeeId, bucket);
+  }
+  return result;
+}
+
 /* ── Helper: build combined context string for one or multiple rubric sets ── */
 async function buildCombinedContext(
   personIds: string[],
@@ -608,7 +688,11 @@ async function buildCombinedContext(
       employeeId: p.employeeId,
       name: `${p.firstName} ${p.lastName}`,
     }));
-    const teacherSection = await buildTeacherBreakdowns(allAsMatched, allRubricSets);
+    const [teacherSection, glowsGrowsMap, actionStepsMap] = await Promise.all([
+      buildTeacherBreakdowns(allAsMatched, allRubricSets),
+      buildGlowsGrowsData(personIds),
+      buildActionStepsData(personIds),
+    ]);
     if (teacherSection) contextStr += "\n\n" + teacherSection;
 
     /* Ranked list for explicit "weakest / top N" queries */
@@ -618,6 +702,15 @@ async function buildCombinedContext(
       );
       if (rankedSection) contextStr += "\n\n" + rankedSection;
     }
+
+    /* Qualitative coaching data (glows/grows + action steps) */
+    const qualTeachers: TeacherQualitativeData[] = scopedPeople.map((p) => ({
+      teacherName: `${p.firstName} ${p.lastName}`,
+      glowsGrows:  glowsGrowsMap.get(p.employeeId) ?? [],
+      actionSteps: actionStepsMap.get(p.employeeId) ?? [],
+    }));
+    const qualSection = buildQualitativeSection(qualTeachers);
+    if (qualSection) contextStr += "\n\n" + qualSection;
 
     return { contextStr, activeRubricSetSlug: singleSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
   }
@@ -651,8 +744,12 @@ async function buildCombinedContext(
     employeeId: p.employeeId,
     name: `${p.firstName} ${p.lastName}`,
   }));
-  const teacherSection = await buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets);
-  if (teacherSection) blocks.push(teacherSection);
+  const [teacherSectionMulti, glowsGrowsMapMulti, actionStepsMapMulti] = await Promise.all([
+    buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets),
+    buildGlowsGrowsData(personIds),
+    buildActionStepsData(personIds),
+  ]);
+  if (teacherSectionMulti) blocks.push(teacherSectionMulti);
 
   /* Ranked list for explicit "weakest / top N" queries */
   if (relativeRef.kind) {
@@ -661,6 +758,15 @@ async function buildCombinedContext(
     );
     if (rankedSection) blocks.push(rankedSection);
   }
+
+  /* Qualitative coaching data (glows/grows + action steps) */
+  const qualTeachersMulti: TeacherQualitativeData[] = scopedPeople.map((p) => ({
+    teacherName: `${p.firstName} ${p.lastName}`,
+    glowsGrows:  glowsGrowsMapMulti.get(p.employeeId) ?? [],
+    actionSteps: actionStepsMapMulti.get(p.employeeId) ?? [],
+  }));
+  const qualSectionMulti = buildQualitativeSection(qualTeachersMulti);
+  if (qualSectionMulti) blocks.push(qualSectionMulti);
 
   return { contextStr: blocks.join("\n\n"), activeRubricSetSlug: activeSlug, matchedTeachers: matchedTeachers.map((t) => t.name) };
 }
@@ -1024,11 +1130,27 @@ router.post("/analysis", async (req, res) => {
           )
       : [{ count: 0 }];
 
+    const totalObservations = obsCountResult[0]?.count ?? 0;
+
+    if (totalObservations === 0) {
+      res.status(422).json({
+        error: "No observations have been recorded for this rubric period yet. Submit some observations first, then run the analysis.",
+      });
+      return;
+    }
+
+    if (domainAverages.length === 0) {
+      res.status(422).json({
+        error: "Observations exist for this period but none include domain scores. Score at least one domain in an observation to generate the analysis.",
+      });
+      return;
+    }
+
     const context: AIContext = {
       scope,
       domainAverages,
       totalTeachers:     personIds.length,
-      totalObservations: obsCountResult[0]?.count ?? 0,
+      totalObservations,
       rescoreQueueCount: rescoreRows.length,
       calibrationFlags,
     };
@@ -1062,6 +1184,106 @@ router.post("/analysis", async (req, res) => {
     }
     console.error("POST /ai/analysis error:", err);
     res.status(500).json({ error: "Failed to generate analysis. Please try again." });
+  }
+});
+
+/* ── POST /api/ai/school-summary ──────────────────────────────────── */
+router.post("/school-summary", async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const { rubricSetSlug, schoolId: reqSchoolId } = req.body as {
+      rubricSetSlug?: string;
+      schoolId?: number | null;
+    };
+
+    if (reqSchoolId != null) {
+      const access = await assertNetworkSchoolAccess(user, reqSchoolId);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
+
+    const slug = rubricSetSlug?.trim() || "Q1";
+    const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
+    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
+
+    const rubricSetId = await getRubricSetId(slug);
+    if (rubricSetId === null) {
+      res.status(404).json({ error: `Rubric set '${slug}' not found` }); return;
+    }
+
+    /* Determine whether this is a school-target or teacher-target rubric */
+    const rubricRows = await db
+      .select({ target: rubricSets.target })
+      .from(rubricSets)
+      .where(eq(rubricSets.id, rubricSetId))
+      .limit(1);
+    const isSchoolTarget = rubricRows[0]?.target === "SCHOOL";
+
+    /* Count published observations for this rubric+scope */
+    let publishedCount = 0;
+
+    if (isSchoolTarget) {
+      const whereClause = scopedSchoolId != null
+        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolId, scopedSchoolId))
+        : and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"));
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(observations)
+        .where(whereClause);
+      publishedCount = row?.count ?? 0;
+    } else {
+      const personIds = await getPersonIds(scopedSchoolId);
+      if (personIds.length > 0) {
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(observations)
+          .where(and(
+            inArray(observations.observedEmployeeId, personIds),
+            eq(observations.rubricSetId, rubricSetId),
+            eq(observations.status, "published"),
+          ));
+        publishedCount = row?.count ?? 0;
+      }
+    }
+
+    if (publishedCount === 0) {
+      res.status(422).json({
+        error: "No published observations found for this school and rubric period. Publish at least one observation first.",
+      });
+      return;
+    }
+
+    /* Build AI context */
+    const personIds = await getPersonIds(scopedSchoolId);
+    const [domainAverages, calibrationFlags] = await Promise.all([
+      buildDomainAverages(personIds, rubricSetId),
+      buildCalibrationFlags(personIds, scope, rubricSetId),
+    ]);
+
+    const rescoreRows = personIds.length > 0
+      ? await db.select({ employeeId: people.employeeId }).from(people).where(
+          scopedSchoolId !== null
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+        )
+      : [];
+
+    const context: AIContext = {
+      scope,
+      domainAverages,
+      totalTeachers:     personIds.length,
+      totalObservations: publishedCount,
+      rescoreQueueCount: rescoreRows.length,
+      calibrationFlags,
+    };
+
+    const summary = await generateAnalysisSummary(context, slug);
+    res.json({ summary });
+  } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message }); return;
+    }
+    console.error("POST /ai/school-summary error:", err);
+    res.status(500).json({ error: "Failed to generate summary. Please try again." });
   }
 });
 

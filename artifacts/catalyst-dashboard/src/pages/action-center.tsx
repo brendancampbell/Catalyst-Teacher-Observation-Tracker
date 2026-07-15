@@ -22,11 +22,13 @@ import {
   fetchOverdueActionSteps,
   streamAIChat,
   generateAIAnalysis,
+  generateQualitativeSummary,
   fetchChatSessions,
   createChatSession,
   fetchChatSessionMessages,
   renameChatSession,
   deleteChatSession,
+  HttpError,
   type RescoreQueueItem,
   type OverdueTeacher,
   type OverdueActionStep,
@@ -651,6 +653,11 @@ export default function ActionCenterPage() {
   const [deleteConfirmId, setDeleteConfirmId]       = useState<number | null>(null);
   const [isInstantAnalyzing, setIsInstantAnalyzing] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen]   = useState(false);
+
+  /* ── Qualitative Themes summary state ──────────────── */
+  const [qualSummary,        setQualSummary]        = useState<string | null>(null);
+  const [qualSummaryError,   setQualSummaryError]   = useState<string | null>(null);
+  const [isQualSummaryLoading, setIsQualSummaryLoading] = useState(false);
   const chatEndRef                                  = useRef<HTMLDivElement>(null);
   const activeChatIdRef                             = useRef<number | null>(null);
   const abortControllerRef                          = useRef<AbortController | null>(null);
@@ -689,6 +696,30 @@ export default function ActionCenterPage() {
     }
   }, [chatInput]);
 
+  /* Reset qualitative summary whenever the rubric or school context changes */
+  useEffect(() => {
+    setQualSummary(null);
+    setQualSummaryError(null);
+  }, [activeQuarter, schoolId]);
+
+  async function handleGenerateSummary() {
+    setIsQualSummaryLoading(true);
+    setQualSummaryError(null);
+    setQualSummary(null);
+    try {
+      const result = await generateQualitativeSummary(activeQuarter ?? "Q1", schoolId);
+      setQualSummary(result.summary);
+    } catch (err) {
+      if (err instanceof HttpError) {
+        setQualSummaryError(err.message);
+      } else {
+        setQualSummaryError("Failed to generate summary. Please try again.");
+      }
+    } finally {
+      setIsQualSummaryLoading(false);
+    }
+  }
+
   async function selectSession(id: number) {
     setActiveChatId(id);
     activeChatIdRef.current = id;
@@ -707,8 +738,17 @@ export default function ActionCenterPage() {
       const stored = localStorage.getItem(`catalyst-instant-analysis-${id}`);
       if (stored && mapped.length > 0 && mapped[0].role === "ai") {
         try {
-          mapped[0] = { ...mapped[0], instantAnalysis: JSON.parse(stored) as InstantAnalysisStructured };
-        } catch { /* ignore corrupt data */ }
+          const parsed = JSON.parse(stored) as InstantAnalysisStructured;
+          /* Only restore if the analysis looks valid — a real result always has findings.
+             Discard stale entries that were generated when there was no data. */
+          if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
+            mapped[0] = { ...mapped[0], instantAnalysis: parsed };
+          } else {
+            localStorage.removeItem(`catalyst-instant-analysis-${id}`);
+          }
+        } catch {
+          localStorage.removeItem(`catalyst-instant-analysis-${id}`);
+        }
       }
       setChatMsgs(mapped);
     } catch {
@@ -874,11 +914,14 @@ export default function ActionCenterPage() {
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
-    } catch {
+    } catch (err) {
       setChatTyping(false);
       setStreamingText("");
       if (capturedSessionId === null || activeChatIdRef.current === capturedSessionId) {
-        setChatMsgs([{ role: "ai", text: "Sorry, I couldn't generate the analysis right now. Please try again." }]);
+        const msg = err instanceof Error && err.message
+          ? err.message
+          : "Sorry, I couldn't generate the analysis right now. Please try again.";
+        setChatMsgs([{ role: "ai", text: msg }]);
       }
     } finally {
       setIsInstantAnalyzing(false);
@@ -1288,6 +1331,62 @@ export default function ActionCenterPage() {
                   )}
                 </CardContent>
               </Card>
+
+            {/* ── Qualitative Themes Card ──────────────────────── */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="pb-3 pt-4 px-5" style={{ borderBottom: "1px solid #e8edf8" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                  <div>
+                    <CardTitle style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Sparkles size={18} style={{ color: YELLOW }} />
+                      Qualitative Themes
+                    </CardTitle>
+                    <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                      {`${isSchoolScoped || schoolId != null ? "School" : "Network"} · ${activeQuarter ?? ""}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleGenerateSummary}
+                    disabled={isQualSummaryLoading}
+                    style={{
+                      backgroundColor: YELLOW,
+                      color: NAVY,
+                      fontFamily: "'Bebas Neue', sans-serif",
+                      fontSize: 14,
+                      letterSpacing: "0.04em",
+                      fontWeight: "bold",
+                      padding: "6px 16px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: isQualSummaryLoading ? "wait" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      opacity: isQualSummaryLoading ? 0.7 : 1,
+                      transition: "opacity 0.15s",
+                    }}
+                  >
+                    {isQualSummaryLoading
+                      ? <><RefreshCw size={13} className="animate-spin" /> Generating…</>
+                      : <><Sparkles size={13} /> Generate Summary</>
+                    }
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 py-4">
+                {qualSummaryError ? (
+                  <div style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "10px 14px", color: "#B91C1C", fontSize: 13, fontFamily: "'Libre Franklin', sans-serif" }}>
+                    {qualSummaryError}
+                  </div>
+                ) : qualSummary ? (
+                  <AINarrativeRenderer text={qualSummary} />
+                ) : (
+                  <p style={{ fontSize: 13, color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>
+                    Click <strong>Generate Summary</strong> to create an AI-powered analysis of your school&apos;s observation data for this rubric period.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             </div>
 

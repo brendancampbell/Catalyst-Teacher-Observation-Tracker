@@ -49,6 +49,13 @@ Key Catalyst rubric context:
 - "Rescore queue" means teachers who received a walkthrough score below 0.7 and need a follow-up observation within 14 days.
 - When the context includes a "Lowest-scoring teachers" or "Highest-scoring teachers" ranked list, use those names and scores directly to answer questions like "who is my weakest teacher?" or "who is my top performer?" Reference specific names and their averages in your answer.
 
+Qualitative coaching data context:
+- The context may include a "Qualitative coaching data" section with glows (strengths) and grows (growth areas) written by observers during observations, drawn from the most recent published observations per teacher (up to 5).
+- The context may also include action steps assigned to each teacher — with the written text, due date, status (open or mastered), and mastery date where applicable.
+- Draw on this qualitative data when answering questions about individual teacher trends, coaching themes, open action steps, or how long teachers take to master assigned skills.
+- When asked about school-wide patterns (e.g., "what are the most common growth areas?"), synthesize themes across teachers' grows and action steps.
+- If the qualitative section is absent or a teacher has no entries, do not fabricate feedback — simply note that no qualitative data is recorded.
+
 Your responses should be:
 - Concise, data-grounded, and actionable.
 - Written for a principal or instructional coach audience.
@@ -61,6 +68,77 @@ Follow-up behavior (REQUIRED):
 - ALWAYS end every response with a blank line followed by a sentinel line in this exact format (the sentinel must be the very last line, no text after the closing bracket):
 NEXT_STEPS_JSON:["<chip1>","<chip2>","<chip3>"]
 - Each chip must be ≤ 40 characters and phrased as a short, actionable follow-up (e.g., "Show lowest-scoring domains", "Who needs rescoring?", "Break down by teacher").`;
+
+export interface GlowGrowEntry {
+  date: string;
+  strengths: string | null;
+  growthAreas: string | null;
+}
+
+export interface ActionStepEntry {
+  text: string;
+  dueDate: string;
+  status: string;
+  masteredAt: Date | null;
+  createdAt: Date;
+}
+
+export interface TeacherQualitativeData {
+  teacherName: string;
+  glowsGrows: GlowGrowEntry[];
+  actionSteps: ActionStepEntry[];
+}
+
+/**
+ * Formats per-teacher glows/grows and action steps into a Markdown block.
+ * Returns an empty string when every teacher has no qualitative data at all,
+ * so the context stays clean for schools that don't use these fields.
+ */
+export function buildQualitativeSection(teachers: TeacherQualitativeData[]): string {
+  const teacherBlocks: string[] = [];
+
+  for (const t of teachers) {
+    const hasGlowsGrows = t.glowsGrows.some((e) => e.strengths || e.growthAreas);
+    const hasActionSteps = t.actionSteps.length > 0;
+    if (!hasGlowsGrows && !hasActionSteps) continue;
+
+    const lines: string[] = [`### ${t.teacherName}`];
+
+    if (hasGlowsGrows) {
+      lines.push("\n**Recent glows & grows**");
+      for (const e of t.glowsGrows) {
+        if (!e.strengths && !e.growthAreas) continue;
+        lines.push(`- *${e.date}*`);
+        if (e.strengths)   lines.push(`  - Glows: ${e.strengths}`);
+        if (e.growthAreas) lines.push(`  - Grows: ${e.growthAreas}`);
+      }
+    }
+
+    if (hasActionSteps) {
+      lines.push("\n**Action steps**");
+      for (const s of t.actionSteps) {
+        const assignedDate = s.createdAt.toISOString().slice(0, 10);
+        if (s.status === "mastered" && s.masteredAt) {
+          const masteredDate = s.masteredAt.toISOString().slice(0, 10);
+          const daysToMaster = Math.round(
+            (s.masteredAt.getTime() - s.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          lines.push(
+            `- mastered in ${daysToMaster} day(s) (assigned ${assignedDate}, mastered ${masteredDate}): "${s.text}"`,
+          );
+        } else {
+          lines.push(`- open — assigned ${assignedDate}, due ${s.dueDate}: "${s.text}"`);
+        }
+      }
+    }
+
+    teacherBlocks.push(lines.join("\n"));
+  }
+
+  if (!teacherBlocks.length) return "";
+
+  return ["## Qualitative coaching data\n", ...teacherBlocks].join("\n\n");
+}
 
 export function buildContextBlock(context: AIContext): string {
   const scopeLabel = context.scope === "school" ? "school" : "network";
