@@ -33,7 +33,8 @@
     "test:ai-qualitative-school-scope": "tsx --test src/test-ai-qualitative-school-scope.ts",
     "test:ai-teacher-transfer-scope": "tsx --test src/test-ai-teacher-transfer-scope.ts",
     "test:overdue-action-steps": "tsx --test src/test-overdue-action-steps.ts",
-    "test:feedback-tracker-homeoffice-exclusion": "tsx src/test-feedback-tracker-homeoffice-exclusion.ts"
+    "test:feedback-tracker-homeoffice-exclusion": "tsx src/test-feedback-tracker-homeoffice-exclusion.ts",
+    "test:bulk-import-cross-school": "tsx --test src/test-bulk-import-cross-school.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
