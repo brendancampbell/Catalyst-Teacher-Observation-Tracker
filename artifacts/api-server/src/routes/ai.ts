@@ -1125,7 +1125,7 @@ router.get("/calibration-flags", async (req, res) => {
 });
 
 /* ── Helper: build a brief overdue action steps summary for Instant Analysis ── */
-function buildOverdueActionStepsSummary(
+export function buildOverdueActionStepsSummary(
   actionStepsMap: Map<string, ActionStepEntry[]>,
   nameMap: Map<string, string>,
   today: string,
