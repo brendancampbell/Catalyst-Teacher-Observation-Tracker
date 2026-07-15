@@ -104,8 +104,6 @@ export default function ObservationPage() {
   const [saving, setSaving] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showIncompleteDialog, setShowIncompleteDialog] = useState(false);
-
   /* ── Action step state ──────────────────────────────────────────── */
   const [lastActionStep, setLastActionStep] = useState<ActionStep | null>(null);
   const [loadingLastActionStep, setLoadingLastActionStep] = useState(false);
@@ -495,12 +493,6 @@ export default function ObservationPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!teacherId || !selectedRubric) return;
-    /* Show incomplete-rubric warning when domains are partially scored,
-       unless this is a walkthrough (walkthroughs skip full coverage).   */
-    if (!isWalkthrough && allDomains.length > 0 && scoredCount < allDomains.length) {
-      setShowIncompleteDialog(true);
-      return;
-    }
     await doSubmit();
   }
 
@@ -532,43 +524,6 @@ export default function ObservationPage() {
               Observation Saved!
             </p>
             <p className="text-sm text-slate-500 text-center">The form will reset for your next observation.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Incomplete-rubric confirmation dialog */}
-      {showIncompleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 w-full max-w-xs">
-            <p className="font-bold text-center" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: NAVY, letterSpacing: 1 }}>
-              Incomplete Rubric
-            </p>
-            <p className="text-sm text-slate-600 text-center leading-relaxed">
-              You've only scored <span className="font-bold" style={{ color: NAVY }}>{scoredCount}</span> of{" "}
-              <span className="font-bold" style={{ color: NAVY }}>{allDomains.length}</span> domains.
-              Submit anyway?
-            </p>
-            <div className="flex flex-col gap-2 w-full">
-              <button
-                type="button"
-                onClick={async () => {
-                  setShowIncompleteDialog(false);
-                  await doSubmit();
-                }}
-                className="w-full py-2.5 rounded-lg text-sm font-bold text-white"
-                style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}
-              >
-                Submit Anyway
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowIncompleteDialog(false)}
-                className="w-full py-2.5 rounded-lg text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                style={{ fontSize: 14 }}
-              >
-                Keep Scoring
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -1004,11 +959,6 @@ export default function ObservationPage() {
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/95 backdrop-blur-sm border-t border-slate-200 px-4 py-3 z-40">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5 min-w-0">
-              <p className="text-xs text-slate-400 truncate">
-                {scoredCount === allDomains.length && allDomains.length > 0
-                  ? "✓ All domains scored"
-                  : `${scoredCount} of ${allDomains.length} domains scored`}
-              </p>
               <div className="flex items-center gap-2">
                 {autoSaveStatus === "saving" && (
                   <span className="text-xs text-slate-400 flex items-center gap-1">
@@ -1032,7 +982,7 @@ export default function ObservationPage() {
                     className="text-xs font-semibold flex items-center gap-1"
                     style={{ color: NAVY }}
                   >
-                    <FileEdit size={11} /> My Drafts
+                    <FileEdit size={11} /> Drafts
                   </a>
                 )}
               </div>
@@ -1073,7 +1023,7 @@ export default function ObservationPage() {
               className="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm disabled:opacity-50 shrink-0"
               style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
             >
-              {saving ? <Loader2 size={16} className="animate-spin inline" /> : "Submit Observation"}
+              {saving ? <Loader2 size={16} className="animate-spin inline" /> : "Submit"}
             </button>
           </div>
         </div>
