@@ -269,12 +269,13 @@ router.get("/:id", async (req, res) => {
           return;
         }
       } else {
-        if (existing.observedEmployeeId) {
-          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
-          if (!person || person.schoolId !== currentUser.schoolId) {
-            res.status(403).json({ error: "Cannot access observations for people outside your school" });
-            return;
-          }
+        /* Strict school check using the observation's immutable schoolId.
+           Rows with schoolId = null (legacy data) are denied to school-scoped
+           users (fail-closed) — they cannot be attributed to any particular
+           school and may originate from a prior placement.                  */
+        if (existing.schoolId !== currentUser.schoolId) {
+          res.status(403).json({ error: "Cannot access observations for people outside your school" });
+          return;
         }
       }
     }
@@ -480,7 +481,7 @@ router.post("/", async (req, res) => {
     const { obs, scoreRows } = await db.transaction(async (tx) => {
       const [obs] = await tx.insert(observations).values({
         observedEmployeeId:  resolvedObservedId,
-        schoolId:            null,
+        schoolId:            creator.schoolId ?? null,
         rubricSetId:         Number(resolvedRubricSetId),
         date,
         time:                time || null,
@@ -618,8 +619,10 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
 
       if (currentUser.role === "SCHOOL_LEADER") {
         if (existing.observedEmployeeId) {
-          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
-          if (!person || person.schoolId !== currentUser.schoolId) {
+          /* Strict school check using the observation's immutable schoolId.
+             Rows with schoolId = null (legacy data) are denied to school-
+             scoped users (fail-closed) — cannot be attributed to a school. */
+          if (existing.schoolId !== currentUser.schoolId) {
             req.log.warn(
               { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
               "cross-school observation access rejected",
@@ -852,8 +855,10 @@ router.delete("/:id", observationMutationLimiter, async (req, res) => {
 
       if (currentUser.role === "SCHOOL_LEADER") {
         if (existing.observedEmployeeId) {
-          const person = await db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) });
-          if (!person || person.schoolId !== currentUser.schoolId) {
+          /* Strict school check using the observation's immutable schoolId.
+             Rows with schoolId = null (legacy data) are denied to school-
+             scoped users (fail-closed) — cannot be attributed to a school. */
+          if (existing.schoolId !== currentUser.schoolId) {
             req.log.warn(
               { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
               "cross-school observation access rejected",

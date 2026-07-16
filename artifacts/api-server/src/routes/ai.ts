@@ -131,12 +131,14 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
   return m;
 }
 
-async function buildDomainAverages(personIds: string[], rubricSetId?: number | null): Promise<DomainAvg[]> {
+async function buildDomainAverages(personIds: string[], rubricSetId?: number | null, scopedSchoolId?: number | null): Promise<DomainAvg[]> {
   if (!personIds.length) return [];
 
+  const schoolFilter = scopedSchoolId != null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.observedEmployeeId, personIds);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), schoolFilter);
 
   const rows = await db
     .select({
@@ -168,12 +170,15 @@ async function buildCalibrationFlags(
   personIds: string[],
   scope: "school" | "network",
   rubricSetId?: number | null,
+  scopedSchoolId?: number | null,
 ): Promise<CalibrationFlag[]> {
   if (!personIds.length) return [];
 
+  const schoolFilter = scopedSchoolId != null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.observedEmployeeId, personIds);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), schoolFilter);
 
   const rows = await db
     .select({
@@ -479,14 +484,16 @@ async function buildRankedTeacherSection(
   rubricSetId: number | null,
   kind: "bottom" | "top",
   n: number,
+  scopedSchoolId: number | null,
 ): Promise<string> {
   if (!teacherPool.length) return "";
 
   const empIds = teacherPool.map((t) => t.employeeId);
+  const schoolFilter = scopedSchoolId !== null ? eq(observations.schoolId, scopedSchoolId) : undefined;
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.rubricSetId, rubricSetId))
-    : inArray(observations.observedEmployeeId, empIds);
+    ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), schoolFilter);
 
   const rows = await db
     .select({
@@ -542,10 +549,12 @@ async function buildRankedTeacherSection(
 async function buildTeacherBreakdowns(
   matchedTeachers: Array<{ employeeId: string; name: string }>,
   allRubricSets: Array<{ id: number; slug: string; name: string }>,
+  scopedSchoolId: number | null,
 ): Promise<string> {
   if (!matchedTeachers.length) return "";
 
   const empIds = matchedTeachers.map((t) => t.employeeId);
+  const schoolFilter = scopedSchoolId !== null ? eq(observations.schoolId, scopedSchoolId) : undefined;
 
   const rows = await db
     .select({
@@ -556,7 +565,7 @@ async function buildTeacherBreakdowns(
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .where(inArray(observations.observedEmployeeId, empIds));
+    .where(and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), schoolFilter));
 
   if (!rows.length) return "";
 
@@ -755,8 +764,8 @@ async function buildCombinedContext(
     const rsId   = rsRow?.id ?? null;
 
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rsId),
-      buildCalibrationFlags(personIds, scope, rsId),
+      buildDomainAverages(personIds, rsId, scopedSchoolId),
+      buildCalibrationFlags(personIds, scope, rsId, scopedSchoolId),
     ]);
 
     const ctx: AIContext = {
@@ -777,7 +786,7 @@ async function buildCombinedContext(
       name: `${p.firstName} ${p.lastName}`,
     }));
     const [teacherSection, glowsGrowsMap, actionStepsMap] = await Promise.all([
-      buildTeacherBreakdowns(allAsMatched, allRubricSets),
+      buildTeacherBreakdowns(allAsMatched, allRubricSets, scopedSchoolId),
       buildGlowsGrowsData(personIds, scopedSchoolId),
       buildActionStepsData(personIds, scopedSchoolId),
     ]);
@@ -786,7 +795,7 @@ async function buildCombinedContext(
     /* Ranked list for explicit "weakest / top N" queries */
     if (relativeRef.kind) {
       const rankedSection = await buildRankedTeacherSection(
-        scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n,
+        scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n, scopedSchoolId,
       );
       if (rankedSection) contextStr += "\n\n" + rankedSection;
     }
@@ -812,8 +821,8 @@ async function buildCombinedContext(
     const rsRow = allRubricSets.find((r) => r.slug === slug);
     if (!rsRow) continue;
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rsRow.id),
-      buildCalibrationFlags(personIds, scope, rsRow.id),
+      buildDomainAverages(personIds, rsRow.id, scopedSchoolId),
+      buildCalibrationFlags(personIds, scope, rsRow.id, scopedSchoolId),
     ]);
     const ctx: AIContext = {
       scope,
@@ -833,7 +842,7 @@ async function buildCombinedContext(
     name: `${p.firstName} ${p.lastName}`,
   }));
   const [teacherSectionMulti, glowsGrowsMapMulti, actionStepsMapMulti] = await Promise.all([
-    buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets),
+    buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets, scopedSchoolId),
     buildGlowsGrowsData(personIds, scopedSchoolId),
     buildActionStepsData(personIds, scopedSchoolId),
   ]);
@@ -842,7 +851,7 @@ async function buildCombinedContext(
   /* Ranked list for explicit "weakest / top N" queries */
   if (relativeRef.kind) {
     const rankedSection = await buildRankedTeacherSection(
-      scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n,
+      scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n, scopedSchoolId,
     );
     if (rankedSection) blocks.push(rankedSection);
   }
@@ -1122,7 +1131,7 @@ router.get("/insights", async (req, res) => {
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const personIds = await getPersonIds(scopedSchoolId);
-    const domainAverages = await buildDomainAverages(personIds, rubricSetId);
+    const domainAverages = await buildDomainAverages(personIds, rubricSetId, scopedSchoolId);
 
     if (!domainAverages.length) {
       res.json({ topStrength: null, topGrowth: null, trendingSteps: [] }); return;
@@ -1178,7 +1187,7 @@ router.get("/calibration-flags", async (req, res) => {
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const personIds = await getPersonIds(scopedSchoolId);
-    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId);
+    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId);
     res.json(flags);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
@@ -1255,8 +1264,8 @@ router.post("/analysis", aiGenerationLimiter, async (req, res) => {
       : [];
 
     const [domainAverages, calibrationFlags, actionStepsMap] = await Promise.all([
-      buildDomainAverages(personIds, rubricSetId),
-      buildCalibrationFlags(personIds, scope, rubricSetId),
+      buildDomainAverages(personIds, rubricSetId, scopedSchoolId),
+      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId),
       buildActionStepsData(personIds, scopedSchoolId),
     ]);
 
@@ -1412,8 +1421,8 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
     /* Build AI context */
     const personIds = await getPersonIds(scopedSchoolId);
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rubricSetId),
-      buildCalibrationFlags(personIds, scope, rubricSetId),
+      buildDomainAverages(personIds, rubricSetId, scopedSchoolId),
+      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId),
     ]);
 
     const rescoreRows = personIds.length > 0

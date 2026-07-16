@@ -33,11 +33,16 @@ router.get("/:id", async (req, res) => {
     });
     if (!quarter) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
+    const schoolObsFilter = !isNetworkScope && currentUser.schoolId !== null
+      ? eq(observations.schoolId, currentUser.schoolId)
+      : undefined;
+
     const obsRows = await db.select().from(observations)
       .where(and(
         eq(observations.observedEmployeeId, employeeId),
         eq(observations.rubricSetId, quarter.id),
         ne(observations.status, "draft"),
+        schoolObsFilter,
       ));
 
     const obsIds = obsRows.map((o) => o.id);

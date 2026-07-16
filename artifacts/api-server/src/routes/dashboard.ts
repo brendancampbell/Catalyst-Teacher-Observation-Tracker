@@ -71,9 +71,10 @@ router.get("/", async (req, res) => {
           eq(people.includeInFeedbackTracker, true),
         ));
 
+    const schoolObsFilter = schoolIdParam !== null ? eq(observations.schoolId, schoolIdParam) : undefined;
     const obsWhere = walkthroughsOnly
-      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"))
-      : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"));
+      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"), schoolObsFilter)
+      : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"), schoolObsFilter);
 
     const allObs = await db.select().from(observations).where(obsWhere);
 
