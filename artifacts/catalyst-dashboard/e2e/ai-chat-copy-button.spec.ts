@@ -320,6 +320,13 @@ test.describe("Action Center — AI Chat Copy button", () => {
         timeout: 3_000,
       });
 
+      /* Core assertion 2b: the tooltip auto-dismisses after ~2 s.
+         The component calls setTimeout(() => setCopiedMsgIdx(null), 2000).
+         We wait up to 4 s to avoid flaking on slow CI runners. */
+      await expect(page.locator("text=Copied!")).not.toBeVisible({
+        timeout: 4_000,
+      });
+
       /* Core assertion 3: the text written to the clipboard is the full
          committed message content.  The component strips markdown before
          writing (bold markers, heading prefixes, excess blank lines).
