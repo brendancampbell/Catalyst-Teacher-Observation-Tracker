@@ -39,6 +39,10 @@ test.describe("AppHeader pill alignment at desktop width", () => {
 
     await page.goto("/");
     await page.waitForLoadState("networkidle");
+    // Wait for the rubric pill to appear, which only renders after rubric sets
+    // load from the API — ensures data-dependent pills are present before the
+    // height comparison runs.
+    await page.waitForSelector('[data-testid="header-rubric-pill"]', { timeout: 15_000 });
   });
 
   test("all header pills are the same height (within tolerance)", async ({ page }) => {
