@@ -45,7 +45,7 @@ Authenticated users can create and edit observations, people, users, schools, ru
 
 ### Information Disclosure
 
-Observation history, rubric notes, teacher/staff contact details, and network-wide analytics are sensitive personnel data. Every read path and every outbound sharing path must enforce school/network scope server-side, and rendered rich text or error responses must not leak more data than the caller is entitled to access. Historical observations must remain bound to the school and publication state they were created under; a later teacher transfer or AI aggregation helper must not surface prior-school records or another observer's drafts.
+Observation history, rubric notes, teacher/staff contact details, and network-wide analytics are sensitive personnel data. Every read path and every outbound sharing path must enforce school/network scope server-side, and rendered rich text or error responses must not leak more data than the caller is entitled to access. Historical observations must remain bound to the school and publication state they were created under; a later teacher transfer or AI aggregation helper must not surface prior-school records or another observer's drafts. Outbound email templates must not embed caller-selected third-party image URLs, because opening a trusted message would leak recipient metadata to external domains.
 
 ### Denial of Service
 
