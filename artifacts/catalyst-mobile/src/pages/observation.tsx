@@ -119,6 +119,11 @@ export default function ObservationPage() {
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [draftCheckDone, setDraftCheckDone] = useState(false);
 
+  const [pendingTeacherId, setPendingTeacherId] = useState<string | null>(null);
+  const [switchConfirmOpen, setSwitchConfirmOpen] = useState(false);
+  const [savingBeforeSwitch, setSavingBeforeSwitch] = useState(false);
+  const [switchSaveError, setSwitchSaveError] = useState<string | null>(null);
+
   const draftIdRef = useRef<string | null>(null);
   const draftJustLoaded = useRef(false);
   const isSubmittingRef = useRef(false);
@@ -386,6 +391,87 @@ export default function ObservationPage() {
     };
   }, [teacherId, date, course, scoresJson, strengths, growthAreas, isWalkthrough, actionStepText, actionStepDueDate, markMastered]);
 
+  function hasFormContent(): boolean {
+    return (
+      Object.keys(scores).length > 0 ||
+      strengths.trim().length > 0 ||
+      growthAreas.trim().length > 0 ||
+      actionStepText.trim().length > 0 ||
+      actionStepDueDate.length > 0
+    );
+  }
+
+  function handleTeacherChange(newTeacherId: string) {
+    if (newTeacherId === teacherId) return;
+    if (hasFormContent()) {
+      setPendingTeacherId(newTeacherId);
+      setSwitchConfirmOpen(true);
+    } else {
+      setTeacherId(newTeacherId);
+    }
+  }
+
+  async function confirmSwitch() {
+    if (!pendingTeacherId || !selectedRubric) return;
+    setSavingBeforeSwitch(true);
+    setSwitchSaveError(null);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    try {
+      const currentDraftId = draftIdRef.current;
+      const masterActionStepId =
+        markMastered && lastActionStep?.status === "open" ? lastActionStep.id : null;
+      const newActionStepDraft =
+        actionStepText.trim().length > 0 && actionStepDueDate.length > 0
+          ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
+          : undefined;
+      if (currentDraftId) {
+        await updateObservation(currentDraftId, {
+          strengths: strengths || undefined,
+          growthAreas: growthAreas || undefined,
+          scores: scores as Record<string, Score>,
+          status: "draft",
+          newActionStep: newActionStepDraft,
+          masterActionStepId: masterActionStepId ?? undefined,
+        });
+      } else {
+        const obs = await createObservation({
+          teacherId,
+          rubricSetId: selectedRubric.id,
+          date,
+          course: course || undefined,
+          scores: scores as Record<string, Score>,
+          strengths: strengths || undefined,
+          growthAreas: growthAreas || undefined,
+          observer: user?.name,
+          observerId: user?.id != null ? Number(user.id) : undefined,
+          isWalkthrough,
+          status: "draft",
+          newActionStep: newActionStepDraft,
+          masterActionStepId: masterActionStepId ?? undefined,
+        });
+        draftIdRef.current = obs.id;
+        setDraftId(obs.id);
+      }
+      /* Save succeeded — now safe to switch */
+      setSavingBeforeSwitch(false);
+      setSwitchConfirmOpen(false);
+      const next = pendingTeacherId;
+      setPendingTeacherId(null);
+      setTeacherId(next);
+    } catch (err) {
+      /* Save failed — keep user on current teacher, surface the error */
+      setSavingBeforeSwitch(false);
+      const msg = err instanceof Error ? err.message : "Failed to save draft";
+      setSwitchSaveError(`Couldn't save your draft: ${msg}. Please retry before switching.`);
+    }
+  }
+
+  function cancelSwitch() {
+    setSwitchConfirmOpen(false);
+    setPendingTeacherId(null);
+    setSwitchSaveError(null);
+  }
+
   function clearLocalDraft() {
     if (!user?.id || !selectedRubric?.id) return;
     try { localStorage.removeItem(localDraftKey(user.id, selectedRubric.id, teacherId)); } catch { /* ignore */ }
@@ -606,7 +692,7 @@ export default function ObservationPage() {
                 <div className="relative">
                   <select
                     value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
+                    onChange={(e) => handleTeacherChange(e.target.value)}
                     required
                     disabled={filteredTeachers.length === 0}
                     className="w-full appearance-none px-3 py-2.5 pr-9 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 bg-white text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1025,6 +1111,60 @@ export default function ObservationPage() {
             >
               {saving ? <Loader2 size={16} className="animate-spin inline" /> : "Submit"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Switch-teacher confirmation dialog */}
+      {switchConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          onClick={(e) => { if (e.target === e.currentTarget && !savingBeforeSwitch) cancelSwitch(); }}
+        >
+          <div
+            className="w-full max-w-md rounded-t-2xl bg-white shadow-xl px-6 pt-6 pb-8 flex flex-col gap-4"
+            style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+          >
+            <div className="flex flex-col gap-1">
+              <p className="text-base font-bold text-slate-800">Switch teacher?</p>
+              <p className="text-sm text-slate-600 leading-snug">
+                Your current progress will be saved as a draft first so you can find it in{" "}
+                <strong>My Drafts</strong> later.
+              </p>
+            </div>
+            {switchSaveError && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200">
+                <AlertCircle size={15} className="shrink-0 mt-0.5 text-red-500" />
+                <p className="text-xs text-red-700 leading-snug">{switchSaveError}</p>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={savingBeforeSwitch}
+                onClick={confirmSwitch}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-70"
+                style={{ backgroundColor: NAVY }}
+              >
+                {savingBeforeSwitch ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Saving draft…
+                  </>
+                ) : (
+                  "Save draft & switch teacher"
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={savingBeforeSwitch}
+                onClick={cancelSwitch}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                Stay on current teacher
+              </button>
+            </div>
           </div>
         </div>
       )}
