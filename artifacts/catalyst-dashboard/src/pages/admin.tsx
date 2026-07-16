@@ -67,7 +67,7 @@ function RubricIcon({ target, subjectAudience, size = 14 }: { target?: "TEACHER"
   return <Users size={size} />;
 }
 
-function RubricSettings({ setSlug }: { setSlug: string }) {
+export function RubricSettings({ setSlug }: { setSlug: string }) {
   const queryClient = useQueryClient();
   const qKey = ["rubric", setSlug] as const;
 
