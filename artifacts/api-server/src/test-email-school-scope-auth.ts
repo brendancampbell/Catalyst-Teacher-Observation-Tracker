@@ -107,7 +107,7 @@ describe("Email send-observation — school-scope authorization", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat!.id, slug: "tst_email_scope_dom", name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat!.id, rubricSetId: rs!.id, slug: "tst_email_scope_dom", name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     createdDomainId = dom!.id;
 

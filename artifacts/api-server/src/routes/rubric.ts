@@ -4,7 +4,7 @@ import {
   rubricSets, rubricCategories, rubricDomains, observationScores,
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
 } from "@workspace/db/schema";
-import { asc, count, eq, max } from "drizzle-orm";
+import { asc, count, eq, and, ne, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 
 function firstZodError(err: { issues: { message: string }[] }): string {
@@ -104,9 +104,10 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
           if (cat.domains?.length) {
             await db.insert(rubricDomains).values(
               cat.domains.map((d) => ({
-                categoryId: newCat.id,
-                name: d.name,
-                slug: d.slug,
+                categoryId:  newCat.id,
+                rubricSetId: rubricSet.id,
+                name:        d.name,
+                slug:        d.slug,
                 displayOrder: d.displayOrder,
               })),
             );
@@ -256,16 +257,43 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/categories/:id/domains ───────────────────── */
 router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => {
   try {
-    const parsed = insertRubricDomainSchema.omit({ categoryId: true }).safeParse(req.body);
+    const parsed = insertRubricDomainSchema.omit({ categoryId: true, rubricSetId: true }).safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: firstZodError(parsed.error) });
       return;
     }
+
+    const categoryId = Number(req.params.id);
+
+    /* Resolve the rubric set this category belongs to */
+    const category = await db.query.rubricCategories.findFirst({
+      where: eq(rubricCategories.id, categoryId),
+    });
+    if (!category) { res.status(404).json({ error: "Category not found" }); return; }
+
+    /* Check for a duplicate slug anywhere in the same rubric set */
+    const conflict = await db.query.rubricDomains.findFirst({
+      where: and(
+        eq(rubricDomains.rubricSetId, category.rubricSetId),
+        eq(rubricDomains.slug, parsed.data.slug),
+      ),
+    });
+    if (conflict) {
+      res.status(409).json({
+        error: `A domain with slug '${parsed.data.slug}' already exists in this rubric set.`,
+      });
+      return;
+    }
+
     const [dom] = await db.insert(rubricDomains)
-      .values({ ...parsed.data, categoryId: Number(req.params.id) })
+      .values({ ...parsed.data, categoryId, rubricSetId: category.rubricSetId })
       .returning();
     res.status(201).json(dom);
-  } catch (err) {
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "A domain with that slug already exists in this rubric set." });
+      return;
+    }
     console.error("POST /rubric/categories/:id/domains error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -301,10 +329,12 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
       return;
     }
 
-    /* ── Slug-rename guard ─────────────────────────────────────────
-       domainSlug in observation_scores has no FK — it is matched by
-       value throughout reporting, AI, and email routes. Silently
-       renaming it would orphan all historical scores.              */
+    /* ── Slug guards ───────────────────────────────────────────────
+       1. Slug-rename guard: domainSlug in observation_scores has no
+          FK — renaming it would orphan historical scores.
+       2. Duplicate-slug guard: two domains in the same rubric set
+          must never share a slug or observation scores would match
+          both simultaneously, corrupting reporting.              */
     if (parsed.data.slug !== undefined) {
       const domainId = Number(req.params.id);
       const current = await db.query.rubricDomains.findFirst({
@@ -324,6 +354,30 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
           });
           return;
         }
+
+        /* Check that the new slug isn't already taken by a sibling domain.
+           current.rubricSetId is NOT NULL (enforced by DB constraint + backfill),
+           but we fall back to a category join if somehow null for belt-and-suspenders. */
+        const rubricSetId = current.rubricSetId
+          ?? (await db.query.rubricCategories.findFirst({
+               where: eq(rubricCategories.id, current.categoryId),
+             }))?.rubricSetId;
+
+        if (rubricSetId !== undefined && rubricSetId !== null) {
+          const conflict = await db.query.rubricDomains.findFirst({
+            where: and(
+              eq(rubricDomains.rubricSetId, rubricSetId),
+              eq(rubricDomains.slug, parsed.data.slug),
+              ne(rubricDomains.id, domainId),
+            ),
+          });
+          if (conflict) {
+            res.status(409).json({
+              error: `A domain with slug '${parsed.data.slug}' already exists in this rubric set.`,
+            });
+            return;
+          }
+        }
       }
     }
 
@@ -333,7 +387,11 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
       .returning();
     if (!updated) { res.status(404).json({ error: "Domain not found" }); return; }
     res.json(updated);
-  } catch (err) {
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "A domain with that slug already exists in this rubric set." });
+      return;
+    }
     console.error("PUT /rubric/domains/:id error:", err);
     res.status(500).json({ error: "Internal server error" });
   }

@@ -113,7 +113,7 @@ describe("Observation score input validation — POST and PUT", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, slug: "tst_score_val_domain", name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: "tst_score_val_domain", name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id, slug: rubricDomains.slug });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId   = dom.id;

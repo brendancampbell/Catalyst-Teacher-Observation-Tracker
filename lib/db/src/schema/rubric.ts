@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -28,11 +28,16 @@ export const rubricCategories = pgTable("rubric_categories", {
 export const rubricDomains = pgTable("rubric_domains", {
   id:           serial("id").primaryKey(),
   categoryId:   integer("category_id").notNull().references(() => rubricCategories.id, { onDelete: "cascade" }),
+  /* Denormalized from the parent category so we can enforce a unique index on (rubricSetId, slug).
+     All existing rows were backfilled via UPDATE before this NOT NULL constraint was applied. */
+  rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   name:         text("name").notNull(),
   slug:         text("slug").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
   description:  text("description"),
-});
+}, (t) => [
+  uniqueIndex("rubric_domains_set_slug_uniq").on(t.rubricSetId, t.slug),
+]);
 
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
 export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true });
@@ -59,7 +64,7 @@ export const patchRubricCategorySchema = createInsertSchema(rubricCategories)
   .partial();
 
 export const patchRubricDomainSchema = insertRubricDomainSchema
-  .omit({ categoryId: true })
+  .omit({ categoryId: true, rubricSetId: true })
   .partial();
 
 export type InsertRubricSet = z.infer<typeof insertRubricSetSchema>;

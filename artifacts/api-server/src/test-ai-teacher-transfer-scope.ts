@@ -177,7 +177,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, slug: "tst_xfer_domain", name: "XFer Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: "tst_xfer_domain", name: "XFer Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert rubric domain");
     createdDomainId = dom.id;

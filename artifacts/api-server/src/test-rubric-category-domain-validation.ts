@@ -16,6 +16,8 @@
  *   4.  Invalid slug (trailing hyphen) → 400
  *   5.  Non-integer displayOrder → 400
  *   6.  Valid payload → 201
+ *  15.  Duplicate slug within same rubric set → 409
+ *  16.  Same slug in a different rubric set → 201 (allowed)
  *
  * PUT /categories/:id
  *   7.  Non-string name (number) → 400
@@ -28,6 +30,7 @@
  *  12.  Slug rename when observation_scores reference the old slug → 409
  *  13.  Slug rename when no scores reference the old slug → 200
  *  14.  Valid name-only update (no slug change) → 200
+ *  17.  Rename to a slug already used by a sibling domain → 409
  */
 
 import { test, describe, before, after } from "node:test";
@@ -128,6 +131,7 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     /* A domain used as the target for PUT /domains/:id tests */
     const [dom] = await db.insert(rubricDomains).values({
       categoryId:   CAT_ID,
+      rubricSetId:  RUBRIC_ID,
       name:         "Test Domain Val",
       slug:         "tst-domain-val",
       displayOrder: 0,
@@ -212,6 +216,45 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     assert.equal(body.name, "Valid New Domain");
   });
 
+  test("15 — POST /categories/:id/domains with duplicate slug in same rubric set → 409", async () => {
+    const jar = await loginAs(ADMIN_EID);
+    /* tst-domain-val already exists in RUBRIC_ID (created in before()) */
+    const res = await request("POST", `/rubric/categories/${CAT_ID}/domains`, {
+      name: "Duplicate Slug Domain", slug: "tst-domain-val",
+    }, jar);
+    assert.equal(res.status, 409, `Expected 409 for duplicate slug, got ${res.status}: ${JSON.stringify(res.body)}`);
+    const body = res.body as { error?: string };
+    assert.ok(body.error?.includes("tst-domain-val"), `Error should mention the conflicting slug, got: ${body.error}`);
+  });
+
+  test("16 — POST /categories/:id/domains with same slug in a different rubric set → 201", async () => {
+    const jar = await loginAs(ADMIN_EID);
+
+    /* Create a second rubric set + category */
+    const [rubric2] = await db.insert(rubricSets).values({
+      slug:         "TST-RUBRIC-VAL-2",
+      name:         "Test Rubric Validation 2",
+      isActive:     false,
+      isArchived:   false,
+      displayOrder: 9998,
+    }).returning();
+    const [cat2] = await db.insert(rubricCategories).values({
+      rubricSetId:  rubric2.id,
+      name:         "Test Category Val 2",
+      displayOrder: 0,
+    }).returning();
+
+    try {
+      /* Using the same slug "tst-domain-val" in a *different* rubric set must succeed */
+      const res = await request("POST", `/rubric/categories/${cat2.id}/domains`, {
+        name: "Cross-set Allowed Domain", slug: "tst-domain-val",
+      }, jar);
+      assert.equal(res.status, 201, `Expected 201 for same slug in different rubric set, got ${res.status}: ${JSON.stringify(res.body)}`);
+    } finally {
+      await db.delete(rubricSets).where(eq(rubricSets.id, rubric2.id)).catch(() => {});
+    }
+  });
+
   /* ── PUT /categories/:id ──────────────────────────────────────────────── */
 
   test("7 — PUT /categories/:id with non-string name (number) → 400", async () => {
@@ -284,6 +327,27 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     const body = res.body as { name?: string; slug?: string };
     assert.equal(body.name, "Updated Domain Name");
     assert.equal(body.slug, "tst-domain-val", "Slug should remain unchanged");
+  });
+
+  test("17 — PUT /domains/:id rename to a slug already used by a sibling domain → 409", async () => {
+    const jar = await loginAs(ADMIN_EID);
+
+    /* Create a second domain in the same category (same rubric set) with a known slug */
+    const createRes = await request("POST", `/rubric/categories/${CAT_ID}/domains`, {
+      name: "Sibling Domain For Conflict", slug: "tst-sibling-slug",
+    }, jar);
+    assert.equal(createRes.status, 201, `Setup: Expected 201, got ${createRes.status}`);
+    const sibling = createRes.body as { id: number };
+
+    try {
+      /* Now try to rename sibling to "tst-domain-val" which is already taken by DOMAIN_ID */
+      const res = await request("PUT", `/rubric/domains/${sibling.id}`, { slug: "tst-domain-val" }, jar);
+      assert.equal(res.status, 409, `Expected 409 for rename to sibling's slug, got ${res.status}: ${JSON.stringify(res.body)}`);
+      const body = res.body as { error?: string };
+      assert.ok(body.error?.includes("tst-domain-val"), `Error should mention the conflicting slug, got: ${body.error}`);
+    } finally {
+      await db.delete(rubricDomains).where(eq(rubricDomains.id, sibling.id)).catch(() => {});
+    }
   });
 });
 

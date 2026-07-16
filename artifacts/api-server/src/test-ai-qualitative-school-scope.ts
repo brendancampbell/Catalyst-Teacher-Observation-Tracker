@@ -166,7 +166,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, slug: "tst_qscope_domain", name: "QScope Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: "tst_qscope_domain", name: "QScope Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert rubric domain");
     createdDomainId = dom.id;

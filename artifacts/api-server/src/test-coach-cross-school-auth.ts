@@ -127,7 +127,7 @@ describe("Cross-school auth — COACH role", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, slug: TEST_DOMAIN_SLUG, name: "Test Coach Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: TEST_DOMAIN_SLUG, name: "Test Coach Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId = dom.id;
