@@ -881,22 +881,35 @@ router.post("/chat/stream", async (req, res) => {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
+    /* Detect client disconnect and abort the Anthropic stream early so we
+       only persist the partial text the user actually saw. */
+    const abort = new AbortController();
+    let clientDisconnected = false;
+    req.on("close", () => {
+      clientDisconnected = true;
+      abort.abort();
+    });
+
     let fullReply = "";
     let streamError = false;
 
     try {
       fullReply = await generateAIResponseStreamRaw(message, contextStr, (chunk) => {
-        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
-      });
+        if (!clientDisconnected) res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      }, abort.signal);
     } catch (aiErr) {
-      console.error("POST /ai/chat/stream AI error:", aiErr);
-      fullReply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
-      res.write(`data: ${JSON.stringify(fullReply)}\n\n`);
-      streamError = true;
+      if (!clientDisconnected) {
+        console.error("POST /ai/chat/stream AI error:", aiErr);
+        fullReply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
+        res.write(`data: ${JSON.stringify(fullReply)}\n\n`);
+        streamError = true;
+      }
     }
 
-    /* Persist messages if sessionId provided */
-    if (sessionId != null) {
+    /* Persist messages if sessionId provided.
+       When the client disconnected mid-stream, fullReply holds the partial text
+       the user actually saw — persist it only when there is something to save. */
+    if (sessionId != null && (!clientDisconnected || fullReply.trim())) {
       await db.insert(chatMessages).values([
         { sessionId, role: "user",      content: message,   rubricSetSlug: activeRubricSetSlug },
         { sessionId, role: "assistant", content: fullReply, rubricSetSlug: activeRubricSetSlug },
@@ -907,23 +920,26 @@ router.post("/chat/stream", async (req, res) => {
         .where(eq(chatSessions.id, sessionId));
     }
 
-    /* Parse next-step chip suggestions from the sentinel the AI appends as its
-       last line. The sentinel is kept in fullReply (and therefore in the DB)
-       so that history loading can re-parse it; the client strips it visually. */
-    const nextStepsMatch = fullReply.match(/\nNEXT_STEPS_JSON:(\[.*?\])\s*$/s);
-    let nextSteps: string[] = [];
-    try { if (nextStepsMatch) nextSteps = JSON.parse(nextStepsMatch[1]) as string[]; } catch { /* malformed */ }
+    /* Skip SSE teardown frames when the client is already gone. */
+    if (!clientDisconnected) {
+      /* Parse next-step chip suggestions from the sentinel the AI appends as its
+         last line. The sentinel is kept in fullReply (and therefore in the DB)
+         so that history loading can re-parse it; the client strips it visually. */
+      const nextStepsMatch = fullReply.match(/\nNEXT_STEPS_JSON:(\[.*?\])\s*$/s);
+      let nextSteps: string[] = [];
+      try { if (nextStepsMatch) nextSteps = JSON.parse(nextStepsMatch[1]) as string[]; } catch { /* malformed */ }
 
-    /* Emit combined metadata before closing the stream */
-    const metaPayload: { matchedTeachers?: string[]; nextSteps?: string[] } = {};
-    if (matchedTeachers.length > 0) metaPayload.matchedTeachers = matchedTeachers;
-    if (nextSteps.length > 0)       metaPayload.nextSteps = nextSteps;
-    if (Object.keys(metaPayload).length > 0) {
-      res.write(`data: [META]${JSON.stringify(metaPayload)}\n\n`);
+      /* Emit combined metadata before closing the stream */
+      const metaPayload: { matchedTeachers?: string[]; nextSteps?: string[] } = {};
+      if (matchedTeachers.length > 0) metaPayload.matchedTeachers = matchedTeachers;
+      if (nextSteps.length > 0)       metaPayload.nextSteps = nextSteps;
+      if (Object.keys(metaPayload).length > 0) {
+        res.write(`data: [META]${JSON.stringify(metaPayload)}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
     }
-
-    res.write("data: [DONE]\n\n");
-    res.end();
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
       if (!res.headersSent) {

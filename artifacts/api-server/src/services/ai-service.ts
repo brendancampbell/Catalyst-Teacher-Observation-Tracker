@@ -254,29 +254,39 @@ export async function generateAIResponseStreamRaw(
   message: string,
   contextStr: string,
   onChunk: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const userContent = `${contextStr}\n---\n\nUser question: ${message}`;
   let fullText = "";
 
-  const stream = anthropic.messages.stream({
-    model: "claude-opus-4-8",
-    max_tokens: 8192,
-    system: CATALYST_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userContent }],
-  });
+  const stream = anthropic.messages.stream(
+    {
+      model: "claude-opus-4-8",
+      max_tokens: 8192,
+      system: CATALYST_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+    },
+    signal ? { signal } : undefined,
+  );
 
-  for await (const event of stream) {
-    if (
-      event.type === "content_block_delta" &&
-      event.delta.type === "text_delta"
-    ) {
-      const chunk = event.delta.text;
-      fullText += chunk;
-      onChunk(chunk);
+  try {
+    for await (const event of stream) {
+      if (
+        event.type === "content_block_delta" &&
+        event.delta.type === "text_delta"
+      ) {
+        const chunk = event.delta.text;
+        fullText += chunk;
+        onChunk(chunk);
+      }
     }
+    await stream.finalMessage();
+  } catch (err) {
+    /* Client aborted the request — return whatever partial text arrived. */
+    if (signal?.aborted) return fullText;
+    throw err;
   }
 
-  await stream.finalMessage();
   return fullText;
 }
 
