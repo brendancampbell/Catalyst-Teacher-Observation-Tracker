@@ -123,39 +123,86 @@ function renderInlineText(text: string): React.ReactNode[] {
   });
 }
 
-/** Convert markdown text to an HTML string suitable for ClipboardItem text/html. */
+/** Convert markdown text to an HTML string suitable for ClipboardItem text/html.
+ *  Supports: headings (with navy color + sized fonts), bold, bullet/numbered
+ *  lists, ALL-CAPS section headers, and markdown tables. */
 function markdownToHtml(text: string): string {
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  /* Escape HTML entities first, then apply inline bold so <strong> tags are
-     not accidentally escaped. */
   const inline = (s: string) =>
     esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
-  const lines = text.split("\n");
+  /* Pre-group consecutive |-prefixed lines into table segments, exactly as
+     AINarrativeRenderer does, so multi-line tables survive line-by-line pass. */
+  const rawLines = text.split("\n");
+  type Seg = { kind: "table"; lines: string[] } | { kind: "line"; content: string };
+  const segments: Seg[] = [];
+  let si = 0;
+  while (si < rawLines.length) {
+    if (rawLines[si].trim().startsWith("|")) {
+      const tLines: string[] = [];
+      while (si < rawLines.length && rawLines[si].trim().startsWith("|")) {
+        tLines.push(rawLines[si++]);
+      }
+      segments.push({ kind: "table", lines: tLines });
+    } else {
+      segments.push({ kind: "line", content: rawLines[si++] });
+    }
+  }
+
   const parts: string[] = [];
   let listType: "ul" | "ol" | null = null;
   const closeList = () => {
     if (listType) { parts.push(listType === "ul" ? "</ul>" : "</ol>"); listType = null; }
   };
 
-  for (const rawLine of lines) {
+  for (const seg of segments) {
+    /* ── Markdown table ── */
+    if (seg.kind === "table") {
+      closeList();
+      const parsed = parseMarkdownTable(seg.lines);
+      if (parsed && parsed.headers.length > 0) {
+        const th = (h: string) =>
+          `<th style="border:1px solid #cbd5e1;padding:6px 10px;background:#f1f5f9;text-align:left;font-weight:600">${inline(h)}</th>`;
+        const td = (c: string) =>
+          `<td style="border:1px solid #cbd5e1;padding:6px 10px">${inline(c)}</td>`;
+        parts.push(
+          `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">` +
+          `<thead><tr>${parsed.headers.map(th).join("")}</tr></thead>` +
+          `<tbody>${parsed.rows.map((r) => `<tr>${r.map(td).join("")}</tr>`).join("")}</tbody>` +
+          `</table>`,
+        );
+      } else {
+        for (const l of seg.lines) parts.push(`<p>${inline(l)}</p>`);
+      }
+      continue;
+    }
+
+    const rawLine = seg.content;
     const trimmed = rawLine.trim();
     if (!trimmed) { closeList(); continue; }
     const stripped = trimmed.replace(/\*\*/g, "");
 
-    /* Markdown heading */
+    /* Markdown heading — sized and navy-coloured to match app rendering */
     const hm = trimmed.match(/^(#{1,6})\s+(.*)/);
     if (hm) {
       closeList();
-      parts.push(`<h${hm[1].length}>${inline(hm[2])}</h${hm[1].length}>`);
+      const lvl = hm[1].length;
+      const sz = lvl === 1 ? 20 : lvl === 2 ? 17 : lvl === 3 ? 15 : 14;
+      parts.push(
+        `<h${lvl} style="color:#1034B4;font-size:${sz}px;margin:12px 0 4px;font-weight:700">` +
+        `${inline(hm[2])}</h${lvl}>`,
+      );
       continue;
     }
 
     /* ALL-CAPS section header (mirrors AINarrativeRenderer detection) */
     if (stripped.length >= 4 && stripped === stripped.toUpperCase() && /[A-Z]/.test(stripped)) {
       closeList();
-      parts.push(`<h2>${inline(stripped)}</h2>`);
+      parts.push(
+        `<h2 style="color:#1034B4;font-size:13px;margin:12px 0 4px;font-weight:700;` +
+        `letter-spacing:0.05em;text-transform:uppercase">${inline(stripped)}</h2>`,
+      );
       continue;
     }
 
@@ -863,10 +910,25 @@ export default function ActionCenterPage() {
   }, [chatMsgs, chatTyping, streamingText]);
 
   /* Sync server messages into chatMsgs whenever the React Query cache updates.
-     Skip the sync while a stream is active to avoid clobbering in-flight chunks. */
+     Skip the sync while a stream is active to avoid clobbering in-flight chunks.
+     When the server returns no messages (e.g. an older instant-analysis session
+     whose assistant message was never persisted), fall back to any locally-stored
+     instant-analysis data so the card still renders. */
   useEffect(() => {
     if (!chatTyping && !streamingText && rawServerMessages && activeChatId !== null) {
-      setChatMsgs(mapServerMessages(rawServerMessages, activeChatId));
+      let msgs = mapServerMessages(rawServerMessages, activeChatId);
+      if (msgs.length === 0) {
+        const stored = localStorage.getItem(`catalyst-instant-analysis-${activeChatId}`);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as InstantAnalysisStructured;
+            if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
+              msgs = [{ role: "ai" as const, text: "", instantAnalysis: parsed }];
+            }
+          } catch { /* ignore */ }
+        }
+      }
+      setChatMsgs(msgs);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawServerMessages]);
