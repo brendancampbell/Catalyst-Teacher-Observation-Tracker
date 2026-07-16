@@ -3,13 +3,15 @@ import {
   people,
   rubricQuarters, rubricCategories, rubricDomains,
 } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
 
 async function seed() {
   console.log("Checking if database needs seeding…");
 
-  const existingQ = await db.select().from(rubricQuarters).where(eq(rubricQuarters.slug, "Q1"));
-  if (existingQ.length > 0) {
+  /* Guard on rubric_domains (not just the rubric set) so that a rebuild
+     that wipes and recreates the domains table still re-seeds on the next
+     run, even when the parent rubric set row survived. */
+  const existingDomains = await db.select({ id: rubricDomains.id }).from(rubricDomains).limit(1);
+  if (existingDomains.length > 0) {
     console.log("Database already seeded — skipping.");
     await pool.end();
     return;
