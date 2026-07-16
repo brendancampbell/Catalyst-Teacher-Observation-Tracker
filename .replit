@@ -42,6 +42,10 @@ args = "mobile-observation-no-overflow"
 task = "workflow.run"
 args = "dashboard-ai-stop-button"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-ai-copy-button"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -93,6 +97,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-chat-stop-button.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-ai-copy-button"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-chat-copy-button.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
