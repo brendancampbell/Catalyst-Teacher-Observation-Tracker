@@ -417,19 +417,23 @@ function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: Ins
 
   function handleCopy() {
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    /* Converts **bold** markdown to <strong> tags for HTML clipboard, matching renderInlineText() */
+    const inlineMd = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    /* Strips **bold** markers for plain-text clipboard */
+    const stripMd = (s: string) => s.replace(/\*\*/g, "");
 
     /* Plain-text version */
-    const plainLines: string[] = [structured.contextLine, "", structured.summary];
+    const plainLines: string[] = [structured.contextLine, "", stripMd(structured.summary)];
     if (structured.findings.length > 0) {
       plainLines.push("");
       for (const f of structured.findings) plainLines.push(`• ${f.lead} — ${f.detail}`);
     }
     const plain = plainLines.join("\n");
 
-    /* Rich-HTML version */
+    /* Rich-HTML version — contextLine as italic label, summary with inline bold, findings bolded leads */
     const htmlLines: string[] = [
       `<p><em>${esc(structured.contextLine)}</em></p>`,
-      `<p>${esc(structured.summary)}</p>`,
+      `<p>${inlineMd(structured.summary)}</p>`,
     ];
     if (structured.findings.length > 0) {
       htmlLines.push("<ul>");
