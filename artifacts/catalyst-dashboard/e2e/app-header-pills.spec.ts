@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
  * ------------------------------------------------------------------
  *   1. Rubric dropdown pill   — [data-testid="header-rubric-pill"]
  *   2. + Observation pill     — [data-testid="header-add-obs-pill"]
- *   3. Icon-pair pill         — [data-testid="header-icon-pill"]
+ *   3. Action Center pill     — [data-testid="header-action-center-pill"]
  *   4. User menu pill         — [data-testid="header-user-pill"]
  *
  * Alignment contract
@@ -43,10 +43,10 @@ test.describe("AppHeader pill alignment at desktop width", () => {
 
   test("all header pills are the same height (within tolerance)", async ({ page }) => {
     const pillSelectors: { name: string; testid: string }[] = [
-      { name: "Rubric dropdown", testid: "header-rubric-pill"  },
-      { name: "+ Observation",   testid: "header-add-obs-pill" },
-      { name: "Icon pair",       testid: "header-icon-pill"    },
-      { name: "User menu",       testid: "header-user-pill"    },
+      { name: "Rubric dropdown", testid: "header-rubric-pill"        },
+      { name: "+ Observation",   testid: "header-add-obs-pill"       },
+      { name: "Action Center",   testid: "header-action-center-pill" },
+      { name: "User menu",       testid: "header-user-pill"          },
     ];
 
     const visiblePills: { name: string; height: number }[] = [];

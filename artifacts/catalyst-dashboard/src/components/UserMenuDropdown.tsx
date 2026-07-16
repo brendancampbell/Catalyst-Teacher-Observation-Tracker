@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Settings, LogOut } from "lucide-react";
+import { ChevronDown, Settings, LogOut, FileEdit } from "lucide-react";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -11,9 +11,10 @@ interface Props {
   basePath:            string;
   canAdmin:            boolean;
   schoolAbbreviation?: string | null;
+  draftsHref?:         string;
 }
 
-export default function UserMenuDropdown({ name, email, role, basePath, canAdmin, schoolAbbreviation }: Props) {
+export default function UserMenuDropdown({ name, email, role, basePath, canAdmin, schoolAbbreviation, draftsHref }: Props) {
   const [open, setOpen]  = useState(false);
   const ref              = useRef<HTMLDivElement>(null);
 
@@ -87,6 +88,18 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
 
           {/* Menu items */}
           <div className="py-1">
+            {draftsHref && (
+              <a
+                href={draftsHref}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+                style={{ color: NAVY, textDecoration: "none" }}
+              >
+                <FileEdit size={14} strokeWidth={2} />
+                My Drafts
+              </a>
+            )}
+
             {canAdmin && (
               <a
                 href={`${basePath}/admin?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}${schoolAbbreviation ? `&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}`}
