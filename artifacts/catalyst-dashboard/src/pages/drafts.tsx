@@ -20,6 +20,7 @@ import { NewObservationModal } from "@/components/NewObservationModal";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
 import type { Teacher, DomainEntry, Score } from "@/data/dummy";
+import { safeReturnTo } from "@/lib/safeReturnTo";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -73,7 +74,7 @@ export default function DraftsPage() {
 
   const parsedSearch = new URLSearchParams(search);
   const rawReturnUrl = parsedSearch.get("returnUrl");
-  const backHref = rawReturnUrl || `${baseUrl}/`;
+  const backHref = safeReturnTo(rawReturnUrl, `${baseUrl}/`);
   const schoolAbbreviation = parsedSearch.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
   const schoolIdParam = parsedSearch.get("schoolId");
   const schoolId = schoolIdParam != null ? parseInt(schoolIdParam, 10) : null;
