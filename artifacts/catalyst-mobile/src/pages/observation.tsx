@@ -127,6 +127,31 @@ export default function ObservationPage() {
   const draftIdRef = useRef<string | null>(null);
   const draftJustLoaded = useRef(false);
   const isSubmittingRef = useRef(false);
+
+  const strengthsRef = useRef<HTMLTextAreaElement | null>(null);
+  const growthAreasRef = useRef<HTMLTextAreaElement | null>(null);
+  const actionStepTextRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = strengthsRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [strengths]);
+
+  useEffect(() => {
+    const el = growthAreasRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [growthAreas]);
+
+  useEffect(() => {
+    const el = actionStepTextRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [actionStepText]);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
@@ -821,6 +846,7 @@ export default function ObservationPage() {
                 </label>
                 <textarea
                   ref={(el) => {
+                    strengthsRef.current = el;
                     if (el) {
                       el.style.height = "auto";
                       el.style.height = `${el.scrollHeight}px`;
@@ -828,9 +854,6 @@ export default function ObservationPage() {
                   }}
                   value={strengths}
                   onChange={(e) => {
-                    const el = e.target;
-                    el.style.height = "auto";
-                    el.style.height = `${el.scrollHeight}px`;
                     setStrengths(e.target.value);
                   }}
                   placeholder="What is this teacher doing well?"
@@ -844,6 +867,7 @@ export default function ObservationPage() {
                 </label>
                 <textarea
                   ref={(el) => {
+                    growthAreasRef.current = el;
                     if (el) {
                       el.style.height = "auto";
                       el.style.height = `${el.scrollHeight}px`;
@@ -851,9 +875,6 @@ export default function ObservationPage() {
                   }}
                   value={growthAreas}
                   onChange={(e) => {
-                    const el = e.target;
-                    el.style.height = "auto";
-                    el.style.height = `${el.scrollHeight}px`;
                     setGrowthAreas(e.target.value);
                   }}
                   placeholder="Where should this teacher focus next?"
@@ -978,6 +999,7 @@ export default function ObservationPage() {
                   </label>
                   <textarea
                     ref={(el) => {
+                      actionStepTextRef.current = el;
                       if (el) {
                         el.style.height = "auto";
                         el.style.height = `${el.scrollHeight}px`;
@@ -985,9 +1007,6 @@ export default function ObservationPage() {
                     }}
                     value={actionStepText}
                     onChange={(e) => {
-                      const el = e.target;
-                      el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
                       setActionStepText(e.target.value);
                     }}
                     placeholder="Describe the action step for this teacher…"
