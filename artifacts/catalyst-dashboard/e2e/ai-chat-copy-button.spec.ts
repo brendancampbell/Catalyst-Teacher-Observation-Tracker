@@ -202,11 +202,18 @@ test.describe("Action Center — AI Chat Copy button", () => {
 
           /* Mock clipboard so writeText always resolves — headless Chromium
              may not have clipboard-write permission and would otherwise
-             reject the Promise, preventing the "Copied!" tooltip. */
+             reject the Promise, preventing the "Copied!" tooltip.
+             The argument is stored in window.__copiedText so the test
+             can read it back with page.evaluate() and assert correctness. */
           try {
             Object.defineProperty(navigator, "clipboard", {
               configurable: true,
-              value: { writeText: () => Promise.resolve() },
+              value: {
+                writeText: (text: string) => {
+                  (window as typeof window & { __copiedText: string }).__copiedText = text;
+                  return Promise.resolve();
+                },
+              },
             });
           } catch (_e) {
             /* Ignore — some browsers block redefining clipboard. */
@@ -312,6 +319,16 @@ test.describe("Action Center — AI Chat Copy button", () => {
       await expect(page.locator("text=Copied!")).toBeVisible({
         timeout: 3_000,
       });
+
+      /* Core assertion 3: the text written to the clipboard is the full
+         committed message content.  The component strips markdown before
+         writing (bold markers, heading prefixes, excess blank lines).
+         COMPLETE_TEXT contains no markdown so its plain form equals itself.
+         window.__copiedText is populated by the clipboard mock in addInitScript. */
+      const copiedText = await page.evaluate(
+        () => (window as typeof window & { __copiedText?: string }).__copiedText,
+      );
+      expect(copiedText).toBe(COMPLETE_TEXT);
     },
   );
 });
