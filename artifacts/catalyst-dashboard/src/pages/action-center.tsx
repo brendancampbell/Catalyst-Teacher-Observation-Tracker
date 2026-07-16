@@ -891,17 +891,6 @@ export default function ActionCenterPage() {
   const abortControllerRef                          = useRef<AbortController | null>(null);
   const chatTextareaRef                             = useRef<HTMLTextAreaElement>(null);
 
-  /* localStorage key scoped to the current user so selections don't bleed
-     between accounts on shared browsers. */
-  const chatStorageKey = `catalyst_active_chat_${currentUser?.id ?? "anon"}`;
-
-  function persistSelectedChat(id: number | null) {
-    try {
-      if (id === null) localStorage.removeItem(chatStorageKey);
-      else             localStorage.setItem(chatStorageKey, String(id));
-    } catch { /* storage may be blocked in some envs */ }
-  }
-
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   useEffect(() => {
@@ -927,7 +916,6 @@ export default function ActionCenterPage() {
   function selectSession(id: number) {
     setActiveChatId(id);
     activeChatIdRef.current = id;
-    persistSelectedChat(id);
     /* Serve cached messages immediately — no spinner on repeat visits.
        useQuery will background-refresh if stale; the sync useEffect above
        will update chatMsgs when fresh data arrives. */
@@ -950,7 +938,6 @@ export default function ActionCenterPage() {
     abortControllerRef.current = null;
     setActiveChatId(null);
     activeChatIdRef.current = null;
-    persistSelectedChat(null);
     setChatMsgs([]);
     setChatInput("");
     setChatTyping(false);
@@ -979,7 +966,6 @@ export default function ActionCenterPage() {
         sessionId = newSession.id;
         setActiveChatId(newSession.id);
         activeChatIdRef.current = newSession.id;
-        persistSelectedChat(newSession.id);
         queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) => [newSession, ...prev]);
       }
 
@@ -1042,7 +1028,6 @@ export default function ActionCenterPage() {
 
       setActiveChatId(newSession.id);
       activeChatIdRef.current = newSession.id;
-      persistSelectedChat(newSession.id);
       queryClient.setQueryData<AIChatSession[]>(["chatSessions"], (prev = []) => [newSession, ...prev]);
       setChatMsgs([]);
       setChatTyping(true);
@@ -1100,7 +1085,6 @@ export default function ActionCenterPage() {
         } else {
           setActiveChatId(null);
           activeChatIdRef.current = null;
-          persistSelectedChat(null);
           setChatMsgs([]);
         }
       }
