@@ -38,6 +38,10 @@ args = "dashboard-header-pills"
 task = "workflow.run"
 args = "mobile-observation-no-overflow"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-ai-stop-button"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -78,6 +82,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-mobile && PW_BASE_URL=http://127.0.0.1:25869/catalyst-mobile/ CHROMIUM_PATH=$(which chromium) pnpm playwright test --config playwright.config.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-ai-stop-button"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-chat-stop-button.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
