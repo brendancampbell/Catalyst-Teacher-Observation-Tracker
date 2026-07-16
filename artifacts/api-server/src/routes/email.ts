@@ -27,6 +27,26 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+const DEFAULT_LOGO_URL = "https://www.uncommonschools.org/favicon.ico";
+
+/** Accept only absolute https:// URLs that contain no HTML attribute-breaking
+ *  characters.  Falls back to the default logo for anything else: non-string,
+ *  empty, relative path, non-https scheme, data: / javascript: URIs, or any
+ *  value that contains `"`, `'`, `<`, `>`, or whitespace — characters that
+ *  could break out of an HTML attribute even after URL parsing.            */
+export function sanitizeLogoUrl(raw: unknown): string {
+  if (typeof raw !== "string" || raw.trim() === "") return DEFAULT_LOGO_URL;
+  // Reject before URL parsing: any character that breaks HTML attribute context
+  if (/["'<>\s]/.test(raw)) return DEFAULT_LOGO_URL;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:") return DEFAULT_LOGO_URL;
+    return raw;
+  } catch {
+    return DEFAULT_LOGO_URL;
+  }
+}
+
 const SANITIZE_OPTS: sanitizeHtml.IOptions = {
   allowedTags:       ["b", "i", "strong", "em", "u", "ul", "ol", "li", "p", "br", "span"],
   allowedAttributes: {},
@@ -181,7 +201,7 @@ export function buildHtmlEmail(params: {
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
-                <img src="${logoUrl}" alt="Uncommon Schools" height="36" style="display:block;height:36px;max-width:180px;filter:brightness(0) invert(1);"/>
+                <img src="${escapeHtml(logoUrl)}" alt="Uncommon Schools" height="36" style="display:block;height:36px;max-width:180px;filter:brightness(0) invert(1);"/>
               </td>
               <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
                 Observation Feedback
@@ -584,7 +604,7 @@ router.post(
       scoreMap,
       prevScoreMap,
       categories,
-      logoUrl: logoUrl ?? "https://www.uncommonschools.org/favicon.ico",
+      logoUrl: sanitizeLogoUrl(logoUrl),
       actionStepContext,
     });
 

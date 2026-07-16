@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildHtmlEmail } from "./routes/email.js";
+import { buildHtmlEmail, sanitizeLogoUrl } from "./routes/email.js";
 
 const BASE = {
   teacherName:    "Test Teacher",
@@ -458,6 +458,70 @@ for (const tc of legitCases) {
 
   passed++;
   console.log(`PASS [${passed}/${total}] ${tc.name}`);
+}
+
+/* ── 13. logoUrl — sanitizeLogoUrl() rejects non-https + escapeHtml blocks
+ *        attribute breakout for any value that somehow passes validation  ── */
+
+console.log("\n--- logoUrl field (sanitizeLogoUrl + escapeHtml) ---");
+
+/* 13a. Malicious values must be replaced by the safe default */
+const logoUrlRejectedCases: Array<[string, unknown]> = [
+  ["attribute breakout",      'https://logo.example/x.png" /><a href="https://evil.example/">click</a><img src="'],
+  ["javascript: scheme",      "javascript:alert(1)"],
+  ["data: URI",               "data:text/html,<script>alert(1)</script>"],
+  ["http: (not https)",       "http://example.com/logo.png"],
+  ["relative path",           "/images/logo.png"],
+  ["empty string",            ""],
+  ["non-string (number)",     42],
+  ["non-string (null)",       null],
+  ["non-string (object)",     {}],
+  ["onerror injection",       'https://x.com/a.png" onerror="alert(1)"'],
+];
+
+for (const [name, raw] of logoUrlRejectedCases) {
+  total++;
+  const sanitized = sanitizeLogoUrl(raw);
+  assert(
+    sanitized === "https://www.uncommonschools.org/favicon.ico",
+    `logoUrl[${name}]: expected default fallback, got "${sanitized}"`,
+  );
+  const html = buildHtmlEmail({ ...BASE, observer: "Coach", course: "Algebra", logoUrl: sanitized });
+  assert(!html.includes("<script"),     `logoUrl[${name}]: <script present in output`);
+  assert(!html.includes("javascript:"), `logoUrl[${name}]: javascript: present in output`);
+  assert(!html.includes("onerror"),     `logoUrl[${name}]: onerror present in output`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] logoUrl rejected[${name}]`);
+}
+
+/* 13b. Valid https:// URLs must survive sanitizeLogoUrl unchanged */
+const logoUrlAcceptedCases: Array<[string, string]> = [
+  ["plain https",             "https://www.uncommonschools.org/logo.png"],
+  ["https with path",         "https://cdn.example.com/assets/logo.png"],
+  ["https with query",        "https://cdn.example.com/logo.png?v=2"],
+];
+
+for (const [name, url] of logoUrlAcceptedCases) {
+  total++;
+  const sanitized = sanitizeLogoUrl(url);
+  assert(sanitized === url, `logoUrl[${name}]: valid URL must pass through unchanged, got "${sanitized}"`);
+  passed++;
+  console.log(`PASS [${passed}/${total}] logoUrl accepted[${name}]`);
+}
+
+/* 13c. Even a valid https:// URL is HTML-escaped in the template so
+ *      attribute-breaking characters cannot survive to the rendered output */
+total++;
+{
+  const crafted = 'https://ok.example/logo.png" onerror="alert(1)"';
+  /* sanitizeLogoUrl rejects this (no onerror in a valid URL path) — confirm
+     the HTML also contains no onerror regardless */
+  const safeLogo = sanitizeLogoUrl(crafted);
+  const html = buildHtmlEmail({ ...BASE, observer: "Coach", course: "Algebra", logoUrl: safeLogo });
+  assert(!html.includes("onerror"),    "logoUrl attr-breakout: onerror must not appear in HTML");
+  assert(!html.includes("<script"),    "logoUrl attr-breakout: <script must not appear in HTML");
+  passed++;
+  console.log(`PASS [${passed}/${total}] logoUrl attribute-breakout blocked end-to-end`);
 }
 
 console.log(`\nAll ${passed}/${total} HTML-injection tests passed.`);
