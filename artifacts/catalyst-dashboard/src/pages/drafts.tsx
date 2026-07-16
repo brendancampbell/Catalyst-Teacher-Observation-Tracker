@@ -96,6 +96,17 @@ export default function DraftsPage() {
   const [resumeLoading, setResumeLoading] = useState<string | null>(null);
   const [resumeSaving,  setResumeSaving]  = useState(false);
 
+  /* ── New-observation modal state ─────────────────────────────────── */
+  const [newObsOpen,    setNewObsOpen]    = useState(false);
+  const [newObsLoading, setNewObsLoading] = useState(false);
+  const [newObsSaving,  setNewObsSaving]  = useState(false);
+  const [newObsData, setNewObsData] = useState<{
+    teachers:    Teacher[];
+    categories:  CategoryEntry[];
+    allDomains:  DomainEntry[];
+    rubricSetId: number;
+  } | null>(null);
+
   /* ── Drafts query ───────────────────────────────────────────────── */
   const { data: drafts = [], isLoading, isError } = useQuery<DraftObservation[]>({
     queryKey:  ["myDrafts"],
@@ -179,6 +190,59 @@ export default function DraftsPage() {
       await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
     } finally {
       setBulkDeleting(false);
+    }
+  }
+
+  async function handleNewObsClick() {
+    setNewObsLoading(true);
+    try {
+      const data = await fetchDashboard("Q1", currentUser?.schoolId ?? null);
+      const allDomains = data.categories.flatMap((c) => c.domains);
+      setNewObsData({ teachers: data.teachers, categories: data.categories, allDomains, rubricSetId: data.rubricSet.id });
+      setNewObsOpen(true);
+    } catch {
+      toast({ title: "Could not load observation form", variant: "destructive" });
+    } finally {
+      setNewObsLoading(false);
+    }
+  }
+
+  async function handleSubmitNew(
+    teacherId:    string,
+    date:         string,
+    scores:       Record<string, Score>,
+    strengths:    string,
+    growthAreas:  string,
+    isWalkthrough: boolean,
+    time:         string,
+    course:       string,
+  ): Promise<string> {
+    if (!newObsData) return "";
+    setNewObsSaving(true);
+    try {
+      const obs = await createObservation({
+        teacherId,
+        rubricSetId:  newObsData.rubricSetId,
+        date,
+        time:         time        || undefined,
+        course:       course      || undefined,
+        scores,
+        strengths:    strengths   || undefined,
+        growthAreas:  growthAreas || undefined,
+        observer:     currentUser?.name ?? "Unknown",
+        observerId:   currentUser?.id,
+        isWalkthrough,
+        status: "published",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      toast({ title: "Observation submitted!" });
+      return String(obs.id);
+    } catch (err) {
+      console.error("Failed to submit observation:", err);
+      toast({ title: "Failed to submit observation", variant: "destructive" });
+      return "";
+    } finally {
+      setNewObsSaving(false);
     }
   }
 
@@ -295,6 +359,16 @@ export default function DraftsPage() {
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleNewObsClick}
+            disabled={newObsLoading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
+            style={{ backgroundColor: NAVY }}
+          >
+            {newObsLoading ? <Loader2 size={13} className="animate-spin" /> : null}
+            {newObsLoading ? "Loading…" : "+ Observation"}
+          </button>
 
           {/* Quick-select controls (only shown when there are drafts) */}
           {!isLoading && !isError && drafts.length > 0 && (
@@ -565,6 +639,22 @@ export default function DraftsPage() {
           </div>
         )}
       </main>
+
+      {/* ── New observation modal ── */}
+      {newObsData && (
+        <NewObservationModal
+          teachers={newObsData.teachers}
+          categories={newObsData.categories}
+          allDomains={newObsData.allDomains}
+          open={newObsOpen}
+          onOpenChange={(o) => { setNewObsOpen(o); if (!o) setNewObsData(null); }}
+          observerName={currentUser.name}
+          canMarkWalkthrough={currentUser.role !== "COACH"}
+          onSubmit={handleSubmitNew}
+          saving={newObsSaving}
+          freshStart
+        />
+      )}
 
       {/* ── Resume modal (opens inline on this page) ── */}
       {resumeData && (
