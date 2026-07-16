@@ -123,6 +123,67 @@ function renderInlineText(text: string): React.ReactNode[] {
   });
 }
 
+/** Convert markdown text to an HTML string suitable for ClipboardItem text/html. */
+function markdownToHtml(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  /* Escape HTML entities first, then apply inline bold so <strong> tags are
+     not accidentally escaped. */
+  const inline = (s: string) =>
+    esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  const lines = text.split("\n");
+  const parts: string[] = [];
+  let listType: "ul" | "ol" | null = null;
+  const closeList = () => {
+    if (listType) { parts.push(listType === "ul" ? "</ul>" : "</ol>"); listType = null; }
+  };
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) { closeList(); continue; }
+    const stripped = trimmed.replace(/\*\*/g, "");
+
+    /* Markdown heading */
+    const hm = trimmed.match(/^(#{1,6})\s+(.*)/);
+    if (hm) {
+      closeList();
+      parts.push(`<h${hm[1].length}>${inline(hm[2])}</h${hm[1].length}>`);
+      continue;
+    }
+
+    /* ALL-CAPS section header (mirrors AINarrativeRenderer detection) */
+    if (stripped.length >= 4 && stripped === stripped.toUpperCase() && /[A-Z]/.test(stripped)) {
+      closeList();
+      parts.push(`<h2>${inline(stripped)}</h2>`);
+      continue;
+    }
+
+    /* Bullet list */
+    if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
+      if (listType !== "ul") { closeList(); parts.push("<ul>"); listType = "ul"; }
+      const content = trimmed.replace(/^[-•*]\s+/, "");
+      const indented = ((rawLine.match(/^(\s*)/) ?? ["", ""])[1]).length >= 2;
+      parts.push(`<li${indented ? ' style="margin-left:16px"' : ""}>${inline(content)}</li>`);
+      continue;
+    }
+
+    /* Numbered list */
+    const nm = trimmed.match(/^(\d+)\.\s+(.*)/);
+    if (nm) {
+      if (listType !== "ol") { closeList(); parts.push("<ol>"); listType = "ol"; }
+      parts.push(`<li>${inline(nm[2])}</li>`);
+      continue;
+    }
+
+    /* Regular paragraph */
+    closeList();
+    parts.push(`<p>${inline(trimmed)}</p>`);
+  }
+  closeList();
+  return `<html><body style="font-family:sans-serif;font-size:14px;line-height:1.6">${parts.join("")}</body></html>`;
+}
+
 function parseMarkdownTable(lines: string[]): { headers: string[]; rows: string[][] } | null {
   const tableLines = lines.filter((l) => l.trim().startsWith("|"));
   if (tableLines.length < 2) return null;
@@ -703,11 +764,16 @@ export default function ActionCenterPage() {
     staleTime: 60_000,
   });
 
-  const { data: rawServerMessages } = useQuery<AIChatMessage[]>({
+  const {
+    data:    rawServerMessages,
+    isLoading: messagesLoading,
+    isError:   messagesError,
+  } = useQuery<AIChatMessage[]>({
     queryKey: ["chatMessages", activeChatId],
     queryFn:  () => fetchChatSessionMessages(activeChatId!),
     enabled:  activeChatId !== null,
     staleTime: 5 * 60_000,
+    retry: 1,
   });
   const [renamingId, setRenamingId]                 = useState<number | null>(null);
   const [renameValue, setRenameValue]               = useState("");
@@ -722,7 +788,7 @@ export default function ActionCenterPage() {
 
   /* localStorage key scoped to the current user so selections don't bleed
      between accounts on shared browsers. */
-  const chatStorageKey = `catalyst_active_chat_${currentUser?.employeeId ?? "anon"}`;
+  const chatStorageKey = `catalyst_active_chat_${currentUser?.id ?? "anon"}`;
 
   function persistSelectedChat(id: number | null) {
     try {
@@ -741,6 +807,20 @@ export default function ActionCenterPage() {
   }
 
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
+
+  /* Restore the last-selected chat from localStorage once the session list
+     first loads.  readPersistedChatId() was previously defined but never
+     called, so returning users always landed on the empty-state screen.
+     Uses activeChatIdRef (not activeChatId) to avoid a stale closure. */
+  useEffect(() => {
+    if (sessionsLoading || activeChatIdRef.current !== null || sessions.length === 0) return;
+    const persisted = readPersistedChatId();
+    const target = sessions.find((s) => s.id === persisted) ?? null;
+    if (target) selectSession(target.id);
+  // selectSession and readPersistedChatId are stable function references;
+  // sessions and activeChatIdRef are accessed via closure intentionally.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionsLoading]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1842,7 +1922,7 @@ export default function ActionCenterPage() {
                         } as React.CSSProperties}
                       />
                       <Button
-                        onClick={handleSendChat}
+                        onClick={() => handleSendChat()}
                         disabled={!chatInput.trim()}
                         className="h-12 px-5 rounded-xl shadow-sm shrink-0"
                         style={{ backgroundColor: NAVY }}
@@ -1923,10 +2003,34 @@ export default function ActionCenterPage() {
                                             .replace(/^#+\s+/gm, "")
                                             .replace(/\r?\n{3,}/g, "\n\n")
                                             .trim();
-                                          navigator.clipboard.writeText(plain).then(() => {
+                                          const doSuccess = () => {
                                             setCopiedMsgIdx(i);
                                             setTimeout(() => setCopiedMsgIdx(null), 2000);
-                                          });
+                                          };
+                                          const fallback = () =>
+                                            navigator.clipboard.writeText(plain).then(doSuccess).catch(() => {});
+                                          /* Prefer ClipboardItem (rich text) so pasting into
+                                             Google Docs / email / Notion preserves headings,
+                                             bold, and bullet structure.  Falls back to plain
+                                             text if the API is unavailable. */
+                                          if (typeof ClipboardItem !== "undefined") {
+                                            const html = markdownToHtml(msg.text);
+                                            const item = new ClipboardItem({
+                                              "text/html":  new Blob([html],  { type: "text/html" }),
+                                              "text/plain": new Blob([plain], { type: "text/plain" }),
+                                            });
+                                            /* Guard: some environments expose ClipboardItem but
+                                               not clipboard.write (mocked tests, older Safari).
+                                               Sync throws must be caught separately from async
+                                               Promise rejections. */
+                                            try {
+                                              navigator.clipboard.write([item]).then(doSuccess).catch(fallback);
+                                            } catch {
+                                              fallback();
+                                            }
+                                          } else {
+                                            fallback();
+                                          }
                                         }}
                                         title="Copy to clipboard"
                                         style={{
@@ -1998,6 +2102,21 @@ export default function ActionCenterPage() {
                           </div>
                         )
                       )}
+                      {/* Loading spinner — shown while the first fetch for a
+                          selected session is in flight and no messages have
+                          arrived yet (no cache hit). */}
+                      {activeChatId !== null && chatMsgs.length === 0 && messagesLoading && !chatTyping && !streamingText && (
+                        <div className="flex justify-center py-10">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: NAVY }} />
+                        </div>
+                      )}
+                      {/* Error state — shown when the messages fetch fails (e.g.
+                          the session no longer exists or a network error). */}
+                      {activeChatId !== null && chatMsgs.length === 0 && messagesError && !chatTyping && !streamingText && (
+                        <p className="text-center py-10 text-xs" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif" }}>
+                          Couldn't load this conversation — click it again to retry.
+                        </p>
+                      )}
                       {chatTyping && !streamingText && (
                         <div className="flex items-start gap-3">
                           <div className="px-4 py-3 bg-white border border-slate-200" style={{ borderRadius: "12px", boxShadow: "none" }}>
@@ -2067,7 +2186,7 @@ export default function ActionCenterPage() {
                           } as React.CSSProperties}
                         />
                         <Button
-                          onClick={handleSendChat}
+                          onClick={() => handleSendChat()}
                           disabled={!chatInput.trim()}
                           className="rounded-xl w-10 h-10 p-0 shadow-sm flex items-center justify-center shrink-0 self-end"
                           style={{ backgroundColor: NAVY }}
