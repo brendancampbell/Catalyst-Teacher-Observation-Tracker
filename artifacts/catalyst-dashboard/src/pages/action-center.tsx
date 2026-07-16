@@ -5,7 +5,7 @@ import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle,
+  RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle, Copy,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -689,6 +689,7 @@ export default function ActionCenterPage() {
   /* ── Chat state ──────────────────────────────────────── */
   const [activeChatId, setActiveChatId]             = useState<number | null>(null);
   const [chatMsgs, setChatMsgs]                     = useState<ChatMsg[]>([]);
+  const [copiedMsgIdx, setCopiedMsgIdx]             = useState<number | null>(null);
   const [chatInput, setChatInput]                   = useState("");
   const [chatTyping, setChatTyping]                 = useState(false);
   const [streamingText, setStreamingText]           = useState("");
@@ -1905,8 +1906,52 @@ export default function ActionCenterPage() {
                                   border:          msg.role === "ai" ? "1px solid #e2e8f0" : "none",
                                   borderRadius:    "12px",
                                   boxShadow:       "none",
+                                  position:        "relative",
+                                  paddingRight:    msg.role === "ai" ? 42 : undefined,
                                 }}
                               >
+                                {msg.role === "ai" && (
+                                  <div style={{ position: "absolute", top: 6, right: 8 }}>
+                                    <div style={{ position: "relative", display: "inline-block" }}>
+                                      <button
+                                        onClick={() => {
+                                          const plain = msg.text
+                                            .replace(/\*\*(.+?)\*\*/g, "$1")
+                                            .replace(/^#+\s+/gm, "")
+                                            .replace(/\r?\n{3,}/g, "\n\n")
+                                            .trim();
+                                          navigator.clipboard.writeText(plain).then(() => {
+                                            setCopiedMsgIdx(i);
+                                            setTimeout(() => setCopiedMsgIdx(null), 2000);
+                                          });
+                                        }}
+                                        title="Copy to clipboard"
+                                        style={{
+                                          display: "flex", alignItems: "center", justifyContent: "center",
+                                          width: 26, height: 26, borderRadius: 6, border: "none",
+                                          background: "transparent", cursor: "pointer", color: "#94a3b8",
+                                          transition: "color 0.12s, background 0.12s",
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.color = NAVY; e.currentTarget.style.background = "#EEF2FF"; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "transparent"; }}
+                                        aria-label="Copy message"
+                                      >
+                                        <Copy size={13} />
+                                      </button>
+                                      {copiedMsgIdx === i && (
+                                        <div style={{
+                                          position: "absolute", top: "100%", right: 0, marginTop: 4,
+                                          background: "#1e293b", color: "white", fontSize: 11,
+                                          fontWeight: 600, padding: "3px 8px", borderRadius: 6,
+                                          whiteSpace: "nowrap", pointerEvents: "none", zIndex: 50,
+                                          fontFamily: "'Libre Franklin', sans-serif",
+                                        }}>
+                                          Copied!
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 {msg.role === "ai"
                                   ? <AINarrativeRenderer text={msg.text} />
                                   : msg.text.split("**").map((part, pi) => {
