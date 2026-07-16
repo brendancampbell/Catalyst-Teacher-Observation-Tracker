@@ -22,6 +22,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ObservationPage, { localDraftKey } from "@/pages/observation";
 import type { LocalDraft } from "@/pages/observation";
+import { createObservation, updateObservation } from "@/lib/api";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -438,5 +439,211 @@ describe("ObservationPage — draft restore round-trip", () => {
       const parsedB = JSON.parse(rawB) as LocalDraft;
       expect(parsedB.teacherId).toBe("emp-002");
     }
+  });
+});
+
+// ── 0.0 score preservation ──────────────────────────────────────────────────
+
+/**
+ * These tests confirm that a 0.0 ("Not Yet") domain score is never silently
+ * dropped by a falsy guard at any stage of the draft lifecycle:
+ *
+ *   1. localStorage restore → score hydrated into React state → score pill shown as selected
+ *   2. Subsequent form change → score re-serialised to localStorage → 0 preserved
+ *   3. Debounced autosave → createObservation called with scores["domain-a"] === 0
+ *
+ * RUBRIC_WITH_DOMAIN extends the standard fixture with one real domain so that
+ * score pill buttons actually render and can be asserted against.
+ */
+describe("ObservationPage — 0.0 (Not Yet) score preservation through draft save-and-resume", () => {
+  const RUBRIC_WITH_DOMAIN = {
+    rubricSet: { id: 7, slug: "default", name: "Test Rubric" },
+    categories: [
+      {
+        id: 1,
+        name: "Instruction",
+        domains: [{ id: 1, slug: "domain-a", name: "Clarity", description: "" }],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+
+    mockFetchMyDrafts.mockResolvedValue([]);
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/people")) return Promise.resolve([TEACHER_A, TEACHER_B]);
+      if (url.includes("/api/rubric")) return Promise.resolve(RUBRIC_WITH_DOMAIN);
+      if (url.includes("/api/action-steps/latest")) return Promise.resolve(null);
+      return Promise.resolve({});
+    });
+
+    vi.mocked(createObservation).mockResolvedValue({ id: "srv-draft-zero" } as never);
+    vi.mocked(updateObservation).mockResolvedValue({ id: "srv-draft-zero" } as never);
+  });
+
+  it("restores a 0.0 score from localStorage: score pill shows as selected", async () => {
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", "Good questioning"),
+        scores: { "domain-a": 0 },
+      }),
+    );
+
+    renderPage();
+
+    await waitFor(
+      () => {
+        /* The "Not Yet" pill (value 0) must have the selected style (red background),
+           not the unselected grey — confirming 0 was NOT treated as falsy. */
+        const notYetBtn = screen.getByTitle("Not Yet");
+        const style = window.getComputedStyle(notYetBtn);
+        /* jsdom resolves inline styles; check backgroundColor or the style attribute */
+        /* jsdom normalises hex colours to rgb() in inline styles */
+        expect(notYetBtn.getAttribute("style")).toContain("rgb(252, 165, 165)");
+      },
+      { timeout: 4000 },
+    );
+
+    /* Also assert the raw localStorage entry still carries 0 (not undefined/dropped) */
+    const raw = localStorage.getItem(keyA);
+    expect(raw).not.toBeNull();
+    const draft = JSON.parse(raw!) as LocalDraft;
+    expect(Object.hasOwn(draft.scores, "domain-a")).toBe(true);
+    expect(draft.scores["domain-a"]).toBe(0);
+  });
+
+  it("re-serialises 0.0 score to localStorage after a subsequent form change", async () => {
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", ""),
+        scores: { "domain-a": 0 },
+      }),
+    );
+
+    renderPage();
+
+    /* Wait for draft to load (score pill selected) */
+    await waitFor(
+      () => expect(screen.getByTitle("Not Yet").getAttribute("style")).toContain("rgb(252, 165, 165)"),
+      { timeout: 4000 },
+    );
+
+    /* Trigger the autosave effect by typing into the Strengths field.
+       This clears the draftJustLoaded guard and causes localStorage to be
+       re-written synchronously within the same useEffect execution. */
+    const ta = screen.getByPlaceholderText(
+      "What is this teacher doing well?",
+    ) as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(ta, { target: { value: "Strong routines" } });
+    });
+
+    /* localStorage is written synchronously before the 2-second debounce timer;
+       assert immediately that the 0 score was not lost. */
+    await waitFor(
+      () => {
+        const raw = localStorage.getItem(keyA);
+        expect(raw).not.toBeNull();
+        const saved = JSON.parse(raw!) as LocalDraft;
+        expect(saved.scores["domain-a"]).toBe(0);
+        expect(saved.strengths).toBe("Strong routines");
+      },
+      { timeout: 4000 },
+    );
+  });
+
+  it("sends 0.0 score in the API payload when the debounced autosave fires", async () => {
+    const keyA = localDraftKey(USER_ID, RUBRIC_ID, "emp-001");
+    localStorage.setItem(
+      keyA,
+      JSON.stringify({
+        ...makeDraft("emp-001", ""),
+        scores: { "domain-a": 0 },
+      }),
+    );
+
+    renderPage();
+
+    /* Wait for the score to restore */
+    await waitFor(
+      () => expect(screen.getByTitle("Not Yet").getAttribute("style")).toContain("rgb(252, 165, 165)"),
+      { timeout: 4000 },
+    );
+
+    /* Trigger the autosave effect */
+    const ta = screen.getByPlaceholderText(
+      "What is this teacher doing well?",
+    ) as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(ta, { target: { value: "Good cold call technique" } });
+    });
+
+    /* The debounce timer fires after 2 000 ms; allow up to 5 s total. */
+    await waitFor(
+      () => {
+        expect(vi.mocked(createObservation)).toHaveBeenCalled();
+        const payload = vi.mocked(createObservation).mock.calls[0][0] as Record<string, unknown>;
+        const scores = payload.scores as Record<string, number>;
+        /* 0 is a valid, truthy-false score — it must survive the API payload build. */
+        expect(Object.hasOwn(scores, "domain-a")).toBe(true);
+        expect(scores["domain-a"]).toBe(0);
+      },
+      { timeout: 5000 },
+    );
+  }, 10_000);
+
+  it("preserves 0.0 score in the publish payload when a resumed draft is submitted", async () => {
+    /* Simulate resuming a server-side draft (draftId will be set via loadDraftIntoForm).
+       Using a server draft rather than localStorage means draftId is populated on the
+       React state before submit fires, so doSubmit() takes the updateObservation path
+       with status: "published" — the realistic resume-then-submit journey. */
+    mockFetchMyDrafts.mockResolvedValue([
+      {
+        id: "srv-draft-001",
+        observedEmployeeId: "emp-001",
+        rubricSetId: 7,
+        date: "2026-07-13",
+        course: "Algebra 1",
+        scores: { "domain-a": 0 },
+        strengths: "Good technique",
+        growthAreas: "",
+        isWalkthrough: false,
+        status: "draft",
+      },
+    ]);
+
+    renderPage();
+
+    /* Wait for the server draft to load: the "Not Yet" pill must be selected */
+    await waitFor(
+      () => expect(screen.getByTitle("Not Yet").getAttribute("style")).toContain("rgb(252, 165, 165)"),
+      { timeout: 4000 },
+    );
+
+    /* Trigger the form submit */
+    const submitBtn = screen.getByRole("button", { name: /Submit/i });
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
+
+    /* updateObservation must be called with status "published" and the 0 score intact */
+    await waitFor(
+      () => {
+        expect(vi.mocked(updateObservation)).toHaveBeenCalled();
+        const [, payload] = vi.mocked(updateObservation).mock.calls[0];
+        expect((payload as Record<string, unknown>).status).toBe("published");
+        const scores = (payload as Record<string, unknown>).scores as Record<string, number>;
+        expect(Object.hasOwn(scores, "domain-a")).toBe(true);
+        expect(scores["domain-a"]).toBe(0);
+      },
+      { timeout: 4000 },
+    );
   });
 });
