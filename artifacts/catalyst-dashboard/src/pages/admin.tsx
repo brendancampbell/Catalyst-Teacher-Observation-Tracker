@@ -2340,6 +2340,7 @@ export default function AdminPage() {
           basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
           backHref={returnTo}
           backLabel="Dashboard"
+          schoolAbbreviation={currentUser.schoolAbbreviation}
           userName={currentUser.name}
           userRole={currentUser.role}
           canAdmin={true}

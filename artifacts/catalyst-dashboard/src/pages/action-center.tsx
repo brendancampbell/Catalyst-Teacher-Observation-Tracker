@@ -1121,6 +1121,7 @@ export default function ActionCenterPage() {
               draftsHref={`${baseUrl}/drafts`}
               basePath={baseUrl}
               actionCenterHref={`${baseUrl}/action-center`}
+              schoolAbbreviation={currentUser.schoolAbbreviation}
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}

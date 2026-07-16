@@ -253,6 +253,7 @@ export default function DraftsPage() {
           basePath={baseUrl}
           draftsHref={`${baseUrl}/drafts`}
           actionCenterHref={`${baseUrl}/action-center`}
+          schoolAbbreviation={currentUser.schoolAbbreviation}
           userName={currentUser.name}
           userEmail={currentUser.email}
           userRole={currentUser.role}
