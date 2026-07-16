@@ -84,31 +84,24 @@ function parseNextStepsFromSentinel(text: string): string[] {
   try { return JSON.parse(m[1]) as string[]; } catch { return []; }
 }
 
-/* Maps server AIChatMessage[] → ChatMsg[], enriching the first AI message
-   with any instant-analysis structured card persisted in localStorage. */
-function mapServerMessages(messages: AIChatMessage[], sessionId: number): ChatMsg[] {
-  const mapped: ChatMsg[] = messages.map((m) => {
+/* Maps server AIChatMessage[] → ChatMsg[], using the persisted
+   instant-analysis structured card from the server response. */
+function mapServerMessages(messages: AIChatMessage[]): ChatMsg[] {
+  return messages.map((m) => {
     const role = m.role === "user" ? "user" as const : "ai" as const;
     if (role === "ai") {
       const nextSteps = parseNextStepsFromSentinel(m.content);
-      return { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
+      const base: ChatMsg = { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
+      if (m.instantAnalysis) {
+        const ia = m.instantAnalysis as InstantAnalysisStructured;
+        if (Array.isArray(ia.findings) && ia.findings.length > 0 && ia.summary) {
+          return { ...base, instantAnalysis: ia };
+        }
+      }
+      return base;
     }
     return { role, text: m.content };
   });
-  const stored = localStorage.getItem(`catalyst-instant-analysis-${sessionId}`);
-  if (stored && mapped.length > 0 && mapped[0].role === "ai") {
-    try {
-      const parsed = JSON.parse(stored) as InstantAnalysisStructured;
-      if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
-        mapped[0] = { ...mapped[0], instantAnalysis: parsed };
-      } else {
-        localStorage.removeItem(`catalyst-instant-analysis-${sessionId}`);
-      }
-    } catch {
-      localStorage.removeItem(`catalyst-instant-analysis-${sessionId}`);
-    }
-  }
-  return mapped;
 }
 
 /* ── Narrative helpers ──────────────────────────────── */
@@ -910,25 +903,10 @@ export default function ActionCenterPage() {
   }, [chatMsgs, chatTyping, streamingText]);
 
   /* Sync server messages into chatMsgs whenever the React Query cache updates.
-     Skip the sync while a stream is active to avoid clobbering in-flight chunks.
-     When the server returns no messages (e.g. an older instant-analysis session
-     whose assistant message was never persisted), fall back to any locally-stored
-     instant-analysis data so the card still renders. */
+     Skip the sync while a stream is active to avoid clobbering in-flight chunks. */
   useEffect(() => {
     if (!chatTyping && !streamingText && rawServerMessages && activeChatId !== null) {
-      let msgs = mapServerMessages(rawServerMessages, activeChatId);
-      if (msgs.length === 0) {
-        const stored = localStorage.getItem(`catalyst-instant-analysis-${activeChatId}`);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as InstantAnalysisStructured;
-            if (Array.isArray(parsed.findings) && parsed.findings.length > 0 && parsed.summary) {
-              msgs = [{ role: "ai" as const, text: "", instantAnalysis: parsed }];
-            }
-          } catch { /* ignore */ }
-        }
-      }
-      setChatMsgs(msgs);
+      setChatMsgs(mapServerMessages(rawServerMessages));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawServerMessages]);
@@ -948,7 +926,7 @@ export default function ActionCenterPage() {
        useQuery will background-refresh if stale; the sync useEffect above
        will update chatMsgs when fresh data arrives. */
     const cached = queryClient.getQueryData<AIChatMessage[]>(["chatMessages", id]);
-    setChatMsgs(cached ? mapServerMessages(cached, id) : []);
+    setChatMsgs(cached ? mapServerMessages(cached) : []);
   }
 
   function handleStopGeneration() {
@@ -1067,9 +1045,6 @@ export default function ActionCenterPage() {
       /* Fetch the full narrative (persisted to the session via sessionId) */
       const result = await generateAIAnalysis(activeQuarter, schoolId, sessionId);
       const { structured } = result;
-
-      /* Persist structured card data so it survives navigation away/back */
-      localStorage.setItem(`catalyst-instant-analysis-${sessionId}`, JSON.stringify(structured));
 
       /* Show the structured card immediately (no streaming — it's a component, not text) */
       if (activeChatIdRef.current === sessionId) {
@@ -2215,19 +2190,13 @@ export default function ActionCenterPage() {
                           Couldn't load this conversation — click it again to retry.
                         </p>
                       )}
-                      {/* Empty state — session exists but has no messages and no
-                          error (e.g. an older Instant Analysis session whose content
-                          was created before server-side persistence was added, and
-                          whose localStorage entry is no longer available on this
-                          device).  Gives the user a clear recovery path instead of
-                          a silent blank panel. */}
                       {activeChatId !== null && chatMsgs.length === 0 && !messagesLoading && !messagesError && !chatTyping && !streamingText && (
                         <div className="flex flex-col items-center py-12 gap-2 px-6">
                           <p className="text-center text-sm font-medium" style={{ color: "#64748b", fontFamily: "'Libre Franklin', sans-serif" }}>
-                            This chat's content isn't available on this device.
+                            No messages in this conversation.
                           </p>
                           <p className="text-center text-xs" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif", maxWidth: 340 }}>
-                            Instant Analysis summaries are saved locally — run a new Instant Analysis to generate a fresh report for your school.
+                            Run a new Instant Analysis to generate a fresh report for your school.
                           </p>
                         </div>
                       )}

@@ -395,12 +395,26 @@ export interface AIChatSession {
   updatedAt: string;
 }
 
+export interface InstantAnalysisStructured {
+  contextLine:            string;
+  summary:                string;
+  findings: Array<{
+    type:   "pattern" | "leverage" | "flag";
+    lead:   string;
+    detail: string;
+  }>;
+  chips:                  [string, string, string];
+  narrativeForContext:    string;
+  overdueActionStepCount: number;
+}
+
 export interface AIChatMessage {
-  id:        number;
-  sessionId: number;
-  role:      "user" | "assistant";
-  content:   string;
-  createdAt: string;
+  id:               number;
+  sessionId:        number;
+  role:             "user" | "assistant";
+  content:          string;
+  instantAnalysis?: InstantAnalysisStructured | null;
+  createdAt:        string;
 }
 
 export interface AIInsightsResponse {

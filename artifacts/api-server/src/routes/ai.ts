@@ -1260,6 +1260,7 @@ router.post("/analysis", async (req, res) => {
           sessionId,
           role: "assistant",
           content: structured.narrativeForContext,
+          instantAnalysis: structured,
         });
         await db
           .update(chatSessions)

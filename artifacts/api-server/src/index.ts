@@ -224,6 +224,10 @@ async function ensureChatTables(): Promise<void> {
     await client.query(`
       ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS rubric_set_slug TEXT;
     `);
+    /* Add instant_analysis_structured column if not yet present (idempotent) */
+    await client.query(`
+      ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS instant_analysis_structured JSONB;
+    `);
     logger.info("Chat tables ready");
   } finally {
     client.release();

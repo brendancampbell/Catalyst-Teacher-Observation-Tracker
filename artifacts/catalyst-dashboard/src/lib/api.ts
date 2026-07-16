@@ -1,4 +1,4 @@
-import type { Score, Teacher, Observation } from "@workspace/api-types";
+import type { Score, Teacher, Observation, InstantAnalysisStructured } from "@workspace/api-types";
 
 export type {
   Score,
@@ -39,6 +39,7 @@ export type {
   AIChatResponse,
   AIChatSession,
   AIChatMessage,
+  InstantAnalysisStructured,
   AIInsightsResponse,
   AICalibrationFlag,
   ActionStep,
@@ -508,20 +509,6 @@ export async function fetchAICalibrationFlags(rubricSlug?: string, schoolId?: nu
   if (schoolId != null) params.set("schoolId", String(schoolId));
   const qs = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<AICalibrationFlag[]>(`/ai/calibration-flags${qs}`);
-}
-
-export interface InstantAnalysisStructured {
-  contextLine: string;
-  summary: string;
-  findings: Array<{
-    type: "pattern" | "leverage" | "flag";
-    lead: string;
-    detail: string;
-  }>;
-  chips: [string, string, string];
-  narrativeForContext: string;
-  /** Total number of overdue open action steps — injected server-side, 0 if none. */
-  overdueActionStepCount: number;
 }
 
 export async function generateAIAnalysis(

@@ -261,6 +261,24 @@ async function migrate() {
       }
     }
 
+    /* ── 9b. Add instant_analysis_structured JSONB column to chat_messages ── */
+    const { rows: iasColRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'chat_messages' AND column_name = 'instant_analysis_structured'
+       ) AS exists`,
+    );
+    if (!iasColRows[0].exists) {
+      const { rows: cmExists2 } = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'chat_messages') AS exists`,
+      );
+      if (cmExists2[0].exists) {
+        console.log("  Adding instant_analysis_structured column to chat_messages…");
+        await client.query(`ALTER TABLE chat_messages ADD COLUMN instant_analysis_structured JSONB`);
+        console.log("  Done.");
+      }
+    }
+
     /* ── 10. Rename schools.name → display_name if still on old schema ── */
     const { rows: schoolsNameRows } = await client.query<{ exists: boolean }>(`
       SELECT EXISTS(

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { people } from "./people";
 
 export const chatSessions = pgTable("chat_sessions", {
@@ -10,12 +10,13 @@ export const chatSessions = pgTable("chat_sessions", {
 });
 
 export const chatMessages = pgTable("chat_messages", {
-  id:            serial("id").primaryKey(),
-  sessionId:     integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
-  role:          text("role").notNull(),
-  content:       text("content").notNull(),
-  rubricSetSlug: text("rubric_set_slug"),
-  createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  id:              serial("id").primaryKey(),
+  sessionId:       integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
+  role:            text("role").notNull(),
+  content:         text("content").notNull(),
+  rubricSetSlug:   text("rubric_set_slug"),
+  instantAnalysis: jsonb("instant_analysis_structured"),
+  createdAt:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type ChatSession = typeof chatSessions.$inferSelect;
