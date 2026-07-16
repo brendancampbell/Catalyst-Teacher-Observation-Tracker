@@ -208,12 +208,13 @@ test.describe("Action Center — AI Chat Stop button", () => {
       await expect(followUpTextarea).toBeVisible({ timeout: 5_000 });
 
       /* 3. The partial text must be committed as a permanent AI message
-            bubble — content must NOT be silently discarded.
-            handleStopGeneration() pushes streamingText into chatMsgs
-            when it is non-empty before clearing it. */
+            bubble exactly ONCE — no duplicate bubbles.
+            handleStopGeneration() commits streamingText; the fixed
+            streamAIChat now re-throws AbortError so handleSendChat's
+            catch block exits early and does NOT commit a second copy. */
       await expect(
-        page.locator(`text=${PARTIAL_TEXT}`).first(),
-      ).toBeVisible({ timeout: 3_000 });
+        page.locator(`text=${PARTIAL_TEXT}`),
+      ).toHaveCount(1, { timeout: 3_000 });
 
       /* 4. The user's original question must still be visible above the
             AI reply (message history is intact after stopping). */

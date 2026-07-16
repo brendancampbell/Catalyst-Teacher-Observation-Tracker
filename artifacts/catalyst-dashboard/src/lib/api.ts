@@ -453,8 +453,17 @@ export async function streamAIChat(
       }
     }
   } catch (err) {
-    if ((err as Error)?.name === "AbortError") return meta;
+    /* Re-throw all errors — including AbortError — so the caller's catch
+       block decides how to handle them.  Previously AbortError was swallowed
+       here and meta was returned, which caused handleSendChat's success path
+       to commit the partial text a second time after handleStopGeneration()
+       had already committed it (double-bubble bug). */
     throw err;
+  }
+  /* If the loop exited because the signal was aborted (break path), throw so
+     the caller's AbortError guard fires and the success-path commit is skipped. */
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
   }
   return meta;
 }
