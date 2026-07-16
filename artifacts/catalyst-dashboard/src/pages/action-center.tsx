@@ -2215,6 +2215,22 @@ export default function ActionCenterPage() {
                           Couldn't load this conversation — click it again to retry.
                         </p>
                       )}
+                      {/* Empty state — session exists but has no messages and no
+                          error (e.g. an older Instant Analysis session whose content
+                          was created before server-side persistence was added, and
+                          whose localStorage entry is no longer available on this
+                          device).  Gives the user a clear recovery path instead of
+                          a silent blank panel. */}
+                      {activeChatId !== null && chatMsgs.length === 0 && !messagesLoading && !messagesError && !chatTyping && !streamingText && (
+                        <div className="flex flex-col items-center py-12 gap-2 px-6">
+                          <p className="text-center text-sm font-medium" style={{ color: "#64748b", fontFamily: "'Libre Franklin', sans-serif" }}>
+                            This chat's content isn't available on this device.
+                          </p>
+                          <p className="text-center text-xs" style={{ color: "#94a3b8", fontFamily: "'Libre Franklin', sans-serif", maxWidth: 340 }}>
+                            Instant Analysis summaries are saved locally — run a new Instant Analysis to generate a fresh report for your school.
+                          </p>
+                        </div>
+                      )}
                       {chatTyping && !streamingText && (
                         <div className="flex items-start gap-3">
                           <div className="px-4 py-3 bg-white border border-slate-200" style={{ borderRadius: "12px", boxShadow: "none" }}>
