@@ -416,20 +416,45 @@ function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: Ins
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
-    const lines: string[] = [];
-    lines.push(structured.contextLine);
-    lines.push("");
-    lines.push(structured.summary);
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    /* Plain-text version */
+    const plainLines: string[] = [structured.contextLine, "", structured.summary];
     if (structured.findings.length > 0) {
-      lines.push("");
-      for (const f of structured.findings) {
-        lines.push(`• ${f.lead} — ${f.detail}`);
-      }
+      plainLines.push("");
+      for (const f of structured.findings) plainLines.push(`• ${f.lead} — ${f.detail}`);
     }
-    navigator.clipboard.writeText(lines.join("\n")).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    const plain = plainLines.join("\n");
+
+    /* Rich-HTML version */
+    const htmlLines: string[] = [
+      `<p><em>${esc(structured.contextLine)}</em></p>`,
+      `<p>${esc(structured.summary)}</p>`,
+    ];
+    if (structured.findings.length > 0) {
+      htmlLines.push("<ul>");
+      for (const f of structured.findings) {
+        htmlLines.push(`<li><strong>${esc(f.lead)}</strong> — ${esc(f.detail)}</li>`);
+      }
+      htmlLines.push("</ul>");
+    }
+    const html = htmlLines.join("");
+
+    const doSuccess = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+    const fallback = () => navigator.clipboard.writeText(plain).then(doSuccess).catch(() => {});
+    if (typeof ClipboardItem !== "undefined") {
+      const item = new ClipboardItem({
+        "text/html":  new Blob([html],  { type: "text/html" }),
+        "text/plain": new Blob([plain], { type: "text/plain" }),
+      });
+      try {
+        navigator.clipboard.write([item]).then(doSuccess).catch(fallback);
+      } catch {
+        fallback();
+      }
+    } else {
+      fallback();
+    }
   }
 
   return (
