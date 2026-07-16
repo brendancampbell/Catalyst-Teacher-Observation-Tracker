@@ -29,8 +29,9 @@ export const rubricDomains = pgTable("rubric_domains", {
   id:           serial("id").primaryKey(),
   categoryId:   integer("category_id").notNull().references(() => rubricCategories.id, { onDelete: "cascade" }),
   /* Denormalized from the parent category so we can enforce a unique index on (rubricSetId, slug).
-     All existing rows were backfilled via UPDATE before this NOT NULL constraint was applied. */
-  rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
+     Nullable to allow a safe ADD COLUMN on production; backfilled via migrate-rubric-domain-rubric-set-id.ts.
+     All newly-inserted rows are stamped with the correct value by the API routes. */
+  rubricSetId:  integer("rubric_set_id").references(() => rubricSets.id, { onDelete: "cascade" }),
   name:         text("name").notNull(),
   slug:         text("slug").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
