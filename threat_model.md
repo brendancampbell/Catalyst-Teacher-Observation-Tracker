@@ -27,7 +27,7 @@ Production scope for this scan is the API server plus the Catalyst dashboard and
 ## Scan Anchors
 
 - Production API entry points: `artifacts/api-server/src/index.ts`, `artifacts/api-server/src/app.ts`, `artifacts/api-server/src/routes/index.ts`
-- Highest-risk code areas: `routes/auth.ts`, `routes/observations.ts`, `routes/email.ts`, `routes/ai.ts`, `routes/people.ts`, `lib/passport.ts`, `middleware/auth.ts`, and frontend rich-text rendering components
+- Highest-risk code areas: `routes/auth.ts`, `routes/observations.ts`, `routes/email.ts`, `routes/ai.ts`, `routes/people.ts`, `lib/passport.ts`, `middleware/auth.ts`, `artifacts/catalyst-dashboard/src/pages/drafts.tsx`, and frontend rich-text/navigation sinks
 - Public surfaces: `/api/auth/google`, `/api/auth/google/callback`, `/api/app`
 - Authenticated surfaces: dashboard, teacher, observation, people, AI, email, impersonation, admin-school routes
 - Expensive external-service surfaces: `/api/ai/chat`, `/api/ai/chat/stream`, `/api/ai/analysis`, `/api/ai/school-summary`, `/api/qualitative-themes/generate`, `/api/email/send-observation`
@@ -45,7 +45,7 @@ Authenticated users can create and edit observations, people, users, schools, ru
 
 ### Information Disclosure
 
-Observation history, rubric notes, teacher/staff contact details, and network-wide analytics are sensitive personnel data. Every read path and every outbound sharing path must enforce school/network scope server-side, and rendered rich text or error responses must not leak more data than the caller is entitled to access.
+Observation history, rubric notes, teacher/staff contact details, and network-wide analytics are sensitive personnel data. Every read path and every outbound sharing path must enforce school/network scope server-side, and rendered rich text or error responses must not leak more data than the caller is entitled to access. Historical observations must remain bound to the school and publication state they were created under; a later teacher transfer or AI aggregation helper must not surface prior-school records or another observer's drafts.
 
 ### Denial of Service
 
@@ -53,4 +53,4 @@ Public auth entry points and authenticated AI or email endpoints can trigger ext
 
 ### Elevation of Privilege
 
-The most important risks are broken access control across school/network boundaries, insecure impersonation behavior, stale-session access after revocation, stored client-side code execution through observation content, and any route that lets a lower-privileged user act on behalf of a more privileged workflow. All privileged actions must be enforced on the server rather than hidden only in the UI.
+The most important risks are broken access control across school/network boundaries, insecure impersonation behavior, stale-session access after revocation, client-side code execution through untrusted navigation or rendered observation content, and any route that lets a lower-privileged user act on behalf of a more privileged workflow. All privileged actions must be enforced on the server rather than hidden only in the UI.
