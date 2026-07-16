@@ -373,6 +373,25 @@ interface InstantAnalysisCardProps {
 }
 
 function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: InstantAnalysisCardProps) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    const lines: string[] = [];
+    lines.push(structured.contextLine);
+    lines.push("");
+    lines.push(structured.summary);
+    if (structured.findings.length > 0) {
+      lines.push("");
+      for (const f of structured.findings) {
+        lines.push(`• ${f.lead} — ${f.detail}`);
+      }
+    }
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
   return (
     <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", fontFamily: "'Libre Franklin', sans-serif" }}>
 
@@ -387,6 +406,23 @@ function InstantAnalysisCard({ structured, onChipClick, onSummaryTabClick }: Ins
             <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: YELLOW, color: NAVY, borderRadius: 20, padding: "1px 8px" }}>Instant analysis</span>
           </div>
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{structured.contextLine}</div>
+        </div>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            onClick={handleCopy}
+            title="Copy summary"
+            aria-label="Copy summary"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "white", cursor: "pointer", color: "#64748b", transition: "background 0.12s, color 0.12s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = NAVY; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.color = "#64748b"; }}
+          >
+            <Copy size={13} />
+          </button>
+          {copied && (
+            <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, backgroundColor: "#1e293b", color: "white", fontSize: 11, fontWeight: 600, borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap", pointerEvents: "none", zIndex: 10 }}>
+              Copied!
+            </div>
+          )}
         </div>
       </div>
 
