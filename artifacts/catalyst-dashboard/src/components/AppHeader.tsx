@@ -270,6 +270,7 @@ export default function AppHeader({
               role={userRole}
               basePath={basePath}
               canAdmin={canAdmin}
+              schoolAbbreviation={schoolAbbreviation}
             />
           </div>
         </div>

@@ -71,8 +71,10 @@ export default function DraftsPage() {
   const [selected,      setSelected]      = useState<Set<string>>(new Set());
   const [staleMenuOpen, setStaleMenuOpen] = useState(false);
 
-  const rawReturnUrl = new URLSearchParams(search).get("returnUrl");
+  const parsedSearch = new URLSearchParams(search);
+  const rawReturnUrl = parsedSearch.get("returnUrl");
   const backHref = rawReturnUrl || `${baseUrl}/`;
+  const schoolAbbreviation = parsedSearch.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
 
   /* ── Resume-modal state ─────────────────────────────────────────── */
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -253,7 +255,7 @@ export default function DraftsPage() {
           basePath={baseUrl}
           draftsHref={`${baseUrl}/drafts`}
           actionCenterHref={`${baseUrl}/action-center`}
-          schoolAbbreviation={currentUser.schoolAbbreviation}
+          schoolAbbreviation={schoolAbbreviation}
           userName={currentUser.name}
           userEmail={currentUser.email}
           userRole={currentUser.role}

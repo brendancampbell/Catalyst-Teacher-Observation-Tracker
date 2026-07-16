@@ -49,6 +49,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   const { currentUser } = useUser();
+  const schoolAbbreviation = new URLSearchParams(window.location.search).get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
 
   /* ── Modal state ─────────────────────────────────────── */
   const [newObsOpen, setNewObsOpen] = useState(false);
@@ -172,7 +173,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
       <AppHeader
         backHref={`${baseUrl}/action-center`}
         backLabel="Action Center"
-        schoolAbbreviation={displayName ?? undefined}
+        schoolAbbreviation={schoolAbbreviation}
         basePath={baseUrl}
         onAddObservation={() => setNewObsOpen(true)}
         draftsHref={`${baseUrl}/drafts?returnUrl=${returnUrl}`}

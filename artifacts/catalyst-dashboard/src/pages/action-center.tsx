@@ -580,6 +580,7 @@ export default function ActionCenterPage() {
   const _parsedSchoolId  = schoolIdFromUrl ? parseInt(schoolIdFromUrl, 10) : null;
   const schoolId         = _parsedSchoolId !== null && isNaN(_parsedSchoolId) ? null : _parsedSchoolId;
   const schoolNameFromUrl = searchParams.get("schoolName") ?? "This School";
+  const schoolAbbreviation = searchParams.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
 
   const returnTo = safeReturnTo(
     searchParams.get("returnTo"),
@@ -1121,7 +1122,7 @@ export default function ActionCenterPage() {
               draftsHref={`${baseUrl}/drafts`}
               basePath={baseUrl}
               actionCenterHref={`${baseUrl}/action-center`}
-              schoolAbbreviation={currentUser.schoolAbbreviation}
+              schoolAbbreviation={schoolAbbreviation}
               userName={currentUser.name}
               userRole={currentUser.role}
               canAdmin={currentUser.role !== "COACH"}

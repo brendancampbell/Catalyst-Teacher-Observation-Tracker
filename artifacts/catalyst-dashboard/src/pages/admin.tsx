@@ -2185,10 +2185,12 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const _adminSearch = new URLSearchParams(window.location.search);
   const returnTo = safeReturnTo(
-    new URLSearchParams(window.location.search).get("returnTo"),
+    _adminSearch.get("returnTo"),
     BASE + "/",
   );
+  const schoolAbbreviation = _adminSearch.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
 
   /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
@@ -2340,7 +2342,7 @@ export default function AdminPage() {
           basePath={import.meta.env.BASE_URL.replace(/\/$/, "")}
           backHref={returnTo}
           backLabel="Dashboard"
-          schoolAbbreviation={currentUser.schoolAbbreviation}
+          schoolAbbreviation={schoolAbbreviation}
           userName={currentUser.name}
           userRole={currentUser.role}
           canAdmin={true}
