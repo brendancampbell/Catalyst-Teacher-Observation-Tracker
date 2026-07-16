@@ -356,27 +356,34 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
         }
 
         /* Check that the new slug isn't already taken by a sibling domain.
-           current.rubricSetId is NOT NULL (enforced by DB constraint + backfill),
-           but we fall back to a category join if somehow null for belt-and-suspenders. */
+           rubric_set_id is NOT NULL at the DB level (enforced by constraint + backfill).
+           We resolve via a category join as a belt-and-suspenders fallback, then treat
+           a still-null result as a data-integrity error rather than silently skipping
+           the duplicate check — which would leave a gap for legacy or hand-inserted rows. */
         const rubricSetId = current.rubricSetId
           ?? (await db.query.rubricCategories.findFirst({
                where: eq(rubricCategories.id, current.categoryId),
              }))?.rubricSetId;
 
-        if (rubricSetId !== undefined && rubricSetId !== null) {
-          const conflict = await db.query.rubricDomains.findFirst({
-            where: and(
-              eq(rubricDomains.rubricSetId, rubricSetId),
-              eq(rubricDomains.slug, parsed.data.slug),
-              ne(rubricDomains.id, domainId),
-            ),
+        if (rubricSetId === undefined || rubricSetId === null) {
+          res.status(500).json({
+            error: `Domain ${domainId} has no resolvable rubric_set_id — data integrity violation.`,
           });
-          if (conflict) {
-            res.status(409).json({
-              error: `A domain with slug '${parsed.data.slug}' already exists in this rubric set.`,
-            });
-            return;
-          }
+          return;
+        }
+
+        const conflict = await db.query.rubricDomains.findFirst({
+          where: and(
+            eq(rubricDomains.rubricSetId, rubricSetId),
+            eq(rubricDomains.slug, parsed.data.slug),
+            ne(rubricDomains.id, domainId),
+          ),
+        });
+        if (conflict) {
+          res.status(409).json({
+            error: `A domain with slug '${parsed.data.slug}' already exists in this rubric set.`,
+          });
+          return;
         }
       }
     }

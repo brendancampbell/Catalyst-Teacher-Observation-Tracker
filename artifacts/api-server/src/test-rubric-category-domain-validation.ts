@@ -31,13 +31,15 @@
  *  13.  Slug rename when no scores reference the old slug → 200
  *  14.  Valid name-only update (no slug change) → 200
  *  17.  Rename to a slug already used by a sibling domain → 409
+ *  18.  Direct DB INSERT with rubric_set_id = NULL is rejected (NOT NULL constraint)
+ *        — proves legacy rows cannot bypass the duplicate-slug unique index
  */
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, schools, rubricSets, rubricCategories, rubricDomains, observations, observationScores } from "@workspace/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, sql } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -348,6 +350,35 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     } finally {
       await db.delete(rubricDomains).where(eq(rubricDomains.id, sibling.id)).catch(() => {});
     }
+  });
+
+  test("18 — Direct DB INSERT with rubric_set_id = NULL is rejected by NOT NULL constraint", async () => {
+    /* Regression test: rubric_domains.rubric_set_id was historically nullable.
+       Legacy rows with NULL rubric_set_id could bypass the (rubric_set_id, slug)
+       unique index and the application-level duplicate check.
+       After the backfill migration + NOT NULL constraint, the DB must reject any
+       attempt to insert a domain without rubric_set_id — closing the bypass gap. */
+    let threw = false;
+    try {
+      await db.execute(sql`
+        INSERT INTO rubric_domains (category_id, name, slug, display_order, rubric_set_id)
+        VALUES (${CAT_ID}, 'Legacy Null Domain', 'tst-null-rubric-set', 0, NULL)
+      `);
+    } catch (err: unknown) {
+      threw = true;
+      /* Drizzle wraps the pg error; the NOT NULL code 23502 may live on
+         the top-level error, its cause, or any nested cause. Serialize
+         the full chain so we can assert on the constraint code. */
+      const chain = JSON.stringify(err, Object.getOwnPropertyNames(err instanceof Error ? err : {}));
+      const cause  = (err as { cause?: unknown }).cause;
+      const causeStr = cause ? JSON.stringify(cause, Object.getOwnPropertyNames(cause instanceof Error ? cause : {})) : "";
+      const combined = chain + causeStr;
+      assert.ok(
+        combined.includes("23502") || combined.includes("null value") || combined.includes("not-null") || combined.includes("violates not-null"),
+        `Expected a NOT NULL constraint violation (pg code 23502), got: ${combined}`,
+      );
+    }
+    assert.ok(threw, "Expected DB to throw on INSERT with rubric_set_id = NULL, but it succeeded — NOT NULL constraint is not in place!");
   });
 });
 
