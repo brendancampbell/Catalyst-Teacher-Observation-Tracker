@@ -18,6 +18,7 @@
  *   6.  Valid payload → 201
  *  15.  Duplicate slug within same rubric set → 409
  *  16.  Same slug in a different rubric set → 201 (allowed)
+ *  19.  Two fresh domains in the SAME category with identical slugs → 409
  *
  * PUT /categories/:id
  *   7.  Non-string name (number) → 400
@@ -254,6 +255,33 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
       assert.equal(res.status, 201, `Expected 201 for same slug in different rubric set, got ${res.status}: ${JSON.stringify(res.body)}`);
     } finally {
       await db.delete(rubricSets).where(eq(rubricSets.id, rubric2.id)).catch(() => {});
+    }
+  });
+
+  test("19 — POST two fresh domains with identical slugs into the SAME category → 409 on second", async () => {
+    const jar = await loginAs(ADMIN_EID);
+    const slug = "tst-same-cat-dup-slug";
+
+    /* First domain → must succeed */
+    const first = await request("POST", `/rubric/categories/${CAT_ID}/domains`, {
+      name: "Same-cat Dup Test Domain A", slug,
+    }, jar);
+    assert.equal(first.status, 201, `Expected 201 for first domain, got ${first.status}: ${JSON.stringify(first.body)}`);
+
+    try {
+      /* Second domain in the SAME category with the SAME slug → must be rejected */
+      const second = await request("POST", `/rubric/categories/${CAT_ID}/domains`, {
+        name: "Same-cat Dup Test Domain B", slug,
+      }, jar);
+      assert.equal(second.status, 409, `Expected 409 for same-category duplicate slug, got ${second.status}: ${JSON.stringify(second.body)}`);
+      const body = second.body as { error?: string };
+      assert.ok(body.error?.includes(slug), `Error message should mention the conflicting slug "${slug}", got: ${body.error}`);
+    } finally {
+      /* Clean up the first domain so it doesn't pollute later tests */
+      const created = first.body as { id?: number };
+      if (created.id != null) {
+        await db.delete(rubricDomains).where(eq(rubricDomains.id, created.id)).catch(() => {});
+      }
     }
   });
 
