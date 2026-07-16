@@ -252,10 +252,12 @@ export function AINarrativeRenderer({ text }: { text: string }) {
         if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
           const content = trimmed.replace(/^[-•*]\s+/, "");
           const leadingSpaces = (line.match(/^(\s+)/) ?? [""])[0].length;
-          const isNested = leadingSpaces >= 2;
+          const nestLevel = leadingSpaces >= 4 ? 2 : leadingSpaces >= 2 ? 1 : 0;
+          const bulletSymbol = nestLevel === 2 ? "▪" : nestLevel === 1 ? "◦" : "•";
+          const marginLeft = nestLevel * 16;
           return (
-            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: isNested ? 16 : 0 }}>
-              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>{isNested ? "◦" : "•"}</span>
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: marginLeft || 0 }}>
+              <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5" }}>{bulletSymbol}</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(content)}</span>
             </div>
           );
@@ -265,9 +267,10 @@ export function AINarrativeRenderer({ text }: { text: string }) {
         const numberedMatch = trimmed.match(/^(\d+)\.\s+([\s\S]*)/);
         if (numberedMatch) {
           const leadingSpaces = (line.match(/^(\s+)/) ?? [""])[0].length;
-          const isNested = leadingSpaces >= 2;
+          const nestLevel = leadingSpaces >= 4 ? 2 : leadingSpaces >= 2 ? 1 : 0;
+          const marginLeft = nestLevel * 16;
           return (
-            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: isNested ? 16 : 0 }}>
+            <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 5, marginLeft: marginLeft || 0 }}>
               <span style={{ color: YELLOW, fontWeight: "bold", marginTop: 1, flexShrink: 0, lineHeight: "1.5", minWidth: 18 }}>{numberedMatch[1]}.</span>
               <span style={{ fontSize: 13, lineHeight: "1.55" }}>{renderInlineText(numberedMatch[2])}</span>
             </div>

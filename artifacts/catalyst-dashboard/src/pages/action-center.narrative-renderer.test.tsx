@@ -200,6 +200,71 @@ describe("AINarrativeRenderer — nested bullet list", () => {
   });
 });
 
+describe("AINarrativeRenderer — deeply nested bullet list (level 3)", () => {
+  it("renders deeply nested bullet text content visibly", () => {
+    const { container } = render(<AINarrativeRenderer text={"    - Deep item"} />);
+    expect(container.textContent).toContain("Deep item");
+  });
+
+  it("indents deeply nested bullets with 32px left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"    - Deep item"} />);
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "32px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+
+  it("uses ▪ symbol for deeply nested bullets", () => {
+    const { container } = render(<AINarrativeRenderer text={"    - Deep item"} />);
+    expect(container.textContent).toContain("▪");
+    expect(container.textContent).not.toContain("◦");
+    expect(container.textContent).not.toContain("•");
+  });
+
+  it("level-1 nested bullet (2 spaces) still uses ◦ and 16px margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"  - Level two item"} />);
+    expect(container.textContent).toContain("◦");
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "16px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+
+  it("all three bullet levels render correctly in one block", () => {
+    const text = "- Top item\n  - Sub item\n    - Deep item";
+    const { container } = render(<AINarrativeRenderer text={text} />);
+    expect(container.textContent).toContain("Top item");
+    expect(container.textContent).toContain("Sub item");
+    expect(container.textContent).toContain("Deep item");
+    expect(container.textContent).toContain("•");
+    expect(container.textContent).toContain("◦");
+    expect(container.textContent).toContain("▪");
+  });
+});
+
+describe("AINarrativeRenderer — deeply nested numbered list (level 3)", () => {
+  it("renders deeply nested numbered item text visibly", () => {
+    const { container } = render(<AINarrativeRenderer text={"    1. Deep step"} />);
+    expect(container.textContent).toContain("Deep step");
+  });
+
+  it("indents deeply nested numbered items with 32px left margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"    1. Deep step"} />);
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "32px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+
+  it("level-1 nested numbered item (2 spaces) still uses 16px margin", () => {
+    const { container } = render(<AINarrativeRenderer text={"  1. Sub step"} />);
+    const divs = Array.from(container.querySelectorAll("div")).filter(
+      (d) => d.style.marginLeft === "16px",
+    );
+    expect(divs.length).toBeGreaterThan(0);
+  });
+});
+
 describe("AINarrativeRenderer — nested numbered list", () => {
   it("renders nested numbered item text visibly", () => {
     const { container } = render(<AINarrativeRenderer text={"1. Top step\n  1. Sub step"} />);
