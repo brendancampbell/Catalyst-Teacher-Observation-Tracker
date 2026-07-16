@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { db } from "@workspace/db";
 import {
   observations,
@@ -17,6 +18,31 @@ import {
 import { generateQualitativeThemesSummary } from "../services/ai-service";
 
 const router = Router();
+
+/* ── Per-user rate limiter for the expensive AI generation endpoint ──
+   10 requests per 15-minute window per authenticated user.
+   Uses employeeId as the key so limits are per account, not per IP.  */
+const qualitativeGenerationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => {
+    const user = req.user as Express.User | undefined;
+    return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
+  },
+  handler: (req, res) => {
+    req.log.warn(
+      {
+        event:            "qualitative_generation_rate_limit_exceeded",
+        actingEmployeeId: (req.user as Express.User | undefined)?.employeeId,
+        path:             req.path,
+      },
+      "qualitative themes generation rate limit exceeded",
+    );
+    res.status(429).json({ error: "Too many AI requests. Please wait a moment before trying again." });
+  },
+  standardHeaders: true,
+  legacyHeaders:   false,
+});
 
 /* ── Shared helper: get teacher employee IDs for a school ─────── */
 async function getTeacherIdsForSchool(schoolId: number): Promise<string[]> {
@@ -101,7 +127,7 @@ router.get("/", async (req, res) => {
    Generates and caches a qualitative themes summary for the school.
    Observations are found via the teacher roster (people.schoolId) rather than
    the nullable school_id column on the observation row itself. ── */
-router.post("/generate", async (req, res) => {
+router.post("/generate", qualitativeGenerationLimiter, async (req, res) => {
   try {
     const user        = req.user as Express.User;
     const rawSchoolId = req.body.schoolId ? Number(req.body.schoolId) : null;

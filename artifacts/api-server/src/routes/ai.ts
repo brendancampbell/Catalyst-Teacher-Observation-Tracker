@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { db } from "@workspace/db";
 import {
   observations,
@@ -30,6 +31,54 @@ import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetw
 import { isProduction } from "../config/env";
 
 const router = Router();
+
+/* ── Per-user rate limiters for AI generation endpoints ──────────────
+   Chat/stream: 20 requests per 15-minute window per user.
+   Heavy generation (analysis, school-summary): 10 per 15-minute window.
+   Uses employeeId as the key so limits are per account, not per IP.  */
+const aiChatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => {
+    const user = req.user as Express.User | undefined;
+    return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
+  },
+  handler: (req, res) => {
+    req.log.warn(
+      {
+        event:            "ai_chat_rate_limit_exceeded",
+        actingEmployeeId: (req.user as Express.User | undefined)?.employeeId,
+        path:             req.path,
+      },
+      "AI chat rate limit exceeded",
+    );
+    res.status(429).json({ error: "Too many AI requests. Please wait a moment before trying again." });
+  },
+  standardHeaders: true,
+  legacyHeaders:   false,
+});
+
+const aiGenerationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => {
+    const user = req.user as Express.User | undefined;
+    return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
+  },
+  handler: (req, res) => {
+    req.log.warn(
+      {
+        event:            "ai_generation_rate_limit_exceeded",
+        actingEmployeeId: (req.user as Express.User | undefined)?.employeeId,
+        path:             req.path,
+      },
+      "AI generation rate limit exceeded",
+    );
+    res.status(429).json({ error: "Too many AI requests. Please wait a moment before trying again." });
+  },
+  standardHeaders: true,
+  legacyHeaders:   false,
+});
 
 type SchoolCheckResult = "ok" | "not_found" | "inactive";
 
@@ -811,7 +860,7 @@ async function buildCombinedContext(
 }
 
 /* ── POST /api/ai/chat/stream ───────────────────────────────────── */
-router.post("/chat/stream", async (req, res) => {
+router.post("/chat/stream", aiChatLimiter, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const { message, schoolId: reqSchoolId, sessionId, rubricSetSlug } = req.body as {
@@ -961,7 +1010,7 @@ router.post("/chat/stream", async (req, res) => {
 });
 
 /* ── POST /api/ai/chat ──────────────────────────────────────────── */
-router.post("/chat", async (req, res) => {
+router.post("/chat", aiChatLimiter, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const { message, schoolId: reqSchoolId, sessionId, rubricSetSlug } = req.body as {
@@ -1174,7 +1223,7 @@ export function buildOverdueActionStepsSummary(
 }
 
 /* ── POST /api/ai/analysis ──────────────────────────────────────── */
-router.post("/analysis", async (req, res) => {
+router.post("/analysis", aiGenerationLimiter, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const { rubricSetSlug, schoolId: reqSchoolId, sessionId } = req.body as {
@@ -1296,7 +1345,7 @@ router.post("/analysis", async (req, res) => {
 });
 
 /* ── POST /api/ai/school-summary ──────────────────────────────────── */
-router.post("/school-summary", async (req, res) => {
+router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
   try {
     const user = req.user as Express.User;
     const { rubricSetSlug, schoolId: reqSchoolId } = req.body as {
