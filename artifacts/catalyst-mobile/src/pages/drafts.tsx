@@ -89,10 +89,10 @@ export default function DraftsPage() {
       <div className="flex-1 overflow-y-auto pb-10 px-4 pt-4 flex flex-col gap-4">
 
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex items-center justify-center rounded" style={{ backgroundColor: NAVY }}>
+          <div className="w-9 h-9 flex items-center justify-center rounded shrink-0" style={{ backgroundColor: NAVY }}>
             <FileEdit size={18} color={YELLOW} />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1
               className="uppercase leading-none"
               style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
@@ -103,6 +103,13 @@ export default function DraftsPage() {
               In-progress observations — auto-saved. Submit when ready.
             </p>
           </div>
+          <a
+            href={`${basePath}/observation`}
+            className="shrink-0 px-3 py-1.5 rounded text-xs font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            + Observation
+          </a>
         </div>
 
         {resumeError && (
