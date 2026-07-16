@@ -75,6 +75,15 @@ export default function DraftsPage() {
   const rawReturnUrl = parsedSearch.get("returnUrl");
   const backHref = rawReturnUrl || `${baseUrl}/`;
   const schoolAbbreviation = parsedSearch.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
+  const schoolIdParam = parsedSearch.get("schoolId");
+  const schoolId = schoolIdParam != null ? parseInt(schoolIdParam, 10) : null;
+  const effectiveSchoolId = schoolId != null && !isNaN(schoolId) ? schoolId : null;
+  const schoolName = parsedSearch.get("schoolName") ?? null;
+  const acParams = new URLSearchParams();
+  if (effectiveSchoolId != null) acParams.set("schoolId", String(effectiveSchoolId));
+  if (schoolName)               acParams.set("schoolName", schoolName);
+  if (schoolAbbreviation)       acParams.set("schoolAbbreviation", schoolAbbreviation);
+  const actionCenterHref = `${baseUrl}/action-center${acParams.toString() ? `?${acParams.toString()}` : ""}`;
 
   /* ── Resume-modal state ─────────────────────────────────────────── */
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -254,7 +263,7 @@ export default function DraftsPage() {
           backLabel="Back to Dashboard"
           basePath={baseUrl}
           draftsHref={`${baseUrl}/drafts`}
-          actionCenterHref={`${baseUrl}/action-center`}
+          actionCenterHref={actionCenterHref}
           schoolAbbreviation={schoolAbbreviation}
           userName={currentUser.name}
           userEmail={currentUser.email}
