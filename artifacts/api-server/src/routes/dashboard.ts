@@ -4,7 +4,7 @@ import {
   people, rubricSets, rubricCategories,
   observations, observationScores, schools,
 } from "@workspace/db/schema";
-import { eq, inArray, and, ne } from "drizzle-orm";
+import { eq, inArray, and, ne, isNull, or } from "drizzle-orm";
 import { TtlCache } from "../lib/ttl-cache";
 
 /* Network-wide (schoolId=null) responses are cached for 2 minutes.
@@ -71,7 +71,14 @@ router.get("/", async (req, res) => {
           eq(people.includeInFeedbackTracker, true),
         ));
 
-    const schoolObsFilter = schoolIdParam !== null ? eq(observations.schoolId, schoolIdParam) : undefined;
+    /* Include observations that belong to this school, plus legacy rows that
+       pre-date the schoolId stamp (those have schoolId = null).  The people
+       filter above already scopes the displayed roster to this school's
+       current staff, so null-schoolId rows can only surface for teachers
+       presently assigned here.                                             */
+    const schoolObsFilter = schoolIdParam !== null
+      ? or(eq(observations.schoolId, schoolIdParam), isNull(observations.schoolId))
+      : undefined;
     const obsWhere = walkthroughsOnly
       ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"), schoolObsFilter)
       : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"), schoolObsFilter);

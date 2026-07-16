@@ -134,7 +134,12 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
 async function buildDomainAverages(personIds: string[], rubricSetId?: number | null, scopedSchoolId?: number | null): Promise<DomainAvg[]> {
   if (!personIds.length) return [];
 
-  const schoolFilter = scopedSchoolId != null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+  /* Accept observations stamped with this school OR legacy null-schoolId rows
+     (all pre-stamp observations have schoolId = null; they are already filtered
+     to this school's teachers via the personIds list).                         */
+  const schoolFilter = scopedSchoolId != null
+    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    : undefined;
 
   const whereClause = rubricSetId != null
     ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
@@ -174,7 +179,9 @@ async function buildCalibrationFlags(
 ): Promise<CalibrationFlag[]> {
   if (!personIds.length) return [];
 
-  const schoolFilter = scopedSchoolId != null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+  const schoolFilter = scopedSchoolId != null
+    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    : undefined;
 
   const whereClause = rubricSetId != null
     ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
@@ -489,7 +496,9 @@ async function buildRankedTeacherSection(
   if (!teacherPool.length) return "";
 
   const empIds = teacherPool.map((t) => t.employeeId);
-  const schoolFilter = scopedSchoolId !== null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+  const schoolFilter = scopedSchoolId !== null
+    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    : undefined;
 
   const whereClause = rubricSetId != null
     ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
@@ -554,7 +563,9 @@ async function buildTeacherBreakdowns(
   if (!matchedTeachers.length) return "";
 
   const empIds = matchedTeachers.map((t) => t.employeeId);
-  const schoolFilter = scopedSchoolId !== null ? eq(observations.schoolId, scopedSchoolId) : undefined;
+  const schoolFilter = scopedSchoolId !== null
+    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    : undefined;
 
   const rows = await db
     .select({
@@ -619,15 +630,11 @@ async function buildGlowsGrowsData(
 ): Promise<Map<string, GlowGrowEntry[]>> {
   if (!personIds.length) return new Map();
 
-  /*
-   * School-scope guard: when scopedSchoolId is set, only include observations
-   * that were EXPLICITLY recorded at that school (observations.schoolId = scopedSchoolId).
-   * Rows with a null schoolId are excluded (fail-closed) — they cannot be attributed
-   * to any particular school and may contain coaching notes from a prior placement.
-   * Legacy rows should be backfilled by a separate migration task.
-   */
+  /* Accept observations stamped with this school OR legacy null-schoolId rows.
+     All pre-stamp observations have schoolId = null; they are already teacher-
+     scoped via personIds so they can only surface for teachers at this school. */
   const schoolFilter = scopedSchoolId !== null
-    ? eq(observations.schoolId, scopedSchoolId)
+    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
     : undefined;
 
   const rows = await db
@@ -1389,7 +1396,7 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
 
     if (isSchoolTarget) {
       const whereClause = scopedSchoolId != null
-        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolId, scopedSchoolId))
+        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId)))
         : and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"));
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
