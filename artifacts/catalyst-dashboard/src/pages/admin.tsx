@@ -90,6 +90,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const [newDomSlug,        setNewDomSlug]        = useState("");
   const [newDomOrder,       setNewDomOrder]       = useState(1);
   const [newDomDesc,        setNewDomDesc]        = useState("");
+  const [addDomError,       setAddDomError]       = useState<string | null>(null);
+  const [updDomError,       setUpdDomError]       = useState<string | null>(null);
 
   function slugify(s: string) {
     return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -117,7 +119,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
   const addDomMut = useMutation({
     mutationFn: ({ catId, name, slug, order, desc }: { catId: number; name: string; slug: string; order: number; desc: string }) =>
       createDomain(catId, name, slug, order, desc || undefined),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); setAddDomError(null); },
+    onError: (err: Error) => setAddDomError(err.message),
   });
 
   const updDomMut = useMutation({
@@ -127,7 +130,9 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
       queryClient.invalidateQueries({ queryKey: qKey });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setEditingDomId(null);
+      setUpdDomError(null);
     },
+    onError: (err: Error) => setUpdDomError(err.message),
   });
 
   const delDomMut = useMutation({
@@ -157,7 +162,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
 
   function startEditDom(dom: RubricDomainRow) {
     setEditingDomId(dom.id); setEditingDomName(dom.name); setEditingDomSlug(dom.slug);
-    setEditingDomDesc(dom.description ?? ""); setEditingCatId(null);
+    setEditingDomDesc(dom.description ?? ""); setEditingCatId(null); setUpdDomError(null);
   }
 
   const inputCls = "px-3 py-1.5 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
@@ -287,18 +292,24 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
                 {editingDomId === dom.id ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <input className={`${inputCls} flex-1`} value={editingDomName} onChange={(e) => setEditingDomName(e.target.value)} placeholder="Domain name" autoFocus onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }} />
-                      <input className={`${inputCls} w-36`} value={editingDomSlug} onChange={(e) => setEditingDomSlug(e.target.value)} placeholder="slug" onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }} />
+                      <input className={`${inputCls} flex-1`} value={editingDomName} onChange={(e) => setEditingDomName(e.target.value)} placeholder="Domain name" autoFocus onKeyDown={(e) => { if (e.key === "Escape") { setEditingDomId(null); setUpdDomError(null); } }} />
+                      <input className={`${inputCls} w-36`} value={editingDomSlug} onChange={(e) => { setEditingDomSlug(e.target.value); setUpdDomError(null); }} placeholder="slug" onKeyDown={(e) => { if (e.key === "Escape") { setEditingDomId(null); setUpdDomError(null); } }} />
                       <button className="text-green-600 hover:text-green-800 p-1 shrink-0" onClick={() => updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug, description: editingDomDesc })} disabled={updDomMut.isPending}><Check size={16} /></button>
-                      <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => setEditingDomId(null)}><X size={16} /></button>
+                      <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setEditingDomId(null); setUpdDomError(null); }}><X size={16} /></button>
                     </div>
                     <input
                       className={`${inputCls} w-full text-xs`}
                       value={editingDomDesc}
                       onChange={(e) => setEditingDomDesc(e.target.value)}
                       placeholder="Hover tooltip text — describe what this domain measures…"
-                      onKeyDown={(e) => { if (e.key === "Escape") setEditingDomId(null); }}
+                      onKeyDown={(e) => { if (e.key === "Escape") { setEditingDomId(null); setUpdDomError(null); } }}
                     />
+                    {updDomError && (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                        <AlertCircle size={13} className="shrink-0" />
+                        {updDomError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
@@ -323,8 +334,8 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
             {addingDomForCat === cat.id ? (
               <div className="flex flex-col gap-2 px-4 py-2.5 bg-blue-50">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <input className={`${inputCls} flex-1 min-w-32`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); }} placeholder="Domain name" autoFocus />
-                  <input className={`${inputCls} w-36`} value={newDomSlug} onChange={(e) => setNewDomSlug(e.target.value)} placeholder="slug" />
+                  <input className={`${inputCls} flex-1 min-w-32`} value={newDomName} onChange={(e) => { setNewDomName(e.target.value); setNewDomSlug(slugify(e.target.value)); setAddDomError(null); }} placeholder="Domain name" autoFocus />
+                  <input className={`${inputCls} w-36`} value={newDomSlug} onChange={(e) => { setNewDomSlug(e.target.value); setAddDomError(null); }} placeholder="slug" />
                   <div className="flex items-center gap-1.5 shrink-0">
                     <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Position</label>
                     <input
@@ -336,7 +347,7 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
                     />
                   </div>
                   <button className="px-3 py-1.5 rounded text-sm font-bold text-white shrink-0" style={{ backgroundColor: NAVY }} onClick={() => addDomMut.mutate({ catId: cat.id, name: newDomName, slug: newDomSlug || slugify(newDomName), order: newDomOrder - 1, desc: newDomDesc })} disabled={addDomMut.isPending}>Add</button>
-                  <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); }}><X size={16} /></button>
+                  <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setAddingDomForCat(null); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(1); setNewDomDesc(""); setAddDomError(null); }}><X size={16} /></button>
                 </div>
                 <textarea
                   className={`${inputCls} w-full text-xs resize-none`}
@@ -345,9 +356,15 @@ function RubricSettings({ setSlug }: { setSlug: string }) {
                   onChange={(e) => setNewDomDesc(e.target.value)}
                   placeholder="Hover tooltip text — describe what this domain measures… (optional)"
                 />
+                {addDomError && (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                    <AlertCircle size={13} className="shrink-0" />
+                    {addDomError}
+                  </p>
+                )}
               </div>
             ) : (
-              <button className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold hover:bg-slate-50" style={{ color: NAVY }} onClick={() => { setAddingDomForCat(cat.id); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(cat.domains.length + 1); }}>
+              <button className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold hover:bg-slate-50" style={{ color: NAVY }} onClick={() => { setAddingDomForCat(cat.id); setNewDomName(""); setNewDomSlug(""); setNewDomOrder(cat.domains.length + 1); setAddDomError(null); }}>
                 <Plus size={13} />Add domain
               </button>
             )}
