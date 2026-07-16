@@ -902,30 +902,7 @@ export default function ActionCenterPage() {
     } catch { /* storage may be blocked in some envs */ }
   }
 
-  function readPersistedChatId(): number | null {
-    try {
-      const raw = localStorage.getItem(chatStorageKey);
-      if (!raw) return null;
-      const n = parseInt(raw, 10);
-      return isNaN(n) ? null : n;
-    } catch { return null; }
-  }
-
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
-
-  /* Restore the last-selected chat from localStorage once the session list
-     first loads.  readPersistedChatId() was previously defined but never
-     called, so returning users always landed on the empty-state screen.
-     Uses activeChatIdRef (not activeChatId) to avoid a stale closure. */
-  useEffect(() => {
-    if (sessionsLoading || activeChatIdRef.current !== null || sessions.length === 0) return;
-    const persisted = readPersistedChatId();
-    const target = sessions.find((s) => s.id === persisted) ?? null;
-    if (target) selectSession(target.id);
-  // selectSession and readPersistedChatId are stable function references;
-  // sessions and activeChatIdRef are accessed via closure intentionally.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionsLoading]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
