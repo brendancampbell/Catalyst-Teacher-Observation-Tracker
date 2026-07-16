@@ -333,6 +333,7 @@ export default function DraftsPage() {
           userEmail={currentUser.email}
           userRole={currentUser.role}
           canAdmin={currentUser.role !== "COACH"}
+          onAddObservation={handleNewObsClick}
         />
       </div>
 
@@ -359,17 +360,6 @@ export default function DraftsPage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleNewObsClick}
-            disabled={newObsLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
-            style={{ backgroundColor: NAVY }}
-          >
-            {newObsLoading ? <Loader2 size={13} className="animate-spin" /> : null}
-            {newObsLoading ? "Loading…" : "+ Observation"}
-          </button>
-
           {/* Quick-select controls (only shown when there are drafts) */}
           {!isLoading && !isError && drafts.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
