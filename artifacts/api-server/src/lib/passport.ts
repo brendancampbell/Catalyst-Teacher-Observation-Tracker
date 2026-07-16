@@ -116,6 +116,10 @@ export function configurePassport() {
         with: { school: true },
       });
       if (!person) return done(null, false);
+      /* Re-enforce the same access gates applied at login time.
+         A deactivated account or a role downgraded to NO_ACCESS must
+         lose access immediately, not at cookie expiry (up to 7 days). */
+      if (!person.isActive || person.role === "NO_ACCESS") return done(null, false);
       done(null, personToUser(person as Person & { school?: { displayName: string } | null }));
     } catch (err) {
       done(err);
