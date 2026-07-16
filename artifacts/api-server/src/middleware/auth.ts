@@ -6,9 +6,18 @@ import { eq } from "drizzle-orm";
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";
 
 /* ── requireAuth ─────────────────────────────────────────────────
-   Rejects unauthenticated requests with 401.                       */
+   Rejects unauthenticated requests with 401.
+   Defence-in-depth: also explicitly blocks deactivated accounts and
+   NO_ACCESS users so stale sessions that somehow survive
+   deserializeUser cannot reach any protected route.                */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.isAuthenticated() && req.user) {
+    const user = req.user as Express.User;
+    if (!user.isActive || user.role === "NO_ACCESS") {
+      req.logout(() => { /* best-effort session clear */ });
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     next();
     return;
   }
@@ -56,6 +65,8 @@ export class NoSchoolAssignedError extends Error {
 
 /* ── effectiveSchoolId ────────────────────────────────────────────
    Authoritative scoping rule for all data endpoints.
+   - NO_ACCESS / inactive: always throws — should never reach here
+     after requireAuth, but acts as a hard stop if called directly.
    - School-scoped users (COACH, SCHOOL_LEADER): always their own
      schoolId regardless of any requested value. Throws
      NoSchoolAssignedError if the user has no schoolId — never
@@ -67,6 +78,9 @@ export function effectiveSchoolId(
   requestedSchoolId?: number | null,
 ): number | null {
   const role = user.role as UserRole;
+  if (role === "NO_ACCESS" || !user.isActive) {
+    throw new Error("Access denied");
+  }
   if (role === "COACH" || role === "SCHOOL_LEADER") {
     if (!user.schoolId) throw new NoSchoolAssignedError();
     return user.schoolId;
@@ -148,7 +162,9 @@ export async function assertNetworkSchoolAccess(
 /* ── enforceSchoolScope ──────────────────────────────────────────
    For school-scoped users (COACH, SCHOOL_LEADER), inject their
    schoolId into req.query so downstream handlers automatically
-   filter to the correct school.                                    */
+   filter to the correct school.
+   Defence-in-depth: also hard-stops NO_ACCESS / inactive users
+   that somehow bypassed requireAuth.                               */
 export function enforceSchoolScope(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated() || !req.user) {
     res.status(401).json({ error: "Authentication required" });
@@ -156,6 +172,11 @@ export function enforceSchoolScope(req: Request, res: Response, next: NextFuncti
   }
   const user = req.user as Express.User;
   const role: UserRole = user.role as UserRole;
+  if (role === "NO_ACCESS" || !user.isActive) {
+    req.logout(() => { /* best-effort session clear */ });
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
   if (role === "COACH" || role === "SCHOOL_LEADER") {
     if (!user.schoolId) {
       res.status(403).json({ error: "No school assigned to this user" });
