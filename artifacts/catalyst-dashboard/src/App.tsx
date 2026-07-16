@@ -13,7 +13,10 @@ import TeacherProfilePage from "@/pages/TeacherProfile";
 import { UserProvider, useUser } from "@/context/UserContext";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { HttpError } from "@/lib/api";
+import { cleanupStaleLocalStorageKeys } from "@/lib/localStorageCleanup";
 import { type ReactNode, useEffect } from "react";
+
+cleanupStaleLocalStorageKeys();
 
 function TeacherProfileRoute() {
   const { employeeId } = useParams<{ employeeId: string }>();
