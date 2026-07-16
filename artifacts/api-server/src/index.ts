@@ -234,38 +234,9 @@ async function ensureChatTables(): Promise<void> {
   }
 }
 
-/* One-time backfill: stamp rubric_domains.rubric_set_id from the parent
-   rubric_categories row.  No-op once all rows are populated.
-   REMOVE this function and its call after the next publish that restores
-   the NOT NULL constraint on rubric_set_id.                              */
-async function backfillRubricDomainSetId(): Promise<void> {
-  const client = await pool.connect();
-  try {
-    const { rows } = await client.query<{ cnt: string }>(
-      `SELECT COUNT(*)::int AS cnt FROM rubric_domains WHERE rubric_set_id IS NULL`,
-    );
-    const nullCount = Number(rows[0]?.cnt ?? 0);
-    if (nullCount === 0) {
-      logger.info("backfillRubricDomainSetId: nothing to do");
-      return;
-    }
-    const { rowCount } = await client.query(`
-      UPDATE rubric_domains d
-         SET rubric_set_id = c.rubric_set_id
-        FROM rubric_categories c
-       WHERE d.category_id = c.id
-         AND d.rubric_set_id IS NULL
-    `);
-    logger.info({ rowCount }, "backfillRubricDomainSetId: rows updated");
-  } finally {
-    client.release();
-  }
-}
-
 ensureSessionTable()
   .then(() => ensureSchools())
   .then(() => ensureChatTables())
-  .then(() => backfillRubricDomainSetId())
   .then(() => bootstrapAdmin())
   .then(() => {
     app.listen(port, (err) => {
