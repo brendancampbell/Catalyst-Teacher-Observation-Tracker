@@ -29,11 +29,18 @@ function escapeHtml(s: string): string {
 
 const DEFAULT_LOGO_URL = "https://www.uncommonschools.org/favicon.ico";
 
-/** Accept only absolute https:// URLs that contain no HTML attribute-breaking
+/** Domains from which logo images are permitted to be loaded in outbound
+ *  emails.  Only organizational assets hosted on these domains are allowed;
+ *  any caller-supplied URL pointing elsewhere is rejected and replaced with
+ *  the default logo, preventing third-party tracking pixels.               */
+const APPROVED_LOGO_DOMAINS = new Set(["uncommonschools.org", "www.uncommonschools.org"]);
+
+/** Accept only absolute https:// URLs whose hostname belongs to the
+ *  organizational allowlist, and that contain no HTML attribute-breaking
  *  characters.  Falls back to the default logo for anything else: non-string,
- *  empty, relative path, non-https scheme, data: / javascript: URIs, or any
- *  value that contains `"`, `'`, `<`, `>`, or whitespace — characters that
- *  could break out of an HTML attribute even after URL parsing.            */
+ *  empty, relative path, non-https scheme, data: / javascript: URIs, values
+ *  with `"`, `'`, `<`, `>`, or whitespace, or any URL pointing to a
+ *  non-approved host — preventing caller-controlled tracking images.        */
 export function sanitizeLogoUrl(raw: unknown): string {
   if (typeof raw !== "string" || raw.trim() === "") return DEFAULT_LOGO_URL;
   // Reject before URL parsing: any character that breaks HTML attribute context
@@ -41,6 +48,7 @@ export function sanitizeLogoUrl(raw: unknown): string {
   try {
     const parsed = new URL(raw);
     if (parsed.protocol !== "https:") return DEFAULT_LOGO_URL;
+    if (!APPROVED_LOGO_DOMAINS.has(parsed.hostname)) return DEFAULT_LOGO_URL;
     return raw;
   } catch {
     return DEFAULT_LOGO_URL;

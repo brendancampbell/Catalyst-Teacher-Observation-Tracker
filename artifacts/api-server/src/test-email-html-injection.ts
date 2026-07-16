@@ -494,19 +494,39 @@ for (const [name, raw] of logoUrlRejectedCases) {
   console.log(`PASS [${passed}/${total}] logoUrl rejected[${name}]`);
 }
 
-/* 13b. Valid https:// URLs must survive sanitizeLogoUrl unchanged */
+/* 13b. Only URLs on the approved organizational domain pass through unchanged;
+ *      third-party https:// URLs must now be rejected (allowlist enforcement) */
 const logoUrlAcceptedCases: Array<[string, string]> = [
-  ["plain https",             "https://www.uncommonschools.org/logo.png"],
-  ["https with path",         "https://cdn.example.com/assets/logo.png"],
-  ["https with query",        "https://cdn.example.com/logo.png?v=2"],
+  ["approved domain plain",       "https://www.uncommonschools.org/logo.png"],
+  ["approved domain with path",   "https://uncommonschools.org/assets/logo.png"],
+  ["approved domain with query",  "https://www.uncommonschools.org/logo.png?v=2"],
 ];
 
 for (const [name, url] of logoUrlAcceptedCases) {
   total++;
   const sanitized = sanitizeLogoUrl(url);
-  assert(sanitized === url, `logoUrl[${name}]: valid URL must pass through unchanged, got "${sanitized}"`);
+  assert(sanitized === url, `logoUrl[${name}]: approved URL must pass through unchanged, got "${sanitized}"`);
   passed++;
   console.log(`PASS [${passed}/${total}] logoUrl accepted[${name}]`);
+}
+
+/* 13b2. Third-party https:// URLs must be rejected by the allowlist check */
+const logoUrlThirdPartyRejectedCases: Array<[string, string]> = [
+  ["third-party cdn",             "https://cdn.example.com/assets/logo.png"],
+  ["third-party with query",      "https://cdn.example.com/logo.png?v=2"],
+  ["attacker tracking pixel",     "https://attacker.example/pixel.png?obs=123"],
+  ["similar-looking domain",      "https://uncommonschools.org.attacker.example/logo.png"],
+];
+
+for (const [name, url] of logoUrlThirdPartyRejectedCases) {
+  total++;
+  const sanitized = sanitizeLogoUrl(url);
+  assert(
+    sanitized === "https://www.uncommonschools.org/favicon.ico",
+    `logoUrl[${name}]: third-party URL must be rejected, got "${sanitized}"`,
+  );
+  passed++;
+  console.log(`PASS [${passed}/${total}] logoUrl third-party rejected[${name}]`);
 }
 
 /* 13c. Even a valid https:// URL is HTML-escaped in the template so
