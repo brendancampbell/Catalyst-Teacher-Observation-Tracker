@@ -16,10 +16,10 @@
   },
   "pnpm": {
     "overrides": {
-      "linkify-it": ">=5.0.1",
-      "markdown-it": ">=14.2.0",
-      "js-yaml": ">=4.2.0",
-      "@babel/core": ">=7.29.6"
+      "linkify-it": "^5.0.1",
+      "markdown-it": "^14.2.0",
+      "js-yaml": "^4.2.0",
+      "@babel/core": "^7.29.6"
     }
   }
 }
