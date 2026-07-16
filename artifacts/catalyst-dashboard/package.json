@@ -88,7 +88,7 @@
     "@tiptap/starter-kit": "^3.25.0",
     "@types/dompurify": "^3.2.0",
     "@types/papaparse": "^5.5.2",
-    "dompurify": "^3.4.10",
+    "dompurify": "^3.4.11",
     "papaparse": "^5.5.4"
   }
 }
