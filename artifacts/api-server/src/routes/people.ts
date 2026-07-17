@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { people, schools } from "@workspace/db/schema";
+import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { requireRole, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
@@ -208,17 +208,31 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       res.status(400).json({ error: "employeeId is required" }); return;
     }
 
-    const [created] = await db.insert(people).values({
-      employeeId: trimmedEmpId,
-      firstName:  firstName.trim(),
-      lastName:   lastName.trim(),
-      email:      trimmedEmail,
-      role:       role as UserRole,
-      schoolId:   assignedSchoolId,
-      includeInFeedbackTracker: includeInFeedbackTracker ?? false,
-      department:  department as typeof DEPARTMENT_VALUES[number] ?? null,
-      gradeLevel:  gradeLevel ?? null,
-    }).returning();
+    const today = new Date().toISOString().slice(0, 10);
+
+    const created = await db.transaction(async (tx) => {
+      const [person] = await tx.insert(people).values({
+        employeeId: trimmedEmpId,
+        firstName:  firstName.trim(),
+        lastName:   lastName.trim(),
+        email:      trimmedEmail,
+        role:       role as UserRole,
+        schoolId:   assignedSchoolId,
+        includeInFeedbackTracker: includeInFeedbackTracker ?? false,
+        department:  department as typeof DEPARTMENT_VALUES[number] ?? null,
+        gradeLevel:  gradeLevel ?? null,
+      }).returning();
+
+      await tx.insert(assignments).values({
+        userId:    person!.employeeId,
+        role:      role as UserRole,
+        schoolId:  assignedSchoolId,
+        startDate: today,
+        endDate:   null,
+      });
+
+      return person!;
+    });
 
     const [withSchool] = await db
       .select(PEOPLE_SELECT)
@@ -435,17 +449,28 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       }
       const empId = employeeIdRaw;
 
+      const bulkToday = new Date().toISOString().slice(0, 10);
+
       try {
-        await db.insert(people).values({
-          employeeId: empId,
-          firstName:  firstName,
-          lastName:   lastName ?? "",
-          email,
-          role,
-          schoolId,
-          includeInFeedbackTracker: includeInFB,
-          department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
-          gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+        await db.transaction(async (tx) => {
+          await tx.insert(people).values({
+            employeeId: empId,
+            firstName:  firstName,
+            lastName:   lastName ?? "",
+            email,
+            role,
+            schoolId,
+            includeInFeedbackTracker: includeInFB,
+            department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
+            gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+          });
+          await tx.insert(assignments).values({
+            userId:    empId,
+            role,
+            schoolId,
+            startDate: bulkToday,
+            endDate:   null,
+          });
         });
         results.push({ row: rowNum, status: "created", name: displayName!, email });
       } catch (err: unknown) {

@@ -5,4 +5,6 @@ export * from "./observations";
 export * from "./action-steps";
 export * from "./chat";
 export * from "./qualitative-themes";
+export * from "./school-years";
+export * from "./assignments";
 export * from "./relations";

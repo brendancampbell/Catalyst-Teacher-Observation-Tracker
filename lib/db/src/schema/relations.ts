@@ -4,10 +4,12 @@ import { people } from "./people";
 import { rubricSets, rubricCategories, rubricDomains } from "./rubric";
 import { observations, observationScores } from "./observations";
 import { chatSessions, chatMessages } from "./chat";
+import { assignments } from "./assignments";
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
   people:       many(people),
   observations: many(observations),
+  assignments:  many(assignments),
 }));
 
 export const peopleRelations = relations(people, ({ one, many }) => ({
@@ -15,6 +17,12 @@ export const peopleRelations = relations(people, ({ one, many }) => ({
   observedIn:  many(observations, { relationName: "observedPerson" }),
   observedBy:  many(observations, { relationName: "observerPerson" }),
   editedObs:   many(observations, { relationName: "editorPerson" }),
+  assignments: many(assignments),
+}));
+
+export const assignmentsRelations = relations(assignments, ({ one }) => ({
+  person: one(people,  { fields: [assignments.userId],   references: [people.employeeId] }),
+  school: one(schools, { fields: [assignments.schoolId], references: [schools.id] }),
 }));
 
 export const rubricSetsRelations = relations(rubricSets, ({ many }) => ({
