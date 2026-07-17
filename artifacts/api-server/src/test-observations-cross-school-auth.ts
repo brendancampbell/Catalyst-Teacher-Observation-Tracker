@@ -1,6 +1,7 @@
 /**
  * Regression tests for cross-school SCHOOL_LEADER auth on GET, PUT and DELETE
- * /api/observations/:id for SCHOOL-target observations.
+ * /api/observations/:id for SCHOOL-target observations, plus mobile-app draft
+ * enumeration endpoints.
  *
  * Run with:
  *   pnpm --filter @workspace/api-server exec tsx src/test-observations-cross-school-auth.ts
@@ -16,6 +17,8 @@
  *   5. SCHOOL_LEADER from School A → GET a SCHOOL-target obs for School B → 403
  *   6. SCHOOL_LEADER from School A → GET a SCHOOL-target obs for School A → 200
  *   7. SCHOOL_LEADER from School A → GET /observations list → only includes School A obs
+ *   8. SCHOOL_LEADER from School A → GET /observations/drafts → does NOT include School B leader's draft
+ *   9. SCHOOL_LEADER from School A → PUT /:id status:published on School B draft → 403
  */
 
 import { test, describe, before, after } from "node:test";
@@ -76,6 +79,7 @@ async function loginAs(employeeId: string): Promise<Jar> {
 let leaderAJar: Jar;
 let obsOtherSchoolId: number;
 let obsOwnSchoolId: number;
+let draftOtherSchoolId: number;
 const createdObsIds: number[] = [];
 
 describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () => {
@@ -157,6 +161,26 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     assert.ok(obsOwn, "Failed to insert own-school test observation");
     obsOwnSchoolId = obsOwn.id;
     createdObsIds.push(obsOwn.id);
+
+    /* Insert a TEACHER-target DRAFT observation authored by Leader B (School B).
+       This simulates a draft the mobile app would surface via GET /drafts —
+       Leader A must NOT be able to see or publish it via ID enumeration. */
+    const [draftOther] = await db
+      .insert(observations)
+      .values({
+        schoolId:           SCHOOL_B_ID,
+        observedEmployeeId: null,
+        rubricSetId:        RUBRIC_SET_ID,
+        observerEmployeeId: LEADER_B_EID,
+        date:               "2025-01-01",
+        observer:           "Cross-School Draft Test",
+        status:             "draft",
+        target:             "TEACHER",
+      })
+      .returning({ id: observations.id });
+    assert.ok(draftOther, "Failed to insert cross-school draft observation");
+    draftOtherSchoolId = draftOther.id;
+    createdObsIds.push(draftOther.id);
 
     /* Login as Leader A (schoolId = SCHOOL_A_ID) — session captures schoolId from DB */
     leaderAJar = await loginAs(LEADER_A_EID);
@@ -315,6 +339,44 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     assert.ok(
       !ids.includes(String(obsOtherSchoolId)),
       `Other-school obs (id=${obsOtherSchoolId}) should not appear in School A leader's list`,
+    );
+  });
+
+  /* 8 ── GET /drafts → does NOT expose another school leader's draft ──────── */
+
+  test("8 — SCHOOL_LEADER GET /observations/drafts does not include another school's leader draft", async () => {
+    const res = await request(
+      "GET",
+      "/observations/drafts",
+      undefined,
+      leaderAJar,
+    );
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    assert.ok(Array.isArray(res.body), "Response should be an array");
+    const ids = (res.body as Array<{ id: string }>).map((o) => o.id);
+    assert.ok(
+      !ids.includes(String(draftOtherSchoolId)),
+      `School B leader's draft (id=${draftOtherSchoolId}) must not appear in School A leader's draft list`,
+    );
+  });
+
+  /* 9 ── PUT /:id status:published on another school's draft → 403 ───────── */
+
+  test("9 — SCHOOL_LEADER cannot publish a draft belonging to another school", async () => {
+    const res = await request(
+      "PUT",
+      `/observations/${draftOtherSchoolId}`,
+      { status: "published" },
+      leaderAJar,
+    );
+    assert.equal(
+      res.status,
+      403,
+      `Expected 403, got ${res.status}: ${JSON.stringify(res.body)}`,
     );
   });
 });
