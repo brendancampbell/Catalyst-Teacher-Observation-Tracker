@@ -2,6 +2,7 @@ import { pgTable, text, pgEnum, integer, boolean, date } from "drizzle-orm/pg-co
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schools } from "./schools";
+import { schoolYears } from "./school-years";
 
 export const personRoleEnum = pgEnum("person_role", [
   "COACH",
@@ -53,6 +54,7 @@ export const people = pgTable("people", {
   gradeLevel:                  text("grade_level").array(),
   needsRescore:                boolean("needs_rescore").notNull().default(false),
   rescoreDueDate:              date("rescore_due_date"),
+  rescoreSchoolYearId:         integer("rescore_school_year_id").references(() => schoolYears.id, { onDelete: "set null" }),
 });
 
 export const insertPersonSchema = createInsertSchema(people).omit({ employeeId: true });

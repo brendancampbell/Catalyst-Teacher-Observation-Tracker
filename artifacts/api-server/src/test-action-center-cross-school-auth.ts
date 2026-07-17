@@ -152,6 +152,7 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
     const [obsA] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
@@ -177,6 +178,7 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
     const [obsB] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,

@@ -144,6 +144,7 @@ async function seedTeachers() {
       const isWalkthrough = Math.random() < 0.3;
 
       const [obs] = await db.insert(observations).values({
+        schoolYearId:                1,
         observedEmployeeId: teacher.employeeId,
         rubricSetId,
         date:               rDate(daysAgo),

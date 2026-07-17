@@ -121,6 +121,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
 
     /* Observations for each teacher */
     const [obsA] = await db.insert(observations).values({
+      schoolYearId:                1,
       observedEmployeeId: TEACHER_A_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
       date: "2025-06-01", observer: "Action Step Test", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
@@ -128,6 +129,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     createdObsIds.push(obsAId);
 
     const [obsB] = await db.insert(observations).values({
+      schoolYearId:                1,
       observedEmployeeId: TEACHER_B_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
       date: "2025-06-01", observer: "Action Step Test", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
@@ -136,6 +138,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
 
     /* Action steps for each teacher */
     const [stepA] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId: TEACHER_A_EID, assignedByEmployeeId: LEADER_A_EID,
       assignedDuringObservationId: obsAId, text: "Action step for teacher A",
       dueDate: "2099-12-31", status: "open",
@@ -144,6 +147,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     createdStepIds.push(stepAId);
 
     const [stepB] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId: TEACHER_B_EID, assignedByEmployeeId: LEADER_B_EID,
       assignedDuringObservationId: obsBId, text: "Action step for teacher B",
       dueDate: "2099-12-31", status: "open",
@@ -182,6 +186,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
   test("3 — SCHOOL_LEADER GET /action-steps/overdue only includes their own school", async () => {
     /* Seed an overdue step for teacher A */
     const [overdueA] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId: TEACHER_A_EID, assignedByEmployeeId: LEADER_A_EID,
       assignedDuringObservationId: null, text: "Overdue for teacher A",
       dueDate: "2020-01-01", status: "open",
@@ -189,6 +194,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     createdStepIds.push(overdueA!.id);
 
     const [overdueB] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId: TEACHER_B_EID, assignedByEmployeeId: LEADER_B_EID,
       assignedDuringObservationId: null, text: "Overdue for teacher B",
       dueDate: "2020-01-01", status: "open",

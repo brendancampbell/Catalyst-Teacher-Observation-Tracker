@@ -4,11 +4,13 @@ import { z } from "zod/v4";
 import { people } from "./people";
 import { rubricSets, evaluationTargetEnum } from "./rubric";
 import { schools } from "./schools";
+import { schoolYears } from "./school-years";
 
 export const observations = pgTable("observations", {
   id:                  serial("id").primaryKey(),
   observedEmployeeId:  text("observed_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   schoolId:            integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolYearId:        integer("school_year_id").notNull().references(() => schoolYears.id),
   rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   observerEmployeeId:  text("observer_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   observerEmail:       text("observer_email"),
@@ -23,6 +25,7 @@ export const observations = pgTable("observations", {
   editedAt:            timestamp("edited_at", { withTimezone: true }),
   status:              text("status").notNull().default("published"),
   target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
+  snapshotGradeSpan:   text("snapshot_grade_span"),
 });
 
 export const observationScores = pgTable("observation_scores", {

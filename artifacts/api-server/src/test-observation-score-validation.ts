@@ -231,6 +231,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -288,6 +289,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -344,6 +346,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,

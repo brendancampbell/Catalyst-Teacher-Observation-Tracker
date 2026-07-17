@@ -149,6 +149,7 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     /* An observation + score row that references DOMAIN_ID's slug.
        This is the row that should block the slug rename in test 12. */
     const [obs] = await db.insert(observations).values({
+      schoolYearId:                1,
       rubricSetId:        RUBRIC_ID,
       schoolId:           SCHOOL_ID,
       observedEmployeeId: null,

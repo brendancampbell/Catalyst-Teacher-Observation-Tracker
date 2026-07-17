@@ -7,7 +7,7 @@ import { networkAvgsCache } from "./action-center";
 import {
   observations, observationScores, people, rubricSets, schools,
   rubricCategories, rubricDomains, observationScoreValueSchema,
-  actionSteps,
+  actionSteps, schoolYears,
 } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 
@@ -328,6 +328,16 @@ router.post("/", async (req, res) => {
 
     const creator = req.user as Express.User;
 
+    /* ── Active school year — required for all new records ─────────── */
+    const activeYearRow = await db.query.schoolYears.findFirst({
+      where: eq(schoolYears.status, "active"),
+    });
+    const activeYearId = activeYearRow?.id;
+    if (!activeYearId) {
+      res.status(400).json({ error: "No active school year configured" });
+      return;
+    }
+
     /* ── SCHOOL target ─────────────────────────────────────────────── */
     if (resolvedTarget === "SCHOOL") {
       if (creator.role !== "NETWORK_ADMIN" && creator.role !== "NETWORK_LEADER") {
@@ -363,6 +373,7 @@ router.post("/", async (req, res) => {
       const [obs] = await db.insert(observations).values({
         observedEmployeeId:  null,
         schoolId:            Number(schoolId),
+        schoolYearId:        activeYearId,
         rubricSetId:         Number(resolvedRubricSetId),
         date,
         time:                time || null,
@@ -375,6 +386,7 @@ router.post("/", async (req, res) => {
         isWalkthrough:       false,
         status:              resolvedStatus,
         target:              "SCHOOL",
+        snapshotGradeSpan:   school.gradeSpan,
       }).returning();
 
       const scoreRows = scores
@@ -419,15 +431,25 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    /* ── School-scope enforcement on create ─────────────────────── */
+    /* ── Resolve teacher + school for scope check and frozen snapshots */
+    const teacherPerson = await db.query.people.findFirst({ where: eq(people.employeeId, resolvedObservedId) });
+    const teacherSchoolId = teacherPerson?.schoolId ?? null;
+
     const isSchoolScoped = creator.role === "COACH" || creator.role === "SCHOOL_LEADER";
     if (isSchoolScoped) {
-      const target = await db.query.people.findFirst({ where: eq(people.employeeId, resolvedObservedId) });
-      if (!target || target.schoolId !== creator.schoolId) {
+      if (!teacherPerson || teacherSchoolId !== creator.schoolId) {
         res.status(403).json({ error: "Cannot create an observation for a person outside your school" });
         return;
       }
     }
+
+    /* Grade span and role snapshot — captured from teacher's current record */
+    let snapshotGradeSpanTeacher: string | null = null;
+    if (teacherSchoolId) {
+      const teacherSchool = await db.query.schools.findFirst({ where: eq(schools.id, teacherSchoolId) });
+      snapshotGradeSpanTeacher = teacherSchool?.gradeSpan ?? null;
+    }
+    const snapshotRoleTeacher: string = teacherPerson?.role ?? "NO_ACCESS";
 
     if (scores && typeof scores === "object") {
       const scoreValidation = await validateScores(
@@ -481,7 +503,8 @@ router.post("/", async (req, res) => {
     const { obs, scoreRows } = await db.transaction(async (tx) => {
       const [obs] = await tx.insert(observations).values({
         observedEmployeeId:  resolvedObservedId,
-        schoolId:            creator.schoolId ?? null,
+        schoolId:            teacherSchoolId,
+        schoolYearId:        activeYearId,
         rubricSetId:         Number(resolvedRubricSetId),
         date,
         time:                time || null,
@@ -494,6 +517,7 @@ router.post("/", async (req, res) => {
         isWalkthrough:       !!isWalkthrough,
         status:              resolvedStatus,
         target:              "TEACHER",
+        snapshotGradeSpan:   snapshotGradeSpanTeacher,
       }).returning();
 
       const scoreRows = scores
@@ -527,6 +551,10 @@ router.post("/", async (req, res) => {
           text:                        newActionStep.text,
           dueDate:                     newActionStep.dueDate,
           status:                      "open",
+          schoolYearId:                activeYearId,
+          snapshotSchoolId:            teacherSchoolId,
+          snapshotGradeSpan:           snapshotGradeSpanTeacher,
+          snapshotRole:                snapshotRoleTeacher,
         });
       }
 
@@ -546,11 +574,11 @@ router.post("/", async (req, res) => {
           const due = new Date(date);
           due.setDate(due.getDate() + 14);
           await db.update(people)
-            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0] })
+            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearId })
             .where(eq(people.employeeId, obs.observedEmployeeId));
         } else {
           await db.update(people)
-            .set({ needsRescore: false, rescoreDueDate: null })
+            .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
             .where(eq(people.employeeId, obs.observedEmployeeId));
         }
       }
@@ -696,6 +724,25 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       }) ?? null;
     }
 
+    /* ── Active school year + snapshot data for any new action step ── */
+    const activeYearRowPut = await db.query.schoolYears.findFirst({
+      where: eq(schoolYears.status, "active"),
+    });
+    const activeYearIdPut = activeYearRowPut?.id ?? null;
+
+    let snapshotGradeSpanPut: string | null = null;
+    let snapshotRolePut: string | null = null;
+    if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
+      const [schoolRowPut, teacherRowPut] = await Promise.all([
+        existing.schoolId
+          ? db.query.schools.findFirst({ where: eq(schools.id, existing.schoolId) })
+          : Promise.resolve(undefined),
+        db.query.people.findFirst({ where: eq(people.employeeId, existing.observedEmployeeId) }),
+      ]);
+      snapshotGradeSpanPut = schoolRowPut?.gradeSpan ?? null;
+      snapshotRolePut = teacherRowPut?.role ?? null;
+    }
+
     const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
     const isPublishing = existing.status === "draft" && resolvedStatus === "published";
 
@@ -754,6 +801,10 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             text:                        newActionStep.text,
             dueDate:                     newActionStep.dueDate,
             status:                      "open",
+            schoolYearId:                activeYearIdPut!,
+            snapshotSchoolId:            existing.schoolId,
+            snapshotGradeSpan:           snapshotGradeSpanPut,
+            snapshotRole:                snapshotRolePut,
           });
         }
       }
@@ -777,11 +828,11 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             const due = new Date(updated.date);
             due.setDate(due.getDate() + 14);
             await db.update(people)
-              .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0] })
+              .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearIdPut })
               .where(eq(people.employeeId, updated.observedEmployeeId));
           } else {
             await db.update(people)
-              .set({ needsRescore: false, rescoreDueDate: null })
+              .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
               .where(eq(people.employeeId, updated.observedEmployeeId));
           }
         }

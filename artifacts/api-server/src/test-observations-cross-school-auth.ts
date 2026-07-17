@@ -130,6 +130,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [obsOther] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -148,6 +149,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [obsOwn] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -168,6 +170,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [draftOther] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -285,6 +288,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [reinserted] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,

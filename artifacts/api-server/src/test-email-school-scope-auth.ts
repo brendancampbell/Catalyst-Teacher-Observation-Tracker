@@ -152,6 +152,7 @@ describe("Email send-observation — school-scope authorization", () => {
     const [obsA] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         observedEmployeeId: TEACHER_A_EID,
         schoolId:           null,
         rubricSetId:        createdRubricSetId,
@@ -167,6 +168,7 @@ describe("Email send-observation — school-scope authorization", () => {
     const [obsB] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         observedEmployeeId: TEACHER_B_EID,
         schoolId:           null,
         rubricSetId:        createdRubricSetId,

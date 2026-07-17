@@ -1,1 +1,2 @@
 - [School-wide rubrics pattern](school-wide-rubrics.md) — target on rubricSets drives TEACHER vs SCHOOL observation routing; schoolId nullable on observations
+- [Observations & Action Steps School Year + Frozen Snapshots](obs-action-steps-school-year.md) — schoolYearId/snapshot fields on obs+steps; bidirectional Drizzle relation naming rules

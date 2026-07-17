@@ -6,23 +6,30 @@ import { observations, observationScores } from "./observations";
 import { chatSessions, chatMessages } from "./chat";
 import { assignments } from "./assignments";
 import { schoolYears } from "./school-years";
+import { actionSteps } from "./action-steps";
 
 export const schoolYearsRelations = relations(schoolYears, ({ many }) => ({
-  rubricSets: many(rubricSets),
+  rubricSets:   many(rubricSets),
+  observations: many(observations),
+  actionSteps:  many(actionSteps),
 }));
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
   people:       many(people),
   observations: many(observations),
   assignments:  many(assignments),
+  actionSteps:  many(actionSteps),
 }));
 
 export const peopleRelations = relations(people, ({ one, many }) => ({
-  school:      one(schools, { fields: [people.schoolId], references: [schools.id] }),
-  observedIn:  many(observations, { relationName: "observedPerson" }),
-  observedBy:  many(observations, { relationName: "observerPerson" }),
-  editedObs:   many(observations, { relationName: "editorPerson" }),
-  assignments: many(assignments),
+  school:         one(schools, { fields: [people.schoolId], references: [schools.id] }),
+  observedIn:     many(observations, { relationName: "observedPerson" }),
+  observedBy:     many(observations, { relationName: "observerPerson" }),
+  editedObs:      many(observations, { relationName: "editorPerson" }),
+  assignments:    many(assignments),
+  teachingSteps:  many(actionSteps, { relationName: "teacherSteps" }),
+  assignedSteps:  many(actionSteps, { relationName: "assignerSteps" }),
+  masteredSteps:  many(actionSteps, { relationName: "mastererSteps" }),
 }));
 
 export const assignmentsRelations = relations(assignments, ({ one }) => ({
@@ -62,13 +69,26 @@ export const observationsRelations = relations(observations, ({ one, many }) => 
     references:    [people.employeeId],
     relationName:  "editorPerson",
   }),
-  school:    one(schools,    { fields: [observations.schoolId],    references: [schools.id] }),
-  rubricSet: one(rubricSets, { fields: [observations.rubricSetId], references: [rubricSets.id] }),
-  scores:    many(observationScores),
+  school:             one(schools,     { fields: [observations.schoolId],     references: [schools.id] }),
+  schoolYear:         one(schoolYears, { fields: [observations.schoolYearId], references: [schoolYears.id] }),
+  rubricSet:          one(rubricSets,  { fields: [observations.rubricSetId],  references: [rubricSets.id] }),
+  scores:             many(observationScores),
+  assignedSteps:      many(actionSteps, { relationName: "assignedDuringObs" }),
+  masteredSteps:      many(actionSteps, { relationName: "masteredDuringObs" }),
 }));
 
 export const observationScoresRelations = relations(observationScores, ({ one }) => ({
   observation: one(observations, { fields: [observationScores.observationId], references: [observations.id] }),
+}));
+
+export const actionStepsRelations = relations(actionSteps, ({ one }) => ({
+  teacher:            one(people,      { fields: [actionSteps.teacherEmployeeId],           references: [people.employeeId],      relationName: "teacherSteps" }),
+  assignedBy:         one(people,      { fields: [actionSteps.assignedByEmployeeId],         references: [people.employeeId],      relationName: "assignerSteps" }),
+  masteredBy:         one(people,      { fields: [actionSteps.masteredByEmployeeId],         references: [people.employeeId],      relationName: "mastererSteps" }),
+  assignedDuringObs:  one(observations,{ fields: [actionSteps.assignedDuringObservationId],  references: [observations.id],        relationName: "assignedDuringObs" }),
+  masteredDuringObs:  one(observations,{ fields: [actionSteps.masteredDuringObservationId],  references: [observations.id],        relationName: "masteredDuringObs" }),
+  schoolYear:         one(schoolYears, { fields: [actionSteps.schoolYearId],                 references: [schoolYears.id] }),
+  snapshotSchool:     one(schools,     { fields: [actionSteps.snapshotSchoolId],              references: [schools.id] }),
 }));
 
 export const chatSessionsRelations = relations(chatSessions, ({ one, many }) => ({

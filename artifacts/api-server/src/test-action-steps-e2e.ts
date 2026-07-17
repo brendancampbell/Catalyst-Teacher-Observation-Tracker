@@ -348,6 +348,7 @@ describe("Action Steps — end-to-end flow", () => {
     /* Seed a fresh open action step directly in the DB.
        (Mirrors how test 4 backdates via DB — fastest and cleanest.)  */
     const [seededStep] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP8: Step that should be marked mastered via observation submit",
@@ -436,6 +437,7 @@ describe("Action Steps — end-to-end flow", () => {
 
     /* Seed an open action step for the same teacher */
     const [seededStep] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP10: Step to be mastered when draft is published",
@@ -490,6 +492,7 @@ describe("Action Steps — end-to-end flow", () => {
   test("9 — POST /observations without masterActionStepId leaves step status unchanged", async () => {
     /* Seed another open action step */
     const [seededStep] = await db.insert(actionSteps).values({
+      schoolYearId:                1,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP9: Step that should remain open (no markMastered)",

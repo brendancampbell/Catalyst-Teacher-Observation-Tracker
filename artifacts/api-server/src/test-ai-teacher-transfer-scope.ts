@@ -227,6 +227,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [obsB] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_B_ID,          /* recorded at School B */
         observedEmployeeId: XFER_EID,
         rubricSetId:        rs.id,
@@ -246,6 +247,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [obsXferA] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_A_ID,          /* recorded at School A */
         observedEmployeeId: XFER_EID,
         rubricSetId:        rs.id,
@@ -265,6 +267,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [obsA] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: NATIVE_A_EID,
         rubricSetId:        rs.id,
@@ -286,6 +289,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [obsNull] = await db
       .insert(observations)
       .values({
+        schoolYearId:                1,
         /* schoolId deliberately omitted — defaults to null */
         observedEmployeeId: XFER_EID,
         rubricSetId:        rs.id,
@@ -307,6 +311,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [stepB] = await db
       .insert(actionSteps)
       .values({
+        schoolYearId:                1,
         teacherEmployeeId:           XFER_EID,
         assignedDuringObservationId: obsB.id,    /* links to School B obs */
         text:                        XFER_SCHOOL_B_STEP,
@@ -321,6 +326,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
     const [stepA] = await db
       .insert(actionSteps)
       .values({
+        schoolYearId:                1,
         teacherEmployeeId: NATIVE_A_EID,
         text:              SCHOOL_A_NATIVE_STEP,
         dueDate:           "2026-08-01",
