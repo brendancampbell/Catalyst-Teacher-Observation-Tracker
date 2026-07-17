@@ -67,7 +67,7 @@ function getDueStatus(dueDateStr: string | null): { label: string; color: string
   return { label: `Due in ${diffDays}d`, color: "#16a34a", urgent: false };
 }
 
-type ChatMsg = { role: "user" | "ai"; text: string; instantAnalysis?: InstantAnalysisStructured; matchedTeachers?: string[]; nextSteps?: string[] };
+type ChatMsg = { role: "user" | "ai"; text: string; rubricSetSlug?: string | null; instantAnalysis?: InstantAnalysisStructured; matchedTeachers?: string[]; nextSteps?: string[] };
 
 /* Strips the NEXT_STEPS_JSON sentinel line from AI response text so the raw
    sentinel is never visible to the user. Also handles partial sentinels that
@@ -91,7 +91,7 @@ function mapServerMessages(messages: AIChatMessage[]): ChatMsg[] {
     const role = m.role === "user" ? "user" as const : "ai" as const;
     if (role === "ai") {
       const nextSteps = parseNextStepsFromSentinel(m.content);
-      const base: ChatMsg = { role, text: stripNextStepsSentinel(m.content), nextSteps: nextSteps.length ? nextSteps : undefined };
+      const base: ChatMsg = { role, text: stripNextStepsSentinel(m.content), rubricSetSlug: m.rubricSetSlug ?? null, nextSteps: nextSteps.length ? nextSteps : undefined };
       if (m.instantAnalysis) {
         const ia = m.instantAnalysis as InstantAnalysisStructured;
         if (Array.isArray(ia.findings) && ia.findings.length > 0 && ia.summary) {
@@ -102,6 +102,15 @@ function mapServerMessages(messages: AIChatMessage[]): ChatMsg[] {
     }
     return { role, text: m.content };
   });
+}
+
+/* Converts a stored rubric set slug (e.g. "Q1", "Q2", "Q1+Q2") into a
+   human-readable label shown beneath each AI reply bubble. */
+function formatRubricLabel(slug: string): string {
+  const parts = slug.split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return slug;
+  if (parts.length === 1) return `${parts[0]} data`;
+  return `${parts.join(" + ")} comparison`;
 }
 
 /* ── Narrative helpers ──────────────────────────────── */
@@ -2136,6 +2145,24 @@ export default function ActionCenterPage() {
                                     })
                                 }
                               </div>
+                              {msg.role === "ai" && msg.rubricSetSlug && (
+                                <div className="px-1">
+                                  <span style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    fontSize: 11, fontWeight: 500,
+                                    color: "#4338CA",
+                                    backgroundColor: "#EEF2FF",
+                                    borderRadius: 10,
+                                    padding: "2px 8px",
+                                    fontFamily: "'Libre Franklin', sans-serif",
+                                  }}
+                                    title={`Rubric context: ${msg.rubricSetSlug}`}
+                                  >
+                                    <FileText size={10} />
+                                    {formatRubricLabel(msg.rubricSetSlug)}
+                                  </span>
+                                </div>
+                              )}
                               {msg.role === "ai" && msg.nextSteps && msg.nextSteps.length > 0 && (
                                 <div className="px-1">
                                   <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 6, fontFamily: "'Libre Franklin', sans-serif" }}>Potential Next Steps:</div>

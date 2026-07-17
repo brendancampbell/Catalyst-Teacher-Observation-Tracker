@@ -413,6 +413,7 @@ export interface AIChatMessage {
   sessionId:        number;
   role:             "user" | "assistant";
   content:          string;
+  rubricSetSlug?:   string | null;
   instantAnalysis?: InstantAnalysisStructured | null;
   createdAt:        string;
 }
