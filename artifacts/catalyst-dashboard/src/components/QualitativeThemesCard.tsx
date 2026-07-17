@@ -16,6 +16,7 @@ const YELLOW = "#FFB500";
 
 interface Props {
   schoolId:   number | null;
+  schoolName: string;
   rubricSlug: string;
   basePath:   string;
 }
@@ -86,7 +87,7 @@ function ThemeRow({
   );
 }
 
-export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
+export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug }: Props) {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -108,7 +109,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
   const result: QualitativeThemesResult | null = cached?.result ?? null;
   const currentObsCount = cacheData?.currentObsCount ?? 0;
   const hasNewObs       = cached != null && currentObsCount > cached.obsCountAtGeneration;
-  const schoolName      = result?.schoolName ?? "School";
+  const displaySchoolName = result?.schoolName ?? schoolName;
 
   return (
     <Card className="border-slate-200 shadow-sm">
@@ -120,7 +121,7 @@ export function QualitativeThemesCard({ schoolId, rubricSlug }: Props) {
               Qualitative Trends
             </CardTitle>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              {schoolName} · {rubricSlug} · based on observer comments (glows, grows & action steps)
+              {displaySchoolName} · {rubricSlug} · based on observer comments (glows, grows & action steps)
             </p>
           </div>
 

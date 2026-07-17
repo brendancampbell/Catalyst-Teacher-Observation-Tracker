@@ -1,0 +1,15 @@
+Add a "School Year" and "Assignment" data model to the app as foundational infrastructure. This is a schema change only — no visibility filtering or UI changes yet.
+
+1. Create a new School Year entity with fields: name (e.g., "2026-2027"), and status ("active" or "inactive"). Exactly one School Year must have status "active" at all times — every other School Year, whether it's a not-yet-launched future year or a completed past year, is simply "inactive." There is no separate "draft" state.
+
+2. Create a new Assignment entity representing what a user can do and where, valid for a date range. Fields: user_id, role (Network Admin, Coach, Principal, etc.), school_id (nullable — null specifically for Network Admin, since that role isn't tied to a school), start_date, end_date (nullable — a null end_date means this is the user's current/active assignment). Enforce that a user may have at most one assignment with a null end_date at any time (no overlapping active assignments).
+
+3. Migrate all existing users off their current single role/school fields onto this new Assignment model: for each existing user, create one Assignment record with their current role and school, a start_date of today (or the earliest date we have data for, if available), and a null end_date.
+
+4. Do not remove the old role/school fields from the User table yet — leave them in place but unused, so we have a rollback path if the migration has issues. We'll remove them in a later cleanup pass once the new model is verified.
+
+5. Update the "Add Person" flow and the "Bulk Upload" flow in Admin > Users so that creating a new user also creates their first Assignment record (role, school, start_date = today, end_date = null) in the same action, rather than writing role/school directly onto the user. For bulk upload specifically, the CSV format and required columns (name, email, role, school) should stay the same — only the backend logic changes, from writing directly to user fields to creating an Assignment record per row. If an uploaded row matches an existing user whose current active Assignment has a different role or school, treat it the same as a mid-year change: close their current assignment (end_date = today) and open a new one, rather than erroring or overwriting in place.
+
+6. Do not build any other new UI for this yet. This is schema, migration, and the Add Person/Bulk Upload update only.
+
+After this is built, I need to verify: existing users can still log in normally, each user's current role/school correctly shows up as their single active Assignment record with a null end_date, and adding a new person (individually or via bulk upload) correctly creates both a user and an initial Assignment.

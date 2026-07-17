@@ -1262,6 +1262,7 @@ export default function ActionCenterPage() {
               return effectiveSchoolId != null && rubricFromUrl ? (
                 <QualitativeThemesCard
                   schoolId={effectiveSchoolId}
+                  schoolName={schoolNameFromUrl}
                   rubricSlug={rubricFromUrl}
                   basePath={baseUrl}
                 />
