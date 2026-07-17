@@ -198,7 +198,7 @@ export default function DraftsPage() {
   async function handleNewObsClick() {
     setNewObsLoading(true);
     try {
-      const activeSlug = await fetchMyLatestRubricSlug() ?? "Q1";
+      const activeSlug = await fetchMyLatestRubricSlug().catch(() => null) ?? "Q1";
       const data = await fetchDashboard(activeSlug, currentUser?.schoolId ?? null);
       const allDomains = data.categories.flatMap((c) => c.domains);
       setNewObsData({ teachers: data.teachers, categories: data.categories, allDomains, rubricSetId: data.rubricSet.id });
