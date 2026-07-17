@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import {
   observations, observationScores, people, schools, rubricSets,
-  rubricCategories, rubricDomains,
+  rubricCategories, rubricDomains, schoolYears,
 } from "@workspace/db/schema";
 import { eq, asc, inArray } from "drizzle-orm";
 
@@ -93,9 +93,12 @@ describe("Email send-observation — school-scope authorization", () => {
 
     /* Minimal TEACHER-target rubric set for observation creation */
     const rsSlug = `tst-email-scope-rs-${Date.now()}`;
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
+
     const [rs] = await db
       .insert(rubricSets)
-      .values({ slug: rsSlug, name: "Test Email Scope RS", target: "TEACHER", isActive: true })
+      .values({ slug: rsSlug, name: "Test Email Scope RS", target: "TEACHER", isActive: true, schoolYearId: activeSchoolYearId })
       .returning({ id: rubricSets.id });
     createdRubricSetId = rs!.id;
 
@@ -107,7 +110,7 @@ describe("Email send-observation — school-scope authorization", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat!.id, rubricSetId: rs!.id, slug: "tst_email_scope_dom", name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat!.id, rubricSetId: rs!.id, schoolYearId: activeSchoolYearId, slug: `tst-email-scope-dom-${Date.now()}`, name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     createdDomainId = dom!.id;
 

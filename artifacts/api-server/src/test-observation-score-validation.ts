@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import {
   observations, observationScores, people, schools, rubricSets,
-  rubricCategories, rubricDomains,
+  rubricCategories, rubricDomains, schoolYears,
 } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
@@ -95,9 +95,12 @@ describe("Observation score input validation — POST and PUT", () => {
 
     /* Create a dedicated TEACHER-target rubric set for full control */
     const slug = `tst-score-val-rs-${Date.now()}`;
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
+
     const [rs] = await db
       .insert(rubricSets)
-      .values({ slug, name: "Test Score Val RS", target: "TEACHER", isActive: true })
+      .values({ slug, name: "Test Score Val RS", target: "TEACHER", isActive: true, schoolYearId: activeSchoolYearId })
       .returning({ id: rubricSets.id, slug: rubricSets.slug });
     assert.ok(rs, "Failed to insert test rubric set");
     createdRubricSetId = rs.id;
@@ -113,7 +116,7 @@ describe("Observation score input validation — POST and PUT", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: "tst_score_val_domain", name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, schoolYearId: activeSchoolYearId, slug: `tst-score-val-dom-${Date.now()}`, name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id, slug: rubricDomains.slug });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId   = dom.id;

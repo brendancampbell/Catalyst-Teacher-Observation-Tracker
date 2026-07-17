@@ -5,6 +5,11 @@ import { rubricSets, rubricCategories, rubricDomains } from "./rubric";
 import { observations, observationScores } from "./observations";
 import { chatSessions, chatMessages } from "./chat";
 import { assignments } from "./assignments";
+import { schoolYears } from "./school-years";
+
+export const schoolYearsRelations = relations(schoolYears, ({ many }) => ({
+  rubricSets: many(rubricSets),
+}));
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
   people:       many(people),
@@ -25,7 +30,8 @@ export const assignmentsRelations = relations(assignments, ({ one }) => ({
   school: one(schools, { fields: [assignments.schoolId], references: [schools.id] }),
 }));
 
-export const rubricSetsRelations = relations(rubricSets, ({ many }) => ({
+export const rubricSetsRelations = relations(rubricSets, ({ one, many }) => ({
+  schoolYear:   one(schoolYears, { fields: [rubricSets.schoolYearId], references: [schoolYears.id] }),
   categories:   many(rubricCategories),
   observations: many(observations),
 }));
@@ -36,7 +42,8 @@ export const rubricCategoriesRelations = relations(rubricCategories, ({ one, man
 }));
 
 export const rubricDomainsRelations = relations(rubricDomains, ({ one }) => ({
-  category: one(rubricCategories, { fields: [rubricDomains.categoryId], references: [rubricCategories.id] }),
+  category:   one(rubricCategories, { fields: [rubricDomains.categoryId],   references: [rubricCategories.id] }),
+  schoolYear: one(schoolYears,      { fields: [rubricDomains.schoolYearId], references: [schoolYears.id] }),
 }));
 
 export const observationsRelations = relations(observations, ({ one, many }) => ({

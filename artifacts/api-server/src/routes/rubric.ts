@@ -4,11 +4,21 @@ import {
   rubricSets, rubricCategories, rubricDomains, observationScores,
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
 } from "@workspace/db/schema";
+import { schoolYears } from "@workspace/db/schema";
 import { asc, count, eq, and, ne, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 
 function firstZodError(err: { issues: { message: string }[] }): string {
   return err.issues[0]?.message ?? "Validation error";
+}
+
+/** Returns the active school year id, or null if none exists. */
+async function getActiveSchoolYearId(): Promise<number | null> {
+  const [row] = await db.select({ id: schoolYears.id })
+    .from(schoolYears)
+    .where(eq(schoolYears.status, "active"))
+    .limit(1);
+  return row?.id ?? null;
 }
 
 const router = Router();
@@ -28,9 +38,8 @@ router.get("/sets", async (req, res) => {
       }
     }
 
-    const query = db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     const sets = includeArchived
-      ? await query
+      ? await db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id))
       : await db.select().from(rubricSets).where(eq(rubricSets.isArchived, false)).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     res.json(sets);
   } catch (err) {
@@ -61,15 +70,23 @@ router.put("/sets/reorder", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/sets ──────────────────────────────────────── */
 router.post("/sets", requireNetworkAdmin, async (req, res) => {
   try {
-    const { slug, name, gradeSpan, copyFromSlug, target, subjectAudience } = req.body as {
+    const { slug, name, gradeSpan, copyFromSlug, target, subjectAudience, schoolYearId } = req.body as {
       slug: string;
       name: string;
       gradeSpan?: string;
       copyFromSlug?: string;
       target?: "TEACHER" | "SCHOOL";
       subjectAudience?: "STEM" | "HUMANITIES" | "ALL";
+      schoolYearId?: number;
     };
     if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
+
+    /* Resolve school year — caller may supply one, otherwise use the active year. */
+    const resolvedSchoolYearId = schoolYearId ?? await getActiveSchoolYearId();
+    if (!resolvedSchoolYearId) {
+      res.status(400).json({ error: "No active school year found. Create a school year before adding rubric sets." });
+      return;
+    }
 
     const MAX_ACTIVE_SETS = 6;
     const [{ activeCount }] = await db.select({ activeCount: count() }).from(rubricSets).where(eq(rubricSets.isArchived, false));
@@ -83,7 +100,7 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 
     const [rubricSet] = await db
       .insert(rubricSets)
-      .values({ slug, name, isActive: false, gradeSpan: gradeSpan || null, displayOrder: nextOrder, target: target ?? "TEACHER", subjectAudience: subjectAudience ?? "ALL" })
+      .values({ slug, name, schoolYearId: resolvedSchoolYearId, isActive: false, gradeSpan: gradeSpan || null, displayOrder: nextOrder, target: target ?? "TEACHER", subjectAudience: subjectAudience ?? "ALL" })
       .returning();
 
     /* Optional: copy categories + domains from an existing rubric set */
@@ -99,15 +116,16 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
         });
         for (const cat of sourceCats) {
           const [newCat] = await db.insert(rubricCategories)
-            .values({ rubricSetId: rubricSet.id, name: cat.name, displayOrder: cat.displayOrder })
+            .values({ rubricSetId: rubricSet!.id, name: cat.name, displayOrder: cat.displayOrder })
             .returning();
           if (cat.domains?.length) {
             await db.insert(rubricDomains).values(
               cat.domains.map((d) => ({
-                categoryId:  newCat.id,
-                rubricSetId: rubricSet.id,
-                name:        d.name,
-                slug:        d.slug,
+                categoryId:   newCat!.id,
+                rubricSetId:  rubricSet!.id,
+                schoolYearId: resolvedSchoolYearId,
+                name:         d.name,
+                slug:         d.slug,
                 displayOrder: d.displayOrder,
               })),
             );
@@ -118,7 +136,109 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
 
     res.status(201).json(rubricSet);
   } catch (err) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "A rubric with that slug already exists in this school year" }); return;
+    }
     console.error("POST /rubric/sets error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── POST /api/rubric/sets/:id/copy-forward ─────────────────────── */
+router.post("/sets/:id/copy-forward", requireNetworkAdmin, async (req, res) => {
+  try {
+    const sourceId = Number(req.params.id);
+    if (isNaN(sourceId)) { res.status(400).json({ error: "Invalid rubric set id" }); return; }
+
+    const { targetSchoolYearId } = req.body as { targetSchoolYearId?: number };
+    if (!targetSchoolYearId || !Number.isInteger(targetSchoolYearId)) {
+      res.status(400).json({ error: "targetSchoolYearId (integer) is required" }); return;
+    }
+
+    /* Validate source exists */
+    const source = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.id, sourceId),
+    });
+    if (!source) { res.status(404).json({ error: "Source rubric set not found" }); return; }
+
+    /* Validate target school year exists */
+    const [targetYear] = await db.select().from(schoolYears).where(eq(schoolYears.id, targetSchoolYearId)).limit(1);
+    if (!targetYear) { res.status(404).json({ error: "Target school year not found" }); return; }
+
+    /* Guard: slug must not already exist in target year */
+    const slugConflict = await db.query.rubricSets.findFirst({
+      where: and(eq(rubricSets.schoolYearId, targetSchoolYearId), eq(rubricSets.slug, source.slug)),
+    });
+    if (slugConflict) {
+      res.status(409).json({
+        error: `A rubric set with slug '${source.slug}' already exists in school year '${targetYear.name}'. Copy would collide.`,
+      });
+      return;
+    }
+
+    /* Load source categories + domains */
+    const sourceCats = await db.query.rubricCategories.findMany({
+      where: eq(rubricCategories.rubricSetId, source.id),
+      orderBy: (c, { asc }) => [asc(c.displayOrder)],
+      with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
+    });
+
+    /* Create the copy in a single transaction */
+    const newSet = await db.transaction(async (tx) => {
+      const [{ maxOrder }] = await tx.select({ maxOrder: max(rubricSets.displayOrder) }).from(rubricSets);
+      const nextOrder = (maxOrder ?? 0) + 1;
+
+      const [created] = await tx.insert(rubricSets).values({
+        slug:            source.slug,
+        name:            source.name,
+        schoolYearId:    targetSchoolYearId,
+        isActive:        false,
+        isArchived:      false,
+        gradeSpan:       source.gradeSpan,
+        description:     source.description,
+        displayOrder:    nextOrder,
+        target:          source.target,
+        subjectAudience: source.subjectAudience,
+      }).returning();
+
+      for (const cat of sourceCats) {
+        const [newCat] = await tx.insert(rubricCategories).values({
+          rubricSetId:  created!.id,
+          name:         cat.name,
+          displayOrder: cat.displayOrder,
+        }).returning();
+
+        if (cat.domains?.length) {
+          await tx.insert(rubricDomains).values(
+            cat.domains.map((d) => ({
+              categoryId:   newCat!.id,
+              rubricSetId:  created!.id,
+              schoolYearId: targetSchoolYearId,
+              name:         d.name,
+              slug:         d.slug,
+              displayOrder: d.displayOrder,
+              description:  d.description,
+            })),
+          );
+        }
+      }
+
+      return created!;
+    });
+
+    /* Return the new set with its categories and domains */
+    const categories = await db.query.rubricCategories.findMany({
+      where: eq(rubricCategories.rubricSetId, newSet.id),
+      orderBy: (c, { asc }) => [asc(c.displayOrder)],
+      with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
+    });
+
+    res.status(201).json({ rubricSet: newSet, categories });
+  } catch (err) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "Slug collision in target school year — a domain slug from the source already exists in the target year." }); return;
+    }
+    console.error("POST /rubric/sets/:id/copy-forward error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -153,7 +273,7 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
     res.json(updated);
   } catch (err: unknown) {
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
-      res.status(409).json({ error: "A rubric with that slug already exists" }); return;
+      res.status(409).json({ error: "A rubric with that slug already exists in this school year" }); return;
     }
     console.error("PATCH /rubric/sets/:slug error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -257,7 +377,7 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/categories/:id/domains ───────────────────── */
 router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => {
   try {
-    const parsed = insertRubricDomainSchema.omit({ categoryId: true, rubricSetId: true }).safeParse(req.body);
+    const parsed = insertRubricDomainSchema.omit({ categoryId: true, rubricSetId: true, schoolYearId: true }).safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: firstZodError(parsed.error) });
       return;
@@ -270,6 +390,12 @@ router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => 
       where: eq(rubricCategories.id, categoryId),
     });
     if (!category) { res.status(404).json({ error: "Category not found" }); return; }
+
+    /* Resolve the rubric set to get schoolYearId */
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: eq(rubricSets.id, category.rubricSetId),
+    });
+    if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
     /* Check for a duplicate slug anywhere in the same rubric set */
     const conflict = await db.query.rubricDomains.findFirst({
@@ -286,7 +412,7 @@ router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => 
     }
 
     const [dom] = await db.insert(rubricDomains)
-      .values({ ...parsed.data, categoryId, rubricSetId: category.rubricSetId })
+      .values({ ...parsed.data, categoryId, rubricSetId: category.rubricSetId, schoolYearId: rubricSet.schoolYearId })
       .returning();
     res.status(201).json(dom);
   } catch (err: unknown) {
@@ -355,26 +481,9 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
           return;
         }
 
-        /* Check that the new slug isn't already taken by a sibling domain.
-           rubric_set_id is NOT NULL at the DB level (enforced by constraint + backfill).
-           We resolve via a category join as a belt-and-suspenders fallback, then treat
-           a still-null result as a data-integrity error rather than silently skipping
-           the duplicate check — which would leave a gap for legacy or hand-inserted rows. */
-        const rubricSetId = current.rubricSetId
-          ?? (await db.query.rubricCategories.findFirst({
-               where: eq(rubricCategories.id, current.categoryId),
-             }))?.rubricSetId;
-
-        if (rubricSetId === undefined || rubricSetId === null) {
-          res.status(500).json({
-            error: `Domain ${domainId} has no resolvable rubric_set_id — data integrity violation.`,
-          });
-          return;
-        }
-
         const conflict = await db.query.rubricDomains.findFirst({
           where: and(
-            eq(rubricDomains.rubricSetId, rubricSetId),
+            eq(rubricDomains.rubricSetId, current.rubricSetId),
             eq(rubricDomains.slug, parsed.data.slug),
             ne(rubricDomains.id, domainId),
           ),

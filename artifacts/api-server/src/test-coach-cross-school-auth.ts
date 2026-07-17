@@ -19,7 +19,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { observations, observationScores, people, schools, rubricSets, rubricCategories, rubricDomains } from "@workspace/db/schema";
+import { observations, observationScores, people, schools, rubricSets, rubricCategories, rubricDomains, schoolYears } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
@@ -109,9 +109,11 @@ describe("Cross-school auth — COACH role", () => {
 
     /* Create a dedicated SCHOOL-target rubric set so we can control scores precisely */
     const slug = `tst-coach-school-rs-${Date.now()}`;
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
     const [rs] = await db
       .insert(rubricSets)
-      .values({ slug, name: "Test Coach School RS", target: "SCHOOL", isActive: true })
+      .values({ slug, name: "Test Coach School RS", target: "SCHOOL", isActive: true, schoolYearId: activeSchoolYearId })
       .returning({ id: rubricSets.id, slug: rubricSets.slug });
     assert.ok(rs, "Failed to insert test rubric set");
     createdRubricSetId     = rs.id;
@@ -127,7 +129,7 @@ describe("Cross-school auth — COACH role", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: TEST_DOMAIN_SLUG, name: "Test Coach Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, schoolYearId: activeSchoolYearId, slug: TEST_DOMAIN_SLUG, name: "Test Coach Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId = dom.id;

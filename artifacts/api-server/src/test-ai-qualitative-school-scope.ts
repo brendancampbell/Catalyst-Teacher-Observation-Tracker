@@ -37,6 +37,7 @@ import {
   rubricSets,
   rubricCategories,
   rubricDomains,
+  schoolYears,
 } from "@workspace/db/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -150,9 +151,12 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
 
     /* Minimal rubric set (required FK for observations) */
     const rsSlug = `tst-qscope-rs-${Date.now()}`;
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
+
     const [rs] = await db
       .insert(rubricSets)
-      .values({ slug: rsSlug, name: "Test QScope RS", target: "TEACHER", isActive: true })
+      .values({ slug: rsSlug, name: "Test QScope RS", target: "TEACHER", isActive: true, schoolYearId: activeSchoolYearId })
       .returning({ id: rubricSets.id });
     assert.ok(rs, "Failed to insert rubric set");
     createdRubricSetId = rs.id;
@@ -166,7 +170,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: "tst_qscope_domain", name: "QScope Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, schoolYearId: activeSchoolYearId, slug: `tst-qscope-domain-${Date.now()}`, name: "QScope Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert rubric domain");
     createdDomainId = dom.id;

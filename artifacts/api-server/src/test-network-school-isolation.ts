@@ -36,7 +36,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import {
   people, schools, observations, observationScores,
-  rubricSets, rubricCategories, rubricDomains,
+  rubricSets, rubricCategories, rubricDomains, schoolYears,
 } from "@workspace/db/schema";
 import { eq, inArray } from "drizzle-orm";
 
@@ -158,9 +158,12 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
 
     /* Create a TEACHER-target rubric set with one domain */
     const slug = `tst-net-isol-rs-${Date.now()}`;
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
+
     const [rs] = await db
       .insert(rubricSets)
-      .values({ slug, name: "Test Net Isolation RS", target: "TEACHER", isActive: true })
+      .values({ slug, name: "Test Net Isolation RS", target: "TEACHER", isActive: true, schoolYearId: activeSchoolYearId })
       .returning({ id: rubricSets.id });
     assert.ok(rs, "Failed to insert test rubric set");
     createdRubricSetId = rs.id;
@@ -174,7 +177,7 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
 
     const [dom] = await db
       .insert(rubricDomains)
-      .values({ categoryId: cat.id, rubricSetId: rs.id, slug: TEST_DOMAIN_SLUG, name: "Test Domain", displayOrder: 1 })
+      .values({ categoryId: cat.id, rubricSetId: rs.id, schoolYearId: activeSchoolYearId, slug: TEST_DOMAIN_SLUG, name: "Test Domain", displayOrder: 1 })
       .returning({ id: rubricDomains.id });
     assert.ok(dom, "Failed to insert test rubric domain");
     createdDomainId = dom.id;

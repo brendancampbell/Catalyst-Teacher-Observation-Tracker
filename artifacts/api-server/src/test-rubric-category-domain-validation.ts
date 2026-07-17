@@ -39,7 +39,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { people, schools, rubricSets, rubricCategories, rubricDomains, observations, observationScores } from "@workspace/db/schema";
+import { people, schools, rubricSets, rubricCategories, rubricDomains, observations, observationScores, schoolYears } from "@workspace/db/schema";
 import { eq, asc, inArray, sql } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
@@ -114,9 +114,13 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     }).onConflictDoNothing();
 
     /* Rubric set — created directly in DB so we can test categories/domains */
+    const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+    const activeSchoolYearId = activeYear!.id;
+
     const [rubric] = await db.insert(rubricSets).values({
       slug:         "TST-RUBRIC-VAL",
       name:         "Test Rubric Validation",
+      schoolYearId: activeSchoolYearId,
       isActive:     false,
       isArchived:   false,
       displayOrder: 9999,
@@ -135,6 +139,7 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     const [dom] = await db.insert(rubricDomains).values({
       categoryId:   CAT_ID,
       rubricSetId:  RUBRIC_ID,
+      schoolYearId: activeSchoolYearId,
       name:         "Test Domain Val",
       slug:         "tst-domain-val",
       displayOrder: 0,
@@ -230,13 +235,21 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     assert.ok(body.error?.includes("tst-domain-val"), `Error should mention the conflicting slug, got: ${body.error}`);
   });
 
-  test("16 — POST /categories/:id/domains with same slug in a different rubric set → 201", async () => {
+  test("16 — POST /categories/:id/domains with same slug in a different school year → 201", async () => {
     const jar = await loginAs(ADMIN_EID);
 
-    /* Create a second rubric set + category */
+    /* Domain slugs are unique per school year. A slug that exists in the active year
+       must be allowed in a rubric set that belongs to a *different* school year.
+       We create a temporary inactive school year for this purpose. */
+    const [tmpYear] = await db.insert(schoolYears).values({
+      name:   "Test Year (slug cross-year)",
+      status: "inactive",
+    }).returning();
+
     const [rubric2] = await db.insert(rubricSets).values({
       slug:         "TST-RUBRIC-VAL-2",
       name:         "Test Rubric Validation 2",
+      schoolYearId: tmpYear.id,
       isActive:     false,
       isArchived:   false,
       displayOrder: 9998,
@@ -248,13 +261,15 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     }).returning();
 
     try {
-      /* Using the same slug "tst-domain-val" in a *different* rubric set must succeed */
+      /* Same slug "tst-domain-val" in a rubric set that lives in a different school
+         year must succeed — this is the copy-forward use case. */
       const res = await request("POST", `/rubric/categories/${cat2.id}/domains`, {
-        name: "Cross-set Allowed Domain", slug: "tst-domain-val",
+        name: "Cross-year Allowed Domain", slug: "tst-domain-val",
       }, jar);
-      assert.equal(res.status, 201, `Expected 201 for same slug in different rubric set, got ${res.status}: ${JSON.stringify(res.body)}`);
+      assert.equal(res.status, 201, `Expected 201 for same slug in different school year, got ${res.status}: ${JSON.stringify(res.body)}`);
     } finally {
-      await db.delete(rubricSets).where(eq(rubricSets.id, rubric2.id)).catch(() => {});
+      /* Cascades to rubric2, cat2, and any inserted domains */
+      await db.delete(schoolYears).where(eq(schoolYears.id, tmpYear.id)).catch(() => {});
     }
   });
 
