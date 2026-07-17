@@ -11,6 +11,7 @@ import {
   fetchMyDrafts,
   deleteObservation,
   fetchDashboard,
+  fetchMyLatestRubricSlug,
   createObservation,
   updateObservation,
   type DraftObservation,
@@ -197,7 +198,8 @@ export default function DraftsPage() {
   async function handleNewObsClick() {
     setNewObsLoading(true);
     try {
-      const data = await fetchDashboard("Q1", currentUser?.schoolId ?? null);
+      const activeSlug = await fetchMyLatestRubricSlug() ?? "Q1";
+      const data = await fetchDashboard(activeSlug, currentUser?.schoolId ?? null);
       const allDomains = data.categories.flatMap((c) => c.domains);
       setNewObsData({ teachers: data.teachers, categories: data.categories, allDomains, rubricSetId: data.rubricSet.id });
       setNewObsOpen(true);
