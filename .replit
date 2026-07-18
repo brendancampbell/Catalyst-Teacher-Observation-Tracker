@@ -126,6 +126,10 @@ args = "test:action-step-upsert"
 task = "workflow.run"
 args = "test:people-school-orphaned"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:email-injection"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -408,6 +412,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:people-school-orphaned"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:email-injection"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:email-injection"
 
 [workflows.workflow.metadata]
 isValidation = true
