@@ -70,6 +70,10 @@ args = "mobile-coach-observation"
 task = "workflow.run"
 args = "dashboard-new-obs-q1-fallback"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:quota-grant-cleanup"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -198,6 +202,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/new-obs-q1-fallback.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:quota-grant-cleanup"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:quota-grant-cleanup"
 
 [workflows.workflow.metadata]
 isValidation = true
