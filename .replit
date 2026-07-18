@@ -118,6 +118,10 @@ args = "test:category-deletion-guard"
 task = "workflow.run"
 args = "mobile-test"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:action-step-upsert"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -378,6 +382,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-mobile run test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:action-step-upsert"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:action-step-upsert"
 
 [workflows.workflow.metadata]
 isValidation = true
