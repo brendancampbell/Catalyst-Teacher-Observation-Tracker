@@ -593,8 +593,11 @@ export default function ObservationPage() {
         resetForm();
       }, 2500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save observation";
-      setSubmitError(msg);
+      const base = err instanceof Error ? err.message : "Failed to save observation";
+      const masteryNote = masterActionStepIdPayload != null
+        ? " The 'Mark as Mastered' flag was not saved — it is still checked and will be re-sent when you retry."
+        : "";
+      setSubmitError(base + masteryNote);
       isSubmittingRef.current = false;
     } finally {
       setSaving(false);
