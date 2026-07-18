@@ -374,7 +374,7 @@ integrations = ["resend:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 20000
+timeoutMs = 35000
 
 [nix]
 channel = "stable-25_05"
