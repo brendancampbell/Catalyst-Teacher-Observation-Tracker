@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
@@ -77,6 +76,21 @@ function RubricIcon({ target, subjectAudience, size = 14 }: { target?: "TEACHER"
   if (subjectAudience === "STEM") return <Microscope size={size} />;
   if (subjectAudience === "HUMANITIES") return <BookOpen size={size} />;
   return <Users size={size} />;
+}
+
+function Tip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="relative group/tip inline-flex">
+      {children}
+      <div
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 rounded text-white text-[11px] font-medium whitespace-nowrap pointer-events-none select-none z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-100"
+        style={{ backgroundColor: "#1e293b", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}
+        aria-hidden="true"
+      >
+        {label}
+      </div>
+    </div>
+  );
 }
 
 export function RubricSettings({ setSlug }: { setSlug: string }) {
@@ -277,8 +291,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                   <span className="font-bold uppercase text-white truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.02em" }}>{cat.name}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Tooltip><TooltipTrigger asChild><button title="Edit category" className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button></TooltipTrigger><TooltipContent>Edit category</TooltipContent></Tooltip>
-                  <Tooltip><TooltipTrigger asChild><button title="Delete category" className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (window.confirm(`Delete category "${cat.name}" and all its domains? This cannot be undone.`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button></TooltipTrigger><TooltipContent>Delete category</TooltipContent></Tooltip>
+                  <Tip label="Edit category"><button className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button></Tip>
+                  <Tip label="Delete category"><button className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (window.confirm(`Delete category "${cat.name}" and all its domains? This cannot be undone.`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button></Tip>
                 </div>
               </>
             )}
@@ -359,8 +373,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                         <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{dom.description}</p>
                       )}
                     </div>
-                    <Tooltip><TooltipTrigger asChild><button title="Edit domain" className="text-slate-400 hover:text-blue-600 p-1.5 rounded shrink-0" onClick={() => startEditDom(dom)}><Pencil size={13} /></button></TooltipTrigger><TooltipContent>Edit domain</TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><button title="Delete domain" className="text-slate-400 hover:text-red-500 p-1.5 rounded shrink-0" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button></TooltipTrigger><TooltipContent>Delete domain</TooltipContent></Tooltip>
+                    <Tip label="Edit domain"><button className="text-slate-400 hover:text-blue-600 p-1.5 rounded shrink-0" onClick={() => startEditDom(dom)}><Pencil size={13} /></button></Tip>
+                    <Tip label="Delete domain"><button className="text-slate-400 hover:text-red-500 p-1.5 rounded shrink-0" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button></Tip>
                   </div>
                 )}
               </div>
