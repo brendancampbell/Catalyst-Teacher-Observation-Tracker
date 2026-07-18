@@ -666,8 +666,9 @@ export async function copyRubricSetForward(sourceSetId: number, targetSchoolYear
 import type { AIQuotaGrant, AIQuotaGrantType } from "@workspace/api-types";
 export type { AIQuotaGrant, AIQuotaGrantType };
 
-export async function fetchAIQuotaGrants(employeeId: string): Promise<AIQuotaGrant[]> {
-  return apiFetch<AIQuotaGrant[]>(`/ai/quota-grants?employeeId=${encodeURIComponent(employeeId)}`);
+export async function fetchAIQuotaGrants(employeeId: string, includeAll = true): Promise<AIQuotaGrant[]> {
+  const qs = includeAll ? "?all=true" : "";
+  return apiFetch<AIQuotaGrant[]>(`/ai/quota-grants/${encodeURIComponent(employeeId)}${qs}`);
 }
 
 export async function createAIQuotaGrant(payload: {

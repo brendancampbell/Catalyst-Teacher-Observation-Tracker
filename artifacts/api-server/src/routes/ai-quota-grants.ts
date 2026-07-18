@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { db, pool } from "@workspace/db";
-import { aiQuotaGrants, people } from "@workspace/db/schema";
-import { eq, and, or, desc, gt } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { aiQuotaGrants } from "@workspace/db/schema";
+import { eq, and, gt, sql, desc } from "drizzle-orm";
 import { requireNetworkScope } from "../middleware/auth";
 
 const router = Router();
@@ -9,16 +9,14 @@ const router = Router();
 /* All endpoints require network admin scope */
 router.use(requireNetworkScope);
 
-/* ── GET /api/ai/quota-grants?employeeId=X ──────────────────────────
-   Returns all grants (active and expired) for a given user.          */
-router.get("/", async (req, res) => {
-  const { employeeId } = req.query as { employeeId?: string };
-  if (!employeeId) {
-    res.status(400).json({ error: "employeeId query parameter is required." });
-    return;
-  }
+/* ── GET /api/ai/quota-grants/:employeeId ───────────────────────────
+   Returns active grants for the user. Pass ?all=true to include
+   expired and exhausted grants as well (for the admin UI history).  */
+router.get("/:employeeId", async (req, res) => {
+  const { employeeId } = req.params;
+  const includeAll = req.query.all === "true";
 
-  const grants = await db
+  const baseQuery = db
     .select({
       id:                  aiQuotaGrants.id,
       employeeId:          aiQuotaGrants.employeeId,
@@ -31,8 +29,17 @@ router.get("/", async (req, res) => {
       createdAt:           aiQuotaGrants.createdAt,
     })
     .from(aiQuotaGrants)
-    .where(eq(aiQuotaGrants.employeeId, employeeId))
     .orderBy(desc(aiQuotaGrants.createdAt));
+
+  const grants = includeAll
+    ? await baseQuery.where(eq(aiQuotaGrants.employeeId, employeeId))
+    : await baseQuery.where(
+        and(
+          eq(aiQuotaGrants.employeeId, employeeId),
+          gt(aiQuotaGrants.expiresAt, new Date()),
+          sql`${aiQuotaGrants.usedRequests} < ${aiQuotaGrants.extraRequests}`,
+        ),
+      );
 
   res.json(grants);
 });
@@ -94,6 +101,19 @@ router.post("/", async (req, res) => {
     })
     .returning();
 
+  req.log.info(
+    {
+      event:               "ai_quota_grant_created",
+      grantId:             grant.id,
+      employeeId:          grant.employeeId,
+      grantType:           grant.grantType,
+      extraRequests:       grant.extraRequests,
+      expiresAt:           grant.expiresAt,
+      actorEmployeeId:     actor.employeeId,
+    },
+    "AI quota grant created",
+  );
+
   res.status(201).json(grant);
 });
 
@@ -106,6 +126,8 @@ router.delete("/:id", async (req, res) => {
     return;
   }
 
+  const actor = req.user as Express.User;
+
   const deleted = await db
     .delete(aiQuotaGrants)
     .where(eq(aiQuotaGrants.id, id))
@@ -115,6 +137,17 @@ router.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Grant not found." });
     return;
   }
+
+  req.log.info(
+    {
+      event:           "ai_quota_grant_revoked",
+      grantId:         deleted[0].id,
+      employeeId:      deleted[0].employeeId,
+      grantType:       deleted[0].grantType,
+      actorEmployeeId: actor.employeeId,
+    },
+    "AI quota grant revoked",
+  );
 
   res.json({ ok: true });
 });

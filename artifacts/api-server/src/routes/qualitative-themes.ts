@@ -31,16 +31,29 @@ const qualitativeGenerationLimiter = rateLimit({
     const user = req.user as Express.User | undefined;
     return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
   },
-  skip: async (req) => {
+  handler: async (req, res, next) => {
     const user = req.user as Express.User | undefined;
-    if (!user?.employeeId) return false;
-    return checkAndConsumeQuotaGrant(user.employeeId, "generation");
-  },
-  handler: (req, res) => {
+    if (user?.employeeId) {
+      const result = await checkAndConsumeQuotaGrant(user.employeeId, "generation");
+      if (result.consumed) {
+        req.log.info(
+          {
+            event:           "ai_quota_grant_used",
+            grantId:         result.grantId,
+            employeeId:      user.employeeId,
+            grantType:       "generation",
+            path:            req.path,
+          },
+          "AI quota grant consumed — bypassing qualitative generation rate limit",
+        );
+        next();
+        return;
+      }
+    }
     req.log.warn(
       {
         event:            "qualitative_generation_rate_limit_exceeded",
-        actingEmployeeId: (req.user as Express.User | undefined)?.employeeId,
+        actingEmployeeId: user?.employeeId,
         path:             req.path,
       },
       "qualitative themes generation rate limit exceeded",

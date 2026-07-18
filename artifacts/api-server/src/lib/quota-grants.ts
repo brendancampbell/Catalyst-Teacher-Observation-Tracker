@@ -2,20 +2,26 @@ import { pool } from "@workspace/db";
 
 export type QuotaGrantType = "chat" | "generation";
 
+export interface QuotaConsumeResult {
+  consumed: boolean;
+  grantId:  number | null;
+}
+
 /**
- * Checks whether the given user has an active, non-exhausted quota grant
- * for the specified type (or a grant with type='all').
+ * Called only when a user has already exceeded their normal rate limit.
+ * Finds the oldest unexpired, non-exhausted quota grant for the user
+ * and atomically increments used_requests by 1.
  *
- * If a valid grant is found, it atomically increments used_requests and
- * returns true (the rate limiter should skip / not count the request).
+ * Returns { consumed: true, grantId } if a grant slot was used,
+ * or { consumed: false, grantId: null } if no valid grant exists.
  */
 export async function checkAndConsumeQuotaGrant(
   employeeId: string,
   type: QuotaGrantType,
-): Promise<boolean> {
+): Promise<QuotaConsumeResult> {
   const client = await pool.connect();
   try {
-    const { rows } = await client.query<{ id: number }>(
+    const { rows } = await client.query<{ id: number; used_requests: number; extra_requests: number }>(
       `UPDATE ai_quota_grants
           SET used_requests = used_requests + 1
         WHERE id = (
@@ -28,10 +34,11 @@ export async function checkAndConsumeQuotaGrant(
            ORDER BY expires_at ASC
            LIMIT 1
         )
-        RETURNING id`,
+        RETURNING id, used_requests, extra_requests`,
       [employeeId, type],
     );
-    return rows.length > 0;
+    if (rows.length === 0) return { consumed: false, grantId: null };
+    return { consumed: true, grantId: rows[0].id };
   } finally {
     client.release();
   }
