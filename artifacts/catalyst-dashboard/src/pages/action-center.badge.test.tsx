@@ -34,6 +34,8 @@ vi.mock("@/lib/api", () => ({
   renameChatSession:        async () => {},
   deleteChatSession:        async () => {},
   createObservation:        async () => ({}),
+  fetchAIQuotaStatus:       async () => ({ tokensUsed: 0, tokensLimit: 1000, windowEndsAt: "" }),
+  setQuotaExhaustedHandler: vi.fn(),
 }));
 
 /* ── Stub heavy sub-components ────────────────────────────────────────────── */

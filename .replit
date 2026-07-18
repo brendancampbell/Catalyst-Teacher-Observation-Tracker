@@ -98,6 +98,10 @@ args = "patch-people-school-change-lockout"
 task = "workflow.run"
 args = "dashboard-ai-quota-warning"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-localstorage-cleanup"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -303,6 +307,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-quota-warning.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-localstorage-cleanup"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && pnpm vitest run --config vitest.config.ts src/lib/localStorageCleanup.test.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
