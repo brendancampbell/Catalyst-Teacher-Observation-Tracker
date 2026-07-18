@@ -58,6 +58,10 @@ args = "test:ai-quota-grant-bypass"
 task = "workflow.run"
 args = "dashboard-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mobile-typecheck"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -153,6 +157,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-dashboard run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "mobile-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/catalyst-mobile run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

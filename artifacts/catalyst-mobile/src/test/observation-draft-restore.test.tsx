@@ -589,7 +589,7 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
     await waitFor(
       () => {
         expect(vi.mocked(createObservation)).toHaveBeenCalled();
-        const payload = vi.mocked(createObservation).mock.calls[0][0] as Record<string, unknown>;
+        const payload = vi.mocked(createObservation).mock.calls[0][0] as unknown as Record<string, unknown>;
         const scores = payload.scores as Record<string, number>;
         /* 0 is a valid, truthy-false score — it must survive the API payload build. */
         expect(Object.hasOwn(scores, "domain-a")).toBe(true);

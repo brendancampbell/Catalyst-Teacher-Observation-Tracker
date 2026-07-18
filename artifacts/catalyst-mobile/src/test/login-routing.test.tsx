@@ -7,7 +7,7 @@
  *  - NETWORK_ADMIN  → /school-picker  (no school selected)
  *  - NETWORK_LEADER → /school-picker  (no school selected)
  *  - SCHOOL_LEADER  → /rubric-picker  (school implicit, no rubric selected)
- *  - TEACHER        → /rubric-picker  (school implicit, no rubric selected)
+ *  - COACH          → /rubric-picker  (school implicit, no rubric selected)
  *
  * Additionally verifies that a fully-configured session (school + rubric
  * already chosen) skips both pickers and lands on /observation.
@@ -101,16 +101,16 @@ describe("LoginPage routing after authentication", () => {
     expect(mockNavigate).not.toHaveBeenCalledWith("/observation");
   });
 
-  it("redirects TEACHER to /rubric-picker (bypasses school-picker)", () => {
-    setupMocks("TEACHER");
+  it("redirects COACH to /rubric-picker (bypasses school-picker)", () => {
+    setupMocks("COACH");
     render(<LoginPage />);
     expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
     expect(mockNavigate).toHaveBeenCalledWith("/rubric-picker");
     expect(mockNavigate).not.toHaveBeenCalledWith("/observation");
   });
 
-  it("redirects TEACHER with rubric already selected to /observation", () => {
-    setupMocks("TEACHER", {
+  it("redirects COACH with rubric already selected to /observation", () => {
+    setupMocks("COACH", {
       selectedRubric: { id: "r1", name: "Sample Rubric" },
     });
     render(<LoginPage />);
