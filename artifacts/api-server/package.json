@@ -35,7 +35,8 @@
     "test:overdue-action-steps": "tsx --test src/test-overdue-action-steps.ts",
     "test:feedback-tracker-homeoffice-exclusion": "tsx src/test-feedback-tracker-homeoffice-exclusion.ts",
     "test:bulk-import-cross-school": "tsx --test src/test-bulk-import-cross-school.ts",
-    "test:snapshot-freeze": "tsx --test src/test-snapshot-freeze.ts"
+    "test:snapshot-freeze": "tsx --test src/test-snapshot-freeze.ts",
+    "test:rate-limit-observations": "tsx src/test-observation-rate-limit.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
