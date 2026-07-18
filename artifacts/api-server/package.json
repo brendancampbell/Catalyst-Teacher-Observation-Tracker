@@ -45,7 +45,8 @@
     "test:patch-people-school-change-lockout": "bash ../../scripts/wait-for-api.sh tsx --test src/test-patch-people-school-change-lockout.ts",
     "test:category-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-category-deletion-guard.ts",
     "test:action-step-upsert": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-upsert.ts",
-    "test:people-school-orphaned": "bash ../../scripts/wait-for-api.sh tsx --test src/test-people-school-orphaned.ts"
+    "test:people-school-orphaned": "bash ../../scripts/wait-for-api.sh tsx --test src/test-people-school-orphaned.ts",
+    "test:network-leader-people-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-network-leader-people-scope.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
