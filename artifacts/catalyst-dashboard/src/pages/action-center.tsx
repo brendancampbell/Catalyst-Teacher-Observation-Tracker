@@ -955,6 +955,14 @@ export default function ActionCenterPage() {
     prevExhaustedRef.current = isExhausted;
   }, [isExhausted]);
 
+  /* Reset banner dismissal when quota is no longer low/exhausted (window reset) */
+  useEffect(() => {
+    if (!isLow && !isExhausted && bannerDismissed) {
+      sessionStorage.removeItem("ai_quota_banner_dismissed");
+      setBannerDismissed(false);
+    }
+  }, [isLow, isExhausted, bannerDismissed]);
+
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   useEffect(() => {
@@ -2011,29 +2019,25 @@ export default function ActionCenterPage() {
               </div>
 
               {/* ── AI Quota Warning Banner ─────────────────────────────── */}
-              {(isLow || isExhausted) && !bannerDismissed && (
+              {isLow && !isExhausted && !bannerDismissed && (
                 <div className="shrink-0 mx-3 mt-3 flex items-center gap-3 rounded-lg border px-3 py-2.5"
                   style={{ borderColor: "#fcd34d", backgroundColor: "#fffbeb" }}
                 >
                   <AlertTriangle size={16} className="shrink-0" style={{ color: "#d97706" }} />
                   <span className="flex-1 text-xs font-semibold" style={{ color: "#92400e" }}>
-                    {isExhausted
-                      ? "Your AI tokens are exhausted. Tokens reset every 15 minutes, or contact IT to request more."
-                      : `${lowestRemaining} AI token${lowestRemaining !== 1 ? "s" : ""} remaining in this window. Tokens reset automatically every 15 minutes.`}
+                    {`${lowestRemaining} AI token${lowestRemaining !== 1 ? "s" : ""} remaining in this window. Tokens reset automatically every 15 minutes.`}
                   </span>
-                  {!isExhausted && (
-                    <button
-                      onClick={() => {
-                        sessionStorage.setItem("ai_quota_banner_dismissed", "true");
-                        setBannerDismissed(true);
-                      }}
-                      className="shrink-0 transition-opacity hover:opacity-70"
-                      aria-label="Dismiss"
-                      style={{ color: "#d97706" }}
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem("ai_quota_banner_dismissed", "true");
+                      setBannerDismissed(true);
+                    }}
+                    className="shrink-0 transition-opacity hover:opacity-70"
+                    aria-label="Dismiss"
+                    style={{ color: "#d97706" }}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               )}
 
