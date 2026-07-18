@@ -1,54 +1,85 @@
 /**
- * COACH role — observation page integration tests
+ * COACH role — full observation flow integration tests
  *
- * The login-routing tests confirm that a COACH user is redirected to
- * /rubric-picker (not /school-picker) and, once a rubric is selected,
- * to /observation. These tests verify the ObservationPage itself:
+ * Covers the three-step journey a COACH user takes after login:
  *
- *   • renders without redirecting away for a COACH user
- *   • shows the teacher list, strengths, and growth-areas fields
- *   • does NOT require a selectedSchool (COACH is not network-scoped)
+ *   Step 1 (LoginPage):      COACH is redirected to /rubric-picker,
+ *                             NOT to /school-picker (that is for network-scope roles).
  *
- * This closes the gap that existed when the role was mislabelled "TEACHER"
- * in tests — the behaviour was untested at the component level.
+ *   Step 2 (RubricPickerPage): COACH sees available rubrics and can select one,
+ *                              which calls setSelectedRubric and navigates to /observation.
+ *
+ *   Step 3 (ObservationPage): Form renders, COACH can fill strengths/growth-areas
+ *                              and submit; the API call is made with correct payload.
+ *
+ * These tests close the gap left when the role was mislabelled "TEACHER" —
+ * the actual routing and submission logic was untested at the component level.
  */
 
 import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import ObservationPage from "@/pages/observation";
+
+// ── Shared mock state ─────────────────────────────────────────────────────
+// We need to track navigate calls and selectedRubric mutations across pages.
+
+const mockNavigate = vi.fn();
+let capturedSelectedRubric: unknown = null;
+
+const mockSetSelectedRubric = vi.fn((rubric: unknown) => {
+  capturedSelectedRubric = rubric;
+});
+
+const COACH_USER = {
+  id: 99,
+  role: "COACH" as const,
+  schoolId: 5,
+  schoolName: "Catalyst Academy",
+};
+
+const RUBRIC_SET = {
+  id: 3,
+  slug: "coach-rubric",
+  name: "Coach Observation Rubric",
+  subjectAudience: "ALL" as const,
+  target: "TEACHER" as const,
+  isArchived: false,
+};
+
+const TEACHER = {
+  employeeId: "emp-c01",
+  id: "emp-c01",
+  name: "Jordan Lee",
+  firstName: "Jordan",
+  lastName: "Lee",
+  department: "Math",
+  isActive: true,
+};
+
+const RUBRIC_DATA = {
+  rubricSet: { id: 3, slug: "coach-rubric", name: "Coach Observation Rubric" },
+  categories: [],
+};
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
+vi.mock("wouter", () => ({
+  useLocation: () => ["", mockNavigate],
+  useSearch: () => "",
+}));
+
 vi.mock("@/context/AuthContext", () => ({
   useAuth: () => ({
-    user: {
-      id: 99,
-      role: "COACH",
-      schoolId: 5,
-      schoolName: "Catalyst Academy",
-    },
+    user: COACH_USER,
     isLoading: false,
+    signOut: vi.fn(),
+    refetch: vi.fn(),
   }),
 }));
 
 vi.mock("@/context/AppContext", () => ({
-  useApp: () => ({
-    selectedSchool: null,   // COACH does not need selectedSchool
-    selectedRubric: {
-      id: 3,
-      slug: "coach-rubric",
-      name: "Coach Observation Rubric",
-      subjectAudience: "ALL",
-    },
-    setSelectedSchool: vi.fn(),
-  }),
-}));
-
-vi.mock("wouter", () => ({
-  useLocation: () => ["/observation", vi.fn()],
-  useSearch: () => "",
+  useApp: vi.fn(),
 }));
 
 vi.mock("@/components/AppHeader", () => ({
@@ -56,7 +87,8 @@ vi.mock("@/components/AppHeader", () => ({
 }));
 
 vi.mock("@/lib/roles", () => ({
-  isNetworkScope: () => false,  // COACH is never network-scoped
+  isNetworkScope: (user: { role: string } | null | undefined) =>
+    user?.role === "NETWORK_ADMIN" || user?.role === "NETWORK_LEADER",
 }));
 
 vi.mock("@/lib/subject-audience", () => ({
@@ -77,43 +109,114 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-// ── Fixtures ──────────────────────────────────────────────────────────────
-
-const TEACHER = {
-  employeeId: "emp-c01",
-  id: "emp-c01",
-  name: "Jordan Lee",
-  firstName: "Jordan",
-  lastName: "Lee",
-  department: "Math",
-  isActive: true,
-};
-
-const RUBRIC_DATA = {
-  rubricSet: { id: 3, slug: "coach-rubric", name: "Coach Observation Rubric" },
-  categories: [],
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+import { useApp } from "@/context/AppContext";
+
+function setupAppContext(overrides: {
+  selectedSchool?: unknown;
+  selectedRubric?: unknown;
+} = {}) {
+  (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+    selectedSchool: overrides.selectedSchool ?? null,
+    setSelectedSchool: vi.fn(),
+    selectedRubric: overrides.selectedRubric ?? null,
+    setSelectedRubric: mockSetSelectedRubric,
+  });
+}
 
 function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0 } } });
 }
 
-function renderPage() {
+function wrap(element: React.ReactElement) {
   return render(
-    <QueryClientProvider client={makeClient()}>
-      <ObservationPage />
-    </QueryClientProvider>,
+    <QueryClientProvider client={makeClient()}>{element}</QueryClientProvider>,
   );
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────
+// ── Tests — Step 1: Login routing ─────────────────────────────────────────
 
-describe("ObservationPage — COACH role", () => {
+import LoginPage from "@/pages/login";
+
+vi.stubGlobal("import", { meta: { env: { BASE_URL: "/" } } });
+
+describe("Step 1 — COACH login routing", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    setupAppContext();
+  });
+
+  it("redirects COACH to /rubric-picker (not /school-picker)", () => {
+    render(<LoginPage />);
+    expect(mockNavigate).toHaveBeenCalledWith("/rubric-picker");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/observation");
+  });
+
+  it("redirects COACH with rubric already selected directly to /observation", () => {
+    setupAppContext({ selectedRubric: RUBRIC_SET });
+    render(<LoginPage />);
+    expect(mockNavigate).toHaveBeenCalledWith("/observation");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/rubric-picker");
+    expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
+  });
+});
+
+// ── Tests — Step 2: RubricPickerPage ─────────────────────────────────────
+
+import RubricPickerPage from "@/pages/rubric-picker";
+
+describe("Step 2 — COACH rubric selection", () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockSetSelectedRubric.mockClear();
+    capturedSelectedRubric = null;
+    setupAppContext();
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/api/rubric/sets")) return Promise.resolve([RUBRIC_SET]);
+      return Promise.resolve([]);
+    });
+  });
+
+  it("does not redirect COACH to /school-picker when selectedSchool is null", async () => {
+    wrap(<RubricPickerPage />);
+    // Give it time to run effects / render
+    await waitFor(() =>
+      expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker"),
+    );
+  });
+
+  it("shows the available rubric set", async () => {
+    wrap(<RubricPickerPage />);
+    await waitFor(() =>
+      expect(screen.getByText("Coach Observation Rubric")).toBeInTheDocument(),
+    );
+  });
+
+  it("calls setSelectedRubric and navigates to /observation when rubric is clicked", async () => {
+    wrap(<RubricPickerPage />);
+    await waitFor(() =>
+      expect(screen.getByText("Coach Observation Rubric")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText("Coach Observation Rubric"));
+    expect(mockSetSelectedRubric).toHaveBeenCalledWith(expect.objectContaining({ id: 3 }));
+    expect(mockNavigate).toHaveBeenCalledWith("/observation");
+  });
+});
+
+// ── Tests — Step 3: ObservationPage ──────────────────────────────────────
+
+import ObservationPage from "@/pages/observation";
+
+describe("Step 3 — COACH observation form", () => {
   beforeEach(() => {
     localStorage.clear();
+    mockNavigate.mockClear();
     vi.clearAllMocks();
+
+    setupAppContext({ selectedRubric: RUBRIC_SET });
 
     mockFetchMyDrafts.mockResolvedValue([]);
 
@@ -121,48 +224,68 @@ describe("ObservationPage — COACH role", () => {
       if (url.includes("/api/people"))              return Promise.resolve([TEACHER]);
       if (url.includes("/api/rubric/"))             return Promise.resolve(RUBRIC_DATA);
       if (url.includes("/api/action-steps/latest")) return Promise.resolve(null);
+      // Observation submit endpoint
+      if (url.includes("/api/observations")) return Promise.resolve({ id: "obs-001" });
       return Promise.resolve({});
     });
   });
 
-  it("renders the observation form without redirecting away", async () => {
-    renderPage();
-    await waitFor(() => {
+  it("renders the form without redirecting away (COACH has no schoolId requirement)", async () => {
+    wrap(<ObservationPage />);
+    await waitFor(() =>
       expect(
         screen.getByPlaceholderText("What is this teacher doing well?"),
-      ).toBeInTheDocument();
+      ).toBeInTheDocument(),
+    );
+    expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
+  });
+
+  it("shows both strengths and growth-areas fields", async () => {
+    wrap(<ObservationPage />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("What is this teacher doing well?")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Where should this teacher focus next?")).toBeInTheDocument();
     });
   });
 
-  it("shows the growth-areas field", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("Where should this teacher focus next?"),
-      ).toBeInTheDocument();
-    });
+  it("displays the teacher name in the select dropdown", async () => {
+    wrap(<ObservationPage />);
+    await waitFor(() =>
+      expect(screen.getByText(/Jordan Lee/)).toBeInTheDocument(),
+    );
   });
 
-  it("lists the teacher returned by the API", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByText(/Jordan.*Lee|Lee.*Jordan/)).toBeInTheDocument();
-    });
-  });
+  it("submits the observation via apiFetch POST when the form is submitted", async () => {
+    wrap(<ObservationPage />);
 
-  it("does not show a school-picker redirect when no school is selected (COACH is school-scoped)", async () => {
-    /*
-     * ObservationPage navigates to /school-picker only when
-     * isNetworkScope(user) === true AND selectedSchool is null.
-     * COACH is not network-scoped, so the form must be reachable
-     * even with selectedSchool = null.
-     */
-    renderPage();
-    // If a redirect had occurred, the form fields would not exist.
-    await waitFor(() => {
-      expect(
+    // Wait for form to appear (teacher list loaded)
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("What is this teacher doing well?")).toBeInTheDocument(),
+    );
+
+    // Fill in strengths field
+    await act(async () => {
+      fireEvent.change(
         screen.getByPlaceholderText("What is this teacher doing well?"),
-      ).toBeInTheDocument();
+        { target: { value: "Strong lesson structure and clear objectives" } },
+      );
+    });
+
+    // Submit the form by clicking the Submit button
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    });
+
+    // The POST to /api/observations must have been called
+    await waitFor(() => {
+      const postCall = mockApiFetch.mock.calls.find(
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          url.includes("/api/observations") && opts?.method === "POST",
+      );
+      expect(postCall).toBeDefined();
+      const body = JSON.parse(postCall![1]!.body as string) as Record<string, unknown>;
+      expect(body.observedEmployeeId).toBe("emp-c01");
+      expect(body.rubricSetId).toBe(3);
     });
   });
 });
