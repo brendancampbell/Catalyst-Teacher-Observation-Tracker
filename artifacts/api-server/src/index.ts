@@ -273,6 +273,38 @@ async function ensureSchoolYearBackfill(): Promise<void> {
       return;
     }
     const activeId = rows[0].id;
+
+    /* ── Fix incorrect unique index on rubric_domains ─────────────────────────
+       The original index (school_year_id, slug) is wrong: the same domain slug
+       can legitimately appear in multiple rubric sets within the same school year.
+       Replace it with (school_year_id, rubric_set_id, slug) before backfilling,
+       otherwise the bulk UPDATE would violate the old constraint and crash startup. */
+    const { rows: oldIdxRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM pg_indexes
+         WHERE tablename = 'rubric_domains'
+           AND indexname  = 'rubric_domains_year_slug_uniq'
+       ) AS exists`,
+    );
+    if (oldIdxRows[0].exists) {
+      await client.query(`DROP INDEX rubric_domains_year_slug_uniq`);
+      logger.info("School year backfill: dropped rubric_domains_year_slug_uniq (incorrect columns)");
+    }
+    const { rows: newIdxRows } = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM pg_indexes
+         WHERE tablename = 'rubric_domains'
+           AND indexname  = 'rubric_domains_year_set_slug_uniq'
+       ) AS exists`,
+    );
+    if (!newIdxRows[0].exists) {
+      await client.query(
+        `CREATE UNIQUE INDEX rubric_domains_year_set_slug_uniq
+           ON rubric_domains (school_year_id, rubric_set_id, slug)`,
+      );
+      logger.info("School year backfill: created rubric_domains_year_set_slug_uniq");
+    }
+
     const tables = ["rubric_sets", "rubric_domains", "observations", "action_steps"] as const;
     for (const table of tables) {
       const { rowCount } = await client.query(

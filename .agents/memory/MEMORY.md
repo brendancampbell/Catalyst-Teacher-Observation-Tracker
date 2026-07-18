@@ -1,2 +1,3 @@
 - [School-wide rubrics pattern](school-wide-rubrics.md) — target on rubricSets drives TEACHER vs SCHOOL observation routing; schoolId nullable on observations
 - [Observations & Action Steps School Year + Frozen Snapshots](obs-action-steps-school-year.md) — schoolYearId/snapshot fields on obs+steps; bidirectional Drizzle relation naming rules
+- [rubric_domains unique index correction](rubric-domain-unique-index.md) — correct index is (school_year_id, rubric_set_id, slug); old (school_year_id, slug) crashed startup via pg 23505

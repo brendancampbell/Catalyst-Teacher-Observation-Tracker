@@ -41,7 +41,7 @@ export const rubricDomains = pgTable("rubric_domains", {
   displayOrder: integer("display_order").notNull().default(0),
   description:  text("description"),
 }, (t) => [
-  uniqueIndex("rubric_domains_year_slug_uniq").on(t.schoolYearId, t.slug),
+  uniqueIndex("rubric_domains_year_set_slug_uniq").on(t.schoolYearId, t.rubricSetId, t.slug),
 ]);
 
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
