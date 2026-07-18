@@ -367,6 +367,35 @@ export default function Dashboard() {
     [groupRows, categories, viewMode],
   );
 
+  const teacherCatAvgs = useMemo(() => {
+    const map = new Map<string, Map<string, number | null>>();
+    for (const teacher of filtered) {
+      const catMap = new Map<string, number | null>();
+      for (const cat of categories) {
+        catMap.set(String(cat.id), calcCategoryAvg([teacher], cat.domains, viewMode));
+      }
+      map.set(String(teacher.id), catMap);
+    }
+    return map;
+  }, [filtered, categories, viewMode]);
+
+  const groupCatAvgs = useMemo(() => {
+    const map = new Map<string, Map<string, number | null>>();
+    for (const group of groupRows) {
+      const catMap = new Map<string, number | null>();
+      for (const cat of categories) {
+        catMap.set(String(cat.id), calcCategoryAvg(group.teachers, cat.domains, viewMode));
+      }
+      map.set(group.key, catMap);
+    }
+    return map;
+  }, [groupRows, categories, viewMode]);
+
+  const groupAvgMap = useMemo(
+    () => new Map(groupRows.map((g, i) => [g.key, groupAvgs[i] ?? null] as const)),
+    [groupRows, groupAvgs],
+  );
+
   /* ── Audience-hidden count (for notice banner) ─────── */
   // Count teachers who pass the current subject/grade filters but are hidden
   // by audience mismatch — not drawn from the full unfiltered roster.
@@ -937,7 +966,7 @@ export default function Dashboard() {
                           </td>
 
                           {categories.map((cat, catIdx) => {
-                            const catAvg = calcCategoryAvg([teacher], cat.domains, viewMode);
+                            const catAvg = teacherCatAvgs.get(String(teacher.id))?.get(String(cat.id)) ?? null;
                             return (
                               <Fragment key={cat.id}>
                                 {cat.domains.map((domain, di) => {
@@ -1006,7 +1035,7 @@ export default function Dashboard() {
                     </tr>
                   ) : (
                     profGroupRows.map((group, rowIdx) => {
-                      const groupAvg = calcOverallAvg(group.teachers, categories, viewMode);
+                      const groupAvg = groupAvgMap.get(group.key) ?? null;
                       const isEven   = rowIdx % 2 === 0;
                       return (
                         <tr
@@ -1032,7 +1061,7 @@ export default function Dashboard() {
 
                           {/* Averaged domain score cells + category sub-avg */}
                           {categories.map((cat, catIdx) => {
-                            const catAvg = calcCategoryAvg(group.teachers, cat.domains, viewMode);
+                            const catAvg = groupCatAvgs.get(group.key)?.get(String(cat.id)) ?? null;
                             return (
                               <Fragment key={cat.id}>
                                 {cat.domains.map((domain, di) => {
