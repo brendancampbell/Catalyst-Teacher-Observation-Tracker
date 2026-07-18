@@ -30,15 +30,19 @@ router.get("/sets", async (req, res) => {
       }
     }
 
-    if (includeArchived) {
-      const sets = await db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
-      res.json(sets);
-      return;
-    }
-
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
+    if (includeArchived) {
+      const sets = await db
+        .select()
+        .from(rubricSets)
+        .where(eq(rubricSets.schoolYearId, activeYearId))
+        .orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+      res.json(sets);
       return;
     }
 
