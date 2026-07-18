@@ -109,6 +109,16 @@ export async function togglePersonActive(employeeId: string): Promise<PersonRow>
   return apiFetch<PersonRow>(`/people/${encodeURIComponent(employeeId)}/toggle-active`, { method: "PATCH" });
 }
 
+export async function reassignPerson(
+  employeeId: string,
+  payload: { role: PersonRole; schoolId: number },
+): Promise<PersonRow> {
+  return apiFetch<PersonRow>(`/people/${encodeURIComponent(employeeId)}/reassign`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function bulkImportPeople(people: BulkImportPersonPayload[]): Promise<BulkImportPersonResult> {
   return apiFetch<BulkImportPersonResult>("/people/bulk", { method: "POST", body: JSON.stringify(people) });
 }

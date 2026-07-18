@@ -663,4 +663,64 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
   }
 });
 
+/* ── POST /api/people/:employeeId/reassign ────────────────────────
+   Close the current active Assignment (set end_date = today) and
+   open a brand-new one with the new role + schoolId, also updating
+   the people row so the session stays consistent.
+   NETWORK_ADMIN only.                                               */
+router.post("/:employeeId/reassign", requireRole("NETWORK_ADMIN"), async (req, res) => {
+  try {
+    const empId = String(req.params.employeeId);
+    const { role, schoolId } = req.body as { role?: unknown; schoolId?: unknown };
+
+    if (!role || typeof role !== "string" || !ALL_ROLES.includes(role as UserRole)) {
+      res.status(400).json({ error: `Invalid role: ${String(role)}` }); return;
+    }
+    if (schoolId === undefined || schoolId === null || typeof schoolId !== "number") {
+      res.status(400).json({ error: "schoolId (number) is required" }); return;
+    }
+
+    const target = await db.query.people.findFirst({ where: eq(people.employeeId, empId) });
+    if (!target) { res.status(404).json({ error: "Person not found" }); return; }
+
+    const roleSchoolError = await validateRoleSchool(role, schoolId as number, target.includeInFeedbackTracker);
+    if (roleSchoolError) { res.status(400).json({ error: roleSchoolError }); return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(assignments)
+        .set({ endDate: today })
+        .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
+
+      await tx.insert(assignments).values({
+        userId:    empId,
+        role:      role as UserRole,
+        schoolId:  schoolId as number,
+        startDate: today,
+        endDate:   null,
+      });
+
+      await tx
+        .update(people)
+        .set({ role: role as UserRole, schoolId: schoolId as number })
+        .where(eq(people.employeeId, empId));
+    });
+
+    const [withSchool] = await db
+      .select(PEOPLE_SELECT)
+      .from(people)
+      .leftJoin(schools, eq(people.schoolId, schools.id))
+      .where(eq(people.employeeId, empId));
+
+    if (!withSchool) { res.status(404).json({ error: "Person not found after update" }); return; }
+    res.json(withName(withSchool));
+  } catch (err) {
+    console.error("POST /people/:employeeId/reassign error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
+

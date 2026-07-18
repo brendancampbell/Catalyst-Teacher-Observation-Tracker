@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -25,6 +25,7 @@ import {
   createPerson,
   updatePerson,
   togglePersonActive,
+  reassignPerson,
   startImpersonation,
   bulkImportPeople,
   fetchAdminSchools,
@@ -640,6 +641,164 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
 }
 
 /* ════════════════════════════════════════════════════════════════
+   REASSIGN MODAL
+   Closes the current active Assignment and opens a new one with
+   the chosen role + school — never edits the existing record.
+   ════════════════════════════════════════════════════════════════ */
+
+function ReassignModal({
+  person,
+  schools,
+  onClose,
+  onSuccess,
+}: {
+  person:    PersonRow;
+  schools:   AdminSchool[];
+  onClose:   () => void;
+  onSuccess: () => void;
+}) {
+  const NAVY_LOCAL = "#1034B4";
+  const YELLOW_LOCAL = "#FFB500";
+  const ALL_ROLES_LOCAL: PersonRole[] = ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN", "NO_ACCESS"];
+  const ROLES_LABEL: Record<PersonRole, string> = {
+    COACH: "Coach", SCHOOL_LEADER: "School Leader",
+    NETWORK_LEADER: "Network Leader", NETWORK_ADMIN: "Network Admin", NO_ACCESS: "No Access",
+  };
+
+  const realSchools       = schools.filter((s) => !s.isHomeOffice);
+  const homeOfficeSchools = schools.filter((s) =>  s.isHomeOffice);
+
+  const [role,     setRole]     = useState<PersonRole>(person.role);
+  const [schoolId, setSchoolId] = useState<number | null>(person.schoolId);
+  const [error,    setError]    = useState<string | null>(null);
+  const [saving,   setSaving]   = useState(false);
+
+  const isNetworkRole = (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(role);
+  const availableSchools = isNetworkRole ? homeOfficeSchools : realSchools;
+  const selectedIsHO     = homeOfficeSchools.some((s) => s.id === schoolId);
+  const mismatch =
+    (isNetworkRole && !selectedIsHO) ||
+    (!isNetworkRole && selectedIsHO && role !== "NO_ACCESS");
+
+  function handleRoleChange(r: PersonRole) {
+    setRole(r);
+    const nextNetworkRole = (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(r);
+    const list = nextNetworkRole ? homeOfficeSchools : realSchools;
+    setSchoolId(list[0]?.id ?? null);
+    setError(null);
+  }
+
+  async function handleSave() {
+    if (!schoolId) { setError("School is required."); return; }
+    if (mismatch)  { setError("Role/school mismatch."); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await reassignPerson(person.employeeId, { role, schoolId });
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+      setSaving(false);
+    }
+  }
+
+  const unchanged = role === person.role && schoolId === person.schoolId;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between" style={{ backgroundColor: NAVY_LOCAL, borderBottom: `3px solid ${YELLOW_LOCAL}` }}>
+          <div className="flex items-center gap-2.5">
+            <ArrowLeftRight size={16} style={{ color: YELLOW_LOCAL }} />
+            <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.04em" }}>
+              Edit Assignment
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-blue-200 hover:text-white p-1"><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 flex flex-col gap-4">
+          <p className="text-sm text-slate-500">
+            Changing <span className="font-semibold text-slate-700">{person.name}</span>'s assignment will close
+            today's record and open a new one. Historical observations keep their original school snapshot.
+          </p>
+
+          {/* Role */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</label>
+            <select
+              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              value={role}
+              onChange={(e) => handleRoleChange(e.target.value as PersonRole)}
+            >
+              {ALL_ROLES_LOCAL.map((r) => (
+                <option key={r} value={r}>{ROLES_LABEL[r]}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* School */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">School</label>
+            <select
+              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              value={schoolId ?? ""}
+              onChange={(e) => { setSchoolId(e.target.value ? Number(e.target.value) : null); setError(null); }}
+            >
+              <option value="">— Select school —</option>
+              {availableSchools.map((s) => (
+                <option key={s.id} value={s.id}>{s.displayName}</option>
+              ))}
+            </select>
+            {mismatch && (
+              <p className="text-xs font-medium mt-0.5" style={{ color: "#b45309" }}>
+                {isNetworkRole
+                  ? "Network-level roles must be assigned to the Home Office school."
+                  : "Coaches and School Leaders must be assigned to a real school."}
+              </p>
+            )}
+          </div>
+
+          {/* Warning */}
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+            <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              This takes effect immediately. Only new records will reflect the new school. Existing observations and action steps are unaffected.
+            </p>
+          </div>
+
+          {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !schoolId || mismatch || unchanged}
+            className="px-4 py-2 rounded text-sm font-bold text-white disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: NAVY_LOCAL }}
+          >
+            {saving ? "Saving…" : "Save Assignment"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    PEOPLE MANAGEMENT TAB (unified people + bulk import)
    ════════════════════════════════════════════════════════════════ */
 
@@ -691,6 +850,9 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const [editDept,        setEditDept]        = useState("");
   const [editGrades,      setEditGrades]      = useState<string[]>([]);
   const [editObservable,  setEditObservable]  = useState(false);
+
+  /* Reassign modal state */
+  const [reassignTarget,  setReassignTarget]  = useState<PersonRow | null>(null);
 
   /* Filter state */
   const [showInactive,    setShowInactive]    = useState(false);
@@ -1110,6 +1272,16 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" title={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"} disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
                           <Pencil size={13} />
                         </button>
+                        {isNetworkAdmin && (
+                          <button
+                            className="text-slate-400 hover:text-violet-600 p-1.5 rounded transition-colors disabled:opacity-40"
+                            title="Edit Assignment (role / school)"
+                            disabled={schools.length === 0}
+                            onClick={() => { setReassignTarget(p); setEditId(null); }}
+                          >
+                            <ArrowLeftRight size={13} />
+                          </button>
+                        )}
                         <button
                           className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
                           title={p.isActive ? "Deactivate" : "Reactivate"}
@@ -1213,6 +1385,17 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
           </label>
       </div>
       </div>
+      {reassignTarget && (
+        <ReassignModal
+          person={reassignTarget}
+          schools={schools}
+          onClose={() => setReassignTarget(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: qKey });
+            setReassignTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }
