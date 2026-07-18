@@ -1,6 +1,6 @@
 /**
  * Backfill: set school_year_id on any NULL rows in rubric_sets, rubric_domains,
- * observations, and action_steps.
+ * observations, action_steps, and assignments.
  *
  * Strategy:
  *   - rubric_sets / rubric_domains: use the school year named "2025-2026"
@@ -8,6 +8,7 @@
  *   - observations / action_steps: first try to derive the year from the
  *     rubric_set already joined to the observation; if still NULL, fall back
  *     to the active school year (status = 'active').
+ *   - assignments: use the active school year (status = 'active').
  *
  * Safe to run multiple times — every UPDATE filters on IS NULL so it becomes
  * a no-op once all rows are backfilled.
@@ -36,14 +37,14 @@ async function run(): Promise<void> {
     const year2526Id = yearRows[0].id;
     console.log(`Using school_year id=${year2526Id} ("2025-2026") for rubric rows.`);
 
-    /* ── 2. Resolve the active school year id (for obs / steps) ──── */
+    /* ── 2. Resolve the active school year id (for obs / steps / assignments) ──── */
     const { rows: activeYearRows } = await client.query<{ id: number }>(`
       SELECT id FROM school_years WHERE status = 'active' ORDER BY display_order DESC LIMIT 1
     `);
     const activeYearId: number = activeYearRows.length > 0
       ? activeYearRows[0].id
       : year2526Id;
-    console.log(`Using school_year id=${activeYearId} (active) as fallback for observations/action_steps.`);
+    console.log(`Using school_year id=${activeYearId} (active) as fallback for observations/action_steps/assignments.`);
 
     /* ── 3. Backfill rubric_sets ─────────────────────────────────── */
     const { rowCount: rsCount } = await client.query(`
@@ -101,8 +102,16 @@ async function run(): Promise<void> {
     `, [activeYearId]);
     console.log(`action_steps:   backfilled ${asCount2 ?? 0} additional rows via active year.`);
 
-    /* ── 7. Verify no NULLs remain ───────────────────────────────── */
-    const tables = ["rubric_sets", "rubric_domains", "observations", "action_steps"] as const;
+    /* ── 7. Backfill assignments ─────────────────────────────────── */
+    const { rowCount: asmCount } = await client.query(`
+      UPDATE assignments
+      SET school_year_id = $1
+      WHERE school_year_id IS NULL
+    `, [activeYearId]);
+    console.log(`assignments:    backfilled ${asmCount ?? 0} rows via active year.`);
+
+    /* ── 8. Verify no NULLs remain ───────────────────────────────── */
+    const tables = ["rubric_sets", "rubric_domains", "observations", "action_steps", "assignments"] as const;
     let allClean = true;
     for (const tbl of tables) {
       const { rows } = await client.query<{ cnt: string }>(

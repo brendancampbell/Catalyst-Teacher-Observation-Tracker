@@ -4,20 +4,22 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { people, personRoleEnum } from "./people";
 import { schools } from "./schools";
+import { schoolYears } from "./school-years";
 
 export const assignments = pgTable(
   "assignments",
   {
-    id:        serial("id").primaryKey(),
-    userId:    text("user_id").notNull().references(() => people.employeeId, { onDelete: "cascade" }),
-    role:      personRoleEnum("role").notNull(),
-    schoolId:  integer("school_id").references(() => schools.id, { onDelete: "set null" }),
-    startDate: date("start_date").notNull(),
-    endDate:   date("end_date"),
+    id:           serial("id").primaryKey(),
+    userId:       text("user_id").notNull().references(() => people.employeeId, { onDelete: "cascade" }),
+    role:         personRoleEnum("role").notNull(),
+    schoolId:     integer("school_id").references(() => schools.id, { onDelete: "set null" }),
+    schoolYearId: integer("school_year_id").notNull().references(() => schoolYears.id),
+    startDate:    date("start_date").notNull(),
+    endDate:      date("end_date"),
   },
   (table) => [
-    uniqueIndex("assignments_user_active_uniq")
-      .on(table.userId)
+    uniqueIndex("assignments_user_year_active_uniq")
+      .on(table.userId, table.schoolYearId)
       .where(sql`${table.endDate} IS NULL`),
   ],
 );

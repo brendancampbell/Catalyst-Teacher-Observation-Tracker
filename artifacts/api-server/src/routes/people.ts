@@ -7,6 +7,7 @@ import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
 import { networkAvgsCache } from "./action-center";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 function invalidateAllCaches() {
   dashboardCache.invalidatePrefix("dashboard:");
@@ -256,6 +257,11 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       res.status(400).json({ error: "employeeId is required" }); return;
     }
 
+    const activeSchoolYearId = await getActiveSchoolYearId();
+    if (!activeSchoolYearId) {
+      res.status(503).json({ error: "No active school year found — contact your administrator" }); return;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     const created = await db.transaction(async (tx) => {
@@ -272,11 +278,12 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       }).returning();
 
       await tx.insert(assignments).values({
-        userId:    person!.employeeId,
-        role:      role as UserRole,
-        schoolId:  assignedSchoolId,
-        startDate: today,
-        endDate:   null,
+        userId:       person!.employeeId,
+        role:         role as UserRole,
+        schoolId:     assignedSchoolId,
+        schoolYearId: activeSchoolYearId,
+        startDate:    today,
+        endDate:      null,
       });
 
       return person!;
@@ -324,6 +331,13 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
 
     if (!Array.isArray(rows) || rows.length === 0) {
       res.status(400).json({ error: "Body must be a non-empty array of person objects" });
+      return;
+    }
+
+    /* Resolve the active school year once for the whole batch */
+    const activeSchoolYearId = await getActiveSchoolYearId();
+    if (!activeSchoolYearId) {
+      res.status(503).json({ error: "No active school year found — contact your administrator" });
       return;
     }
 
@@ -575,13 +589,21 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
             let skipReason: string | undefined;
 
             await db.transaction(async (tx) => {
-              /* Check for an active assignment (endDate IS NULL) */
+              /*
+               * Check for an active assignment for the CURRENT school year only.
+               * A user re-uploaded in a new school year gets a fresh assignment
+               * (not treated as a no-op just because an old-year assignment exists).
+               */
               const [existingActive] = await tx.select({
                 id:       assignments.id,
                 role:     assignments.role,
                 schoolId: assignments.schoolId,
               }).from(assignments).where(
-                and(eq(assignments.userId, existingPerson.employeeId), isNull(assignments.endDate))
+                and(
+                  eq(assignments.userId, existingPerson.employeeId),
+                  eq(assignments.schoolYearId, activeSchoolYearId),
+                  isNull(assignments.endDate),
+                )
               ).limit(1);
 
               if (
@@ -589,24 +611,25 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
                 existingActive.role === role &&
                 existingActive.schoolId === schoolId
               ) {
-                /* Identical active assignment — no assignment write needed */
+                /* Identical active assignment in this year — no assignment write needed */
                 skipReason = "Active assignment already exists with the same role and school";
                 resultStatus = "skipped";
               } else {
-                /* Close the existing active assignment if it differs */
+                /* Close the existing active assignment for this year if it differs */
                 if (existingActive) {
                   await tx.update(assignments)
                     .set({ endDate: bulkToday })
                     .where(eq(assignments.id, existingActive.id));
                 }
 
-                /* ── Step 2: Create assignment for existing person ── */
+                /* ── Step 2: Create assignment for existing person in active year ── */
                 await tx.insert(assignments).values({
-                  userId:    existingPerson.employeeId,
+                  userId:       existingPerson.employeeId,
                   role,
                   schoolId,
-                  startDate: bulkToday,
-                  endDate:   null,
+                  schoolYearId: activeSchoolYearId,
+                  startDate:    bulkToday,
+                  endDate:      null,
                 });
 
                 resultStatus = "assigned";
@@ -647,11 +670,12 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
                 gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
               });
               await tx.insert(assignments).values({
-                userId:    empId,
+                userId:       empId,
                 role,
                 schoolId,
-                startDate: bulkToday,
-                endDate:   null,
+                schoolYearId: activeSchoolYearId,
+                startDate:    bulkToday,
+                endDate:      null,
               });
             });
             results.push({ row: rowNum, status: "created", name: displayName!, email });
@@ -906,20 +930,34 @@ router.post("/:employeeId/reassign", requireRole("NETWORK_ADMIN"), async (req, r
     const roleSchoolError = await validateRoleSchool(role, schoolId as number, target.includeInFeedbackTracker);
     if (roleSchoolError) { res.status(400).json({ error: roleSchoolError }); return; }
 
+    const activeSchoolYearId = await getActiveSchoolYearId();
+    if (!activeSchoolYearId) {
+      res.status(503).json({ error: "No active school year found — contact your administrator" }); return;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     await db.transaction(async (tx) => {
+      /* Close the open assignment for this user in the active school year only.
+         Prior-year records are left untouched to preserve history. */
       await tx
         .update(assignments)
         .set({ endDate: today })
-        .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
+        .where(
+          and(
+            eq(assignments.userId, empId),
+            eq(assignments.schoolYearId, activeSchoolYearId),
+            isNull(assignments.endDate),
+          ),
+        );
 
       await tx.insert(assignments).values({
-        userId:    empId,
-        role:      role as UserRole,
-        schoolId:  schoolId as number,
-        startDate: today,
-        endDate:   null,
+        userId:       empId,
+        role:         role as UserRole,
+        schoolId:     schoolId as number,
+        schoolYearId: activeSchoolYearId,
+        startDate:    today,
+        endDate:      null,
       });
 
       await tx
@@ -944,4 +982,3 @@ router.post("/:employeeId/reassign", requireRole("NETWORK_ADMIN"), async (req, r
 });
 
 export default router;
-

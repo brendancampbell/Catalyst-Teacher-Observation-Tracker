@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { isProduction } from "../config/env";
+import { checkActiveThisYear } from "../lib/passport";
 
 const router = Router();
 
@@ -42,6 +43,8 @@ router.post("/dev-login", async (req, res, next) => {
       return;
     }
 
+    const activeThisYear = await checkActiveThisYear(person.employeeId);
+
     const user: Express.User = {
       employeeId:               person.employeeId,
       firstName:                person.firstName,
@@ -51,6 +54,7 @@ router.post("/dev-login", async (req, res, next) => {
       googleId:                 person.googleId ?? null,
       role:                     person.role,
       isActive:                 person.isActive,
+      activeThisYear,
       includeInFeedbackTracker: person.includeInFeedbackTracker,
       schoolId:                 person.schoolId ?? null,
       schoolName:               (person.school as { displayName: string } | null)?.displayName ?? null,

@@ -12,6 +12,7 @@ export const schoolYearsRelations = relations(schoolYears, ({ many }) => ({
   rubricSets:   many(rubricSets),
   observations: many(observations),
   actionSteps:  many(actionSteps),
+  assignments:  many(assignments),
 }));
 
 export const schoolsRelations = relations(schools, ({ many }) => ({
@@ -33,8 +34,9 @@ export const peopleRelations = relations(people, ({ one, many }) => ({
 }));
 
 export const assignmentsRelations = relations(assignments, ({ one }) => ({
-  person: one(people,  { fields: [assignments.userId],   references: [people.employeeId] }),
-  school: one(schools, { fields: [assignments.schoolId], references: [schools.id] }),
+  person:     one(people,      { fields: [assignments.userId],       references: [people.employeeId] }),
+  school:     one(schools,     { fields: [assignments.schoolId],     references: [schools.id] }),
+  schoolYear: one(schoolYears, { fields: [assignments.schoolYearId], references: [schoolYears.id] }),
 }));
 
 export const rubricSetsRelations = relations(rubricSets, ({ one, many }) => ({

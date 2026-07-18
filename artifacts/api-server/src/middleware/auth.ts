@@ -7,15 +7,22 @@ export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_A
 
 /* ── requireAuth ─────────────────────────────────────────────────
    Rejects unauthenticated requests with 401.
-   Defence-in-depth: also explicitly blocks deactivated accounts and
-   NO_ACCESS users so stale sessions that somehow survive
-   deserializeUser cannot reach any protected route.                */
+   Defence-in-depth: also explicitly blocks deactivated accounts,
+   NO_ACCESS users, and users with no assignment in the current
+   school year so stale sessions cannot reach protected routes.    */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.isAuthenticated() && req.user) {
     const user = req.user as Express.User;
     if (!user.isActive || user.role === "NO_ACCESS") {
       req.logout(() => { /* best-effort session clear */ });
       res.status(403).json({ error: "Access denied" });
+      return;
+    }
+    if (!user.activeThisYear) {
+      res.status(403).json({
+        error: "Your account is not active for the current school year — please contact your administrator",
+        code:  "NOT_ACTIVE_THIS_YEAR",
+      });
       return;
     }
     next();
@@ -32,7 +39,15 @@ export function requireRole(...roles: UserRole[]) {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    if (!roles.includes((req.user as Express.User).role as UserRole)) {
+    const user = req.user as Express.User;
+    if (!user.activeThisYear) {
+      res.status(403).json({
+        error: "Your account is not active for the current school year — please contact your administrator",
+        code:  "NOT_ACTIVE_THIS_YEAR",
+      });
+      return;
+    }
+    if (!roles.includes(user.role as UserRole)) {
       res.status(403).json({ error: "Insufficient permissions" });
       return;
     }

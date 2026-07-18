@@ -14,6 +14,8 @@
  *      are still synced even when assignment is "skipped".
  *   7. CSV row where employeeId and email resolve to two DIFFERENT existing records
  *      → rejected as "error" (identity conflict, no write).
+ *   8. School-year scoping: re-uploading a user in a new school year creates a
+ *      fresh assignment rather than skipping (old-year assignment is not counted).
  *
  * Run with:
  *   pnpm --filter @workspace/api-server run test:bulk-upsert-existing-users
@@ -26,7 +28,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { inArray, eq, and, isNull, not } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { people, schools, assignments } from "@workspace/db/schema";
+import { people, schools, assignments, schoolYears } from "@workspace/db/schema";
 
 /* Employee ID for a temporary SCHOOL_LEADER used in the scope-guard test.
  * Seeded in before(), removed in after(). */
@@ -90,6 +92,7 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
   let schoolAId: number;
   let schoolBId: number;
   let homeOfficeId: number;
+  let activeSchoolYearId: number;
 
   before(async () => {
     /* Login as U10 (NETWORK_ADMIN Brendan Campbell) */
@@ -119,7 +122,17 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     schoolBId    = realSchools[1]!.id;
     homeOfficeId = hoSchools[0]!.id;
 
-    /* Seed a temporary SCHOOL_LEADER in schoolA for test 8's scope-guard check */
+    /* Resolve the active school year */
+    const [activeYear] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+
+    assert.ok(activeYear, "An active school year must exist in the DB");
+    activeSchoolYearId = activeYear.id;
+
+    /* Seed a temporary SCHOOL_LEADER in schoolA for tests 8 & 9's scope-guard check */
     await db.delete(people).where(eq(people.employeeId, TEMP_SL_EID)).catch(() => {});
     await db.insert(people).values({
       employeeId:               TEMP_SL_EID,
@@ -130,6 +143,17 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       schoolId:                 schoolAId,
       includeInFeedbackTracker: false,
       isActive:                 true,
+    });
+    /* Give TEMP_SL an active assignment for the current school year so
+       deserializeUser grants activeThisYear=true and dev-login succeeds. */
+    const today = new Date().toISOString().slice(0, 10);
+    await db.insert(assignments).values({
+      userId:       TEMP_SL_EID,
+      role:         "SCHOOL_LEADER",
+      schoolId:     schoolAId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
   });
 
@@ -158,11 +182,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       isActive:                 true,
     });
     await db.insert(assignments).values({
-      userId:    empId,
-      role:      "COACH",
-      schoolId:  schoolAId,
-      startDate: today,
-      endDate:   null,
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolAId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
 
     /* Act: bulk-upload same employeeId to schoolB as SCHOOL_LEADER */
@@ -186,13 +211,14 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
 
     /* New active assignment is for schoolB / SCHOOL_LEADER */
     const [active] = await db
-      .select({ role: assignments.role, schoolId: assignments.schoolId })
+      .select({ role: assignments.role, schoolId: assignments.schoolId, schoolYearId: assignments.schoolYearId })
       .from(assignments)
       .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
 
     assert.ok(active, "Expected one active assignment after upsert");
     assert.equal(active.role, "SCHOOL_LEADER", "Active assignment role must be SCHOOL_LEADER");
     assert.equal(active.schoolId, schoolBId, `Active assignment schoolId must be ${schoolBId}`);
+    assert.equal(active.schoolYearId, activeSchoolYearId, "Active assignment must be for the active school year");
 
     /* Old COACH/schoolA assignment is now closed (endDate set) */
     const closed = await db
@@ -228,11 +254,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       isActive:                 true,
     });
     await db.insert(assignments).values({
-      userId:    empId,
-      role:      "COACH",
-      schoolId:  schoolAId,
-      startDate: today,
-      endDate:   null,
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolAId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
 
     /* Act: CSV uses a different employeeId but same email */
@@ -292,11 +319,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       isActive:                 true,
     });
     await db.insert(assignments).values({
-      userId:    empId,
-      role:      "COACH",
-      schoolId:  schoolAId,
-      startDate: today,
-      endDate:   null,
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolAId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
 
     const csvRow = {
@@ -364,11 +392,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     assert.ok(person, "New person must exist in DB");
 
     const [active] = await db
-      .select({ role: assignments.role })
+      .select({ role: assignments.role, schoolYearId: assignments.schoolYearId })
       .from(assignments)
       .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
     assert.ok(active, "New person must have an active assignment");
     assert.equal(active.role, "COACH");
+    assert.equal(active.schoolYearId, activeSchoolYearId, "New assignment must be for the active school year");
   });
 
   /* ── 5. Denormalized fields on people row updated when assignment differs */
@@ -391,11 +420,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       isActive:                 true,
     });
     await db.insert(assignments).values({
-      userId:    empId,
-      role:      "COACH",
-      schoolId:  schoolAId,
-      startDate: today,
-      endDate:   null,
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolAId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
 
     /* Act: reassign to schoolB as SCHOOL_LEADER */
@@ -447,11 +477,12 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     });
     /* Active assignment already reflects the correct target state */
     await db.insert(assignments).values({
-      userId:    empId,
-      role:      "SCHOOL_LEADER",
-      schoolId:  schoolBId,
-      startDate: today,
-      endDate:   null,
+      userId:       empId,
+      role:         "SCHOOL_LEADER",
+      schoolId:     schoolBId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
     });
 
     /* Act: upload the row that matches the active assignment (should be "skipped") */
@@ -489,119 +520,6 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       schoolBId,
       `Denormalized schoolId should be synced to ${schoolBId} even on a "skipped" row — got ${person.schoolId}`,
     );
-  });
-
-  /* ── 8. SCHOOL_LEADER cannot reassign a person from another school ───── */
-
-  test("8 — SCHOOL_LEADER bulk-uploading a person from a different school → rejected as 'error'", async () => {
-    /* Seed a person in schoolB (TEMP_SL_EID is in schoolA, so this is a cross-school attempt) */
-    const empId = makeEmployeeId();
-    const email = makeEmail("t8");
-    const today = new Date().toISOString().slice(0, 10);
-    testPersonEmployeeIds.push(empId);
-
-    await db.insert(people).values({
-      employeeId:               empId,
-      firstName:                "Test",
-      lastName:                 "UpsertT8",
-      email,
-      role:                     "COACH",
-      schoolId:                 schoolBId,     /* ← a different school from TEMP_SL_EID's schoolA */
-      includeInFeedbackTracker: false,
-      isActive:                 true,
-    });
-    await db.insert(assignments).values({
-      userId:    empId,
-      role:      "COACH",
-      schoolId:  schoolBId,
-      startDate: today,
-      endDate:   null,
-    });
-
-    /* Log in as the temp SCHOOL_LEADER (who belongs to schoolA, not schoolB) */
-    const slJar = await loginAs(TEMP_SL_EID);
-
-    /* Try to bulk-upload the person from schoolB — should be rejected */
-    const res = await apiBulk([{
-      employeeId: empId,
-      firstName:  "Test",
-      lastName:   "UpsertT8",
-      email,
-      role:       "COACH",
-      school:     String(schoolBId), /* will be ignored (forced to SCHOOL_LEADER's own school) */
-    }], slJar);
-
-    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
-    const body = res.body as { results: Array<{ status: string; reason?: string }> };
-    assert.equal(
-      body.results[0]!.status,
-      "error",
-      `Expected "error" for cross-school existing person, got "${body.results[0]!.status}"`,
-    );
-    assert.ok(
-      body.results[0]!.reason?.toLowerCase().includes("own school"),
-      `Error reason should mention "own school" — got: "${body.results[0]!.reason}"`,
-    );
-
-    /* Person in schoolB must be completely untouched */
-    const [person] = await db
-      .select({ role: people.role, schoolId: people.schoolId })
-      .from(people).where(eq(people.employeeId, empId));
-    assert.equal(person?.role, "COACH", "Person's role must be unchanged");
-    assert.equal(person?.schoolId, schoolBId, "Person must still be in schoolB");
-
-    const [active] = await db
-      .select({ schoolId: assignments.schoolId })
-      .from(assignments)
-      .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
-    assert.equal(active?.schoolId, schoolBId, "Active assignment must still be for schoolB");
-  });
-
-  /* ── 9. SCHOOL_LEADER cannot reassign a NO_ACCESS person from another school */
-
-  test("9 — SCHOOL_LEADER bulk-uploading a NO_ACCESS person from a different school → rejected as 'error'", async () => {
-    const empId = makeEmployeeId();
-    const email = makeEmail("t9");
-    const today = new Date().toISOString().slice(0, 10);
-    testPersonEmployeeIds.push(empId);
-
-    /* Seed a NO_ACCESS person in schoolB */
-    await db.insert(people).values({
-      employeeId:               empId,
-      firstName:                "Test",
-      lastName:                 "UpsertT9",
-      email,
-      role:                     "NO_ACCESS",
-      schoolId:                 schoolBId,
-      includeInFeedbackTracker: false,
-      isActive:                 true,
-    });
-
-    const slJar = await loginAs(TEMP_SL_EID); /* TEMP_SL is in schoolA */
-
-    const res = await apiBulk([{
-      employeeId: empId,
-      firstName:  "Test",
-      lastName:   "UpsertT9",
-      email,
-      role:       "COACH",
-      school:     String(schoolBId),
-    }], slJar);
-
-    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
-    const body = res.body as { results: Array<{ status: string; reason?: string }> };
-    assert.equal(
-      body.results[0]!.status,
-      "error",
-      `Expected "error" for cross-school NO_ACCESS person, got "${body.results[0]!.status}" — reason: ${body.results[0]!.reason}`,
-    );
-
-    /* NO_ACCESS person in schoolB must remain untouched */
-    const [person] = await db
-      .select({ role: people.role, schoolId: people.schoolId })
-      .from(people).where(eq(people.employeeId, empId));
-    assert.equal(person?.role, "NO_ACCESS", "NO_ACCESS person's role must be unchanged");
-    assert.equal(person?.schoolId, schoolBId, "NO_ACCESS person must still be in schoolB");
   });
 
   /* ── 7. Conflicting employeeId + email → reject with "error" ─────────── */
@@ -674,6 +592,197 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       .select({ role: people.role, schoolId: people.schoolId })
       .from(people).where(eq(people.employeeId, empIdB));
     assert.equal(bob?.role, "COACH", "Bob's record must be unchanged");
+  });
+
+  /* ── 8. SCHOOL_LEADER cannot reassign a person from another school ───── */
+
+  test("8 — SCHOOL_LEADER bulk-uploading a person from a different school → rejected as 'error'", async () => {
+    /* Seed a person in schoolB (TEMP_SL_EID is in schoolA, so this is a cross-school attempt) */
+    const empId = makeEmployeeId();
+    const email = makeEmail("t8");
+    const today = new Date().toISOString().slice(0, 10);
+    testPersonEmployeeIds.push(empId);
+
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT8",
+      email,
+      role:                     "COACH",
+      schoolId:                 schoolBId,     /* ← a different school from TEMP_SL_EID's schoolA */
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+    await db.insert(assignments).values({
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolBId,
+      schoolYearId: activeSchoolYearId,
+      startDate:    today,
+      endDate:      null,
+    });
+
+    /* Log in as the temp SCHOOL_LEADER (who belongs to schoolA, not schoolB) */
+    const slJar = await loginAs(TEMP_SL_EID);
+
+    /* Try to bulk-upload the person from schoolB — should be rejected */
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT8",
+      email,
+      role:       "COACH",
+      school:     String(schoolBId), /* will be ignored (forced to SCHOOL_LEADER's own school) */
+    }], slJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "error",
+      `Expected "error" for cross-school existing person, got "${body.results[0]!.status}"`,
+    );
+    assert.ok(
+      body.results[0]!.reason?.toLowerCase().includes("own school"),
+      `Error reason should mention "own school" — got: "${body.results[0]!.reason}"`,
+    );
+
+    /* Person in schoolB must be completely untouched */
+    const [person] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empId));
+    assert.equal(person?.role, "COACH", "Person's role must be unchanged");
+    assert.equal(person?.schoolId, schoolBId, "Person must still be in schoolB");
+
+    const [active] = await db
+      .select({ schoolId: assignments.schoolId })
+      .from(assignments)
+      .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
+    assert.equal(active?.schoolId, schoolBId, "Active assignment must still be for schoolB");
+  });
+
+  /* ── 9. SCHOOL_LEADER cannot reassign a NO_ACCESS person from another school */
+
+  test("9 — SCHOOL_LEADER bulk-uploading a NO_ACCESS person from a different school → rejected as 'error'", async () => {
+    const empId = makeEmployeeId();
+    const email = makeEmail("t9");
+    testPersonEmployeeIds.push(empId);
+
+    /* Seed a NO_ACCESS person in schoolB */
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT9",
+      email,
+      role:                     "NO_ACCESS",
+      schoolId:                 schoolBId,
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+
+    const slJar = await loginAs(TEMP_SL_EID); /* TEMP_SL is in schoolA */
+
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT9",
+      email,
+      role:       "COACH",
+      school:     String(schoolBId),
+    }], slJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "error",
+      `Expected "error" for cross-school NO_ACCESS person, got "${body.results[0]!.status}" — reason: ${body.results[0]!.reason}`,
+    );
+
+    /* NO_ACCESS person in schoolB must remain untouched */
+    const [person] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empId));
+    assert.equal(person?.role, "NO_ACCESS", "NO_ACCESS person's role must be unchanged");
+    assert.equal(person?.schoolId, schoolBId, "NO_ACCESS person must still be in schoolB");
+  });
+
+  /* ── 10. School-year scoping: prior-year assignment does not block new one ── */
+
+  test("10 — user with only a prior-year assignment gets a fresh assignment in new year", async () => {
+    const empId = makeEmployeeId();
+    const email = makeEmail("t10");
+    testPersonEmployeeIds.push(empId);
+
+    /* Find or use an "other" school year (not the active one) */
+    const [otherYear] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "inactive"))
+      .limit(1);
+
+    /* If no prior year exists, skip this test gracefully */
+    if (!otherYear) {
+      console.log("Test 10 skipped: no inactive school year exists to simulate a prior-year assignment");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    /* Seed person with an active assignment ONLY in the prior year */
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT10",
+      email,
+      role:                     "COACH",
+      schoolId:                 schoolAId,
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+    await db.insert(assignments).values({
+      userId:       empId,
+      role:         "COACH",
+      schoolId:     schoolAId,
+      schoolYearId: otherYear.id,   /* prior year, not the active year */
+      startDate:    today,
+      endDate:      null,
+    });
+
+    /* Act: bulk-upload for the active year — should produce "assigned" not "skipped" */
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT10",
+      email,
+      role:       "COACH",
+      school:     String(schoolAId),
+    }], adminJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "assigned",
+      `Expected "assigned" (new year, not skipped), got "${body.results[0]!.status}" — reason: ${body.results[0]!.reason}`,
+    );
+
+    /* New active assignment is in the active school year */
+    const [active] = await db
+      .select({ schoolYearId: assignments.schoolYearId, endDate: assignments.endDate })
+      .from(assignments)
+      .where(and(eq(assignments.userId, empId), eq(assignments.schoolYearId, activeSchoolYearId), isNull(assignments.endDate)));
+
+    assert.ok(active, "An active assignment for the active school year must exist after upload");
+
+    /* Prior-year assignment must remain open (we don't auto-close prior years) */
+    const [priorYearAssignment] = await db
+      .select({ endDate: assignments.endDate })
+      .from(assignments)
+      .where(and(eq(assignments.userId, empId), eq(assignments.schoolYearId, otherYear.id)));
+
+    assert.ok(priorYearAssignment, "Prior-year assignment must still exist");
+    assert.equal(priorYearAssignment.endDate, null, "Prior-year assignment must remain open (not auto-closed)");
   });
 });
 
