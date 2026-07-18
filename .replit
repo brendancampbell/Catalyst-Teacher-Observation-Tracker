@@ -54,6 +54,10 @@ args = "test:action-steps-e2e"
 task = "workflow.run"
 args = "test:ai-quota-grant-bypass"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-typecheck"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -138,6 +142,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:ai-quota-grant-bypass"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/catalyst-dashboard run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true
