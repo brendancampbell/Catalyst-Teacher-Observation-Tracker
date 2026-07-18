@@ -404,25 +404,39 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const catId = Number(req.params.id);
     const force = req.query.force === "true";
+    const user  = req.user as Express.User | undefined;
 
-    if (!force) {
-      const domains = await db.query.rubricDomains.findMany({
-        where: eq(rubricDomains.categoryId, catId),
-        columns: { slug: true },
-      });
-      if (domains.length > 0) {
-        const slugs = domains.map((d) => d.slug);
-        const [{ scoreCount }] = await db
-          .select({ scoreCount: count() })
-          .from(observationScores)
-          .where(inArray(observationScores.domainSlug, slugs));
-        if (Number(scoreCount) > 0) {
+    /* Always load child domains so the score count is available for both the
+       guard (force=false) and the audit warning (force=true). */
+    const domains = await db.query.rubricDomains.findMany({
+      where: eq(rubricDomains.categoryId, catId),
+      columns: { slug: true },
+    });
+
+    if (domains.length > 0) {
+      const slugs = domains.map((d) => d.slug);
+      const [row] = await db
+        .select({ scoreCount: count() })
+        .from(observationScores)
+        .where(inArray(observationScores.domainSlug, slugs));
+      const scoreCount = Number(row.scoreCount);
+
+      if (scoreCount > 0) {
+        if (!force) {
           res.status(409).json({
             error: `Cannot delete: ${scoreCount} observation score(s) reference this category's domains.`,
-            scoreCount: Number(scoreCount),
+            scoreCount,
           });
           return;
         }
+        /* force=true: the scores will be cascade-deleted.  Emit a structured
+           warning so the event is visible in monitoring and server logs. */
+        console.warn("FORCE_DELETE_SCORED_CATEGORY", {
+          categoryId:   catId,
+          domainSlugs:  slugs,
+          scoreCount,
+          requestedBy:  user?.employeeId ?? "unknown",
+        });
       }
     }
 
@@ -578,24 +592,38 @@ router.delete("/domains/:id", requireNetworkAdmin, async (req, res) => {
   try {
     const domId = Number(req.params.id);
     const force = req.query.force === "true";
+    const user  = req.user as Express.User | undefined;
 
-    if (!force) {
-      const domain = await db.query.rubricDomains.findFirst({
-        where: eq(rubricDomains.id, domId),
-        columns: { slug: true },
-      });
-      if (domain) {
-        const [{ scoreCount }] = await db
-          .select({ scoreCount: count() })
-          .from(observationScores)
-          .where(eq(observationScores.domainSlug, domain.slug));
-        if (Number(scoreCount) > 0) {
+    /* Always load the domain so the score count is available for both the
+       guard (force=false) and the audit warning (force=true). */
+    const domain = await db.query.rubricDomains.findFirst({
+      where: eq(rubricDomains.id, domId),
+      columns: { slug: true },
+    });
+
+    if (domain) {
+      const [row] = await db
+        .select({ scoreCount: count() })
+        .from(observationScores)
+        .where(eq(observationScores.domainSlug, domain.slug));
+      const scoreCount = Number(row.scoreCount);
+
+      if (scoreCount > 0) {
+        if (!force) {
           res.status(409).json({
             error: `Cannot delete: ${scoreCount} observation score(s) reference this domain.`,
-            scoreCount: Number(scoreCount),
+            scoreCount,
           });
           return;
         }
+        /* force=true: the scores will be cascade-deleted.  Emit a structured
+           warning so the event is visible in monitoring and server logs. */
+        console.warn("FORCE_DELETE_SCORED_DOMAIN", {
+          domainId:    domId,
+          domainSlug:  domain.slug,
+          scoreCount,
+          requestedBy: user?.employeeId ?? "unknown",
+        });
       }
     }
 
