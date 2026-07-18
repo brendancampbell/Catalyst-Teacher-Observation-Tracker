@@ -46,6 +46,10 @@ args = "dashboard-ai-stop-button"
 task = "workflow.run"
 args = "dashboard-ai-copy-button"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:action-steps-e2e"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -108,6 +112,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-chat-copy-button.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:action-steps-e2e"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/api-server && pnpm test:action-steps-e2e"
 
 [workflows.workflow.metadata]
 isValidation = true
