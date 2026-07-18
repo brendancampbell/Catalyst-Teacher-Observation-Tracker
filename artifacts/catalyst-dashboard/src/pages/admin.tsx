@@ -2386,7 +2386,6 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
   const assigned = importResult?.filter((r) => r.status === "assigned") ?? [];
   const skipped  = importResult?.filter((r) => r.status === "skipped")  ?? [];
   const errors   = importResult?.filter((r) => r.status === "error")    ?? [];
-  const succeeded = [...created, ...assigned];
 
   return (
     <div className="flex flex-col gap-4">
@@ -2534,7 +2533,7 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
               )}
               {assigned.length > 0 && (
                 <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: "#dbeafe", color: "#1d4ed8" }}>
-                  {assigned.length} returning {assigned.length === 1 ? "staff" : "staff"} re-assigned
+                  {assigned.length} returning {assigned.length === 1 ? "person" : "people"} re-assigned
                 </span>
               )}
               {skipped.length > 0 && (
