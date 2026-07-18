@@ -77,7 +77,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
   const teachers = allTeachers;
   const filteredTeachers = useMemo(
-    () => allTeachers.filter((t) => teacherMatchesAudience(t.subject, rubricSetAudience ?? "ALL")),
+    () => allTeachers
+      .filter((t) => teacherMatchesAudience(t.subject, rubricSetAudience ?? "ALL"))
+      .sort((a, b) => a.name.localeCompare(b.name)),
     [allTeachers, rubricSetAudience],
   );
 
