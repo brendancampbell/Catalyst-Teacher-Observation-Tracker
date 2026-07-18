@@ -234,11 +234,45 @@ async function ensureChatTables(): Promise<void> {
   }
 }
 
+/* ── Periodic cleanup: delete quota grant rows expired > 7 days ago ──────────
+   Runs once at startup and then every hour. Uses .unref() so the interval
+   never prevents a clean process exit.                                       */
+const QUOTA_GRANT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; /* 1 hour */
+const QUOTA_GRANT_GRACE_INTERVAL      = "7 days";
+
+async function cleanupExpiredQuotaGrants(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rowCount } = await client.query(
+      `DELETE FROM ai_quota_grants
+        WHERE expires_at < NOW() - INTERVAL '${QUOTA_GRANT_GRACE_INTERVAL}'`,
+    );
+    if (rowCount && rowCount > 0) {
+      logger.info(
+        { deletedCount: rowCount, event: "quota_grant_cleanup" },
+        "Expired quota grants cleaned up",
+      );
+    }
+  } finally {
+    client.release();
+  }
+}
+
 ensureSessionTable()
   .then(() => ensureSchools())
   .then(() => ensureChatTables())
   .then(() => bootstrapAdmin())
   .then(() => {
+    /* Kick off first cleanup immediately, then repeat every hour */
+    cleanupExpiredQuotaGrants().catch((err) =>
+      logger.warn({ err, event: "quota_grant_cleanup_failed" }, "Quota grant cleanup failed"),
+    );
+    setInterval(() => {
+      cleanupExpiredQuotaGrants().catch((err) =>
+        logger.warn({ err, event: "quota_grant_cleanup_failed" }, "Quota grant cleanup failed"),
+      );
+    }, QUOTA_GRANT_CLEANUP_INTERVAL_MS).unref();
+
     app.listen(port, (err) => {
       if (err) {
         logger.error({ err }, "Error listening on port");
