@@ -21,6 +21,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, schools, aiQuotaGrants } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
+import { checkAndConsumeQuotaGrant } from "./lib/quota-grants.js";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -274,6 +275,58 @@ describe("AI quota grant — rate limiter bypass", () => {
     const exhausted = grants.find((g) => g.id === createdGrantId);
     assert.ok(exhausted, "Exhausted grant should appear in history view");
     assert.equal(exhausted!.usedRequests, exhausted!.extraRequests, "used_requests should equal extra_requests for an exhausted grant");
+  });
+
+  /* ── Test 10: concurrency — two simultaneous calls on a 1-slot grant ──── */
+
+  test("10 — Concurrent checkAndConsumeQuotaGrant on a 1-slot grant: exactly one succeeds", async () => {
+    /* Insert a fresh 1-slot grant directly so this test is independent of
+       the rate-limiter window and the grants consumed by tests 1-9. */
+    const [concurrencyGrant] = await db
+      .insert(aiQuotaGrants)
+      .values({
+        employeeId:  TESTER_EID,
+        grantType:   "chat",
+        extraRequests: 1,
+        usedRequests:  0,
+        expiresAt:   new Date(Date.now() + 2 * 60 * 60 * 1000),
+        note:        "concurrency regression test grant",
+      })
+      .returning();
+
+    assert.ok(concurrencyGrant, "Failed to insert concurrency test grant");
+
+    /* Fire both consume calls at the same moment */
+    const [r1, r2] = await Promise.all([
+      checkAndConsumeQuotaGrant(TESTER_EID, "chat"),
+      checkAndConsumeQuotaGrant(TESTER_EID, "chat"),
+    ]);
+
+    const successes = [r1, r2].filter((r) => r.consumed).length;
+    const failures  = [r1, r2].filter((r) => !r.consumed).length;
+
+    assert.equal(
+      successes, 1,
+      `Expected exactly 1 successful consumption but got ${successes}. ` +
+      `This indicates the FOR UPDATE SKIP LOCKED guard is not working — ` +
+      `both concurrent callers consumed the same 1-slot grant.`,
+    );
+    assert.equal(
+      failures, 1,
+      `Expected exactly 1 failure but got ${failures}.`,
+    );
+
+    /* Confirm the DB row shows used_requests = 1 (not 2) */
+    const [row] = await db
+      .select({ usedRequests: aiQuotaGrants.usedRequests })
+      .from(aiQuotaGrants)
+      .where(eq(aiQuotaGrants.id, concurrencyGrant.id));
+
+    assert.ok(row, "Concurrency grant row should still exist");
+    assert.equal(
+      row.usedRequests, 1,
+      `DB used_requests should be 1 after exactly one consumption, got ${row.usedRequests}.`,
+    );
   });
 });
 
