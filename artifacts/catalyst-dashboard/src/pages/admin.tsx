@@ -989,14 +989,15 @@ function AIQuotaModal({ person, onClose }: { person: PersonRow; onClose: () => v
                       </p>
                       {g.note && <p className="text-xs text-slate-400 truncate">{g.note}</p>}
                     </div>
-                    <button
-                      className="text-red-400 hover:text-red-600 p-1.5 rounded transition-colors disabled:opacity-50 shrink-0"
-                      title="Revoke grant"
-                      onClick={() => { if (confirm("Revoke this quota grant?")) revokeMut.mutate(g.id); }}
-                      disabled={revokeMut.isPending}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <Tip label="Revoke grant">
+                      <button
+                        className="text-red-400 hover:text-red-600 p-1.5 rounded transition-colors disabled:opacity-50 shrink-0"
+                        onClick={() => { if (confirm("Revoke this quota grant?")) revokeMut.mutate(g.id); }}
+                        disabled={revokeMut.isPending}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </Tip>
                   </div>
                 ))}
               </div>
@@ -1014,14 +1015,15 @@ function AIQuotaModal({ person, onClose }: { person: PersonRow; onClose: () => v
                     <p className="flex-1 text-xs text-slate-500">
                       {g.usedRequests}/{g.extraRequests} used · {new Date(g.expiresAt).getTime() <= now ? "Expired" : "Exhausted"}
                     </p>
-                    <button
-                      className="text-slate-300 hover:text-red-400 p-1 rounded transition-colors disabled:opacity-40 shrink-0"
-                      title="Remove record"
-                      onClick={() => revokeMut.mutate(g.id)}
-                      disabled={revokeMut.isPending}
-                    >
-                      <X size={12} />
-                    </button>
+                    <Tip label="Remove record">
+                      <button
+                        className="text-slate-300 hover:text-red-400 p-1 rounded transition-colors disabled:opacity-40 shrink-0"
+                        onClick={() => revokeMut.mutate(g.id)}
+                        disabled={revokeMut.isPending}
+                      >
+                        <X size={12} />
+                      </button>
+                    </Tip>
                   </div>
                 ))}
               </div>
@@ -1568,48 +1570,54 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {canWrite && (
-                          <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" title={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"} disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
-                            <Pencil size={13} />
-                          </button>
+                          <Tip label={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"}>
+                            <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
+                              <Pencil size={13} />
+                            </button>
+                          </Tip>
                         )}
                         {isNetworkAdmin && (
-                          <button
-                            className="text-slate-400 hover:text-violet-600 p-1.5 rounded transition-colors disabled:opacity-40"
-                            title="Edit Assignment (role / school)"
-                            disabled={schools.length === 0}
-                            onClick={() => { setReassignTarget(p); setEditId(null); }}
-                          >
-                            <ArrowLeftRight size={13} />
-                          </button>
+                          <Tip label="Edit Assignment (role / school)">
+                            <button
+                              className="text-slate-400 hover:text-violet-600 p-1.5 rounded transition-colors disabled:opacity-40"
+                              disabled={schools.length === 0}
+                              onClick={() => { setReassignTarget(p); setEditId(null); }}
+                            >
+                              <ArrowLeftRight size={13} />
+                            </button>
+                          </Tip>
                         )}
                         {canWrite && (
-                          <button
-                            className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
-                            title={p.isActive ? "Deactivate" : "Reactivate"}
-                            onClick={() => toggleMut.mutate(p.employeeId)}
-                            disabled={toggleMut.isPending}
-                          >
-                            {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
-                          </button>
+                          <Tip label={p.isActive ? "Deactivate" : "Reactivate"}>
+                            <button
+                              className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
+                              onClick={() => toggleMut.mutate(p.employeeId)}
+                              disabled={toggleMut.isPending}
+                            >
+                              {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
+                            </button>
+                          </Tip>
                         )}
                         {isNetworkAdmin && (
-                          <button
-                            className="text-slate-400 hover:text-indigo-600 p-1.5 rounded transition-colors disabled:opacity-50"
-                            title={`Impersonate ${p.name}`}
-                            onClick={() => handleImpersonate(p)}
-                            disabled={impersonatingId === p.employeeId}
-                          >
-                            <Users size={13} />
-                          </button>
+                          <Tip label={`Impersonate ${p.name}`}>
+                            <button
+                              className="text-slate-400 hover:text-indigo-600 p-1.5 rounded transition-colors disabled:opacity-50"
+                              onClick={() => handleImpersonate(p)}
+                              disabled={impersonatingId === p.employeeId}
+                            >
+                              <Users size={13} />
+                            </button>
+                          </Tip>
                         )}
                         {isNetworkAdmin && (
-                          <button
-                            className="text-slate-400 hover:text-yellow-500 p-1.5 rounded transition-colors"
-                            title="AI Quota Grants"
-                            onClick={() => setQuotaTarget(p)}
-                          >
-                            <Zap size={13} />
-                          </button>
+                          <Tip label="AI Quota Grants">
+                            <button
+                              className="text-slate-400 hover:text-yellow-500 p-1.5 rounded transition-colors"
+                              onClick={() => setQuotaTarget(p)}
+                            >
+                              <Zap size={13} />
+                            </button>
+                          </Tip>
                         )}
                       </div>
                     </td>
@@ -2309,21 +2317,23 @@ function SchoolSettings() {
                   </div>
                   {/* Edit / Delete */}
                   <div className="flex items-center justify-end gap-0.5">
-                    <button
-                      className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
-                      title="Edit"
-                      onClick={() => startEdit(school)}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
-                      title="Delete"
-                      onClick={() => { if (confirm(`Delete "${school.displayName}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
-                      disabled={deleteMut.isPending}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <Tip label="Edit">
+                      <button
+                        className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
+                        onClick={() => startEdit(school)}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </Tip>
+                    <Tip label="Delete">
+                      <button
+                        className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors"
+                        onClick={() => { if (confirm(`Delete "${school.displayName}"? This will fail if teachers are still assigned to it.`)) deleteMut.mutate(school.id); }}
+                        disabled={deleteMut.isPending}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </Tip>
                   </div>
                 </div>
               )}
@@ -3034,19 +3044,20 @@ function AIQuotaTab() {
                         {g.note ?? "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <button
-                          className="text-slate-300 hover:text-red-500 p-1.5 rounded transition-colors disabled:opacity-40"
-                          title={isExpiredOrExhausted ? "Remove record" : "Revoke grant"}
-                          onClick={() => {
-                            const msg = isExpiredOrExhausted
-                              ? "Remove this grant record?"
-                              : "Revoke this active quota grant?";
-                            if (confirm(msg)) revokeMut.mutate(g.id);
-                          }}
-                          disabled={revokeMut.isPending}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <Tip label={isExpiredOrExhausted ? "Remove record" : "Revoke grant"}>
+                          <button
+                            className="text-slate-300 hover:text-red-500 p-1.5 rounded transition-colors disabled:opacity-40"
+                            onClick={() => {
+                              const msg = isExpiredOrExhausted
+                                ? "Remove this grant record?"
+                                : "Revoke this active quota grant?";
+                              if (confirm(msg)) revokeMut.mutate(g.id);
+                            }}
+                            disabled={revokeMut.isPending}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </Tip>
                       </td>
                     </tr>
                   );
