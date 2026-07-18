@@ -583,6 +583,13 @@ export default function ActionCenterPage() {
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
   const [, navigate] = useLocation();
 
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    try {
+      localStorage.removeItem(`catalyst_active_chat_${currentUser.id}`);
+    } catch { /* storage may be blocked */ }
+  }, [currentUser?.id]);
+
   const searchParams = new URLSearchParams(window.location.search);
   const rubricFromUrl    = searchParams.get("rubric") ?? undefined;
   const schoolIdFromUrl  = searchParams.get("schoolId");
