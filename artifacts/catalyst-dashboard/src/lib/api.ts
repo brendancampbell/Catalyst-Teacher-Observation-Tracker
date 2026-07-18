@@ -186,6 +186,11 @@ export async function archiveRubricSet(slug: string, archive: boolean): Promise<
   return updateRubricSet(slug, { isArchived: archive });
 }
 
+export async function deleteRubricSet(slug: string, force?: boolean): Promise<void> {
+  const qs = force ? "?force=true" : "";
+  await apiFetch<void>(`/rubric/sets/${slug}${qs}`, { method: "DELETE" });
+}
+
 export async function reorderRubricSets(items: { slug: string; displayOrder: number }[]): Promise<RubricSetRow[]> {
   return apiFetch<RubricSetRow[]>("/rubric/sets/reorder", {
     method: "PUT",
@@ -292,11 +297,13 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 export class HttpError extends Error {
   status: number;
   scoreCount?: number;
-  constructor(status: number, message: string, extra?: { scoreCount?: number }) {
+  observationCount?: number;
+  constructor(status: number, message: string, extra?: { scoreCount?: number; observationCount?: number }) {
     super(message);
     this.name = "HttpError";
     this.status = status;
     if (extra?.scoreCount !== undefined) this.scoreCount = extra.scoreCount;
+    if (extra?.observationCount !== undefined) this.observationCount = extra.observationCount;
   }
 }
 
@@ -328,11 +335,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let message: string;
-    let extra: { scoreCount?: number } | undefined;
+    let extra: { scoreCount?: number; observationCount?: number } | undefined;
     try {
-      const body = JSON.parse(text) as { error?: string; scoreCount?: number };
+      const body = JSON.parse(text) as { error?: string; scoreCount?: number; observationCount?: number };
       message = body.error ?? res.statusText;
-      if (body.scoreCount !== undefined) extra = { scoreCount: body.scoreCount };
+      if (body.scoreCount !== undefined || body.observationCount !== undefined) {
+        extra = {};
+        if (body.scoreCount !== undefined) extra.scoreCount = body.scoreCount;
+        if (body.observationCount !== undefined) extra.observationCount = body.observationCount;
+      }
     } catch { message = text || res.statusText; }
     const err = new HttpError(res.status, message, extra);
     if (res.status === 401 && _unauthorizedHandler) {

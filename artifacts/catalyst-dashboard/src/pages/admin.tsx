@@ -12,6 +12,7 @@ import {
   createRubricSet,
   updateRubricSet,
   archiveRubricSet,
+  deleteRubricSet,
   reorderRubricSets,
   createCategory,
   updateCategory,
@@ -482,6 +483,25 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
     onSuccess: () => { invalidate(); onClose(); },
   });
 
+  const delSetMut = useMutation({
+    mutationFn: () => deleteRubricSet(slug),
+    onSuccess: () => { invalidate(); onClose(); },
+    onError: (err: Error) => {
+      const httpErr = err as HttpError;
+      if (httpErr.status === 409 && httpErr.observationCount !== undefined) {
+        const n = httpErr.observationCount;
+        const msg = `This rubric set has ${n} observation${n === 1 ? "" : "s"} linked to it. Deleting it will permanently remove all historical observation data for this rubric set.\n\nAre you sure you want to delete anyway?`;
+        if (window.confirm(msg)) {
+          deleteRubricSet(slug, true)
+            .then(() => { invalidate(); onClose(); })
+            .catch((e: Error) => window.alert(`Delete failed: ${e.message}`));
+        }
+      } else {
+        window.alert(`Delete failed: ${err.message}`);
+      }
+    },
+  });
+
   const fieldCls = "px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-full";
 
   return (
@@ -626,9 +646,9 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
           )}
         </div>
 
-        {/* Footer — archive on left, cancel/save on right */}
+        {/* Footer — archive/delete on left, cancel/save on right */}
         <div className="px-5 pb-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <div>
+          <div className="flex items-center gap-3">
             {rubricSet.isArchived ? (
               <button
                 disabled={archiveMut.isPending}
@@ -648,6 +668,18 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
                 Archive
               </button>
             )}
+            <button
+              disabled={delSetMut.isPending}
+              onClick={() => {
+                if (confirm(`Permanently delete "${rubricSet.name}"? This cannot be undone.`)) {
+                  delSetMut.mutate();
+                }
+              }}
+              className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
           </div>
           <div className="flex items-center gap-3">
             <button

@@ -312,6 +312,46 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   }
 });
 
+/* ── DELETE /api/rubric/sets/:slug ──────────────────────────────── */
+router.delete("/sets/:slug", requireNetworkAdmin, async (req, res) => {
+  try {
+    const slug  = req.params.slug as string;
+    const force = req.query.force === "true";
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
+    const set = await db.query.rubricSets.findFirst({
+      where: and(eq(rubricSets.slug, slug), eq(rubricSets.schoolYearId, activeYearId)),
+      columns: { id: true },
+    });
+    if (!set) { res.status(404).json({ error: "Rubric set not found" }); return; }
+
+    if (!force) {
+      const [{ observationCount }] = await db
+        .select({ observationCount: count() })
+        .from(observations)
+        .where(eq(observations.rubricSetId, set.id));
+      if (Number(observationCount) > 0) {
+        res.status(409).json({
+          error: `Cannot delete: ${observationCount} observation${Number(observationCount) === 1 ? "" : "s"} reference this rubric set.`,
+          observationCount: Number(observationCount),
+        });
+        return;
+      }
+    }
+
+    await db.delete(rubricSets).where(eq(rubricSets.id, set.id));
+    res.status(204).send();
+  } catch (err) {
+    console.error("DELETE /rubric/sets/:slug error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── GET /api/rubric/:setSlug ───────────────────────────────────── */
 router.get("/:setSlug", async (req, res) => {
   try {
