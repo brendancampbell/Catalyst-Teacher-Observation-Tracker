@@ -220,12 +220,13 @@ describe("Session expiry causes 401 on all authenticated endpoints", () => {
   test("5 — Expired NETWORK_LEADER session: GET /people returns 401", async () => {
     const jar = await loginAs(NL_EID);
 
-    const before = await request("GET", "/people", undefined, jar);
+    /* Task #502: NETWORK_LEADER must supply schoolId; omitting it returns 403. */
+    const before = await request("GET", `/people?schoolId=${SCHOOL_ID}`, undefined, jar);
     assert.equal(before.status, 200, `GET /people must work before deletion, got ${before.status}`);
 
     await deleteSession(jar);
 
-    const after = await request("GET", "/people", undefined, jar);
+    const after = await request("GET", `/people?schoolId=${SCHOOL_ID}`, undefined, jar);
     assert.equal(
       after.status,
       401,
