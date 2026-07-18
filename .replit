@@ -50,6 +50,10 @@ args = "dashboard-ai-copy-button"
 task = "workflow.run"
 args = "test:action-steps-e2e"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:ai-quota-grant-bypass"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -123,6 +127,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/api-server && pnpm test:action-steps-e2e"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:ai-quota-grant-bypass"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:ai-quota-grant-bypass"
 
 [workflows.workflow.metadata]
 isValidation = true
