@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
-import { requireRole, type UserRole } from "../middleware/auth";
+import { requireRole, assertNetworkSchoolAccess, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 
 const router = Router();
@@ -87,7 +87,9 @@ async function validateRoleSchool(
 router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
-    const isNetworkScope = currentUser.role === "NETWORK_LEADER" || currentUser.role === "NETWORK_ADMIN";
+    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
+    const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
+    const isNetworkScope  = isNetworkAdmin || isNetworkLeader;
     const feedbackOnly    = req.query.includeInFeedbackTracker === "true";
     const includeInactive = req.query.includeInactive === "true";
 
@@ -104,9 +106,27 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
       return;
     }
 
-    const effectiveSchoolId = isNetworkScope
+    /* NETWORK_LEADER must filter to a specific school — they do not have
+       the cross-organisation enumeration privilege of NETWORK_ADMIN.    */
+    if (isNetworkLeader && !schoolIdParam) {
+      res.status(403).json({ error: "Network Leaders must specify a schoolId to list people" });
+      return;
+    }
+
+    /* Validate that NETWORK_LEADER's requested school is within their scope */
+    if (isNetworkLeader && schoolIdParam) {
+      const access = await assertNetworkSchoolAccess(currentUser, schoolIdParam);
+      if (!access.ok) {
+        res.status(access.status).json({ error: access.error });
+        return;
+      }
+    }
+
+    const effectiveSchoolId = isNetworkAdmin
       ? (schoolIdParam ?? null)
-      : currentUser.schoolId ?? null;
+      : isNetworkLeader
+        ? schoolIdParam            // schoolIdParam already validated non-null above
+        : currentUser.schoolId ?? null;  // COACH / SCHOOL_LEADER
 
     let whereClause = undefined as ReturnType<typeof and> | undefined;
 
@@ -186,6 +206,20 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       }
       if ((schoolId ?? currentUser.schoolId) !== currentUser.schoolId) {
         res.status(403).json({ error: "School Leaders can only create people in their own school" }); return;
+      }
+    }
+
+    /* NETWORK_LEADER may not create network-level accounts (NETWORK_LEADER or
+       NETWORK_ADMIN). Only NETWORK_ADMIN can mint those privileged roles.     */
+    if (isNetworkLeader && NETWORK_ROLES.includes(role as UserRole)) {
+      res.status(403).json({ error: "Network Leaders cannot create Network-level accounts" }); return;
+    }
+
+    /* NETWORK_LEADER may only create people in schools within their scope */
+    if (isNetworkLeader && schoolId != null) {
+      const access = await assertNetworkSchoolAccess(currentUser, schoolId);
+      if (!access.ok) {
+        res.status(access.status).json({ error: access.error }); return;
       }
     }
 
@@ -651,6 +685,8 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
     const target = await db.query.people.findFirst({ where: eq(people.employeeId, empId) });
     if (!target) { res.status(404).json({ error: "Person not found" }); return; }
 
+    const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
+
     if (!isNetworkScope) {
       if (target.schoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Cannot edit people from another school" }); return;
@@ -660,6 +696,20 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
         target.role !== "NO_ACCESS"
       ) {
         res.status(403).json({ error: "Cannot edit Network-level people" }); return;
+      }
+    }
+
+    /* NETWORK_LEADER may not edit accounts that already hold a network-level
+       role — those belong exclusively to NETWORK_ADMIN jurisdiction.          */
+    if (isNetworkLeader && NETWORK_ROLES.includes(target.role as UserRole)) {
+      res.status(403).json({ error: "Network Leaders cannot edit Network-level accounts" }); return;
+    }
+
+    /* NETWORK_LEADER may only edit people in schools within their scope */
+    if (isNetworkLeader && target.schoolId != null) {
+      const access = await assertNetworkSchoolAccess(currentUser, target.schoolId);
+      if (!access.ok) {
+        res.status(access.status).json({ error: access.error }); return;
       }
     }
 
@@ -695,6 +745,11 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
     }
     if (!isNetworkScope && role && !SCHOOL_ASSIGNABLE_ROLES.includes(role) && role !== "NO_ACCESS") {
       res.status(403).json({ error: "School Leaders can only assign Coach or School Leader roles" }); return;
+    }
+    /* NETWORK_LEADER cannot promote anyone (including themselves) to a
+       network-level role. Only NETWORK_ADMIN may assign those roles.   */
+    if (isNetworkLeader && role && NETWORK_ROLES.includes(role)) {
+      res.status(403).json({ error: "Network Leaders cannot assign Network-level roles" }); return;
     }
 
     if (isSelfDeactivation(currentUser, empId, isActive)) {
@@ -776,6 +831,20 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
       }
       if (!SCHOOL_ASSIGNABLE_ROLES.includes(target.role as UserRole) && target.role !== "NO_ACCESS") {
         res.status(403).json({ error: "Cannot edit Network-level people" }); return;
+      }
+    }
+
+    /* NETWORK_LEADER may not activate or deactivate network-level accounts.
+       Only NETWORK_ADMIN has that authority.                                */
+    if (currentUser.role === "NETWORK_LEADER" && NETWORK_ROLES.includes(target.role as UserRole)) {
+      res.status(403).json({ error: "Network Leaders cannot activate or deactivate Network-level accounts" }); return;
+    }
+
+    /* NETWORK_LEADER may only toggle-active people in schools within their scope */
+    if (currentUser.role === "NETWORK_LEADER" && target.schoolId != null) {
+      const access = await assertNetworkSchoolAccess(currentUser, target.schoolId);
+      if (!access.ok) {
+        res.status(access.status).json({ error: access.error }); return;
       }
     }
 
