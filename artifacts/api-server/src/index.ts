@@ -235,6 +235,94 @@ async function ensureChatTables(): Promise<void> {
   }
 }
 
+/* ── Backfill school_year_id on any NULL rows, then enforce NOT NULL ─────────
+   Mirrors the ensureSchools() approach: fill data first, then tighten the
+   constraint so the ALTER never runs against a table that still has NULLs.
+   Safe to run multiple times — every UPDATE is filtered on IS NULL,
+   and SET NOT NULL is idempotent once the column is already constrained. */
+async function ensureSchoolYearIds(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    /* ── Resolve the school year ids we need ─────────────────────── */
+    const { rows: yearRows } = await client.query<{ id: number }>(
+      `SELECT id FROM school_years WHERE name = '2025-2026' LIMIT 1`,
+    );
+    if (yearRows.length === 0) {
+      logger.warn(
+        "ensureSchoolYearIds: no '2025-2026' school_year row found — skipping backfill.",
+      );
+      return;
+    }
+    const year2526Id = yearRows[0].id;
+
+    const { rows: activeYearRows } = await client.query<{ id: number }>(
+      `SELECT id FROM school_years WHERE status = 'active' ORDER BY display_order DESC LIMIT 1`,
+    );
+    const activeYearId: number =
+      activeYearRows.length > 0 ? activeYearRows[0].id : year2526Id;
+
+    /* ── 1. Backfill rubric_sets ──────────────────────────────────── */
+    const { rowCount: rsCount } = await client.query(
+      `UPDATE rubric_sets SET school_year_id = $1 WHERE school_year_id IS NULL`,
+      [year2526Id],
+    );
+    if ((rsCount ?? 0) > 0) logger.info(`ensureSchoolYearIds: rubric_sets backfilled ${rsCount} rows.`);
+
+    /* ── 2. Backfill rubric_domains ───────────────────────────────── */
+    const { rowCount: rdCount } = await client.query(
+      `UPDATE rubric_domains SET school_year_id = $1 WHERE school_year_id IS NULL`,
+      [year2526Id],
+    );
+    if ((rdCount ?? 0) > 0) logger.info(`ensureSchoolYearIds: rubric_domains backfilled ${rdCount} rows.`);
+
+    /* ── 3. Backfill observations (prefer rubric_set join, fall back to active year) ── */
+    const { rowCount: obsCount1 } = await client.query(`
+      UPDATE observations o
+      SET school_year_id = rs.school_year_id
+      FROM rubric_sets rs
+      WHERE o.rubric_set_id = rs.id
+        AND o.school_year_id IS NULL
+        AND rs.school_year_id IS NOT NULL
+    `);
+    if ((obsCount1 ?? 0) > 0) logger.info(`ensureSchoolYearIds: observations backfilled ${obsCount1} rows via rubric_set join.`);
+
+    const { rowCount: obsCount2 } = await client.query(
+      `UPDATE observations SET school_year_id = $1 WHERE school_year_id IS NULL`,
+      [activeYearId],
+    );
+    if ((obsCount2 ?? 0) > 0) logger.info(`ensureSchoolYearIds: observations backfilled ${obsCount2} additional rows via active year.`);
+
+    /* ── 4. Backfill action_steps (prefer observation join, fall back to active year) ── */
+    const { rowCount: asCount1 } = await client.query(`
+      UPDATE action_steps a
+      SET school_year_id = o.school_year_id
+      FROM observations o
+      WHERE a.assigned_during_observation_id = o.id
+        AND a.school_year_id IS NULL
+        AND o.school_year_id IS NOT NULL
+    `);
+    if ((asCount1 ?? 0) > 0) logger.info(`ensureSchoolYearIds: action_steps backfilled ${asCount1} rows via observation join.`);
+
+    const { rowCount: asCount2 } = await client.query(
+      `UPDATE action_steps SET school_year_id = $1 WHERE school_year_id IS NULL`,
+      [activeYearId],
+    );
+    if ((asCount2 ?? 0) > 0) logger.info(`ensureSchoolYearIds: action_steps backfilled ${asCount2} additional rows via active year.`);
+
+    /* ── 5. Enforce NOT NULL on all four columns ──────────────────── */
+    await client.query(`
+      ALTER TABLE rubric_sets    ALTER COLUMN school_year_id SET NOT NULL;
+      ALTER TABLE rubric_domains ALTER COLUMN school_year_id SET NOT NULL;
+      ALTER TABLE observations   ALTER COLUMN school_year_id SET NOT NULL;
+      ALTER TABLE action_steps   ALTER COLUMN school_year_id SET NOT NULL;
+    `);
+
+    logger.info("ensureSchoolYearIds: all school_year_id columns are NOT NULL.");
+  } finally {
+    client.release();
+  }
+}
+
 /* ── Periodic cleanup: delete quota grant rows expired > 7 days ago ──────────
    Runs once at startup and then every hour. Uses .unref() so the interval
    never prevents a clean process exit.
@@ -325,6 +413,7 @@ ensureSessionTable()
   .then(() => ensureSchoolYearBackfill())
   .then(() => ensureSchools())
   .then(() => ensureChatTables())
+  .then(() => ensureSchoolYearIds())
   .then(() => bootstrapAdmin())
   .then(() => {
     /* Kick off first cleanup immediately, then repeat every hour */

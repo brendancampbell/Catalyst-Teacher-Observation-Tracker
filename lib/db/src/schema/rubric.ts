@@ -10,7 +10,7 @@ export const rubricSets = pgTable("rubric_sets", {
   id:              serial("id").primaryKey(),
   slug:            text("slug").notNull(),
   name:            text("name").notNull(),
-  schoolYearId:    integer("school_year_id").$type<number>().references(() => schoolYears.id),
+  schoolYearId:    integer("school_year_id").notNull().$type<number>().references(() => schoolYears.id),
   isActive:        boolean("is_active").notNull().default(false),
   isArchived:      boolean("is_archived").notNull().default(false),
   gradeSpan:       text("grade_span"),
@@ -35,7 +35,7 @@ export const rubricDomains = pgTable("rubric_domains", {
   rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   /* Denormalized from rubric_sets so we can enforce (school_year_id, slug) uniqueness
      without a join. Stamped on insert and kept in sync via copy-forward logic. */
-  schoolYearId: integer("school_year_id").$type<number>().references(() => schoolYears.id),
+  schoolYearId: integer("school_year_id").notNull().$type<number>().references(() => schoolYears.id),
   name:         text("name").notNull(),
   slug:         text("slug").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
