@@ -106,6 +106,10 @@ args = "dashboard-localstorage-cleanup"
 task = "workflow.run"
 args = "test:session-expiry"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-rubric-domain-slug-validation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -333,6 +337,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:session-expiry"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-rubric-domain-slug-validation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && PW_BASE_URL=http://127.0.0.1:18277 CHROMIUM_PATH=$(which chromium) pnpm playwright test --config playwright.config.ts e2e/rubric-domain-slug-validation.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
