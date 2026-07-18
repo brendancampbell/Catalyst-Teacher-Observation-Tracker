@@ -242,10 +242,10 @@ export async function createDomain(categoryId: number, name: string, slug: strin
   });
 }
 
-export async function updateDomain(id: number, name: string, slug: string, description?: string | null): Promise<RubricDomainRow> {
+export async function updateDomain(id: number, name: string, description?: string | null): Promise<RubricDomainRow> {
   return apiFetch<RubricDomainRow>(`/rubric/domains/${id}`, {
     method: "PUT",
-    body: JSON.stringify({ name, slug, ...(description !== undefined ? { description } : {}) }),
+    body: JSON.stringify({ name, ...(description !== undefined ? { description } : {}) }),
   });
 }
 

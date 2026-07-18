@@ -171,8 +171,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
   });
 
   const updDomMut = useMutation({
-    mutationFn: ({ id, name, slug, description }: { id: number; name: string; slug: string; description: string }) =>
-      updateDomain(id, name, slug, description),
+    mutationFn: ({ id, name, description }: { id: number; name: string; description: string }) =>
+      updateDomain(id, name, description),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -352,8 +352,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <input className={`${inputCls} flex-1`} value={editingDomName} onChange={(e) => setEditingDomName(e.target.value)} placeholder="Domain name" autoFocus onKeyDown={(e) => { if (e.key === "Escape") { setEditingDomId(null); setUpdDomError(null); } }} />
-                      <input className={`${inputCls} w-36`} value={editingDomSlug} onChange={(e) => { setEditingDomSlug(e.target.value); setUpdDomError(null); }} placeholder="slug" onKeyDown={(e) => { if (e.key === "Escape") { setEditingDomId(null); setUpdDomError(null); } }} />
-                      <button className="text-green-600 hover:text-green-800 p-1 shrink-0" onClick={() => updDomMut.mutate({ id: dom.id, name: editingDomName, slug: editingDomSlug, description: editingDomDesc })} disabled={updDomMut.isPending}><Check size={16} /></button>
+                      <code className="text-xs text-slate-400 bg-slate-100 px-2 py-1.5 rounded font-mono shrink-0 select-all" title="Slug cannot be changed here — it is referenced by observation scores">{dom.slug}</code>
+                      <button className="text-green-600 hover:text-green-800 p-1 shrink-0" onClick={() => updDomMut.mutate({ id: dom.id, name: editingDomName, description: editingDomDesc })} disabled={updDomMut.isPending}><Check size={16} /></button>
                       <button className="text-slate-400 hover:text-slate-600 p-1 shrink-0" onClick={() => { setEditingDomId(null); setUpdDomError(null); }}><X size={16} /></button>
                     </div>
                     <input

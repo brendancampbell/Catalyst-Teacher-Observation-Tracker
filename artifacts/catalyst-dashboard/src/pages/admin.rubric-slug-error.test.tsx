@@ -185,9 +185,9 @@ describe("RubricSettings — slug error does not bleed between domain edit forms
         { timeout: 4_000 },
       );
 
-      expect(
-        (document.querySelector("input[placeholder='slug']") as HTMLInputElement | null)?.value,
-      ).toBe("beta");
+      /* Slug is now shown as a read-only <code> badge — not an editable input */
+      const codeBadges = Array.from(document.querySelectorAll("code"));
+      expect(codeBadges.some((c) => c.textContent === "beta")).toBe(true);
     },
   );
 
@@ -240,10 +240,9 @@ describe("RubricSettings — slug error does not bleed between domain edit forms
 
       /* Error message must be absent in domain B's freshly-opened form */
       expect(screen.queryAllByText(/already exists/i).length).toBe(0);
-      /* And we should be editing the correct domain */
-      expect(
-        (document.querySelector("input[placeholder='slug']") as HTMLInputElement | null)?.value,
-      ).toBe("beta");
+      /* And we should be editing the correct domain — slug shown as read-only badge */
+      const codeBadges = Array.from(document.querySelectorAll("code"));
+      expect(codeBadges.some((c) => c.textContent === "beta")).toBe(true);
     },
   );
 });
