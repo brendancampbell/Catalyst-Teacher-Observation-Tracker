@@ -41,6 +41,15 @@ const APPROVED_LOGO_DOMAINS = new Set(["uncommonschools.org", "www.uncommonschoo
  *  empty, relative path, non-https scheme, data: / javascript: URIs, values
  *  with `"`, `'`, `<`, `>`, or whitespace, or any URL pointing to a
  *  non-approved host — preventing caller-controlled tracking images.        */
+/**
+ * Strip control characters and newlines from an email subject to prevent
+ * header injection.  Replaces each offending byte with a space, then trims.
+ * Exported so the unit test can import it directly without starting the server.
+ */
+export function sanitizeSubject(raw: unknown): string {
+  return String(raw).replace(/[\r\n\x00-\x1F\x7F]/g, " ").trim();
+}
+
 export function sanitizeLogoUrl(raw: unknown): string {
   if (typeof raw !== "string" || raw.trim() === "") return DEFAULT_LOGO_URL;
   // Reject before URL parsing: any character that breaks HTML attribute context

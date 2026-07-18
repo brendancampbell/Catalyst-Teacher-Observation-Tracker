@@ -150,6 +150,10 @@ args = "test:email-escape-guard"
 task = "workflow.run"
 args = "dashboard-rubric-set-slug-validation"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:email-subject-sanitization"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -498,6 +502,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-dashboard exec playwright test e2e/rubric-set-slug-validation.spec.ts --config playwright.config.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:email-subject-sanitization"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:email-subject-sanitization"
 
 [workflows.workflow.metadata]
 isValidation = true
