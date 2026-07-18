@@ -303,7 +303,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
 
     type RowResult = {
       row: number;
-      status: "created" | "skipped" | "error";
+      status: "created" | "assigned" | "skipped" | "error";
       name?: string;
       email?: string;
       reason?: string;
@@ -453,43 +453,113 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
 
       const bulkToday = new Date().toISOString().slice(0, 10);
 
+      /* Walk the error / cause chain to find the PG error code */
+      const pgCode = (e: unknown): string | null => {
+        if (typeof e !== "object" || e === null) return null;
+        const obj = e as Record<string, unknown>;
+        if (typeof obj["code"] === "string") return obj["code"];
+        return obj["cause"] ? pgCode(obj["cause"]) : null;
+      };
+      const pgMessage = (e: unknown): string | null => {
+        if (typeof e !== "object" || e === null) return null;
+        const obj = e as Record<string, unknown>;
+        if (typeof obj["detail"] === "string") return obj["detail"];
+        if (typeof obj["message"] === "string") return obj["message"];
+        return obj["cause"] ? pgMessage(obj["cause"]) : null;
+      };
+
       try {
-        await db.transaction(async (tx) => {
-          await tx.insert(people).values({
-            employeeId: empId,
-            firstName:  firstName,
-            lastName:   lastName ?? "",
-            email,
-            role,
-            schoolId,
-            includeInFeedbackTracker: includeInFB,
-            department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
-            gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+        /* ── Step 1: Pre-check for an existing person ── */
+        const [existingPerson] = await db.select({
+          employeeId: people.employeeId,
+          role:       people.role,
+          schoolId:   people.schoolId,
+        }).from(people).where(
+          or(eq(people.employeeId, empId), eq(people.email, email!))
+        ).limit(1);
+
+        if (existingPerson) {
+          /* ── Existing person: upsert assignment only ── */
+          let resultStatus: "assigned" | "skipped" = "skipped";
+          let skipReason: string | undefined;
+
+          await db.transaction(async (tx) => {
+            /* Check for an active assignment (endDate IS NULL) */
+            const [existingActive] = await tx.select({
+              id:       assignments.id,
+              role:     assignments.role,
+              schoolId: assignments.schoolId,
+            }).from(assignments).where(
+              and(eq(assignments.userId, existingPerson.employeeId), isNull(assignments.endDate))
+            ).limit(1);
+
+            if (
+              existingActive &&
+              existingActive.role === role &&
+              existingActive.schoolId === schoolId
+            ) {
+              /* Identical active assignment already exists — idempotent no-op */
+              skipReason = "Active assignment already exists with the same role and school";
+              return;
+            }
+
+            /* Close the existing active assignment if it differs */
+            if (existingActive) {
+              await tx.update(assignments)
+                .set({ endDate: bulkToday })
+                .where(eq(assignments.id, existingActive.id));
+            }
+
+            /* ── Step 2: Create assignment for existing person ── */
+            await tx.insert(assignments).values({
+              userId:    existingPerson.employeeId,
+              role,
+              schoolId,
+              startDate: bulkToday,
+              endDate:   null,
+            });
+
+            /* ── Step 3: Sync denormalized role/schoolId on the person record ── */
+            if (existingPerson.role !== role || existingPerson.schoolId !== schoolId) {
+              await tx.update(people)
+                .set({ role, schoolId })
+                .where(eq(people.employeeId, existingPerson.employeeId));
+            }
+
+            resultStatus = "assigned";
           });
-          await tx.insert(assignments).values({
-            userId:    empId,
-            role,
-            schoolId,
-            startDate: bulkToday,
-            endDate:   null,
+
+          /* ── Step 4: Return "assigned" or "skipped" ── */
+          if (resultStatus === "skipped") {
+            results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: skipReason });
+          } else {
+            results.push({ row: rowNum, status: "assigned", name: displayName!, email });
+          }
+        } else {
+          /* ── New person: create person + assignment ── */
+          await db.transaction(async (tx) => {
+            await tx.insert(people).values({
+              employeeId: empId,
+              firstName:  firstName,
+              lastName:   lastName ?? "",
+              email,
+              role,
+              schoolId,
+              includeInFeedbackTracker: includeInFB,
+              department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
+              gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+            });
+            await tx.insert(assignments).values({
+              userId:    empId,
+              role,
+              schoolId,
+              startDate: bulkToday,
+              endDate:   null,
+            });
           });
-        });
-        results.push({ row: rowNum, status: "created", name: displayName!, email });
+          results.push({ row: rowNum, status: "created", name: displayName!, email });
+        }
       } catch (err: unknown) {
-        /* Walk the error / cause chain to find the PG error code */
-        const pgCode = (e: unknown): string | null => {
-          if (typeof e !== "object" || e === null) return null;
-          const obj = e as Record<string, unknown>;
-          if (typeof obj["code"] === "string") return obj["code"];
-          return obj["cause"] ? pgCode(obj["cause"]) : null;
-        };
-        const pgMessage = (e: unknown): string | null => {
-          if (typeof e !== "object" || e === null) return null;
-          const obj = e as Record<string, unknown>;
-          if (typeof obj["detail"] === "string") return obj["detail"];
-          if (typeof obj["message"] === "string") return obj["message"];
-          return obj["cause"] ? pgMessage(obj["cause"]) : null;
-        };
         const code    = pgCode(err);
         const message = pgMessage(err);
         console.error(`POST /people/bulk row ${rowNum} DB error [${code}]:`, message, err);

@@ -82,6 +82,10 @@ args = "dashboard-instant-analysis-persistence"
 task = "workflow.run"
 args = "dashboard-instant-analysis-error"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:bulk-upsert-existing-users"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -243,6 +247,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/instant-analysis-error.spec.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:bulk-upsert-existing-users"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:bulk-upsert-existing-users"
 
 [workflows.workflow.metadata]
 isValidation = true
