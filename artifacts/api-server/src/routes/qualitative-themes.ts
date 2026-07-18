@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
 import { db } from "@workspace/db";
 import {
   observations,
@@ -29,6 +30,11 @@ const qualitativeGenerationLimiter = rateLimit({
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;
     return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
+  },
+  skip: async (req) => {
+    const user = req.user as Express.User | undefined;
+    if (!user?.employeeId) return false;
+    return checkAndConsumeQuotaGrant(user.employeeId, "generation");
   },
   handler: (req, res) => {
     req.log.warn(

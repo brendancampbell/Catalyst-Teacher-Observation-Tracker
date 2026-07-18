@@ -8,4 +8,5 @@ export * from "./qualitative-themes";
 export * from "./school-years";
 export * from "./assignments";
 export * from "./rate-limit";
+export * from "./ai-quota-grants";
 export * from "./relations";

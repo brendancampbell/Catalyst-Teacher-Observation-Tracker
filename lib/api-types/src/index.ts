@@ -481,3 +481,19 @@ export interface SchoolYearActivationPreview {
   activeYearName:        string | null;
   activeYearId:          number | null;
 }
+
+/* ── AI Quota Grants ─────────────────────────────────────────────── */
+
+export type AIQuotaGrantType = "chat" | "generation" | "all";
+
+export interface AIQuotaGrant {
+  id:                  number;
+  employeeId:          string;
+  grantType:           AIQuotaGrantType;
+  extraRequests:       number;
+  usedRequests:        number;
+  expiresAt:           string;
+  grantedByEmployeeId: string | null;
+  note:                string | null;
+  createdAt:           string;
+}

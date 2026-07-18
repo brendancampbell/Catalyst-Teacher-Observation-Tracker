@@ -660,3 +660,29 @@ export async function copyRubricSetForward(sourceSetId: number, targetSchoolYear
     body: JSON.stringify({ targetSchoolYearId }),
   });
 }
+
+/* ── AI Quota Grants ─────────────────────────────────────────────── */
+
+import type { AIQuotaGrant, AIQuotaGrantType } from "@workspace/api-types";
+export type { AIQuotaGrant, AIQuotaGrantType };
+
+export async function fetchAIQuotaGrants(employeeId: string): Promise<AIQuotaGrant[]> {
+  return apiFetch<AIQuotaGrant[]>(`/ai/quota-grants?employeeId=${encodeURIComponent(employeeId)}`);
+}
+
+export async function createAIQuotaGrant(payload: {
+  employeeId:     string;
+  grantType:      AIQuotaGrantType;
+  extraRequests:  number;
+  expiresInHours: number;
+  note?:          string;
+}): Promise<AIQuotaGrant> {
+  return apiFetch<AIQuotaGrant>("/ai/quota-grants", {
+    method: "POST",
+    body:   JSON.stringify(payload),
+  });
+}
+
+export async function revokeAIQuotaGrant(id: number): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/ai/quota-grants/${id}`, { method: "DELETE" });
+}

@@ -385,6 +385,36 @@ async function migrate() {
         ON rate_limit_store (expires_at)
     `);
 
+    /* ── 17. Create ai_quota_grants table ───────────────────────── */
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ai_quota_grant_type') THEN
+          CREATE TYPE ai_quota_grant_type AS ENUM ('chat', 'generation', 'all');
+        END IF;
+      END $$
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_quota_grants (
+        id                    SERIAL PRIMARY KEY,
+        employee_id           TEXT NOT NULL REFERENCES people(employee_id) ON DELETE CASCADE,
+        grant_type            ai_quota_grant_type NOT NULL,
+        extra_requests        INTEGER NOT NULL,
+        used_requests         INTEGER NOT NULL DEFAULT 0,
+        expires_at            TIMESTAMPTZ NOT NULL,
+        granted_by_employee_id TEXT REFERENCES people(employee_id) ON DELETE SET NULL,
+        note                  TEXT,
+        created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_quota_grants_employee_idx
+        ON ai_quota_grants (employee_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS ai_quota_grants_expires_at_idx
+        ON ai_quota_grants (expires_at)
+    `);
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

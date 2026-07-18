@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -33,6 +33,9 @@ import {
   updateAdminSchool,
   deleteAdminSchool,
   bulkImportSchools,
+  fetchAIQuotaGrants,
+  createAIQuotaGrant,
+  revokeAIQuotaGrant,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -46,6 +49,8 @@ import {
   type BulkImportPersonRowResult,
   type BulkSchoolRow,
   type BulkSchoolResult,
+  type AIQuotaGrant,
+  type AIQuotaGrantType,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -799,6 +804,244 @@ function ReassignModal({
 }
 
 /* ════════════════════════════════════════════════════════════════
+   AI QUOTA MODAL
+   Network admins can grant extra AI requests to specific users.
+   ════════════════════════════════════════════════════════════════ */
+
+function AIQuotaModal({ person, onClose }: { person: PersonRow; onClose: () => void }) {
+  const NAVY_LOCAL   = "#1034B4";
+  const YELLOW_LOCAL = "#FFB500";
+  const queryClient  = useQueryClient();
+  const qKey         = ["ai-quota-grants", person.employeeId] as const;
+
+  const { data: grants = [], isLoading } = useQuery<AIQuotaGrant[]>({
+    queryKey: qKey,
+    queryFn:  () => fetchAIQuotaGrants(person.employeeId),
+  });
+
+  const [grantType,      setGrantType]      = useState<AIQuotaGrantType>("chat");
+  const [extraRequests,  setExtraRequests]  = useState(20);
+  const [expiresInHours, setExpiresInHours] = useState(24);
+  const [note,           setNote]           = useState("");
+  const [adding,         setAdding]         = useState(false);
+
+  const createMut = useMutation({
+    mutationFn: () => createAIQuotaGrant({
+      employeeId: person.employeeId,
+      grantType,
+      extraRequests,
+      expiresInHours,
+      note: note.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qKey });
+      setAdding(false);
+      setNote("");
+    },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const revokeMut = useMutation({
+    mutationFn: (id: number) => revokeAIQuotaGrant(id),
+    onSuccess:  () => queryClient.invalidateQueries({ queryKey: qKey }),
+  });
+
+  const now = Date.now();
+
+  function formatExpiry(expiresAt: string) {
+    const diff = new Date(expiresAt).getTime() - now;
+    if (diff <= 0) return "Expired";
+    const hrs  = Math.floor(diff / 3_600_000);
+    const mins = Math.floor((diff % 3_600_000) / 60_000);
+    if (hrs >= 24) return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+    if (hrs > 0)   return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  }
+
+  const GRANT_LABELS: Record<AIQuotaGrantType, string> = {
+    chat:       "Chat",
+    generation: "Generation",
+    all:        "All AI",
+  };
+
+  const active  = grants.filter((g) => new Date(g.expiresAt).getTime() > now && g.usedRequests < g.extraRequests);
+  const expired = grants.filter((g) => new Date(g.expiresAt).getTime() <= now || g.usedRequests >= g.extraRequests);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden" style={{ maxHeight: "85vh" }}>
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between shrink-0" style={{ backgroundColor: NAVY_LOCAL, borderBottom: `3px solid ${YELLOW_LOCAL}` }}>
+          <div className="flex items-center gap-2.5">
+            <Zap size={16} style={{ color: YELLOW_LOCAL }} />
+            <h2 className="text-white font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.04em" }}>
+              AI Quota — {person.name}
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-blue-200 hover:text-white p-1"><X size={18} /></button>
+        </div>
+
+        <div className="flex flex-col gap-4 p-5 overflow-y-auto">
+          {/* Active grants */}
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Active Grants</p>
+            {isLoading ? (
+              <p className="text-sm text-slate-400 italic">Loading…</p>
+            ) : active.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">No active grants for this user.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {active.map((g) => (
+                  <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-green-200 bg-green-50">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">{GRANT_LABELS[g.grantType]}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700">
+                        {g.usedRequests}/{g.extraRequests} used
+                        <span className="ml-2 text-xs font-normal text-slate-400">· expires in {formatExpiry(g.expiresAt)}</span>
+                      </p>
+                      {g.note && <p className="text-xs text-slate-400 truncate">{g.note}</p>}
+                    </div>
+                    <button
+                      className="text-red-400 hover:text-red-600 p-1.5 rounded transition-colors disabled:opacity-50 shrink-0"
+                      title="Revoke grant"
+                      onClick={() => { if (confirm("Revoke this quota grant?")) revokeMut.mutate(g.id); }}
+                      disabled={revokeMut.isPending}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Expired / exhausted grants */}
+          {expired.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Expired / Exhausted</p>
+              <div className="flex flex-col gap-1.5">
+                {expired.map((g) => (
+                  <div key={g.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 opacity-60">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 shrink-0">{GRANT_LABELS[g.grantType]}</span>
+                    <p className="flex-1 text-xs text-slate-500">
+                      {g.usedRequests}/{g.extraRequests} used · {new Date(g.expiresAt).getTime() <= now ? "Expired" : "Exhausted"}
+                    </p>
+                    <button
+                      className="text-slate-300 hover:text-red-400 p-1 rounded transition-colors disabled:opacity-40 shrink-0"
+                      title="Remove record"
+                      onClick={() => revokeMut.mutate(g.id)}
+                      disabled={revokeMut.isPending}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add grant form */}
+          {adding ? (
+            <div className="flex flex-col gap-3 p-4 rounded-lg border-2 border-dashed" style={{ borderColor: NAVY_LOCAL }}>
+              <p className="text-sm font-bold" style={{ color: NAVY_LOCAL }}>New Quota Grant</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</label>
+                  <select
+                    className="border border-slate-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    value={grantType}
+                    onChange={(e) => setGrantType(e.target.value as AIQuotaGrantType)}
+                  >
+                    <option value="chat">Chat (bypasses 20/15min limit)</option>
+                    <option value="generation">Generation (bypasses 10/15min)</option>
+                    <option value="all">All AI (bypasses both limits)</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Extra Requests</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    className="border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    value={extraRequests}
+                    onChange={(e) => setExtraRequests(Math.max(1, Math.min(500, Number(e.target.value))))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Expires In</label>
+                  <select
+                    className="border border-slate-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    value={expiresInHours}
+                    onChange={(e) => setExpiresInHours(Number(e.target.value))}
+                  >
+                    <option value={4}>4 hours</option>
+                    <option value={24}>24 hours</option>
+                    <option value={48}>48 hours</option>
+                    <option value={72}>72 hours</option>
+                    <option value={168}>7 days</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Note (optional)</label>
+                  <input
+                    type="text"
+                    maxLength={120}
+                    className="border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    placeholder="e.g. End-of-quarter review"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  className="px-4 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50"
+                  style={{ backgroundColor: NAVY_LOCAL }}
+                  onClick={() => createMut.mutate()}
+                  disabled={createMut.isPending}
+                >
+                  {createMut.isPending ? "Granting…" : "Grant Quota"}
+                </button>
+                <button
+                  className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                  onClick={() => { setAdding(false); setNote(""); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg font-bold text-sm border-2 border-dashed hover:border-solid transition-all"
+              style={{ borderColor: NAVY_LOCAL, color: NAVY_LOCAL }}
+              onClick={() => setAdding(true)}
+            >
+              <Plus size={14} />
+              Add Quota Grant
+            </button>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg font-bold text-sm text-white"
+            style={{ backgroundColor: NAVY_LOCAL }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    PEOPLE MANAGEMENT TAB (unified people + bulk import)
    ════════════════════════════════════════════════════════════════ */
 
@@ -853,6 +1096,8 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
 
   /* Reassign modal state */
   const [reassignTarget,  setReassignTarget]  = useState<PersonRow | null>(null);
+  /* AI Quota modal state */
+  const [quotaTarget,     setQuotaTarget]     = useState<PersonRow | null>(null);
 
   /* Filter state */
   const [showInactive,    setShowInactive]    = useState(false);
@@ -1267,6 +1512,15 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                             <Users size={13} />
                           </button>
                         )}
+                        {isNetworkAdmin && (
+                          <button
+                            className="text-slate-400 hover:text-yellow-500 p-1.5 rounded transition-colors"
+                            title="AI Quota Grants"
+                            onClick={() => setQuotaTarget(p)}
+                          >
+                            <Zap size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </>
@@ -1361,6 +1615,12 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             queryClient.invalidateQueries({ queryKey: qKey });
             setReassignTarget(null);
           }}
+        />
+      )}
+      {quotaTarget && (
+        <AIQuotaModal
+          person={quotaTarget}
+          onClose={() => setQuotaTarget(null)}
         />
       )}
     </div>
