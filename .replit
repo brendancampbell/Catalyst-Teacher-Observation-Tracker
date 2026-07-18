@@ -142,6 +142,10 @@ args = "dashboard-vitest"
 task = "workflow.run"
 args = "test:domain-deletion-guard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:email-escape-guard"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -468,6 +472,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:domain-deletion-guard"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:email-escape-guard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:email-escape-guard"
 
 [workflows.workflow.metadata]
 isValidation = true
