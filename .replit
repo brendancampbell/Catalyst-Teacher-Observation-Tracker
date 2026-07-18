@@ -62,6 +62,10 @@ args = "dashboard-typecheck"
 task = "workflow.run"
 args = "mobile-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mobile-coach-observation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -168,6 +172,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-mobile run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "mobile-coach-observation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-mobile && pnpm vitest run src/test/coach-observation-flow.test.tsx"
 
 [workflows.workflow.metadata]
 isValidation = true
