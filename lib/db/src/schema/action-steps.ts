@@ -18,7 +18,7 @@ export const actionSteps = pgTable("action_steps", {
   masteredByEmployeeId:        text("mastered_by_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   masteredDuringObservationId: integer("mastered_during_observation_id").references(() => observations.id, { onDelete: "set null" }),
   createdAt:                   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  schoolYearId:                integer("school_year_id").notNull().references(() => schoolYears.id),
+  schoolYearId:                integer("school_year_id").$type<number>().references(() => schoolYears.id),
   snapshotSchoolId:            integer("snapshot_school_id").references(() => schools.id, { onDelete: "set null" }),
   snapshotGradeSpan:           text("snapshot_grade_span"),
   snapshotRole:                text("snapshot_role"),

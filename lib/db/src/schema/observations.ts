@@ -10,7 +10,7 @@ export const observations = pgTable("observations", {
   id:                  serial("id").primaryKey(),
   observedEmployeeId:  text("observed_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   schoolId:            integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
-  schoolYearId:        integer("school_year_id").notNull().references(() => schoolYears.id),
+  schoolYearId:        integer("school_year_id").$type<number>().references(() => schoolYears.id),
   rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   observerEmployeeId:  text("observer_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   observerEmail:       text("observer_email"),
