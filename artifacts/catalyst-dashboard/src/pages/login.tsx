@@ -1,20 +1,53 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { useLocation } from "wouter";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
 const BASE   = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+const IS_DEV = import.meta.env.DEV;
+
+const DEV_USERS = [
+  { employeeId: "U10",   label: "Brendan Campbell (Network Admin)" },
+  { employeeId: "11346", label: "Rob Sgobbo (Network Admin)" },
+];
 
 export default function LoginPage() {
-  const { currentUser, isLoading } = useUser();
+  const { currentUser, isLoading, refetch } = useUser();
   const [, navigate] = useLocation();
+  const [devId,      setDevId]      = useState(DEV_USERS[0].employeeId);
+  const [devLoading, setDevLoading] = useState(false);
+  const [devError,   setDevError]   = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && currentUser) {
       navigate("/");
     }
   }, [isLoading, currentUser]);
+
+  async function handleDevLogin() {
+    setDevLoading(true);
+    setDevError(null);
+    try {
+      const res = await fetch(`${BASE}/api/auth/dev-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ employeeId: devId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setDevError(body.error ?? "Login failed");
+        return;
+      }
+      await refetch();
+      navigate("/");
+    } catch {
+      setDevError("Network error");
+    } finally {
+      setDevLoading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -34,7 +67,6 @@ export default function LoginPage() {
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-6">
-          {/* Logo + divider + Catalyst */}
           <div className="flex items-center w-full">
             <div className="flex flex-1 justify-end pr-4">
               <img
@@ -61,7 +93,6 @@ export default function LoginPage() {
               </h1>
             </div>
           </div>
-          {/* Subtitle — stretched to match the row above */}
           <p
             className="uppercase text-center w-full"
             style={{
@@ -107,7 +138,47 @@ export default function LoginPage() {
             Sign in with Google
           </a>
 
+          {IS_DEV && (
+            <>
+              <div className="w-full flex items-center gap-2">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400 font-mono">DEV ONLY</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
 
+              <div className="w-full flex flex-col gap-2">
+                <select
+                  value={devId}
+                  onChange={(e) => setDevId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 bg-white"
+                  data-testid="dev-login-select"
+                >
+                  {DEV_USERS.map((u) => (
+                    <option key={u.employeeId} value={u.employeeId}>{u.label}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleDevLogin}
+                  disabled={devLoading}
+                  data-testid="dev-login-btn"
+                  className="w-full flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: "#F4F6FB",
+                    border: "1px solid #CBD5E1",
+                    color: "#475569",
+                    cursor: devLoading ? "wait" : "pointer",
+                  }}
+                >
+                  {devLoading ? "Signing in…" : "Dev sign-in (no Google)"}
+                </button>
+
+                {devError && (
+                  <p className="text-xs text-red-500 text-center">{devError}</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
