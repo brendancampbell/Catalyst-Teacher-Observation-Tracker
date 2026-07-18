@@ -128,7 +128,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
       const httpErr = err as HttpError;
       if (httpErr.status === 409 && httpErr.scoreCount !== undefined) {
         const n = httpErr.scoreCount;
-        const msg = `This category has ${n} observation score${n === 1 ? "" : "s"} linked to its domains. Deleting it will permanently remove that scoring data.\n\nAre you sure you want to delete anyway?`;
+        const msg = `This category has ${n} observation score${n === 1 ? "" : "s"} linked to its domains. Deleting it will leave those observations with unresolvable scores.\n\nAre you sure you want to delete anyway?`;
         if (window.confirm(msg)) {
           deleteCategory(id, true)
             .then(() => queryClient.invalidateQueries({ queryKey: qKey }))
