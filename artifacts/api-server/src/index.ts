@@ -242,7 +242,29 @@ async function ensureChatTables(): Promise<void> {
 const QUOTA_GRANT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; /* 1 hour */
 /* cleanupExpiredQuotaGrants is imported from ./lib/quota-grant-cleanup */
 
+async function ensureSchoolYears(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM school_years`,
+    );
+    if (Number(rows[0].count) > 0) {
+      logger.info("School years already seeded — skipping");
+      return;
+    }
+    logger.info("School years table empty — seeding initial rows");
+    await client.query(`
+      INSERT INTO school_years (name, status) VALUES ('2025-2026', 'inactive');
+      INSERT INTO school_years (name, status) VALUES ('2026-2027', 'active');
+    `);
+    logger.info("School years seeded: 2025-2026 (inactive), 2026-2027 (active)");
+  } finally {
+    client.release();
+  }
+}
+
 ensureSessionTable()
+  .then(() => ensureSchoolYears())
   .then(() => ensureSchools())
   .then(() => ensureChatTables())
   .then(() => bootstrapAdmin())
