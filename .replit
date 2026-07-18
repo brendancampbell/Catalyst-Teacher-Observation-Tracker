@@ -66,6 +66,10 @@ args = "mobile-typecheck"
 task = "workflow.run"
 args = "mobile-coach-observation"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-new-obs-q1-fallback"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -183,6 +187,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-mobile && pnpm vitest run src/test/coach-observation-flow.test.tsx"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-new-obs-q1-fallback"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/new-obs-q1-fallback.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
