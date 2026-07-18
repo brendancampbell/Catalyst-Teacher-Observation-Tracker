@@ -340,7 +340,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         : typeof raw.includeInFeedbackTracker === "boolean"
           ? raw.includeInFeedbackTracker
           : false;
-      const deptRaw = typeof raw.department === "string" ? raw.department.trim() : null;
+      const deptRaw = typeof raw.department === "string" && raw.department.trim() ? raw.department.trim() : null;
       let gradeLevel: string[] = [];
       if (Array.isArray(raw.gradeLevel)) {
         gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
