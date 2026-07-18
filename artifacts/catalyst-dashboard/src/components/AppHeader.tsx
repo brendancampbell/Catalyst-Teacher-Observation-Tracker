@@ -214,19 +214,17 @@ export default function AppHeader({
 
             {/* +Observation — standalone yellow pill */}
             {onAddObservation && (
-              <Tooltip label="Add Observation">
-                <button
-                  data-testid="header-add-obs-pill"
-                  onClick={onAddObservation}
-                  className="flex items-center px-3 py-1.5 rounded-full transition-opacity hover:opacity-90 shrink-0"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
-                >
-                  <div className="h-8 flex items-center gap-1.5">
-                    <Plus size={14} strokeWidth={3} />
-                    <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
-                  </div>
-                </button>
-              </Tooltip>
+              <button
+                data-testid="header-add-obs-pill"
+                onClick={onAddObservation}
+                className="flex items-center px-3 py-1.5 rounded-full transition-opacity hover:opacity-90 shrink-0"
+                style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.04em" }}
+              >
+                <div className="h-8 flex items-center gap-1.5">
+                  <Plus size={14} strokeWidth={3} />
+                  <span style={{ paddingTop: 2, lineHeight: 1 }}>Add Observation</span>
+                </div>
+              </button>
             )}
 
             {/* Action Center — text pill */}
