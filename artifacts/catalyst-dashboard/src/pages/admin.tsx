@@ -1053,7 +1053,7 @@ const ALL_ROLES_MAP: Record<PersonRole, string> = {
   NO_ACCESS:      "No Access",
 };
 
-function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: boolean; canBulkImport: boolean }) {
+function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetworkAdmin: boolean; canBulkImport: boolean; canWrite: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "teachers"] as const;
   const [view, setView] = useState<"list" | "bulk">("list");
@@ -1288,6 +1288,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
           </button>
         )}
 
+        {canWrite && (
         <div className="ml-auto">
           <button
             onClick={() => { setAdding(true); setEditId(null); setAddRole("COACH"); setAddSchoolId(realSchools[0]?.id ?? null); }}
@@ -1297,6 +1298,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
             <Plus size={14} />Add Person
           </button>
         </div>
+        )}
       </div>
 
       {/* Add person form */}
@@ -1481,9 +1483,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                     )}
                     <td className="px-4 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" title={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"} disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
-                          <Pencil size={13} />
-                        </button>
+                        {canWrite && (
+                          <button className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors disabled:opacity-40" title={isNetworkAdmin && schools.length === 0 ? "Loading schools…" : "Edit"} disabled={isNetworkAdmin && schools.length === 0} onClick={() => startEdit(p)}>
+                            <Pencil size={13} />
+                          </button>
+                        )}
                         {isNetworkAdmin && (
                           <button
                             className="text-slate-400 hover:text-violet-600 p-1.5 rounded transition-colors disabled:opacity-40"
@@ -1494,14 +1498,16 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                             <ArrowLeftRight size={13} />
                           </button>
                         )}
-                        <button
-                          className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
-                          title={p.isActive ? "Deactivate" : "Reactivate"}
-                          onClick={() => toggleMut.mutate(p.employeeId)}
-                          disabled={toggleMut.isPending}
-                        >
-                          {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
-                        </button>
+                        {canWrite && (
+                          <button
+                            className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
+                            title={p.isActive ? "Deactivate" : "Reactivate"}
+                            onClick={() => toggleMut.mutate(p.employeeId)}
+                            disabled={toggleMut.isPending}
+                          >
+                            {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
+                          </button>
+                        )}
                         {isNetworkAdmin && (
                           <button
                             className="text-slate-400 hover:text-indigo-600 p-1.5 rounded transition-colors disabled:opacity-50"
@@ -2741,22 +2747,24 @@ export default function AdminPage() {
   }
 
   const isNetworkAdmin   = currentUser?.role === "NETWORK_ADMIN";
+  const isNetworkLeader  = currentUser?.role === "NETWORK_LEADER";
   const canManagePeople  = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
+  const canViewPeople    = isNetworkAdmin || isNetworkLeader || currentUser?.role === "SCHOOL_LEADER";
   const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
-    ...(isNetworkAdmin  ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
-    ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]            : []),
-    ...(isNetworkAdmin  ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
-    ...(isNetworkAdmin  ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
+    ...(isNetworkAdmin ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
+    ...(canViewPeople  ? [{ id: "people" as AdminTab,        label: "Users" }]            : []),
+    ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
+    ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
   ];
 
-  const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
+  const defaultTab: AdminTab = canViewPeople ? "people" : "rubric";
   const visibleTab: AdminTab =
-    (activeTab === "rubric"       && !isNetworkAdmin)  ? defaultTab :
-    (activeTab === "people"       && !canManagePeople) ? defaultTab :
-    (activeTab === "schools"      && !isNetworkAdmin)  ? defaultTab :
-    (activeTab === "school-years" && !isNetworkAdmin)  ? defaultTab :
+    (activeTab === "rubric"       && !isNetworkAdmin) ? defaultTab :
+    (activeTab === "people"       && !canViewPeople)  ? defaultTab :
+    (activeTab === "schools"      && !isNetworkAdmin) ? defaultTab :
+    (activeTab === "school-years" && !isNetworkAdmin) ? defaultTab :
     activeTab;
 
   return (
@@ -2978,7 +2986,7 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab === "people"       && canManagePeople && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+      {visibleTab === "people"       && canViewPeople   && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} canWrite={canManagePeople} />}
       {visibleTab === "schools"      && isNetworkAdmin  && (
         <main className="flex-1 px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
           <SchoolSettings />
