@@ -136,21 +136,21 @@ export default function ObservationPage() {
     const el = strengthsRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
   }, [strengths]);
 
   useEffect(() => {
     const el = growthAreasRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
   }, [growthAreas]);
 
   useEffect(() => {
     const el = actionStepTextRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
   }, [actionStepText]);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -859,7 +859,7 @@ export default function ObservationPage() {
                     strengthsRef.current = el;
                     if (el) {
                       el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
+                      el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
                     }
                   }}
                   value={strengths}
@@ -880,7 +880,7 @@ export default function ObservationPage() {
                     growthAreasRef.current = el;
                     if (el) {
                       el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
+                      el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
                     }
                   }}
                   value={growthAreas}
@@ -1012,7 +1012,7 @@ export default function ObservationPage() {
                       actionStepTextRef.current = el;
                       if (el) {
                         el.style.height = "auto";
-                        el.style.height = `${el.scrollHeight}px`;
+                        el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
                       }
                     }}
                     value={actionStepText}

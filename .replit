@@ -86,6 +86,10 @@ args = "dashboard-instant-analysis-error"
 task = "workflow.run"
 args = "test:bulk-upsert-existing-users"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mobile-textarea-autoresize"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -258,6 +262,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:bulk-upsert-existing-users"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "mobile-textarea-autoresize"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-mobile && PW_BASE_URL=http://127.0.0.1:25869/catalyst-mobile/ CHROMIUM_PATH=$(which chromium) pnpm playwright test --config playwright.config.ts e2e/textarea-autoresize.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
