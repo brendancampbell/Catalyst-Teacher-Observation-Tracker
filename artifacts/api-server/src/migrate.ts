@@ -372,6 +372,19 @@ async function migrate() {
       }
     }
 
+    /* ── 16. Create rate_limit_store table ──────────────────────── */
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rate_limit_store (
+        key        TEXT PRIMARY KEY,
+        hits       INTEGER NOT NULL DEFAULT 1,
+        expires_at TIMESTAMPTZ NOT NULL
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS rate_limit_store_expires_at_idx
+        ON rate_limit_store (expires_at)
+    `);
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();

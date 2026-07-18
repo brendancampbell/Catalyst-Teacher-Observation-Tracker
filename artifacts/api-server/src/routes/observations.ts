@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
+import { PgRateLimitStore } from "../lib/pg-rate-limit-store";
 import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
 import { networkAvgsCache } from "./action-center";
@@ -17,9 +18,18 @@ const router = Router();
 /* ── Per-user rate limiter for mutation endpoints ────────────────────
    Limits PUT and DELETE to 30 requests per 15-minute window per user
    (or IP when unauthenticated). Blunts brute-force ID enumeration.    */
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
 const observationMutationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: RATE_LIMIT_WINDOW_MS,
   limit: 30,
+  /* Use a persistent PostgreSQL store in production so counters survive
+     server restarts, deploys, and crash/scale events.  The default
+     in-memory store is kept for local development (faster, no side-effects
+     in test runs that use a fresh process each time).               */
+  store: process.env.NODE_ENV === "production"
+    ? new PgRateLimitStore(pool, RATE_LIMIT_WINDOW_MS)
+    : undefined,
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;
     return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
