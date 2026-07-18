@@ -430,7 +430,7 @@ router.post(
       return;
     }
 
-    const sanitizedSubject = String(subject).replace(/[\r\n\x00-\x1F\x7F]/g, " ").trim();
+    const sanitizedSubject = sanitizeSubject(subject);
 
     /* ── Load observation + scores ─────────────────────────── */
     const obs = await db.query.observations.findFirst({
