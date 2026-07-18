@@ -74,6 +74,10 @@ args = "dashboard-new-obs-q1-fallback"
 task = "workflow.run"
 args = "test:quota-grant-cleanup"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-instant-analysis-persistence"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -213,6 +217,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:quota-grant-cleanup"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-instant-analysis-persistence"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/instant-analysis-persistence.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
