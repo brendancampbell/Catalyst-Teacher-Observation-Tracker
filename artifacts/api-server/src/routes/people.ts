@@ -513,8 +513,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
             if (
               !isNetworkAdmin &&
               existingPerson.schoolId !== null &&
-              existingPerson.schoolId !== currentUser.schoolId &&
-              existingPerson.role !== "NO_ACCESS"
+              existingPerson.schoolId !== currentUser.schoolId
             ) {
               results.push({
                 row:    rowNum,

@@ -557,6 +557,53 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     assert.equal(active?.schoolId, schoolBId, "Active assignment must still be for schoolB");
   });
 
+  /* ── 9. SCHOOL_LEADER cannot reassign a NO_ACCESS person from another school */
+
+  test("9 — SCHOOL_LEADER bulk-uploading a NO_ACCESS person from a different school → rejected as 'error'", async () => {
+    const empId = makeEmployeeId();
+    const email = makeEmail("t9");
+    const today = new Date().toISOString().slice(0, 10);
+    testPersonEmployeeIds.push(empId);
+
+    /* Seed a NO_ACCESS person in schoolB */
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT9",
+      email,
+      role:                     "NO_ACCESS",
+      schoolId:                 schoolBId,
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+
+    const slJar = await loginAs(TEMP_SL_EID); /* TEMP_SL is in schoolA */
+
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT9",
+      email,
+      role:       "COACH",
+      school:     String(schoolBId),
+    }], slJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "error",
+      `Expected "error" for cross-school NO_ACCESS person, got "${body.results[0]!.status}" — reason: ${body.results[0]!.reason}`,
+    );
+
+    /* NO_ACCESS person in schoolB must remain untouched */
+    const [person] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empId));
+    assert.equal(person?.role, "NO_ACCESS", "NO_ACCESS person's role must be unchanged");
+    assert.equal(person?.schoolId, schoolBId, "NO_ACCESS person must still be in schoolB");
+  });
+
   /* ── 7. Conflicting employeeId + email → reject with "error" ─────────── */
 
   test("7 — conflicting employeeId and email (different records) → rejected as 'error'", async () => {
