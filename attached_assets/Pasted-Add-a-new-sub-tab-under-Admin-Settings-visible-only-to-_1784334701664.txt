@@ -1,0 +1,16 @@
+Add a new sub-tab under Admin Settings, visible only to Network Admins, for managing School Years.
+
+1. List all School Years, showing their name and status (active/inactive). Exactly one is ever active at a time.
+
+2. Allow creating a new School Year for any past or future period, starting as "inactive." An inactive School Year is not visible to anyone except Network Admins in this settings screen — no other part of the app should reflect its existence.
+
+3. Within an inactive School Year, before it becomes active, provide a setup flow that lets the admin:
+   - For each existing rubric set, choose to either copy it forward into the new School Year as a new, independent version (using the copy-forward function built earlier, which preserves matching slugs), or leave it behind.
+   - Review current user role/school Assignments and either bulk-confirm "carry forward as-is" or edit individual users' assignment for the new year, or leave a user unassigned so they simply won't appear once this year becomes active.
+
+4. Add a single, explicit "Make this School Year active" action. This must:
+   - Automatically set whichever School Year was previously active back to inactive — exactly one School Year is active at any time, regardless of whether the others are future or past years.
+   - Show a confirmation screen before proceeding, summarizing what will become hidden from current users as a result — e.g., "Switching to 2026-27 will hide 12 open drafts and 8 unresolved action steps across 4 schools. This does not delete any data." Calculate these counts from the currently-active year's open Drafts, unresolved Action Steps, and Rescore Queue items.
+   - Require explicit confirmation (e.g., a confirm button, or typing the year name) before completing the switch.
+
+5. Support switching the active year both forward and backward — an admin should be able to select any existing School Year (not just ones created after the current one) and make it active again later, e.g. to pull up a number for a report. This is a normal, repeatable, reversible action, not a one-way migration.
