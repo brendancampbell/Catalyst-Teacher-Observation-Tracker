@@ -47,7 +47,7 @@ export interface BulkImportPersonPayload {
 
 export interface BulkImportPersonRowResult {
   row:     number;
-  status:  "created" | "skipped" | "error";
+  status:  "created" | "assigned" | "skipped" | "error";
   name?:   string;
   email?:  string;
   reason?: string;

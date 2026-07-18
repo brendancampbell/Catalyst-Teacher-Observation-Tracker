@@ -2382,9 +2382,11 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     }
   }
 
-  const succeeded = importResult?.filter((r) => r.status === "created") ?? [];
-  const skipped   = importResult?.filter((r) => r.status === "skipped") ?? [];
-  const errors    = importResult?.filter((r) => r.status === "error") ?? [];
+  const created  = importResult?.filter((r) => r.status === "created")  ?? [];
+  const assigned = importResult?.filter((r) => r.status === "assigned") ?? [];
+  const skipped  = importResult?.filter((r) => r.status === "skipped")  ?? [];
+  const errors   = importResult?.filter((r) => r.status === "error")    ?? [];
+  const succeeded = [...created, ...assigned];
 
   return (
     <div className="flex flex-col gap-4">
@@ -2523,12 +2525,34 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
       {/* Results */}
       {importResult && (
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <p className="font-semibold text-slate-700">
-              Import complete — {succeeded.length} imported, {skipped.length} skipped, {errors.length} errors
-            </p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-3">
+              {created.length > 0 && (
+                <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: "#dcfce7", color: "#15803d" }}>
+                  {created.length} new {created.length === 1 ? "hire" : "hires"} added
+                </span>
+              )}
+              {assigned.length > 0 && (
+                <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: "#dbeafe", color: "#1d4ed8" }}>
+                  {assigned.length} returning {assigned.length === 1 ? "staff" : "staff"} re-assigned
+                </span>
+              )}
+              {skipped.length > 0 && (
+                <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: "#fef9c3", color: "#a16207" }}>
+                  {skipped.length} already up to date
+                </span>
+              )}
+              {errors.length > 0 && (
+                <span className="text-sm font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: "#fee2e2", color: "#b91c1c" }}>
+                  {errors.length} {errors.length === 1 ? "error" : "errors"}
+                </span>
+              )}
+              {importResult.length === 0 && (
+                <span className="text-sm text-slate-500">No rows processed</span>
+              )}
+            </div>
             <button
-              className="px-4 py-1.5 rounded font-bold text-white text-sm"
+              className="shrink-0 px-4 py-1.5 rounded font-bold text-white text-sm"
               style={{ backgroundColor: NAVY }}
               onClick={onDone}
             >
@@ -2536,20 +2560,28 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
             </button>
           </div>
 
-          {succeeded.length > 0 && (
+          {created.length > 0 && (
             <ResultSection
-              title={`Imported (${succeeded.length})`}
-              rows={succeeded}
+              title={`New hires added (${created.length})`}
+              rows={created}
               headerStyle={{ backgroundColor: "#15803d", color: "white" }}
-              statusBadge={(r) => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">{r.status}</span>}
+              statusBadge={() => <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">New</span>}
+            />
+          )}
+          {assigned.length > 0 && (
+            <ResultSection
+              title={`Returning staff re-assigned (${assigned.length})`}
+              rows={assigned}
+              headerStyle={{ backgroundColor: "#1d4ed8", color: "white" }}
+              statusBadge={() => <span className="text-xs font-bold text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">Re-assigned</span>}
             />
           )}
           {skipped.length > 0 && (
             <ResultSection
-              title={`Skipped (${skipped.length})`}
+              title={`Already up to date (${skipped.length})`}
               rows={skipped}
               headerStyle={{ backgroundColor: "#d97706", color: "white" }}
-              statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "Skipped"}</span>}
+              statusBadge={(r) => <span className="text-xs font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">{r.reason ?? "No change"}</span>}
             />
           )}
           {errors.length > 0 && (
