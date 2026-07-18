@@ -898,7 +898,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
       firstName:               editFirstName.trim(),
       lastName:                editLastName.trim(),
       role:                    editRole,
-      schoolId:                editSchoolId,
       department:              editDept.trim() || null,
       gradeLevel:              editGrades,
       includeInFeedbackTracker: editObservable,
@@ -950,10 +949,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
   const addRoleSchoolMismatch   = isNetworkAdmin && addSchoolId !== null && (
     (addSchoolIsHO  && (["COACH", "SCHOOL_LEADER"] as PersonRole[]).includes(addRole)) ||
     (!addSchoolIsHO && (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(addRole))
-  );
-  const editRoleSchoolMismatch  = isNetworkAdmin && editSchoolId !== null && (
-    (editSchoolIsHO  && (["COACH", "SCHOOL_LEADER"] as PersonRole[]).includes(editRole as PersonRole)) ||
-    (!editSchoolIsHO && (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(editRole as PersonRole))
   );
   const filtersActive = filterRoles.length > 0 || filterSchools.length > 0;
 
@@ -1164,30 +1159,15 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         <input className={`${inputCls} flex-1 min-w-[130px]`} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="First name" autoFocus />
                         <input className={`${inputCls} flex-1 min-w-[130px]`} value={editLastName} onChange={(e) => setEditLastName(e.target.value)} placeholder="Last name" />
                         <input type="email" className={`${inputCls} flex-1 min-w-[200px]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="Email" />
-                        <select className={`${selCls} min-w-[150px]`} value={editRole} onChange={(e) => {
-                          const r = e.target.value as PersonRole;
-                          setEditRole(r);
-                          const isNR = (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(r);
-                          setEditSchoolId((isNR ? homeOfficeSchools : realSchools)[0]?.id ?? null);
-                        }}>
+                        <select className={`${selCls} min-w-[150px]`} value={editRole} onChange={(e) => setEditRole(e.target.value as PersonRole)}>
                           {availableRoles.map((r) => <option key={r} value={r}>{ALL_ROLES_MAP[r]}</option>)}
                         </select>
-                        {isNetworkAdmin && (() => {
-                          const isNR = (["NETWORK_LEADER", "NETWORK_ADMIN"] as PersonRole[]).includes(editRole as PersonRole);
-                          const roleList = isNR ? homeOfficeSchools : realSchools;
-                          /* If the current school isn't in the role-appropriate list (e.g. stale
-                             data or mismatched assignment), add it so the dropdown is never blank. */
-                          const currentInList = roleList.some((s) => s.id === editSchoolId);
-                          const currentSchool = !currentInList && editSchoolId !== null
-                            ? schools.find((s) => s.id === editSchoolId)
-                            : undefined;
-                          const optionList = currentSchool ? [currentSchool, ...roleList] : roleList;
-                          return (
-                            <select className={`${selCls} min-w-[160px]`} value={editSchoolId ?? ""} onChange={(e) => setEditSchoolId(e.target.value ? Number(e.target.value) : null)}>
-                              {optionList.map((s) => <option key={s.id} value={s.id}>{s.displayName}</option>)}
-                            </select>
-                          );
-                        })()}
+                        {isNetworkAdmin && (
+                          <span className="flex items-center gap-1 px-3 py-1.5 rounded border border-slate-200 bg-slate-50 text-sm text-slate-600 min-w-[160px]">
+                            {schools.find((s) => s.id === editSchoolId)?.displayName ?? "—"}
+                            <span className="text-xs text-slate-400 ml-1">(use Reassign to change)</span>
+                          </span>
+                        )}
                         <select className={`${selCls} min-w-[180px]`} value={editDept} onChange={(e) => setEditDept(e.target.value)}>
                           <option value="">— Department —</option>
                           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -1208,26 +1188,13 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport }: { isNetworkAdmin: b
                         <input type="checkbox" checked={editObservable} onChange={(e) => setEditObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
                         Include in Feedback Tracker (observable subject)
                       </label>
-                      {isNetworkAdmin && !editSchoolId && (
-                        <p className="text-xs font-medium" style={{ color: "#b45309" }}>School is required.</p>
-                      )}
-                      {editRoleSchoolMismatch && editSchoolIsHO && (
-                        <p className="text-xs font-medium" style={{ color: "#b45309" }}>
-                          Coaches and School Leaders cannot be assigned to the Home Office school.
-                        </p>
-                      )}
-                      {editRoleSchoolMismatch && !editSchoolIsHO && (
-                        <p className="text-xs font-medium" style={{ color: "#b45309" }}>
-                          Network Leaders and Admins must be assigned to the Home Office school.
-                        </p>
-                      )}
-                      {isNetworkAdmin && editObservable && editSchoolIsHO && !editRoleSchoolMismatch && (
+                      {isNetworkAdmin && editObservable && editSchoolIsHO && (
                         <p className="text-xs font-medium" style={{ color: "#b45309" }}>
                           Feedback tracker participants cannot be assigned to the Home Office school.
                         </p>
                       )}
                       <div className="flex gap-2">
-                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending || (isNetworkAdmin && !editSchoolId) || editRoleSchoolMismatch || (editObservable && editSchoolIsHO)}>{updateMut.isPending ? "Saving…" : "Save"}</button>
+                        <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending || (editObservable && editSchoolIsHO)}>{updateMut.isPending ? "Saving…" : "Save"}</button>
                         <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
                       </div>
                     </div>

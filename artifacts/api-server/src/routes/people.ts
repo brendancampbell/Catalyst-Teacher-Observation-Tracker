@@ -528,8 +528,13 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
       }
     }
 
+    /* Network Admins must use the /reassign endpoint to change school */
+    if (isNetworkAdmin && "schoolId" in req.body) {
+      res.status(400).json({ error: "School changes must be made using the Reassign action" }); return;
+    }
+
     const {
-      firstName, lastName, email, role, schoolId,
+      firstName, lastName, email, role,
       includeInFeedbackTracker, department, gradeLevel,
       isActive,
     } = req.body as Partial<{
@@ -537,7 +542,6 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
       lastName:                string;
       email:                   string;
       role:                    UserRole;
-      schoolId:                number | null;
       includeInFeedbackTracker: boolean;
       department:              string | null;
       gradeLevel:              string[] | null;
@@ -562,12 +566,11 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
       res.status(400).json({ error: "You cannot deactivate your own account" }); return;
     }
 
-    const effectiveRole     = role     ?? target.role;
-    const effectiveSchoolId = (isNetworkAdmin && schoolId !== undefined) ? schoolId : target.schoolId;
+    const effectiveRole     = role ?? target.role;
+    const effectiveSchoolId = target.schoolId;
     const effectiveInFT     = includeInFeedbackTracker !== undefined ? includeInFeedbackTracker : target.includeInFeedbackTracker;
 
-    /* ── Role/school Home Office validation (network admin only — school leaders
-          can't change schoolId so no new constraint to enforce on their requests) ── */
+    /* ── Role/school Home Office validation ── */
     if (isNetworkAdmin) {
       const roleSchoolError = await validateRoleSchool(
         effectiveRole,
@@ -578,8 +581,6 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
         res.status(400).json({ error: roleSchoolError }); return;
       }
     } else {
-      /* Even for school leaders, enforce that feedback tracker participants
-         have a real school (their own school is always real, so this is a safety check). */
       if (effectiveInFT && !effectiveSchoolId) {
         res.status(400).json({ error: "Users included in the feedback tracker must be assigned to a school" }); return;
       }
@@ -590,7 +591,6 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     if (lastName  !== undefined) updates.lastName  = lastName.trim();
     if (trimmedEmail !== undefined) updates.email  = trimmedEmail;
     if (role      !== undefined) updates.role      = role;
-    if (isNetworkAdmin && schoolId !== undefined) updates.schoolId = schoolId;
     if (includeInFeedbackTracker !== undefined) updates.includeInFeedbackTracker = includeInFeedbackTracker;
     if (department !== undefined) updates.department = department;
     if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
