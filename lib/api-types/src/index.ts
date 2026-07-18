@@ -467,9 +467,10 @@ export interface QualitativeThemesCacheResponse {
 /* ── School Years ────────────────────────────────────────────────── */
 
 export interface SchoolYearRow {
-  id:     number;
-  name:   string;
-  status: "active" | "inactive";
+  id:           number;
+  name:         string;
+  status:       "active" | "inactive";
+  displayOrder: number;
 }
 
 export interface SchoolYearActivationPreview {

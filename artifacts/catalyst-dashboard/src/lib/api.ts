@@ -647,6 +647,13 @@ export async function activateSchoolYear(yearId: number): Promise<SchoolYearRow>
   return apiFetch<SchoolYearRow>(`/admin/school-years/${yearId}/activate`, { method: "POST" });
 }
 
+export async function reorderSchoolYears(items: { id: number; displayOrder: number }[]): Promise<SchoolYearRow[]> {
+  return apiFetch<SchoolYearRow[]>("/admin/school-years/reorder", {
+    method: "PUT",
+    body: JSON.stringify(items),
+  });
+}
+
 export async function copyRubricSetForward(sourceSetId: number, targetSchoolYearId: number): Promise<RubricSetRow> {
   return apiFetch<RubricSetRow>(`/rubric/sets/${sourceSetId}/copy-forward`, {
     method: "POST",

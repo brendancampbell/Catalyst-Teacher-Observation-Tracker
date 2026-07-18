@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, X, Check, CheckCircle2, AlertTriangle, Zap,
-  BookOpen, Users, ArrowRight, CalendarDays, ChevronRight,
+  BookOpen, Users, ArrowRight, CalendarDays, ChevronRight, GripVertical,
 } from "lucide-react";
 import {
   fetchSchoolYears,
@@ -10,6 +10,7 @@ import {
   fetchSchoolYearRubricSets,
   fetchActivationPreview,
   activateSchoolYear,
+  reorderSchoolYears,
   copyRubricSetForward,
   fetchRubricSets,
   type SchoolYearRow,
@@ -32,6 +33,8 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
   const [newName, setNewName]           = useState("");
   const [showActivate, setShowActivate] = useState(false);
   const [confirmText, setConfirmText]   = useState("");
+  const [dragOverId, setDragOverId]     = useState<number | null>(null);
+  const dragItemId                       = useRef<number | null>(null);
 
   /* ── Queries ── */
   const yearsQ = useQuery<SchoolYearRow[]>({
@@ -96,6 +99,13 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
     },
   });
 
+  const reorderMut = useMutation({
+    mutationFn: (items: { id: number; displayOrder: number }[]) => reorderSchoolYears(items),
+    onSuccess: (updated) => {
+      qc.setQueryData(["admin-school-years"], updated);
+    },
+  });
+
   function handleMakeActive() {
     setConfirmText("");
     setShowActivate(true);
@@ -132,42 +142,73 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
             <div className="inline-block w-6 h-6 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
           </div>
         ) : (
-          <div className="flex flex-col py-1">
+          <div className="flex flex-col py-1" style={{ opacity: reorderMut.isPending ? 0.7 : 1 }}>
             {years.map((yr) => {
               const isActive   = yr.status === "active";
               const isSelected = yr.id === selectedId;
+              const isDragOver = dragOverId === yr.id;
               return (
-                <button
+                <div
                   key={yr.id}
-                  onClick={() => setSelectedId(yr.id)}
-                  className="flex items-center gap-2 px-3 py-2.5 text-left w-full transition-colors"
+                  draggable
+                  onDragStart={() => { dragItemId.current = yr.id; }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverId(yr.id); }}
+                  onDragLeave={() => setDragOverId(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverId(null);
+                    const fromId = dragItemId.current;
+                    dragItemId.current = null;
+                    if (fromId == null || fromId === yr.id) return;
+                    const fromIdx = years.findIndex((y) => y.id === fromId);
+                    const toIdx   = years.findIndex((y) => y.id === yr.id);
+                    if (fromIdx === -1 || toIdx === -1) return;
+                    const reordered = [...years];
+                    const [moved] = reordered.splice(fromIdx, 1);
+                    reordered.splice(toIdx, 0, moved);
+                    reorderMut.mutate(reordered.map((y, i) => ({ id: y.id, displayOrder: i })));
+                  }}
                   style={{
-                    backgroundColor: isSelected ? NAVY : "transparent",
-                    borderLeft: `3px solid ${isSelected ? YELLOW : "transparent"}`,
+                    borderTop: isDragOver ? `2px solid ${YELLOW}` : "2px solid transparent",
+                    cursor: "grab",
                   }}
                 >
-                  <span
-                    className="flex-1 min-w-0 truncate font-bold"
+                  <button
+                    onClick={() => setSelectedId(yr.id)}
+                    className="flex items-center gap-1.5 px-2 py-2.5 text-left w-full transition-colors"
                     style={{
-                      fontFamily: "'Bebas Neue', sans-serif",
-                      fontSize: 17,
-                      letterSpacing: "0.03em",
-                      color: isSelected ? "white" : NAVY,
+                      backgroundColor: isSelected ? NAVY : "transparent",
+                      borderLeft: `3px solid ${isSelected ? YELLOW : "transparent"}`,
                     }}
                   >
-                    {yr.name}
-                  </span>
-                  <span
-                    className="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded"
-                    style={
-                      isActive
-                        ? { backgroundColor: "#dcfce7", color: "#15803d" }
-                        : { backgroundColor: "#f1f5f9", color: "#94a3b8" }
-                    }
-                  >
-                    {isActive ? "ACTIVE" : "inactive"}
-                  </span>
-                </button>
+                    <GripVertical
+                      size={13}
+                      className="shrink-0"
+                      style={{ color: isSelected ? "rgba(255,255,255,0.4)" : "#cbd5e1" }}
+                    />
+                    <span
+                      className="flex-1 min-w-0 truncate font-bold"
+                      style={{
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontSize: 17,
+                        letterSpacing: "0.03em",
+                        color: isSelected ? "white" : NAVY,
+                      }}
+                    >
+                      {yr.name}
+                    </span>
+                    <span
+                      className="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded"
+                      style={
+                        isActive
+                          ? { backgroundColor: "#dcfce7", color: "#15803d" }
+                          : { backgroundColor: "#f1f5f9", color: "#94a3b8" }
+                      }
+                    >
+                      {isActive ? "ACTIVE" : "inactive"}
+                    </span>
+                  </button>
+                </div>
               );
             })}
             {years.length === 0 && (

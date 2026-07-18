@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, pool } from "@workspace/db";
 import { schoolYears, rubricSets } from "@workspace/db/schema";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { invalidateActiveSchoolYearCache } from "../lib/active-school-year";
 
@@ -9,10 +9,10 @@ const router = Router();
 
 router.use(requireNetworkAdmin);
 
-/* GET /api/admin/school-years — list all school years, newest first */
+/* GET /api/admin/school-years — list all school years in user-defined order */
 router.get("/", async (_req, res) => {
   try {
-    const rows = await db.select().from(schoolYears).orderBy(desc(schoolYears.id));
+    const rows = await db.select().from(schoolYears).orderBy(asc(schoolYears.displayOrder), asc(schoolYears.id));
     res.json(rows);
   } catch (err) {
     console.error("GET /admin/school-years error:", err);
@@ -20,7 +20,31 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/* POST /api/admin/school-years — create a new school year (always inactive) */
+/* PUT /api/admin/school-years/reorder — persist drag-and-drop order */
+router.put("/reorder", async (req, res) => {
+  try {
+    const items = req.body as { id: number; displayOrder: number }[];
+    if (!Array.isArray(items) || items.some((i) => typeof i.id !== "number" || typeof i.displayOrder !== "number")) {
+      res.status(400).json({ error: "Body must be [{ id, displayOrder }]" });
+      return;
+    }
+    await db.transaction(async (tx) => {
+      for (const item of items) {
+        await tx
+          .update(schoolYears)
+          .set({ displayOrder: item.displayOrder })
+          .where(eq(schoolYears.id, item.id));
+      }
+    });
+    const rows = await db.select().from(schoolYears).orderBy(asc(schoolYears.displayOrder), asc(schoolYears.id));
+    res.json(rows);
+  } catch (err) {
+    console.error("PUT /admin/school-years/reorder error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* POST /api/admin/school-years — create a new school year (always inactive, placed at top) */
 router.post("/", async (req, res) => {
   try {
     const { name } = req.body as { name?: string };
@@ -28,9 +52,10 @@ router.post("/", async (req, res) => {
       res.status(400).json({ error: "name is required" });
       return;
     }
+    await db.update(schoolYears).set({ displayOrder: sql`display_order + 1` });
     const [row] = await db
       .insert(schoolYears)
-      .values({ name: name.trim(), status: "inactive" })
+      .values({ name: name.trim(), status: "inactive", displayOrder: 0 })
       .returning();
     res.status(201).json(row);
   } catch (err) {
