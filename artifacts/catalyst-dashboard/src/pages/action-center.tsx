@@ -52,6 +52,10 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 
 const NAVY                  = "#1034B4";
 const YELLOW                = "#FFB500";
@@ -1074,6 +1078,8 @@ export default function ActionCenterPage() {
       if ((err as Error)?.name === "AbortError") return;
       setChatTyping(false);
       setStreamingText("");
+      /* 429 is handled by the exhaustion modal — don't also show a chat error */
+      if (err instanceof HttpError && err.status === 429) return;
       /* Only show error in the chat that sent the message */
       if (activeChatIdRef.current === sentForSession) {
         setChatMsgs((prev) => [
@@ -1125,11 +1131,11 @@ export default function ActionCenterPage() {
     } catch (err) {
       setChatTyping(false);
       setStreamingText("");
-      if (capturedSessionId === null || activeChatIdRef.current === capturedSessionId) {
-        const msg = err instanceof Error && err.message
-          ? err.message
-          : "Sorry, I couldn't generate the analysis right now. Please try again.";
-        setChatMsgs([{ role: "ai", text: msg }]);
+      /* 429 is handled by the exhaustion modal — don't also show a chat error */
+      if (!(err instanceof HttpError && err.status === 429)) {
+        if (capturedSessionId === null || activeChatIdRef.current === capturedSessionId) {
+          setChatMsgs([{ role: "ai", text: "Sorry, I couldn't generate the analysis right now. Please try again." }]);
+        }
       }
     } finally {
       setIsInstantAnalyzing(false);
@@ -2025,7 +2031,7 @@ export default function ActionCenterPage() {
                 >
                   <AlertTriangle size={16} className="shrink-0" style={{ color: "#d97706" }} />
                   <span className="flex-1 text-xs font-semibold" style={{ color: "#92400e" }}>
-                    {`${lowestRemaining} AI token${lowestRemaining !== 1 ? "s" : ""} remaining in this window. Tokens reset automatically every 15 minutes.`}
+                    You&apos;re running low on AI tokens for this window. Tokens reset automatically every 15 minutes.
                   </span>
                   <button
                     onClick={() => {
@@ -2442,53 +2448,59 @@ export default function ActionCenterPage() {
       )}
 
       {/* ── AI Quota Exhaustion Modal ────────────────────────────── */}
-      {showExhaustionModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      <Dialog
+        open={showExhaustionModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            exhaustionSuppressedRef.current = true;
+            setShowExhaustionModal(false);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md text-center"
+          onInteractOutside={(e) => e.preventDefault()}
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-7">
-            <div className="text-center">
+          <DialogHeader>
+            <div className="flex flex-col items-center gap-3">
               <div
-                className="mx-auto mb-4 flex items-center justify-center rounded-full w-14 h-14"
+                className="flex items-center justify-center rounded-full w-14 h-14"
                 style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d" }}
               >
                 <AlertTriangle size={26} style={{ color: "#d97706" }} />
               </div>
-              <h2
-                className="font-bold uppercase tracking-wide mb-2"
+              <DialogTitle
                 style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
               >
                 AI Tokens Exhausted
-              </h2>
-              <p className="text-sm text-slate-600 mb-2">
-                You've used all available AI tokens for this 15-minute window.
-              </p>
-              <p className="text-sm text-slate-600 mb-6">
-                Tokens reset automatically. Need access right away? Contact IT to request additional tokens.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <a
-                  href="mailto:ITSupport@uncommonschools.org?subject=AI%20Token%20Request"
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 15 }}
-                >
-                  Email IT Support
-                </a>
-                <button
-                  onClick={() => {
-                    exhaustionSuppressedRef.current = true;
-                    setShowExhaustionModal(false);
-                  }}
-                  className="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 transition-colors hover:bg-slate-50"
-                >
-                  Dismiss
-                </button>
-              </div>
+              </DialogTitle>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogHeader>
+          <DialogDescription className="text-sm text-slate-600 text-center">
+            You&apos;ve used all available AI tokens for this 15-minute window.
+            Tokens reset automatically. Need access right away? Contact IT to request additional tokens.
+          </DialogDescription>
+          <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-3">
+            <a
+              href="mailto:ITSupport@uncommonschools.org?subject=AI%20Token%20Request"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 15 }}
+            >
+              Email IT Support
+            </a>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                exhaustionSuppressedRef.current = true;
+                setShowExhaustionModal(false);
+              }}
+            >
+              Dismiss
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
