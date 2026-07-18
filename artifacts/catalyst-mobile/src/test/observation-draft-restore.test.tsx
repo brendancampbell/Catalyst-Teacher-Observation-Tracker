@@ -153,6 +153,11 @@ describe("ObservationPage — draft restore round-trip", () => {
     /* Server always returns no drafts → forces localStorage fallback path */
     mockFetchMyDrafts.mockResolvedValue([]);
 
+    /* confirmSwitch saves the current draft before switching teachers;
+       createObservation must resolve with an id or it crashes on obs.id. */
+    vi.mocked(createObservation).mockResolvedValue({ id: 999 } as never);
+    vi.mocked(updateObservation).mockResolvedValue({} as never);
+
     mockApiFetch.mockImplementation((url: string) => {
       if (url.includes("/api/people")) {
         return Promise.resolve([TEACHER_A, TEACHER_B]);
@@ -199,13 +204,16 @@ describe("ObservationPage — draft restore round-trip", () => {
       { timeout: 4000 },
     );
 
-    /* Switch to Teacher B — no draft for B → form resets */
+    /* Switch to Teacher B — form has content so the "Switch teacher?" dialog
+       appears; confirm the save-and-switch to proceed */
     const select = screen.getByRole("combobox");
     fireEvent.change(select, { target: { value: "emp-002" } });
+    await screen.findByText("Save draft & switch teacher");
+    fireEvent.click(screen.getByRole("button", { name: "Save draft & switch teacher" }));
 
     await waitFor(
       () => expect(strengthsField().value).toBe(""),
-      { timeout: 4000 },
+      { timeout: 6000 },
     );
   });
 
@@ -225,14 +233,19 @@ describe("ObservationPage — draft restore round-trip", () => {
       { timeout: 4000 },
     );
 
-    /* Switch to Teacher B */
+    /* Switch to Teacher B — form has content → dialog appears → confirm */
     fireEvent.change(select, { target: { value: "emp-002" } });
+    await screen.findByText("Save draft & switch teacher");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save draft & switch teacher"));
+    });
     await waitFor(
       () => expect(strengthsField().value).toBe(""),
-      { timeout: 4000 },
+      { timeout: 6000 },
     );
 
-    /* Switch back to Teacher A — draft must restore */
+    /* Switch back to Teacher A — Teacher B's form is empty so no dialog;
+       Teacher A's draft should restore from localStorage */
     fireEvent.change(select, { target: { value: "emp-001" } });
     await waitFor(
       () => expect(strengthsField().value).toBe("Great use of cold call"),
@@ -353,9 +366,10 @@ describe("ObservationPage — draft restore round-trip", () => {
 
     renderPage();
 
-    /* Checkbox only renders when lastActionStep is open; verify it ends up checked */
+    /* The "Mark as Mastered" button acts as the toggle; when the draft restores
+       masterActionStepId the button caption switches to "Marked as Mastered". */
     await waitFor(
-      () => expect(screen.getByRole("checkbox")).toBeChecked(),
+      () => expect(screen.getByText("Marked as Mastered")).toBeTruthy(),
       { timeout: 4000 },
     );
   });
@@ -387,9 +401,13 @@ describe("ObservationPage — draft restore round-trip", () => {
       { timeout: 4000 },
     );
 
-    /* Switch to Teacher B — no draft for B → action step fields clear */
+    /* Switch to Teacher B — form has content → dialog → confirm save-and-switch */
     const select = screen.getByRole("combobox");
     fireEvent.change(select, { target: { value: "emp-002" } });
+    await screen.findByText("Save draft & switch teacher");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save draft & switch teacher"));
+    });
 
     await waitFor(
       () => {

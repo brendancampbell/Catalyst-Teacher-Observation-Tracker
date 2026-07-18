@@ -278,6 +278,11 @@ export default function ObservationPage() {
 
   useEffect(() => {
     if (!teacherId || !selectedRubric?.id || resumeDraftIdParam) return;
+    /* Prevent the autosave effect from writing stale form values (from the
+       previous teacher) into the new teacher's localStorage key before this
+       effect's setState calls have been committed.  The autosave effect checks
+       this same flag and skips one cycle when it is true. */
+    draftJustLoaded.current = true;
     setDate(todayIso);
     setCourse("");
     setScores({});
@@ -323,6 +328,13 @@ export default function ObservationPage() {
   const scoresJson = JSON.stringify(scores);
   useEffect(() => {
     if (!teacherId || !selectedRubric?.id || isSubmittingRef.current) return;
+    /* Always clear the one-shot guard first so it is never left set when the
+       form happens to be empty (e.g. switching to a teacher with no draft). */
+    if (draftJustLoaded.current) {
+      draftJustLoaded.current = false;
+      return;
+    }
+
     const hasContent =
       Object.keys(scores).length > 0 ||
       strengths.trim().length > 0 ||
@@ -330,11 +342,6 @@ export default function ObservationPage() {
       actionStepText.trim().length > 0 ||
       actionStepDueDate.length > 0;
     if (!hasContent) return;
-
-    if (draftJustLoaded.current) {
-      draftJustLoaded.current = false;
-      return;
-    }
 
     const masterActionStepId =
       markMastered && lastActionStep?.status === "open" ? lastActionStep.id : null;
