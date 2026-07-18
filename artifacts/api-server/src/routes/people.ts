@@ -4,6 +4,15 @@ import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { requireRole, assertNetworkSchoolAccess, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
+import { dashboardCache } from "./dashboard";
+import { districtCache }  from "./district";
+import { networkAvgsCache } from "./action-center";
+
+function invalidateAllCaches() {
+  dashboardCache.invalidatePrefix("dashboard:");
+  districtCache.invalidatePrefix("district:");
+  networkAvgsCache.invalidatePrefix("network-avgs:");
+}
 
 const router = Router();
 
@@ -276,6 +285,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       .leftJoin(schools, eq(people.schoolId, schools.id))
       .where(eq(people.employeeId, created.employeeId));
 
+    invalidateAllCaches();
     res.status(201).json(withName(withSchool!));
   } catch (err: unknown) {
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
@@ -657,6 +667,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       }
     }
 
+    invalidateAllCaches();
     res.json({ results });
   } catch (err) {
     console.error("POST /people/bulk error:", err);
@@ -799,6 +810,7 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
       .where(eq(people.employeeId, empId));
 
     if (!withSchool) { res.status(404).json({ error: "Person not found" }); return; }
+    invalidateAllCaches();
     res.json(withName(withSchool));
   } catch (err: unknown) {
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
@@ -860,6 +872,7 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
       .leftJoin(schools, eq(people.schoolId, schools.id))
       .where(eq(people.employeeId, updated.employeeId));
 
+    invalidateAllCaches();
     res.json(withName(withSchool!));
   } catch (err) {
     console.error("PATCH /people/:employeeId/toggle-active error:", err);
@@ -919,6 +932,7 @@ router.post("/:employeeId/reassign", requireRole("NETWORK_ADMIN"), async (req, r
       .where(eq(people.employeeId, empId));
 
     if (!withSchool) { res.status(404).json({ error: "Person not found after update" }); return; }
+    invalidateAllCaches();
     res.json(withName(withSchool));
   } catch (err) {
     console.error("POST /people/:employeeId/reassign error:", err);
