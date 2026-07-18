@@ -497,3 +497,9 @@ export interface AIQuotaGrant {
   note:                string | null;
   createdAt:           string;
 }
+
+export interface AIQuotaGrantWithPerson extends AIQuotaGrant {
+  personFirstName: string | null;
+  personLastName:  string | null;
+  personEmail:     string | null;
+}

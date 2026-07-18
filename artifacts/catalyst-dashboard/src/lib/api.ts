@@ -691,12 +691,17 @@ export async function fetchAIQuotaStatus(): Promise<AIQuotaStatus> {
 
 /* ── AI Quota Grants ─────────────────────────────────────────────── */
 
-import type { AIQuotaGrant, AIQuotaGrantType } from "@workspace/api-types";
-export type { AIQuotaGrant, AIQuotaGrantType };
+import type { AIQuotaGrant, AIQuotaGrantType, AIQuotaGrantWithPerson } from "@workspace/api-types";
+export type { AIQuotaGrant, AIQuotaGrantType, AIQuotaGrantWithPerson };
 
 export async function fetchAIQuotaGrants(employeeId: string, includeAll = true): Promise<AIQuotaGrant[]> {
   const qs = includeAll ? "?all=true" : "";
   return apiFetch<AIQuotaGrant[]>(`/ai/quota-grants/${encodeURIComponent(employeeId)}${qs}`);
+}
+
+export async function fetchAllAIQuotaGrants(includeAll = false): Promise<AIQuotaGrantWithPerson[]> {
+  const qs = includeAll ? "?all=true" : "";
+  return apiFetch<AIQuotaGrantWithPerson[]>(`/ai/quota-grants${qs}`);
 }
 
 export async function createAIQuotaGrant(payload: {

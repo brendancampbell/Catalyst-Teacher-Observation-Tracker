@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { aiQuotaGrants } from "@workspace/db/schema";
+import { aiQuotaGrants, people } from "@workspace/db/schema";
 import { eq, and, gt, sql, desc } from "drizzle-orm";
 import { requireNetworkScope } from "../middleware/auth";
 
@@ -8,6 +8,43 @@ const router = Router();
 
 /* All endpoints require network admin scope */
 router.use(requireNetworkScope);
+
+/* ── GET /api/ai/quota-grants ───────────────────────────────────────
+   Lists all quota grants network-wide, joined with person name info.
+   Pass ?all=true to include expired and exhausted grants as well.    */
+router.get("/", async (req, res) => {
+  const includeAll = req.query.all === "true";
+
+  const query = db
+    .select({
+      id:                  aiQuotaGrants.id,
+      employeeId:          aiQuotaGrants.employeeId,
+      grantType:           aiQuotaGrants.grantType,
+      extraRequests:       aiQuotaGrants.extraRequests,
+      usedRequests:        aiQuotaGrants.usedRequests,
+      expiresAt:           aiQuotaGrants.expiresAt,
+      grantedByEmployeeId: aiQuotaGrants.grantedByEmployeeId,
+      note:                aiQuotaGrants.note,
+      createdAt:           aiQuotaGrants.createdAt,
+      personFirstName:     people.firstName,
+      personLastName:      people.lastName,
+      personEmail:         people.email,
+    })
+    .from(aiQuotaGrants)
+    .leftJoin(people, eq(aiQuotaGrants.employeeId, people.employeeId))
+    .orderBy(desc(aiQuotaGrants.createdAt));
+
+  const grants = includeAll
+    ? await query
+    : await query.where(
+        and(
+          gt(aiQuotaGrants.expiresAt, new Date()),
+          sql`${aiQuotaGrants.usedRequests} < ${aiQuotaGrants.extraRequests}`,
+        ),
+      );
+
+  res.json(grants);
+});
 
 /* ── GET /api/ai/quota-grants/:employeeId ───────────────────────────
    Returns active grants for the user. Pass ?all=true to include

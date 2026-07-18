@@ -34,6 +34,7 @@ import {
   deleteAdminSchool,
   bulkImportSchools,
   fetchAIQuotaGrants,
+  fetchAllAIQuotaGrants,
   createAIQuotaGrant,
   revokeAIQuotaGrant,
   REGIONS,
@@ -51,6 +52,7 @@ import {
   type BulkSchoolResult,
   type AIQuotaGrant,
   type AIQuotaGrantType,
+  type AIQuotaGrantWithPerson,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -2640,10 +2642,353 @@ function ResultSection({
 }
 
 /* ════════════════════════════════════════════════════════════════
+   AI QUOTA TAB
+   Network admins can manage quota grants for all users.
+   ════════════════════════════════════════════════════════════════ */
+
+function AIQuotaTab() {
+  const queryClient = useQueryClient();
+  const [showAll,       setShowAll]       = useState(false);
+  const [showGrantForm, setShowGrantForm] = useState(false);
+  const [search,        setSearch]        = useState("");
+
+  const [grantEmployeeId,    setGrantEmployeeId]    = useState("");
+  const [grantType,          setGrantType]          = useState<AIQuotaGrantType>("chat");
+  const [grantExtraRequests, setGrantExtraRequests] = useState(20);
+  const [grantExpiresHours,  setGrantExpiresHours]  = useState(24);
+  const [grantNote,          setGrantNote]          = useState("");
+
+  const qKey = ["ai-quota-grants-all", showAll] as const;
+
+  const { data: grants = [], isLoading } = useQuery<AIQuotaGrantWithPerson[]>({
+    queryKey: qKey,
+    queryFn:  () => fetchAllAIQuotaGrants(showAll),
+  });
+
+  const { data: allPeople = [] } = useQuery<PersonRow[]>({
+    queryKey: ["people"],
+    queryFn:  () => fetchPeople({ includeInactive: false }),
+    staleTime: 60_000,
+  });
+
+  const createMut = useMutation({
+    mutationFn: () => createAIQuotaGrant({
+      employeeId:     grantEmployeeId,
+      grantType,
+      extraRequests:  grantExtraRequests,
+      expiresInHours: grantExpiresHours,
+      note:           grantNote.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ai-quota-grants-all"] });
+      setShowGrantForm(false);
+      setGrantEmployeeId("");
+      setGrantNote("");
+    },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const revokeMut = useMutation({
+    mutationFn: (id: number) => revokeAIQuotaGrant(id),
+    onSuccess:  () => queryClient.invalidateQueries({ queryKey: ["ai-quota-grants-all"] }),
+  });
+
+  const now = Date.now();
+
+  function formatExpiry(expiresAt: string) {
+    const diff = new Date(expiresAt).getTime() - now;
+    if (diff <= 0) return "Expired";
+    const hrs  = Math.floor(diff / 3_600_000);
+    const mins = Math.floor((diff % 3_600_000) / 60_000);
+    if (hrs >= 24) return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+    if (hrs > 0)   return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  }
+
+  const GRANT_LABELS: Record<AIQuotaGrantType, string> = {
+    chat:       "Chat",
+    generation: "Generation",
+    all:        "All AI",
+  };
+
+  const filtered = grants.filter((g) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const name = `${g.personFirstName ?? ""} ${g.personLastName ?? ""}`.toLowerCase();
+    return (
+      name.includes(q) ||
+      (g.personEmail ?? "").toLowerCase().includes(q) ||
+      g.employeeId.toLowerCase().includes(q)
+    );
+  });
+
+  const eligiblePeople = allPeople.filter((p) => p.role !== "NO_ACCESS");
+
+  const inputCls = "border border-slate-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300";
+
+  return (
+    <main className="flex-1 px-4 sm:px-6 py-5 max-w-5xl mx-auto w-full flex flex-col gap-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-bold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
+            AI Quota Grants
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Grant extra AI requests to users who have hit their rate limit.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
+            <input
+              type="checkbox"
+              checked={showAll}
+              onChange={(e) => setShowAll(e.target.checked)}
+              className="accent-blue-600 w-4 h-4"
+            />
+            Show expired / exhausted
+          </label>
+          <button
+            onClick={() => { setShowGrantForm(true); setGrantEmployeeId(""); setGrantNote(""); setGrantType("chat"); setGrantExtraRequests(20); setGrantExpiresHours(24); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
+          >
+            <Plus size={14} /> New Grant
+          </button>
+        </div>
+      </div>
+
+      {/* New grant form */}
+      {showGrantForm && (
+        <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col gap-4" style={{ border: `2px solid ${NAVY}` }}>
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-sm" style={{ color: NAVY }}>New Quota Grant</p>
+            <button onClick={() => setShowGrantForm(false)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* User select */}
+            <div className="flex flex-col gap-1 sm:col-span-3">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">User</label>
+              <select
+                className={`${inputCls} py-2`}
+                value={grantEmployeeId}
+                onChange={(e) => setGrantEmployeeId(e.target.value)}
+              >
+                <option value="">— Select a user —</option>
+                {eligiblePeople.map((p) => (
+                  <option key={p.employeeId} value={p.employeeId}>
+                    {p.name} ({p.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</label>
+              <select
+                className={inputCls}
+                value={grantType}
+                onChange={(e) => setGrantType(e.target.value as AIQuotaGrantType)}
+              >
+                <option value="chat">Chat (bypasses 20/15 min)</option>
+                <option value="generation">Generation (bypasses 10/15 min)</option>
+                <option value="all">All AI (bypasses both)</option>
+              </select>
+            </div>
+
+            {/* Extra requests */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Extra Requests</label>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                className={inputCls}
+                value={grantExtraRequests}
+                onChange={(e) => setGrantExtraRequests(Math.max(1, Math.min(500, Number(e.target.value))))}
+              />
+            </div>
+
+            {/* Expiry */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Expires In</label>
+              <select
+                className={inputCls}
+                value={grantExpiresHours}
+                onChange={(e) => setGrantExpiresHours(Number(e.target.value))}
+              >
+                <option value={4}>4 hours</option>
+                <option value={24}>24 hours</option>
+                <option value={48}>48 hours</option>
+                <option value={72}>72 hours</option>
+                <option value={168}>7 days</option>
+              </select>
+            </div>
+
+            {/* Note */}
+            <div className="flex flex-col gap-1 sm:col-span-3">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Note (optional)</label>
+              <input
+                type="text"
+                maxLength={120}
+                className={inputCls}
+                placeholder="e.g. End-of-quarter review"
+                value={grantNote}
+                onChange={(e) => setGrantNote(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowGrantForm(false)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => createMut.mutate()}
+              disabled={!grantEmployeeId || createMut.isPending}
+              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY }}
+            >
+              {createMut.isPending ? "Granting…" : "Grant Access"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Grants table */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <div className="px-4 py-2.5" style={{ backgroundColor: NAVY, borderBottom: `3px solid ${YELLOW}` }}>
+          <span className="font-bold uppercase text-white" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.04em" }}>
+            {showAll ? "All Grants" : "Active Grants"}
+          </span>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="inline-block w-8 h-8 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <Zap size={32} className="mx-auto text-slate-200 mb-3" />
+            <p className="text-slate-400 text-sm font-medium">
+              {search
+                ? "No grants match your search."
+                : showAll
+                ? "No grants on record."
+                : "No active grants right now."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Used / Total</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Expires</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Note</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((g) => {
+                  const isExpiredOrExhausted =
+                    new Date(g.expiresAt).getTime() <= now || g.usedRequests >= g.extraRequests;
+                  return (
+                    <tr
+                      key={g.id}
+                      className="transition-colors hover:bg-slate-50"
+                      style={{ opacity: isExpiredOrExhausted ? 0.55 : 1 }}
+                    >
+                      <td className="px-4 py-2.5">
+                        <p className="font-semibold text-slate-700">
+                          {g.personFirstName && g.personLastName
+                            ? `${g.personFirstName} ${g.personLastName}`
+                            : g.employeeId}
+                        </p>
+                        {g.personEmail && (
+                          <p className="text-xs text-slate-400">{g.personEmail}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={
+                            isExpiredOrExhausted
+                              ? { backgroundColor: "#f1f5f9", color: "#64748b" }
+                              : { backgroundColor: "#dcfce7", color: "#15803d" }
+                          }
+                        >
+                          {GRANT_LABELS[g.grantType]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600 tabular-nums">
+                        {g.usedRequests} / {g.extraRequests}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600 text-xs whitespace-nowrap">
+                        {isExpiredOrExhausted
+                          ? (g.usedRequests >= g.extraRequests ? "Exhausted" : "Expired")
+                          : formatExpiry(g.expiresAt)}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">
+                        {g.note ?? "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <button
+                          className="text-slate-300 hover:text-red-500 p-1.5 rounded transition-colors disabled:opacity-40"
+                          title={isExpiredOrExhausted ? "Remove record" : "Revoke grant"}
+                          onClick={() => {
+                            const msg = isExpiredOrExhausted
+                              ? "Remove this grant record?"
+                              : "Revoke this active quota grant?";
+                            if (confirm(msg)) revokeMut.mutate(g.id);
+                          }}
+                          disabled={revokeMut.isPending}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {!isLoading && filtered.length > 0 && (
+        <p className="text-xs text-slate-400 text-center pb-2">
+          {filtered.length} grant{filtered.length !== 1 ? "s" : ""} shown
+        </p>
+      )}
+    </main>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "people" | "schools" | "school-years";
+type AdminTab = "rubric" | "people" | "schools" | "school-years" | "ai-quota";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -2787,14 +3132,16 @@ export default function AdminPage() {
     ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]           : []),
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
+    ...(isNetworkAdmin ? [{ id: "ai-quota" as AdminTab,      label: "AI Quota" }]         : []),
   ];
 
   const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
   const visibleTab: AdminTab =
     (activeTab === "rubric"       && !isNetworkAdmin)   ? defaultTab :
     (activeTab === "people"       && !canManagePeople)  ? defaultTab :
-    (activeTab === "schools"      && !isNetworkAdmin) ? defaultTab :
-    (activeTab === "school-years" && !isNetworkAdmin) ? defaultTab :
+    (activeTab === "schools"      && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "school-years" && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "ai-quota"     && !isNetworkAdmin)   ? defaultTab :
     activeTab;
 
   return (
@@ -3025,6 +3372,7 @@ export default function AdminPage() {
       {visibleTab === "school-years" && isNetworkAdmin  && (
         <AdminSchoolYearsTab onGoToUsers={() => setActiveTab("people")} />
       )}
+      {visibleTab === "ai-quota"     && isNetworkAdmin  && <AIQuotaTab />}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
       {showNewRubricSetDialog && (
