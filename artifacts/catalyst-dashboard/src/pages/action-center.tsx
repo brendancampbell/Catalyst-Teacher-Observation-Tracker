@@ -935,7 +935,6 @@ export default function ActionCenterPage() {
   const isLow         = chatRemaining !== Infinity && (chatRemaining <= 3 || genRemaining <= 3) &&
                         chatRemaining > 0 && genRemaining > 0;
   const isExhausted   = chatRemaining === 0 || genRemaining === 0;
-  const lowestRemaining = Math.min(chatRemaining, genRemaining);
 
   /* Register/unregister the global 429 handler while this page is mounted */
   const handleQuotaExhausted = useCallback(() => {

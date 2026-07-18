@@ -94,6 +94,10 @@ args = "mobile-textarea-autoresize"
 task = "workflow.run"
 args = "patch-people-school-change-lockout"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-ai-quota-warning"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -288,6 +292,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:patch-people-school-change-lockout"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-ai-quota-warning"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && CHROMIUM_PATH=$(which chromium) pnpm test:e2e e2e/ai-quota-warning.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
