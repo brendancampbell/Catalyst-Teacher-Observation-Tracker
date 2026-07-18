@@ -166,7 +166,10 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
       .where(whereClause)
       .orderBy(people.lastName, people.firstName);
 
-    res.json(rows.map(withName));
+    res.json(rows.map((row) => ({
+      ...withName(row),
+      schoolOrphaned: row.schoolId !== null && row.schoolName === null,
+    })));
   } catch (err) {
     console.error("GET /people error:", err);
     res.status(500).json({ error: "Internal server error" });

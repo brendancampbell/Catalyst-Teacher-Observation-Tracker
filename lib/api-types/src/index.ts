@@ -27,6 +27,8 @@ export interface PersonRow {
   role:                     PersonRole;
   schoolId:                 number | null;
   schoolName:               string | null;
+  /** True when schoolId is non-null but the school row no longer exists in the DB. */
+  schoolOrphaned?:          boolean;
   isActive:                 boolean;
   includeInFeedbackTracker: boolean;
   department:               string | null;

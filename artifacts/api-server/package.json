@@ -44,7 +44,8 @@
     "test:bulk-reassignment-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-bulk-reassignment-validation.ts",
     "test:patch-people-school-change-lockout": "bash ../../scripts/wait-for-api.sh tsx --test src/test-patch-people-school-change-lockout.ts",
     "test:category-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-category-deletion-guard.ts",
-    "test:action-step-upsert": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-upsert.ts"
+    "test:action-step-upsert": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-upsert.ts",
+    "test:people-school-orphaned": "bash ../../scripts/wait-for-api.sh tsx --test src/test-people-school-orphaned.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
