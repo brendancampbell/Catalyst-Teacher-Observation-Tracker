@@ -146,10 +146,13 @@ router.get("/drafts", async (req, res) => {
         growthAreas:         observations.growthAreas,
         observer:            observations.observer,
         status:              observations.status,
+        actionStepText:      actionSteps.text,
+        actionStepDueDate:   actionSteps.dueDate,
       })
       .from(observations)
       .leftJoin(people,     eq(people.employeeId, observations.observedEmployeeId))
       .innerJoin(rubricSets, eq(rubricSets.id,    observations.rubricSetId))
+      .leftJoin(actionSteps, eq(actionSteps.assignedDuringObservationId, observations.id))
       .where(and(
         eq(observations.observerEmployeeId, currentUser.employeeId),
         eq(observations.status, "draft"),
@@ -181,18 +184,20 @@ router.get("/drafts", async (req, res) => {
       teacherName:       d.personFirst
         ? [d.personFirst, d.personLast].filter(Boolean).join(" ") || undefined
         : undefined,
-      rubricSetId:   d.rubricSetId,
-      rubricSetSlug: d.rubricSetSlug,
-      rubricSetName: d.rubricSetName,
-      date:          d.date,
-      time:          d.time ?? undefined,
-      course:        d.course ?? undefined,
-      isWalkthrough: d.isWalkthrough,
-      strengths:     d.strengths ?? undefined,
-      growthAreas:   d.growthAreas ?? undefined,
-      observer:      d.observer,
-      status:        d.status,
-      scores:        scoresByObs.get(d.id) ?? {},
+      rubricSetId:      d.rubricSetId,
+      rubricSetSlug:    d.rubricSetSlug,
+      rubricSetName:    d.rubricSetName,
+      date:             d.date,
+      time:             d.time ?? undefined,
+      course:           d.course ?? undefined,
+      isWalkthrough:    d.isWalkthrough,
+      strengths:        d.strengths ?? undefined,
+      growthAreas:      d.growthAreas ?? undefined,
+      actionStepText:   d.actionStepText ?? undefined,
+      actionStepDueDate: d.actionStepDueDate ?? undefined,
+      observer:         d.observer,
+      status:           d.status,
+      scores:           scoresByObs.get(d.id) ?? {},
     })));
   } catch (err) {
     console.error("GET /observations/drafts error:", err);

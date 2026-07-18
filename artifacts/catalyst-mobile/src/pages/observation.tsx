@@ -206,6 +206,8 @@ export default function ObservationPage() {
     setScores(draft.scores as Partial<Record<string, Score>>);
     setStrengths(draft.strengths ?? "");
     setGrowthAreas(draft.growthAreas ?? "");
+    setActionStepText(draft.actionStepText ?? "");
+    setActionStepDueDate(draft.actionStepDueDate ?? "");
     setIsWalkthrough(draft.isWalkthrough);
     setDraftId(draft.id);
     setAutoSaveStatus("saved");

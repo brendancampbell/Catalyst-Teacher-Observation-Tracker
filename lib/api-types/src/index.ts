@@ -323,6 +323,8 @@ export interface DraftObservation {
   isWalkthrough:      boolean;
   strengths?:         string;
   growthAreas?:       string;
+  actionStepText?:    string;
+  actionStepDueDate?: string;
   observer:           string;
   status:             "draft";
   scores:             Record<string, Score>;

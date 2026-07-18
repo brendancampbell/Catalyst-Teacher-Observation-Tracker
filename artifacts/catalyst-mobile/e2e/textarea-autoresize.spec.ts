@@ -1,9 +1,9 @@
 /**
  * textarea-autoresize.spec.ts
  *
- * Confirms the Strengths and Growth Areas textareas auto-expand to show their
- * full content after a draft is restored — from localStorage OR from the API
- * (/api/observations/drafts).
+ * Confirms the Strengths, Growth Areas, and Action Step textareas auto-expand
+ * to show their full content after a draft is restored — from localStorage OR
+ * from the API (/api/observations/drafts).
  *
  * Two restore paths are exercised
  * --------------------------------
@@ -58,6 +58,13 @@ const GROWTH_TEXT =
   "Growth line 3 — teacher talked over student responses\n" +
   "Growth line 4 — re-teach moment was missed\n" +
   "Growth line 5 — pacing slowed in the last 10 minutes";
+
+const ACTION_STEP_TEXT =
+  "Action step line 1 — craft two higher-order CFU questions per lesson\n" +
+  "Action step line 2 — design exit ticket with explicit success criteria\n" +
+  "Action step line 3 — practice wait time after student responses\n" +
+  "Action step line 4 — identify re-teach trigger during planning\n" +
+  "Action step line 5 — build a two-minute buffer into the lesson plan";
 
 /** Seed school + rubric into localStorage so NETWORK_ADMIN can reach the form. */
 async function seedLocalStorage(
@@ -131,18 +138,22 @@ test.describe("Textarea auto-resize on draft restore", () => {
   test("textareas are not clipped while typing (pre-save baseline)", async ({ page }) => {
     const strengthsTA = page.getByPlaceholder("What is this teacher doing well?");
     const growthAreasTA = page.getByPlaceholder("Where should this teacher focus next?");
+    const actionStepTA = page.getByPlaceholder("Describe the action step for this teacher…");
 
     await expect(strengthsTA).toBeVisible({ timeout: 10_000 });
     await expect(growthAreasTA).toBeVisible({ timeout: 10_000 });
+    await expect(actionStepTA).toBeVisible({ timeout: 10_000 });
 
     await strengthsTA.fill(STRENGTHS_TEXT);
     await growthAreasTA.fill(GROWTH_TEXT);
+    await actionStepTA.fill(ACTION_STEP_TEXT);
 
     // Allow the onChange resize effects to run.
     await page.waitForTimeout(300);
 
     const sMetrics = await textareaMetrics(strengthsTA);
     const gMetrics = await textareaMetrics(growthAreasTA);
+    const aMetrics = await textareaMetrics(actionStepTA);
 
     expect(
       sMetrics.clipped,
@@ -152,20 +163,27 @@ test.describe("Textarea auto-resize on draft restore", () => {
       gMetrics.clipped,
       `Growth Areas textarea clipped while typing: scrollH=${gMetrics.scrollHeight}, clientH=${gMetrics.clientHeight}`,
     ).toBe(false);
+    expect(
+      aMetrics.clipped,
+      `Action Step textarea clipped while typing: scrollH=${aMetrics.scrollHeight}, clientH=${aMetrics.clientHeight}`,
+    ).toBe(false);
   });
 
   // ── Test 2: localStorage restore path ────────────────────────────────────
   test("textareas resize correctly after localStorage draft restore", async ({ page }) => {
     const strengthsTA = page.getByPlaceholder("What is this teacher doing well?");
     const growthAreasTA = page.getByPlaceholder("Where should this teacher focus next?");
+    const actionStepTA = page.getByPlaceholder("Describe the action step for this teacher…");
 
     await expect(strengthsTA).toBeVisible({ timeout: 10_000 });
     await expect(growthAreasTA).toBeVisible({ timeout: 10_000 });
+    await expect(actionStepTA).toBeVisible({ timeout: 10_000 });
 
     // Type text. The auto-save useEffect writes to localStorage synchronously
     // (line 363 of observation.tsx) before the 2-second API debounce fires.
     await strengthsTA.fill(STRENGTHS_TEXT);
     await growthAreasTA.fill(GROWTH_TEXT);
+    await actionStepTA.fill(ACTION_STEP_TEXT);
 
     // Let React commit the effect so localStorage is populated.
     await page.waitForTimeout(400);
@@ -184,6 +202,7 @@ test.describe("Textarea auto-resize on draft restore", () => {
     await expect(page.locator("#obs-form")).toBeVisible({ timeout: 20_000 });
     await expect(strengthsTA).toBeVisible({ timeout: 10_000 });
     await expect(growthAreasTA).toBeVisible({ timeout: 10_000 });
+    await expect(actionStepTA).toBeVisible({ timeout: 10_000 });
 
     // Allow draft restore + resize effects to settle.
     await page.waitForTimeout(600);
@@ -191,10 +210,12 @@ test.describe("Textarea auto-resize on draft restore", () => {
     // 2a) Assert the text was actually restored (not just an empty textarea).
     await expect(strengthsTA).toHaveValue(STRENGTHS_TEXT, { timeout: 5_000 });
     await expect(growthAreasTA).toHaveValue(GROWTH_TEXT, { timeout: 5_000 });
+    await expect(actionStepTA).toHaveValue(ACTION_STEP_TEXT, { timeout: 5_000 });
 
     // 2b) Assert no vertical clipping.
     const sMetrics = await textareaMetrics(strengthsTA);
     const gMetrics = await textareaMetrics(growthAreasTA);
+    const aMetrics = await textareaMetrics(actionStepTA);
 
     expect(
       sMetrics.clipped,
@@ -203,6 +224,10 @@ test.describe("Textarea auto-resize on draft restore", () => {
     expect(
       gMetrics.clipped,
       `Growth Areas textarea clipped after localStorage restore: scrollH=${gMetrics.scrollHeight}, clientH=${gMetrics.clientHeight}`,
+    ).toBe(false);
+    expect(
+      aMetrics.clipped,
+      `Action Step textarea clipped after localStorage restore: scrollH=${aMetrics.scrollHeight}, clientH=${aMetrics.clientHeight}`,
     ).toBe(false);
   });
 
@@ -225,6 +250,9 @@ test.describe("Textarea auto-resize on draft restore", () => {
     // Step 2: create a draft observation via Playwright's API request context.
     // page.request sends no Origin header → CSRF middleware passes it through
     // in development (only enforces when isProduction=true or Origin is present).
+    // The actionStep field requires both text and dueDate; we pair it with
+    // tomorrow's date so the form's condition is satisfied on restore.
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split("T")[0]!;
     const createResp = await page.request.post("/api/observations", {
       data: {
         observedEmployeeId: teacherEid,
@@ -232,6 +260,7 @@ test.describe("Textarea auto-resize on draft restore", () => {
         date: today,
         strengths: STRENGTHS_TEXT,
         growthAreas: GROWTH_TEXT,
+        newActionStep: { text: ACTION_STEP_TEXT, dueDate: tomorrow },
         status: "draft",
       },
     });
@@ -250,15 +279,17 @@ test.describe("Textarea auto-resize on draft restore", () => {
 
     // Step 5: navigate to the observation form. checkForDraft() fires, calls
     // fetchMyDrafts(), finds our draft, and calls loadDraftIntoForm(). The
-    // resize useEffects fire on the restored strengths/growthAreas state.
+    // resize useEffects fire on the restored strengths/growthAreas/actionStep state.
     await page.goto("/catalyst-mobile/observation");
     await expect(page.locator("#obs-form")).toBeVisible({ timeout: 20_000 });
 
     const strengthsTA = page.getByPlaceholder("What is this teacher doing well?");
     const growthAreasTA = page.getByPlaceholder("Where should this teacher focus next?");
+    const actionStepTA = page.getByPlaceholder("Describe the action step for this teacher…");
 
     await expect(strengthsTA).toBeVisible({ timeout: 10_000 });
     await expect(growthAreasTA).toBeVisible({ timeout: 10_000 });
+    await expect(actionStepTA).toBeVisible({ timeout: 10_000 });
 
     // Allow the API draft fetch + state update + resize effects to settle.
     await page.waitForTimeout(1_000);
@@ -266,10 +297,12 @@ test.describe("Textarea auto-resize on draft restore", () => {
     // 3a) Assert the text was restored from the API draft.
     await expect(strengthsTA).toHaveValue(STRENGTHS_TEXT, { timeout: 8_000 });
     await expect(growthAreasTA).toHaveValue(GROWTH_TEXT, { timeout: 8_000 });
+    await expect(actionStepTA).toHaveValue(ACTION_STEP_TEXT, { timeout: 8_000 });
 
     // 3b) Assert no vertical clipping.
     const sMetrics = await textareaMetrics(strengthsTA);
     const gMetrics = await textareaMetrics(growthAreasTA);
+    const aMetrics = await textareaMetrics(actionStepTA);
 
     expect(
       sMetrics.clipped,
@@ -278,6 +311,10 @@ test.describe("Textarea auto-resize on draft restore", () => {
     expect(
       gMetrics.clipped,
       `Growth Areas textarea clipped after API restore: scrollH=${gMetrics.scrollHeight}, clientH=${gMetrics.clientHeight}`,
+    ).toBe(false);
+    expect(
+      aMetrics.clipped,
+      `Action Step textarea clipped after API restore: scrollH=${aMetrics.scrollHeight}, clientH=${aMetrics.clientHeight}`,
     ).toBe(false);
   });
 });
