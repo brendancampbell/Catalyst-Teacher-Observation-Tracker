@@ -5,7 +5,7 @@ import {
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
 } from "@workspace/db/schema";
 import { schoolYears } from "@workspace/db/schema";
-import { asc, count, eq, and, ne, max } from "drizzle-orm";
+import { asc, count, eq, and, ne, max, inArray } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 
@@ -376,7 +376,31 @@ router.put("/categories/:id", requireNetworkAdmin, async (req, res) => {
 /* ── DELETE /api/rubric/categories/:id ─────────────────────────── */
 router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
   try {
-    await db.delete(rubricCategories).where(eq(rubricCategories.id, Number(req.params.id)));
+    const catId = Number(req.params.id);
+    const force = req.query.force === "true";
+
+    if (!force) {
+      const domains = await db.query.rubricDomains.findMany({
+        where: eq(rubricDomains.categoryId, catId),
+        columns: { slug: true },
+      });
+      if (domains.length > 0) {
+        const slugs = domains.map((d) => d.slug);
+        const [{ scoreCount }] = await db
+          .select({ scoreCount: count() })
+          .from(observationScores)
+          .where(inArray(observationScores.domainSlug, slugs));
+        if (Number(scoreCount) > 0) {
+          res.status(409).json({
+            error: `Cannot delete: ${scoreCount} observation score(s) reference this category's domains.`,
+            scoreCount: Number(scoreCount),
+          });
+          return;
+        }
+      }
+    }
+
+    await db.delete(rubricCategories).where(eq(rubricCategories.id, catId));
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /rubric/categories/:id error:", err);

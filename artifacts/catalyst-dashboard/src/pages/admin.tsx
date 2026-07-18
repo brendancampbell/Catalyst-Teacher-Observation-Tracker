@@ -53,6 +53,7 @@ import {
   type AIQuotaGrant,
   type AIQuotaGrantType,
   type AIQuotaGrantWithPerson,
+  HttpError,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
@@ -123,6 +124,18 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
   const delCatMut = useMutation({
     mutationFn: (id: number) => deleteCategory(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+    onError: (err: Error, id: number) => {
+      const httpErr = err as HttpError;
+      if (httpErr.status === 409 && httpErr.scoreCount !== undefined) {
+        const n = httpErr.scoreCount;
+        const msg = `This category has ${n} observation score${n === 1 ? "" : "s"} linked to its domains. Deleting it will permanently remove that scoring data.\n\nAre you sure you want to delete anyway?`;
+        if (window.confirm(msg)) {
+          deleteCategory(id, true)
+            .then(() => queryClient.invalidateQueries({ queryKey: qKey }))
+            .catch((e: Error) => window.alert(`Delete failed: ${e.message}`));
+        }
+      }
+    },
   });
 
   const addDomMut = useMutation({
@@ -251,7 +264,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button>
-                  <button className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (confirm(`Delete category "${cat.name}" and all its domains?`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button>
+                  <button className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (window.confirm(`Delete category "${cat.name}" and all its domains? This cannot be undone.`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button>
                 </div>
               </>
             )}

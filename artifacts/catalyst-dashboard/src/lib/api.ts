@@ -218,8 +218,9 @@ export async function updateCategory(id: number, name: string): Promise<RubricCa
   });
 }
 
-export async function deleteCategory(id: number): Promise<void> {
-  await apiFetch<void>(`/rubric/categories/${id}`, { method: "DELETE" });
+export async function deleteCategory(id: number, force?: boolean): Promise<void> {
+  const qs = force ? "?force=true" : "";
+  await apiFetch<void>(`/rubric/categories/${id}${qs}`, { method: "DELETE" });
 }
 
 export async function reorderCategories(items: { id: number; displayOrder: number }[]): Promise<void> {
@@ -289,10 +290,12 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export class HttpError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  scoreCount?: number;
+  constructor(status: number, message: string, extra?: { scoreCount?: number }) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    if (extra?.scoreCount !== undefined) this.scoreCount = extra.scoreCount;
   }
 }
 
@@ -324,9 +327,13 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let message: string;
-    try { message = (JSON.parse(text) as { error?: string }).error ?? res.statusText; }
-    catch { message = text || res.statusText; }
-    const err = new HttpError(res.status, message);
+    let extra: { scoreCount?: number } | undefined;
+    try {
+      const body = JSON.parse(text) as { error?: string; scoreCount?: number };
+      message = body.error ?? res.statusText;
+      if (body.scoreCount !== undefined) extra = { scoreCount: body.scoreCount };
+    } catch { message = text || res.statusText; }
+    const err = new HttpError(res.status, message, extra);
     if (res.status === 401 && _unauthorizedHandler) {
       _unauthorizedHandler();
     }
