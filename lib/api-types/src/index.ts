@@ -463,3 +463,20 @@ export interface QualitativeThemesCacheResponse {
   } | null;
   currentObsCount: number;
 }
+
+/* ── School Years ────────────────────────────────────────────────── */
+
+export interface SchoolYearRow {
+  id:     number;
+  name:   string;
+  status: "active" | "inactive";
+}
+
+export interface SchoolYearActivationPreview {
+  openDrafts:            number;
+  unresolvedActionSteps: number;
+  rescoreQueueItems:     number;
+  schoolsAffected:       number;
+  activeYearName:        string | null;
+  activeYearId:          number | null;
+}

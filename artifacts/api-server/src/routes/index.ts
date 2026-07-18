@@ -13,6 +13,7 @@ import aiRouter from "./ai";
 import emailRouter from "./email";
 import peopleRouter from "./people";
 import qualitativeThemesRouter from "./qualitative-themes";
+import adminSchoolYearsRouter from "./admin-school-years";
 import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middleware/auth";
 import { isProduction } from "../config/env";
 
@@ -34,7 +35,8 @@ router.use("/teachers",     requireAuth, teachersRouter);
 router.use("/observations", requireAuth, observationsRouter);
 router.use("/rubric",       requireAuth, rubricRouter);
 router.use("/people",       requireAuth, peopleRouter);
-router.use("/admin/schools",requireAuth, requireNetworkScope, adminSchoolsRouter);
+router.use("/admin/schools",      requireAuth, requireNetworkScope, adminSchoolsRouter);
+router.use("/admin/school-years", requireAuth, adminSchoolYearsRouter);
 router.use("/action-center",requireAuth, actionCenterRouter);
 router.use("/action-steps", requireAuth, actionStepsRouter);
 router.use("/ai",                  requireAuth, aiRouter);

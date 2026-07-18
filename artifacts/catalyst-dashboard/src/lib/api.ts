@@ -608,3 +608,38 @@ export async function sendObservationEmail(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+/* ── Admin: School Years ─────────────────────────────────────────── */
+
+import type { SchoolYearRow, SchoolYearActivationPreview } from "@workspace/api-types";
+export type { SchoolYearRow, SchoolYearActivationPreview };
+
+export async function fetchSchoolYears(): Promise<SchoolYearRow[]> {
+  return apiFetch<SchoolYearRow[]>("/admin/school-years");
+}
+
+export async function createSchoolYear(name: string): Promise<SchoolYearRow> {
+  return apiFetch<SchoolYearRow>("/admin/school-years", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function fetchSchoolYearRubricSets(yearId: number): Promise<RubricSetRow[]> {
+  return apiFetch<RubricSetRow[]>(`/admin/school-years/${yearId}/rubric-sets`);
+}
+
+export async function fetchActivationPreview(yearId: number): Promise<SchoolYearActivationPreview> {
+  return apiFetch<SchoolYearActivationPreview>(`/admin/school-years/${yearId}/activation-preview`);
+}
+
+export async function activateSchoolYear(yearId: number): Promise<SchoolYearRow> {
+  return apiFetch<SchoolYearRow>(`/admin/school-years/${yearId}/activate`, { method: "POST" });
+}
+
+export async function copyRubricSetForward(sourceSetId: number, targetSchoolYearId: number): Promise<RubricSetRow> {
+  return apiFetch<RubricSetRow>(`/rubric/sets/${sourceSetId}/copy-forward`, {
+    method: "POST",
+    body: JSON.stringify({ targetSchoolYearId }),
+  });
+}

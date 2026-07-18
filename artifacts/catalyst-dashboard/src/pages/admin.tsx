@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2 } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
@@ -2195,7 +2196,7 @@ function ResultSection({
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "people" | "schools";
+type AdminTab = "rubric" | "people" | "schools" | "school-years";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -2334,16 +2335,18 @@ export default function AdminPage() {
   const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
-    ...(isNetworkAdmin  ? [{ id: "rubric" as AdminTab,  label: "Rubric Settings" }]    : []),
-    ...(canManagePeople ? [{ id: "people" as AdminTab,  label: "Users" }]              : []),
-    ...(isNetworkAdmin  ? [{ id: "schools" as AdminTab, label: "Schools" }]             : []),
+    ...(isNetworkAdmin  ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
+    ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]            : []),
+    ...(isNetworkAdmin  ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
+    ...(isNetworkAdmin  ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
   ];
 
   const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
   const visibleTab: AdminTab =
-    (activeTab === "rubric"  && !isNetworkAdmin)  ? defaultTab :
-    (activeTab === "people"  && !canManagePeople) ? defaultTab :
-    (activeTab === "schools" && !isNetworkAdmin)  ? defaultTab :
+    (activeTab === "rubric"       && !isNetworkAdmin)  ? defaultTab :
+    (activeTab === "people"       && !canManagePeople) ? defaultTab :
+    (activeTab === "schools"      && !isNetworkAdmin)  ? defaultTab :
+    (activeTab === "school-years" && !isNetworkAdmin)  ? defaultTab :
     activeTab;
 
   return (
@@ -2565,11 +2568,14 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab === "people"  && canManagePeople  && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
-      {visibleTab === "schools" && isNetworkAdmin   && (
+      {visibleTab === "people"       && canManagePeople && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} />}
+      {visibleTab === "schools"      && isNetworkAdmin  && (
         <main className="flex-1 px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
           <SchoolSettings />
         </main>
+      )}
+      {visibleTab === "school-years" && isNetworkAdmin  && (
+        <AdminSchoolYearsTab onGoToUsers={() => setActiveTab("people")} />
       )}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
