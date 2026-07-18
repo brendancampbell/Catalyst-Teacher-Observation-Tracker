@@ -18,6 +18,7 @@ interface Props {
   schoolId:   number | null;
   schoolName: string;
   rubricSlug: string;
+  rubricName: string;
   basePath:   string;
 }
 
@@ -87,7 +88,7 @@ function ThemeRow({
   );
 }
 
-export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug }: Props) {
+export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug, rubricName }: Props) {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -121,7 +122,7 @@ export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug }: Prop
               Qualitative Trends
             </CardTitle>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              {displaySchoolName} · {rubricSlug} · based on observer comments (glows, grows & action steps)
+              {displaySchoolName} · {rubricName} · based on observer comments (glows, grows & action steps)
             </p>
           </div>
 

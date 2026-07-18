@@ -1340,6 +1340,7 @@ export default function ActionCenterPage() {
                   schoolId={effectiveSchoolId}
                   schoolName={schoolNameFromUrl}
                   rubricSlug={rubricFromUrl}
+                  rubricName={quarters.find((q) => q.slug === rubricFromUrl)?.name ?? rubricFromUrl}
                   basePath={baseUrl}
                 />
               ) : null;
