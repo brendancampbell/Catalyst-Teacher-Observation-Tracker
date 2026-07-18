@@ -6,6 +6,8 @@ Catalyst is a publicly deployed principal observation platform for Uncommon Scho
 
 Production scope for this scan is the API server plus the Catalyst dashboard and Catalyst mobile clients. Legacy or experimental artifacts such as `artifacts/mockup-sandbox` should be treated as dev-only unless production reachability is demonstrated. Assume `NODE_ENV=production` in deployed environments.
 
+Current production account-management logic also enforces an important scoping invariant: `NETWORK_LEADER` and `NETWORK_ADMIN` accounts are expected to be assigned to the Home Office school rather than to region schools. Findings that depend on unsupported out-of-band rows for school-assigned network users should be treated as out of scope unless production reachability is demonstrated through a real application flow.
+
 ## Assets
 
 - **User accounts and sessions** — Google-authenticated staff sessions, role assignments, impersonation state, and school/network scope. Compromise allows access to sensitive staff performance data and privileged admin functions.
@@ -31,7 +33,7 @@ Production scope for this scan is the API server plus the Catalyst dashboard and
 - Public surfaces: `/api/auth/google`, `/api/auth/google/callback`, `/api/app`
 - Authenticated surfaces: dashboard, teacher, observation, people, AI, email, impersonation, admin-school routes
 - Expensive external-service surfaces: `/api/ai/chat`, `/api/ai/chat/stream`, `/api/ai/analysis`, `/api/ai/school-summary`, `/api/qualitative-themes/generate`, `/api/email/send-observation`
-- Dev-only or currently unreachable areas usually ignored unless proven reachable: `artifacts/mockup-sandbox`, legacy GBF rename paths beyond the explicit redirect in `app.ts`, and unmounted route files such as `artifacts/api-server/src/routes/users.ts`
+- Dev-only or currently unreachable areas usually ignored unless proven reachable: `artifacts/mockup-sandbox`, legacy GBF rename paths beyond the explicit redirect in `app.ts`, unmounted route files such as `artifacts/api-server/src/routes/users.ts`, and hypothetical school-assigned `NETWORK_LEADER` / `NETWORK_ADMIN` rows that current production account-management flows no longer create
 
 ## Threat Categories
 
