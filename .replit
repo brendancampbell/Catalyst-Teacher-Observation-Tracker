@@ -114,6 +114,10 @@ args = "dashboard-rubric-domain-slug-validation"
 task = "workflow.run"
 args = "test:category-deletion-guard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mobile-test"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -363,6 +367,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:category-deletion-guard"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "mobile-test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/catalyst-mobile run test"
 
 [workflows.workflow.metadata]
 isValidation = true
