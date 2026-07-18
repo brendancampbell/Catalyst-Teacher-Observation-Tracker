@@ -28,6 +28,10 @@ import { inArray, eq, and, isNull, not } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { people, schools, assignments } from "@workspace/db/schema";
 
+/* Employee ID for a temporary SCHOOL_LEADER used in the scope-guard test.
+ * Seeded in before(), removed in after(). */
+const TEMP_SL_EID = "TBUU_TEMP_SL";
+
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 /* ── HTTP helpers ─────────────────────────────────────────────────────────── */
@@ -74,10 +78,9 @@ function makeEmail(tag: string): string {
 }
 
 async function cleanupAll() {
-  if (testPersonEmployeeIds.length > 0) {
-    await db.delete(people).where(inArray(people.employeeId, testPersonEmployeeIds));
-    testPersonEmployeeIds = [];
-  }
+  const toDelete = [...testPersonEmployeeIds, TEMP_SL_EID];
+  await db.delete(people).where(inArray(people.employeeId, toDelete));
+  testPersonEmployeeIds = [];
 }
 
 /* ── Tests ───────────────────────────────────────────────────────────────── */
@@ -115,6 +118,19 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     schoolAId    = realSchools[0]!.id;
     schoolBId    = realSchools[1]!.id;
     homeOfficeId = hoSchools[0]!.id;
+
+    /* Seed a temporary SCHOOL_LEADER in schoolA for test 8's scope-guard check */
+    await db.delete(people).where(eq(people.employeeId, TEMP_SL_EID)).catch(() => {});
+    await db.insert(people).values({
+      employeeId:               TEMP_SL_EID,
+      firstName:                "Temp",
+      lastName:                 "SchoolLeader",
+      email:                    "temp.sl.tbuu@example.com",
+      role:                     "SCHOOL_LEADER",
+      schoolId:                 schoolAId,
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
   });
 
   after(async () => {
@@ -473,6 +489,72 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
       schoolBId,
       `Denormalized schoolId should be synced to ${schoolBId} even on a "skipped" row — got ${person.schoolId}`,
     );
+  });
+
+  /* ── 8. SCHOOL_LEADER cannot reassign a person from another school ───── */
+
+  test("8 — SCHOOL_LEADER bulk-uploading a person from a different school → rejected as 'error'", async () => {
+    /* Seed a person in schoolB (TEMP_SL_EID is in schoolA, so this is a cross-school attempt) */
+    const empId = makeEmployeeId();
+    const email = makeEmail("t8");
+    const today = new Date().toISOString().slice(0, 10);
+    testPersonEmployeeIds.push(empId);
+
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT8",
+      email,
+      role:                     "COACH",
+      schoolId:                 schoolBId,     /* ← a different school from TEMP_SL_EID's schoolA */
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+    await db.insert(assignments).values({
+      userId:    empId,
+      role:      "COACH",
+      schoolId:  schoolBId,
+      startDate: today,
+      endDate:   null,
+    });
+
+    /* Log in as the temp SCHOOL_LEADER (who belongs to schoolA, not schoolB) */
+    const slJar = await loginAs(TEMP_SL_EID);
+
+    /* Try to bulk-upload the person from schoolB — should be rejected */
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT8",
+      email,
+      role:       "COACH",
+      school:     String(schoolBId), /* will be ignored (forced to SCHOOL_LEADER's own school) */
+    }], slJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "error",
+      `Expected "error" for cross-school existing person, got "${body.results[0]!.status}"`,
+    );
+    assert.ok(
+      body.results[0]!.reason?.toLowerCase().includes("own school"),
+      `Error reason should mention "own school" — got: "${body.results[0]!.reason}"`,
+    );
+
+    /* Person in schoolB must be completely untouched */
+    const [person] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empId));
+    assert.equal(person?.role, "COACH", "Person's role must be unchanged");
+    assert.equal(person?.schoolId, schoolBId, "Person must still be in schoolB");
+
+    const [active] = await db
+      .select({ schoolId: assignments.schoolId })
+      .from(assignments)
+      .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
+    assert.equal(active?.schoolId, schoolBId, "Active assignment must still be for schoolB");
   });
 
   /* ── 7. Conflicting employeeId + email → reject with "error" ─────────── */

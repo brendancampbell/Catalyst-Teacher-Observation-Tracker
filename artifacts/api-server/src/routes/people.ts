@@ -501,6 +501,29 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
           const existingPerson = byEmpId ?? byEmail;
 
           if (existingPerson) {
+            /* ── Scope guard: SCHOOL_LEADER can only manage their own school ── */
+            /*
+             * For NETWORK_ADMIN callers this is unrestricted. For SCHOOL_LEADER
+             * callers, the matched existing person must currently belong to the
+             * caller's school (or be unassigned / NO_ACCESS) — mirroring the
+             * PATCH /:employeeId scope check. Without this guard a SCHOOL_LEADER
+             * could "steal" someone from another school by submitting their
+             * employeeId in the bulk CSV.
+             */
+            if (
+              !isNetworkAdmin &&
+              existingPerson.schoolId !== null &&
+              existingPerson.schoolId !== currentUser.schoolId &&
+              existingPerson.role !== "NO_ACCESS"
+            ) {
+              results.push({
+                row:    rowNum,
+                status: "error",
+                name:   displayName!,
+                email,
+                reason: "School Leaders can only manage users within their own school",
+              });
+            } else {
             /* ── Existing person: upsert assignment + sync denormalized fields ── */
             let resultStatus: "assigned" | "skipped" = "skipped";
             let skipReason: string | undefined;
@@ -562,6 +585,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
             } else {
               results.push({ row: rowNum, status: "assigned", name: displayName!, email });
             }
+            } // end scope-guard else (SCHOOL_LEADER in own school)
           } else {
             /* ── New person: create person + assignment ── */
             await db.transaction(async (tx) => {
