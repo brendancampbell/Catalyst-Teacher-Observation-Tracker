@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit, { ipKeyGenerator, MemoryStore } from "express-rate-limit";
 import { db } from "@workspace/db";
 import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
 import {
@@ -12,8 +12,9 @@ import {
   rubricSets,
   chatSessions,
   chatMessages,
+  aiQuotaGrants,
 } from "@workspace/db/schema";
-import { eq, and, inArray, sql, desc, or, isNull } from "drizzle-orm";
+import { eq, and, inArray, sql, desc, or, isNull, gt } from "drizzle-orm";
 import {
   generateAIResponseRaw,
   generateAIResponseStreamRaw,
@@ -34,11 +35,16 @@ import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 const router = Router();
 
+/* ── In-memory rate-limiter stores (one per limiter so usage-status can query them) ── */
+const chatStore       = new MemoryStore();
+const generationStore = new MemoryStore();
+
 /* ── Per-user rate limiters for AI generation endpoints ──────────────
    Chat/stream: 20 requests per 15-minute window per user.
    Heavy generation (analysis, school-summary): 10 per 15-minute window.
    Uses employeeId as the key so limits are per account, not per IP.  */
 const aiChatLimiter = rateLimit({
+  store:    chatStore,
   windowMs: 15 * 60 * 1000,
   limit: 20,
   keyGenerator: (req) => {
@@ -79,6 +85,7 @@ const aiChatLimiter = rateLimit({
 });
 
 const aiGenerationLimiter = rateLimit({
+  store:    generationStore,
   windowMs: 15 * 60 * 1000,
   limit: 10,
   keyGenerator: (req) => {
@@ -323,6 +330,66 @@ async function buildCalibrationFlags(
   }
   return flags.sort((a, b) => b.delta - a.delta);
 }
+
+/* ── GET /api/ai/usage-status ────────────────────────────────────────
+   Returns remaining AI request capacity for the authenticated user.
+   Reads current-window hit counts from the in-memory rate-limiter stores
+   and layers in any active quota grants from the database.              */
+const AI_CHAT_LIMIT       = 20;
+const AI_GENERATION_LIMIT = 10;
+
+router.get("/usage-status", async (req, res) => {
+  try {
+    const user = req.user as Express.User | undefined;
+    if (!user) { res.status(401).json({ error: "Authentication required" }); return; }
+
+    const key = user.employeeId;
+
+    const [chatInfo, genInfo] = await Promise.all([
+      chatStore.get(key),
+      generationStore.get(key),
+    ]);
+
+    const chatHits = chatInfo?.totalHits ?? 0;
+    const genHits  = genInfo?.totalHits  ?? 0;
+
+    const chatWindowRemaining = Math.max(0, AI_CHAT_LIMIT       - chatHits);
+    const genWindowRemaining  = Math.max(0, AI_GENERATION_LIMIT - genHits);
+
+    const now = new Date();
+    const allGrants = await db
+      .select()
+      .from(aiQuotaGrants)
+      .where(and(eq(aiQuotaGrants.employeeId, key), gt(aiQuotaGrants.expiresAt, now)));
+
+    const activeGrants = allGrants.filter((g) => g.usedRequests < g.extraRequests);
+
+    let chatGrantRemaining = 0;
+    let genGrantRemaining  = 0;
+
+    for (const g of activeGrants) {
+      const rem = g.extraRequests - g.usedRequests;
+      if (g.grantType === "chat" || g.grantType === "all") chatGrantRemaining += rem;
+      if (g.grantType === "generation" || g.grantType === "all") genGrantRemaining += rem;
+    }
+
+    res.json({
+      chat: {
+        remaining:       chatWindowRemaining + chatGrantRemaining,
+        windowRemaining: chatWindowRemaining,
+        hasGrant:        chatGrantRemaining > 0,
+      },
+      generation: {
+        remaining:       genWindowRemaining + genGrantRemaining,
+        windowRemaining: genWindowRemaining,
+        hasGrant:        genGrantRemaining > 0,
+      },
+    });
+  } catch (err) {
+    console.error("GET /ai/usage-status error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 /* ── GET /api/ai/chats ──────────────────────────────────────────── */
 router.get("/chats", async (req, res) => {

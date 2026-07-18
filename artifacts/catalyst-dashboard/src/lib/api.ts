@@ -306,6 +306,15 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   _unauthorizedHandler = fn;
 }
 
+/* ── Centralized 429 / quota-exhaustion handler ────────────────────────────
+   Registered by ActionCenterPage to surface the exhaustion modal whenever
+   any AI endpoint returns 429 — including the streaming chat endpoint.     */
+let _quotaExhaustedHandler: (() => void) | null = null;
+
+export function setQuotaExhaustedHandler(fn: (() => void) | null): void {
+  _quotaExhaustedHandler = fn;
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/api${path}`, {
     credentials: "include",
@@ -320,6 +329,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const err = new HttpError(res.status, message);
     if (res.status === 401 && _unauthorizedHandler) {
       _unauthorizedHandler();
+    }
+    if (res.status === 429 && _quotaExhaustedHandler) {
+      _quotaExhaustedHandler();
     }
     throw err;
   }
@@ -430,7 +442,12 @@ export async function streamAIChat(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? res.statusText);
+    const msg = (err as { error?: string }).error ?? res.statusText;
+    const httpErr = new HttpError(res.status, msg);
+    if (res.status === 429 && _quotaExhaustedHandler) {
+      _quotaExhaustedHandler();
+    }
+    throw httpErr;
   }
 
   const reader = res.body!.getReader();
@@ -659,6 +676,17 @@ export async function copyRubricSetForward(sourceSetId: number, targetSchoolYear
     method: "POST",
     body: JSON.stringify({ targetSchoolYearId }),
   });
+}
+
+/* ── AI Quota Status ─────────────────────────────────────────────── */
+
+export interface AIQuotaStatus {
+  chat:       { remaining: number; windowRemaining: number; hasGrant: boolean };
+  generation: { remaining: number; windowRemaining: number; hasGrant: boolean };
+}
+
+export async function fetchAIQuotaStatus(): Promise<AIQuotaStatus> {
+  return apiFetch<AIQuotaStatus>("/ai/usage-status");
 }
 
 /* ── AI Quota Grants ─────────────────────────────────────────────── */

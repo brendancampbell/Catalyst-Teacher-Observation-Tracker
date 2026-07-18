@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
   Activity, Globe2, FileText,
-  RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle, Copy,
+  RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle, Copy, AlertTriangle,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -27,7 +27,10 @@ import {
   fetchChatSessionMessages,
   renameChatSession,
   deleteChatSession,
+  fetchAIQuotaStatus,
+  setQuotaExhaustedHandler,
   HttpError,
+  type AIQuotaStatus,
   type RescoreQueueItem,
   type OverdueTeacher,
   type OverdueActionStep,
@@ -907,6 +910,50 @@ export default function ActionCenterPage() {
   const activeChatIdRef                             = useRef<number | null>(null);
   const abortControllerRef                          = useRef<AbortController | null>(null);
   const chatTextareaRef                             = useRef<HTMLTextAreaElement>(null);
+
+  /* ── AI Quota state ─────────────────────────────────────── */
+  const [showExhaustionModal, setShowExhaustionModal] = useState(false);
+  const [bannerDismissed, setBannerDismissed]         = useState(() =>
+    typeof window !== "undefined" && sessionStorage.getItem("ai_quota_banner_dismissed") === "true",
+  );
+  const exhaustionSuppressedRef = useRef(false);
+  const prevExhaustedRef        = useRef(false);
+
+  const { data: quotaStatus } = useQuery<AIQuotaStatus>({
+    queryKey:       ["ai-quota-status"],
+    queryFn:        fetchAIQuotaStatus,
+    refetchInterval: 60_000,
+    staleTime:       30_000,
+  });
+
+  const chatRemaining = quotaStatus?.chat.remaining       ?? Infinity;
+  const genRemaining  = quotaStatus?.generation.remaining ?? Infinity;
+  const isLow         = chatRemaining !== Infinity && (chatRemaining <= 3 || genRemaining <= 3) &&
+                        chatRemaining > 0 && genRemaining > 0;
+  const isExhausted   = chatRemaining === 0 || genRemaining === 0;
+  const lowestRemaining = Math.min(chatRemaining, genRemaining);
+
+  /* Register/unregister the global 429 handler while this page is mounted */
+  const handleQuotaExhausted = useCallback(() => {
+    exhaustionSuppressedRef.current = false;
+    setShowExhaustionModal(true);
+  }, []);
+
+  useEffect(() => {
+    setQuotaExhaustedHandler(handleQuotaExhausted);
+    return () => setQuotaExhaustedHandler(null);
+  }, [handleQuotaExhausted]);
+
+  /* Show exhaustion modal when polling detects 0 remaining (once per episode) */
+  useEffect(() => {
+    if (isExhausted && !prevExhaustedRef.current && !exhaustionSuppressedRef.current) {
+      setShowExhaustionModal(true);
+    }
+    if (!isExhausted) {
+      exhaustionSuppressedRef.current = false;
+    }
+    prevExhaustedRef.current = isExhausted;
+  }, [isExhausted]);
 
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
@@ -1963,6 +2010,33 @@ export default function ActionCenterPage() {
                 </button>
               </div>
 
+              {/* ── AI Quota Warning Banner ─────────────────────────────── */}
+              {(isLow || isExhausted) && !bannerDismissed && (
+                <div className="shrink-0 mx-3 mt-3 flex items-center gap-3 rounded-lg border px-3 py-2.5"
+                  style={{ borderColor: "#fcd34d", backgroundColor: "#fffbeb" }}
+                >
+                  <AlertTriangle size={16} className="shrink-0" style={{ color: "#d97706" }} />
+                  <span className="flex-1 text-xs font-semibold" style={{ color: "#92400e" }}>
+                    {isExhausted
+                      ? "Your AI tokens are exhausted. Tokens reset every 15 minutes, or contact IT to request more."
+                      : `${lowestRemaining} AI token${lowestRemaining !== 1 ? "s" : ""} remaining in this window. Tokens reset automatically every 15 minutes.`}
+                  </span>
+                  {!isExhausted && (
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem("ai_quota_banner_dismissed", "true");
+                        setBannerDismissed(true);
+                      }}
+                      className="shrink-0 transition-opacity hover:opacity-70"
+                      aria-label="Dismiss"
+                      style={{ color: "#d97706" }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {activeChatId === null ? (
                 /* ── Empty state ── */
                 <div className="flex-1 flex flex-col items-center justify-center px-3 py-10">
@@ -2361,6 +2435,55 @@ export default function ActionCenterPage() {
           rubricSetAudience={activeQuarterAudience}
           freshStart
         />
+      )}
+
+      {/* ── AI Quota Exhaustion Modal ────────────────────────────── */}
+      {showExhaustionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-7">
+            <div className="text-center">
+              <div
+                className="mx-auto mb-4 flex items-center justify-center rounded-full w-14 h-14"
+                style={{ backgroundColor: "#fffbeb", border: "2px solid #fcd34d" }}
+              >
+                <AlertTriangle size={26} style={{ color: "#d97706" }} />
+              </div>
+              <h2
+                className="font-bold uppercase tracking-wide mb-2"
+                style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em", fontSize: 22 }}
+              >
+                AI Tokens Exhausted
+              </h2>
+              <p className="text-sm text-slate-600 mb-2">
+                You've used all available AI tokens for this 15-minute window.
+              </p>
+              <p className="text-sm text-slate-600 mb-6">
+                Tokens reset automatically. Need access right away? Contact IT to request additional tokens.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a
+                  href="mailto:ITSupport@uncommonschools.org?subject=AI%20Token%20Request"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 15 }}
+                >
+                  Email IT Support
+                </a>
+                <button
+                  onClick={() => {
+                    exhaustionSuppressedRef.current = true;
+                    setShowExhaustionModal(false);
+                  }}
+                  className="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 transition-colors hover:bg-slate-50"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
