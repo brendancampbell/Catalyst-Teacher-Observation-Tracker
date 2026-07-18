@@ -7,18 +7,10 @@ import {
 import { schoolYears } from "@workspace/db/schema";
 import { asc, count, eq, and, ne, max } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 function firstZodError(err: { issues: { message: string }[] }): string {
   return err.issues[0]?.message ?? "Validation error";
-}
-
-/** Returns the active school year id, or null if none exists. */
-async function getActiveSchoolYearId(): Promise<number | null> {
-  const [row] = await db.select({ id: schoolYears.id })
-    .from(schoolYears)
-    .where(eq(schoolYears.status, "active"))
-    .limit(1);
-  return row?.id ?? null;
 }
 
 const router = Router();
@@ -38,9 +30,23 @@ router.get("/sets", async (req, res) => {
       }
     }
 
-    const sets = includeArchived
-      ? await db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id))
-      : await db.select().from(rubricSets).where(eq(rubricSets.isArchived, false)).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+    if (includeArchived) {
+      const sets = await db.select().from(rubricSets).orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
+      res.json(sets);
+      return;
+    }
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
+    const sets = await db
+      .select()
+      .from(rubricSets)
+      .where(and(eq(rubricSets.isArchived, false), eq(rubricSets.schoolYearId, activeYearId)))
+      .orderBy(asc(rubricSets.displayOrder), asc(rubricSets.id));
     res.json(sets);
   } catch (err) {
     console.error("GET /rubric/sets error:", err);

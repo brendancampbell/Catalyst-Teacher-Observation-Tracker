@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
-import { eq, and, max, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, sql, inArray, isNotNull } from "drizzle-orm";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { TtlCache } from "../lib/ttl-cache";
 
@@ -39,8 +40,13 @@ router.get("/network-averages", requireAuth, async (req, res) => {
 
     const setSlug = (req.query.rubricSet as string) || "Q1";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, setSlug),
+      where: and(eq(rubricSets.slug, setSlug), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` }); return;
@@ -78,8 +84,9 @@ router.get("/network-averages", requireAuth, async (req, res) => {
             eq(observations.rubricSetId, rubricSet.id),
             eq(observations.target, "SCHOOL"),
             eq(observations.schoolId, scopedSchoolId),
+            eq(observations.schoolYearId, activeYearId),
           )
-        : and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, obsTarget));
+        : and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, obsTarget), eq(observations.schoolYearId, activeYearId));
 
     const allObs = await db
       .select()
@@ -177,6 +184,11 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rows = await db
       .select({
         employeeId:     people.employeeId,
@@ -192,8 +204,8 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
       .leftJoin(schools, eq(people.schoolId, schools.id))
       .where(
         scopedSchoolId !== null
-          ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-          : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+          ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+          : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
       )
       .orderBy(people.rescoreDueDate);
 
@@ -224,6 +236,11 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
     }
     const scopedSchoolId = effectiveSchoolId(user, requested);
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const schoolFilter = scopedSchoolId !== null
       ? sql`${people.schoolId} = ${scopedSchoolId}`
       : sql`1=1`;
@@ -236,7 +253,7 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
         department:   people.department,
         gradeLevel:   people.gradeLevel,
         schoolName:   schools.displayName,
-        lastObserved: max(observations.date),
+        lastObserved: sql<string | null>`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END)`,
       })
       .from(people)
       .leftJoin(schools,       eq(people.schoolId, schools.id))
@@ -248,9 +265,9 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
       ))
       .groupBy(people.employeeId, people.firstName, people.lastName, people.department, people.gradeLevel, schools.displayName)
       .having(
-        sql`MAX(${observations.date}) < CURRENT_DATE - INTERVAL '14 days' OR MAX(${observations.date}) IS NULL`,
+        sql`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) < CURRENT_DATE - INTERVAL '14 days' OR MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) IS NULL`,
       )
-      .orderBy(sql`MAX(${observations.date}) ASC NULLS FIRST`);
+      .orderBy(sql`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) ASC NULLS FIRST`);
 
     res.json(rows.map((r) => ({
       employeeId:   r.employeeId,

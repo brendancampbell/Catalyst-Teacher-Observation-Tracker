@@ -10,6 +10,7 @@ import {
   actionSteps, schoolYears,
 } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 const router = Router();
 
@@ -85,11 +86,20 @@ async function validateScores(
    if the user has no published observations recorded.                 */
 router.get("/my-latest-rubric", async (req, res) => {
   const currentUser = req.user as Express.User;
+  const activeYearId = await getActiveSchoolYearId();
+  if (!activeYearId) {
+    res.json({ slug: null });
+    return;
+  }
   const latest = await db
     .select({ slug: rubricSets.slug })
     .from(observations)
     .innerJoin(rubricSets, eq(rubricSets.id, observations.rubricSetId))
-    .where(and(eq(observations.observerEmployeeId, currentUser.employeeId), ne(observations.status, "draft")))
+    .where(and(
+      eq(observations.observerEmployeeId, currentUser.employeeId),
+      ne(observations.status, "draft"),
+      eq(observations.schoolYearId, activeYearId),
+    ))
     .orderBy(desc(observations.date))
     .limit(1);
 
@@ -102,6 +112,12 @@ router.get("/my-latest-rubric", async (req, res) => {
 router.get("/drafts", async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.json([]);
+      return;
+    }
 
     const drafts = await db
       .select({
@@ -128,6 +144,7 @@ router.get("/drafts", async (req, res) => {
         eq(observations.observerEmployeeId, currentUser.employeeId),
         eq(observations.status, "draft"),
         eq(observations.target, "TEACHER"),
+        eq(observations.schoolYearId, activeYearId),
       ))
       .orderBy(desc(observations.date));
 
@@ -201,7 +218,13 @@ router.get("/", async (req, res) => {
       if (param) schoolFilter = Number(param);
     }
 
-    const conditions = [eq(observations.target, "SCHOOL")];
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.json([]);
+      return;
+    }
+
+    const conditions = [eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId)];
     if (schoolFilter !== null) conditions.push(eq(observations.schoolId, schoolFilter));
 
     const rows = await db

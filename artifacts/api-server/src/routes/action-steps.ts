@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { actionSteps, people, observations, schools } from "@workspace/db/schema";
 import { eq, and, desc, lt, sql, asc } from "drizzle-orm";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 
 type SchoolCheckResult = "ok" | "not_found" | "inactive";
@@ -58,6 +59,11 @@ router.get("/", requireAuth, async (req, res) => {
     const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, teacherEmployeeId);
     if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rows = await db
       .select({
         id:                          actionSteps.id,
@@ -76,7 +82,7 @@ router.get("/", requireAuth, async (req, res) => {
       })
       .from(actionSteps)
       .leftJoin(people, eq(people.employeeId, actionSteps.assignedByEmployeeId))
-      .where(eq(actionSteps.teacherEmployeeId, teacherEmployeeId))
+      .where(and(eq(actionSteps.teacherEmployeeId, teacherEmployeeId), eq(actionSteps.schoolYearId, activeYearId)))
       .orderBy(desc(actionSteps.createdAt));
 
     const ids = rows.map((r) => r.id);
@@ -127,6 +133,11 @@ router.get("/latest", requireAuth, async (req, res) => {
     const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, teacherEmployeeId);
     if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rows = await db
       .select({
         id:                          actionSteps.id,
@@ -145,7 +156,7 @@ router.get("/latest", requireAuth, async (req, res) => {
       })
       .from(actionSteps)
       .leftJoin(people, eq(people.employeeId, actionSteps.assignedByEmployeeId))
-      .where(eq(actionSteps.teacherEmployeeId, teacherEmployeeId))
+      .where(and(eq(actionSteps.teacherEmployeeId, teacherEmployeeId), eq(actionSteps.schoolYearId, activeYearId)))
       .orderBy(desc(actionSteps.createdAt))
       .limit(1);
 
@@ -191,6 +202,11 @@ router.get("/overdue", requireAuth, async (req, res) => {
 
     const today = new Date().toISOString().split("T")[0]!;
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rows = await db
       .select({
         id:                          actionSteps.id,
@@ -210,6 +226,7 @@ router.get("/overdue", requireAuth, async (req, res) => {
         and(
           eq(actionSteps.status, "open"),
           lt(actionSteps.dueDate, today),
+          eq(actionSteps.schoolYearId, activeYearId),
           scopedSchoolId !== null ? eq(people.schoolId, scopedSchoolId) : sql`1=1`,
         ),
       )

@@ -29,6 +29,7 @@ import {
 } from "../services/ai-service";
 import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { isProduction } from "../config/env";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 const router = Router();
 
@@ -131,19 +132,16 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
   return m;
 }
 
-async function buildDomainAverages(personIds: string[], rubricSetId?: number | null, scopedSchoolId?: number | null): Promise<DomainAvg[]> {
+async function buildDomainAverages(personIds: string[], rubricSetId: number | null | undefined, scopedSchoolId: number | null | undefined, activeSchoolYearId: number): Promise<DomainAvg[]> {
   if (!personIds.length) return [];
 
-  /* Accept observations stamped with this school OR legacy null-schoolId rows
-     (all pre-stamp observations have schoolId = null; they are already filtered
-     to this school's teachers via the personIds list).                         */
   const schoolFilter = scopedSchoolId != null
     ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
     : undefined;
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
-    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), schoolFilter);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter);
 
   const rows = await db
     .select({
@@ -174,8 +172,9 @@ async function buildDomainAverages(personIds: string[], rubricSetId?: number | n
 async function buildCalibrationFlags(
   personIds: string[],
   scope: "school" | "network",
-  rubricSetId?: number | null,
-  scopedSchoolId?: number | null,
+  rubricSetId: number | null | undefined,
+  scopedSchoolId: number | null | undefined,
+  activeSchoolYearId: number,
 ): Promise<CalibrationFlag[]> {
   if (!personIds.length) return [];
 
@@ -184,8 +183,8 @@ async function buildCalibrationFlags(
     : undefined;
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
-    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), schoolFilter);
+    ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, personIds), eq(observations.status, "published"), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter);
 
   const rows = await db
     .select({
@@ -492,6 +491,7 @@ async function buildRankedTeacherSection(
   kind: "bottom" | "top",
   n: number,
   scopedSchoolId: number | null,
+  activeSchoolYearId: number,
 ): Promise<string> {
   if (!teacherPool.length) return "";
 
@@ -501,8 +501,8 @@ async function buildRankedTeacherSection(
     : undefined;
 
   const whereClause = rubricSetId != null
-    ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), schoolFilter)
-    : and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), schoolFilter);
+    ? and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.rubricSetId, rubricSetId), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter)
+    : and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter);
 
   const rows = await db
     .select({
@@ -559,6 +559,7 @@ async function buildTeacherBreakdowns(
   matchedTeachers: Array<{ employeeId: string; name: string }>,
   allRubricSets: Array<{ id: number; slug: string; name: string }>,
   scopedSchoolId: number | null,
+  activeSchoolYearId: number,
 ): Promise<string> {
   if (!matchedTeachers.length) return "";
 
@@ -576,7 +577,7 @@ async function buildTeacherBreakdowns(
     })
     .from(observationScores)
     .innerJoin(observations, eq(observations.id, observationScores.observationId))
-    .where(and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), schoolFilter));
+    .where(and(inArray(observations.observedEmployeeId, empIds), eq(observations.status, "published"), eq(observations.schoolYearId, activeSchoolYearId), schoolFilter));
 
   if (!rows.length) return "";
 
@@ -627,12 +628,10 @@ async function buildTeacherBreakdowns(
 async function buildGlowsGrowsData(
   personIds: string[],
   scopedSchoolId: number | null,
+  activeSchoolYearId: number,
 ): Promise<Map<string, GlowGrowEntry[]>> {
   if (!personIds.length) return new Map();
 
-  /* Accept observations stamped with this school OR legacy null-schoolId rows.
-     All pre-stamp observations have schoolId = null; they are already teacher-
-     scoped via personIds so they can only surface for teachers at this school. */
   const schoolFilter = scopedSchoolId !== null
     ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
     : undefined;
@@ -649,6 +648,7 @@ async function buildGlowsGrowsData(
       and(
         inArray(observations.observedEmployeeId, personIds),
         eq(observations.status, "published"),
+        eq(observations.schoolYearId, activeSchoolYearId),
         schoolFilter,
       ),
     )
@@ -671,6 +671,7 @@ async function buildGlowsGrowsData(
 async function buildActionStepsData(
   personIds: string[],
   scopedSchoolId: number | null,
+  activeSchoolYearId: number,
 ): Promise<Map<string, ActionStepEntry[]>> {
   if (!personIds.length) return new Map();
 
@@ -707,12 +708,16 @@ async function buildActionStepsData(
       scopedSchoolId !== null
         ? and(
             inArray(actionSteps.teacherEmployeeId, personIds),
+            eq(actionSteps.schoolYearId, activeSchoolYearId),
             or(
               isNull(actionSteps.assignedDuringObservationId),
               eq(observations.schoolId, scopedSchoolId),
             ),
           )
-        : inArray(actionSteps.teacherEmployeeId, personIds),
+        : and(
+            inArray(actionSteps.teacherEmployeeId, personIds),
+            eq(actionSteps.schoolYearId, activeSchoolYearId),
+          ),
     )
     .orderBy(actionSteps.createdAt);
 
@@ -742,6 +747,7 @@ async function buildCombinedContext(
   allRubricSets: Array<{ id: number; slug: string; name: string }>,
   activeSlug: string | null,
   messageText: string,
+  activeSchoolYearId: number,
 ): Promise<{ contextStr: string; activeRubricSetSlug: string | null; matchedTeachers: string[] }> {
   /* Determine which rubric slugs are relevant to this message */
   const mentionedSlugs = new Set<string>();
@@ -771,8 +777,8 @@ async function buildCombinedContext(
     const rsId   = rsRow?.id ?? null;
 
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rsId, scopedSchoolId),
-      buildCalibrationFlags(personIds, scope, rsId, scopedSchoolId),
+      buildDomainAverages(personIds, rsId, scopedSchoolId, activeSchoolYearId),
+      buildCalibrationFlags(personIds, scope, rsId, scopedSchoolId, activeSchoolYearId),
     ]);
 
     const ctx: AIContext = {
@@ -793,16 +799,16 @@ async function buildCombinedContext(
       name: `${p.firstName} ${p.lastName}`,
     }));
     const [teacherSection, glowsGrowsMap, actionStepsMap] = await Promise.all([
-      buildTeacherBreakdowns(allAsMatched, allRubricSets, scopedSchoolId),
-      buildGlowsGrowsData(personIds, scopedSchoolId),
-      buildActionStepsData(personIds, scopedSchoolId),
+      buildTeacherBreakdowns(allAsMatched, allRubricSets, scopedSchoolId, activeSchoolYearId),
+      buildGlowsGrowsData(personIds, scopedSchoolId, activeSchoolYearId),
+      buildActionStepsData(personIds, scopedSchoolId, activeSchoolYearId),
     ]);
     if (teacherSection) contextStr += "\n\n" + teacherSection;
 
     /* Ranked list for explicit "weakest / top N" queries */
     if (relativeRef.kind) {
       const rankedSection = await buildRankedTeacherSection(
-        scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n, scopedSchoolId,
+        scopedPeople, allRubricSets, rsId, relativeRef.kind, relativeRef.n, scopedSchoolId, activeSchoolYearId,
       );
       if (rankedSection) contextStr += "\n\n" + rankedSection;
     }
@@ -828,8 +834,8 @@ async function buildCombinedContext(
     const rsRow = allRubricSets.find((r) => r.slug === slug);
     if (!rsRow) continue;
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rsRow.id, scopedSchoolId),
-      buildCalibrationFlags(personIds, scope, rsRow.id, scopedSchoolId),
+      buildDomainAverages(personIds, rsRow.id, scopedSchoolId, activeSchoolYearId),
+      buildCalibrationFlags(personIds, scope, rsRow.id, scopedSchoolId, activeSchoolYearId),
     ]);
     const ctx: AIContext = {
       scope,
@@ -849,16 +855,16 @@ async function buildCombinedContext(
     name: `${p.firstName} ${p.lastName}`,
   }));
   const [teacherSectionMulti, glowsGrowsMapMulti, actionStepsMapMulti] = await Promise.all([
-    buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets, scopedSchoolId),
-    buildGlowsGrowsData(personIds, scopedSchoolId),
-    buildActionStepsData(personIds, scopedSchoolId),
+    buildTeacherBreakdowns(allAsMatchedMulti, allRubricSets, scopedSchoolId, activeSchoolYearId),
+    buildGlowsGrowsData(personIds, scopedSchoolId, activeSchoolYearId),
+    buildActionStepsData(personIds, scopedSchoolId, activeSchoolYearId),
   ]);
   if (teacherSectionMulti) blocks.push(teacherSectionMulti);
 
   /* Ranked list for explicit "weakest / top N" queries */
   if (relativeRef.kind) {
     const rankedSection = await buildRankedTeacherSection(
-      scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n, scopedSchoolId,
+      scopedPeople, allRubricSets, null, relativeRef.kind, relativeRef.n, scopedSchoolId, activeSchoolYearId,
     );
     if (rankedSection) blocks.push(rankedSection);
   }
@@ -906,9 +912,15 @@ router.post("/chat/stream", aiChatLimiter, async (req, res) => {
 
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const [scopedPeople, allRubricSets] = await Promise.all([
       getScopedPeople(scopedSchoolId),
-      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets).where(eq(rubricSets.schoolYearId, activeYearId)),
     ]);
     const personIds = scopedPeople.map((p) => p.employeeId);
 
@@ -916,12 +928,12 @@ router.post("/chat/stream", aiChatLimiter, async (req, res) => {
       personIds.length
         ? db.select({ employeeId: people.employeeId }).from(people).where(
             scopedSchoolId !== null
-              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
           )
         : Promise.resolve([]),
       personIds.length
-        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(and(inArray(observations.observedEmployeeId, personIds), eq(observations.schoolYearId, activeYearId)))
         : Promise.resolve([{ count: 0 }]),
     ]);
 
@@ -937,6 +949,7 @@ router.post("/chat/stream", aiChatLimiter, async (req, res) => {
       allRubricSets,
       rubricSetSlug ?? null,
       message,
+      activeYearId,
     );
 
     /* Set SSE headers */
@@ -1058,9 +1071,14 @@ router.post("/chat", aiChatLimiter, async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const [scopedPeople, allRubricSets] = await Promise.all([
       getScopedPeople(scopedSchoolId),
-      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets).where(eq(rubricSets.schoolYearId, activeYearId)),
     ]);
     const personIds = scopedPeople.map((p) => p.employeeId);
 
@@ -1068,12 +1086,12 @@ router.post("/chat", aiChatLimiter, async (req, res) => {
       personIds.length
         ? db.select({ employeeId: people.employeeId }).from(people).where(
             scopedSchoolId !== null
-              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
           )
         : Promise.resolve([]),
       personIds.length
-        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(and(inArray(observations.observedEmployeeId, personIds), eq(observations.schoolYearId, activeYearId)))
         : Promise.resolve([{ count: 0 }]),
     ]);
 
@@ -1089,6 +1107,7 @@ router.post("/chat", aiChatLimiter, async (req, res) => {
       allRubricSets,
       rubricSetSlug ?? null,
       message,
+      activeYearId,
     );
 
     let reply: string;
@@ -1137,8 +1156,13 @@ router.get("/insights", async (req, res) => {
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const personIds = await getPersonIds(scopedSchoolId);
-    const domainAverages = await buildDomainAverages(personIds, rubricSetId, scopedSchoolId);
+    const domainAverages = await buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId);
 
     if (!domainAverages.length) {
       res.json({ topStrength: null, topGrowth: null, trendingSteps: [] }); return;
@@ -1193,8 +1217,13 @@ router.get("/calibration-flags", async (req, res) => {
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const personIds = await getPersonIds(scopedSchoolId);
-    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId);
+    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId);
     res.json(flags);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
@@ -1259,21 +1288,27 @@ router.post("/analysis", aiGenerationLimiter, async (req, res) => {
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
     const rubricSetId = await getRubricSetId(slug);
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const scopedPeople = await getScopedPeople(scopedSchoolId);
     const personIds = scopedPeople.map((p) => p.employeeId);
 
     const rescoreRows = personIds.length
       ? await db.select({ employeeId: people.employeeId }).from(people).where(
           scopedSchoolId !== null
-            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
         )
       : [];
 
     const [domainAverages, calibrationFlags, actionStepsMap] = await Promise.all([
-      buildDomainAverages(personIds, rubricSetId, scopedSchoolId),
-      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId),
-      buildActionStepsData(personIds, scopedSchoolId),
+      buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId),
+      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId),
+      buildActionStepsData(personIds, scopedSchoolId, activeYearId),
     ]);
 
     const obsCountResult = personIds.length
@@ -1282,8 +1317,8 @@ router.post("/analysis", aiGenerationLimiter, async (req, res) => {
           .from(observations)
           .where(
             rubricSetId != null
-              ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId))
-              : inArray(observations.observedEmployeeId, personIds)
+              ? and(inArray(observations.observedEmployeeId, personIds), eq(observations.rubricSetId, rubricSetId), eq(observations.schoolYearId, activeYearId))
+              : and(inArray(observations.observedEmployeeId, personIds), eq(observations.schoolYearId, activeYearId))
           )
       : [{ count: 0 }];
 
@@ -1378,6 +1413,11 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const rubricSetId = await getRubricSetId(slug);
     if (rubricSetId === null) {
       res.status(404).json({ error: `Rubric set '${slug}' not found` }); return;
@@ -1396,8 +1436,8 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
 
     if (isSchoolTarget) {
       const whereClause = scopedSchoolId != null
-        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId)))
-        : and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"));
+        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId), or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId)))
+        : and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId));
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(observations)
@@ -1413,6 +1453,7 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
             inArray(observations.observedEmployeeId, personIds),
             eq(observations.rubricSetId, rubricSetId),
             eq(observations.status, "published"),
+            eq(observations.schoolYearId, activeYearId),
           ));
         publishedCount = row?.count ?? 0;
       }
@@ -1428,15 +1469,15 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
     /* Build AI context */
     const personIds = await getPersonIds(scopedSchoolId);
     const [domainAverages, calibrationFlags] = await Promise.all([
-      buildDomainAverages(personIds, rubricSetId, scopedSchoolId),
-      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId),
+      buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId),
+      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId),
     ]);
 
     const rescoreRows = personIds.length > 0
       ? await db.select({ employeeId: people.employeeId }).from(people).where(
           scopedSchoolId !== null
-            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+            ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+            : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
         )
       : [];
 
@@ -1493,9 +1534,14 @@ router.post("/chat/context", async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
     const [scopedPeople, allRubricSets] = await Promise.all([
       getScopedPeople(scopedSchoolId),
-      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets),
+      db.select({ id: rubricSets.id, slug: rubricSets.slug, name: rubricSets.name }).from(rubricSets).where(eq(rubricSets.schoolYearId, activeYearId)),
     ]);
     const personIds = scopedPeople.map((p) => p.employeeId);
 
@@ -1503,12 +1549,12 @@ router.post("/chat/context", async (req, res) => {
       personIds.length
         ? db.select({ employeeId: people.employeeId }).from(people).where(
             scopedSchoolId !== null
-              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true))
-              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true)),
+              ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
+              : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
           )
         : Promise.resolve([]),
       personIds.length
-        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(inArray(observations.observedEmployeeId, personIds))
+        ? db.select({ count: sql<number>`count(*)::int` }).from(observations).where(and(inArray(observations.observedEmployeeId, personIds), eq(observations.schoolYearId, activeYearId)))
         : Promise.resolve([{ count: 0 }]),
     ]);
 
@@ -1524,6 +1570,7 @@ router.post("/chat/context", async (req, res) => {
       allRubricSets,
       rubricSetSlug ?? null,
       message,
+      activeYearId,
     );
 
     res.json({ contextStr, activeRubricSetSlug, scopedTeacherCount: personIds.length });

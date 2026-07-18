@@ -6,6 +6,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, inArray, and, isNotNull, desc } from "drizzle-orm";
 import { TtlCache } from "../lib/ttl-cache";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 /* District summary loads every teacher + observation + score in memory to
    compute per-school aggregates.  Cache the final aggregate for 2 minutes. */
@@ -29,8 +30,14 @@ router.get("/summary", async (req, res) => {
     const scoreType        = (req.query.scoreType as string) === "average" ? "average" : "recent";
     const walkthroughsOnly = req.query.walkthroughsOnly === "true";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, setSlug),
+      where: and(eq(rubricSets.slug, setSlug), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` });
@@ -75,7 +82,7 @@ router.get("/summary", async (req, res) => {
       const schoolObs = await db
         .select()
         .from(observations)
-        .where(and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, "SCHOOL"), isNotNull(observations.schoolId)))
+        .where(and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, "SCHOOL"), isNotNull(observations.schoolId), eq(observations.schoolYearId, activeYearId)))
         .orderBy(desc(observations.date));
 
       /* Group ALL observations by school */
@@ -161,8 +168,8 @@ router.get("/summary", async (req, res) => {
       .where(and(eq(people.isActive, true), isNotNull(people.schoolId), eq(people.includeInFeedbackTracker, true)));
 
     const obsWhere = walkthroughsOnly
-      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), eq(observations.target, "TEACHER"))
-      : and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, "TEACHER"));
+      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), eq(observations.target, "TEACHER"), eq(observations.schoolYearId, activeYearId))
+      : and(eq(observations.rubricSetId, rubricSet.id), eq(observations.target, "TEACHER"), eq(observations.schoolYearId, activeYearId));
 
     const allObs = await db.select().from(observations).where(obsWhere);
 

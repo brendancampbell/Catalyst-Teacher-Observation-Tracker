@@ -10,6 +10,7 @@ import {
   qualitativeThemesCache,
 } from "@workspace/db/schema";
 import { eq, and, inArray, sql, count } from "drizzle-orm";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 import {
   effectiveSchoolId as resolveSchoolId,
   NoSchoolAssignedError,
@@ -78,7 +79,10 @@ router.get("/", async (req, res) => {
       scopedSchoolId = rawSchoolId;
     }
 
-    const [rubricSet] = await db.select().from(rubricSets).where(eq(rubricSets.slug, rubricSlug)).limit(1);
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) return res.status(503).json({ error: "No active school year configured." });
+
+    const [rubricSet] = await db.select().from(rubricSets).where(and(eq(rubricSets.slug, rubricSlug), eq(rubricSets.schoolYearId, activeYearId))).limit(1);
     if (!rubricSet) return res.status(404).json({ error: "Rubric not found" });
 
     /* ── Count via teacher IDs so null school_id on obs is not a blocker ── */
@@ -94,6 +98,7 @@ router.get("/", async (req, res) => {
           eq(observations.rubricSetId, rubricSet.id),
           eq(observations.status, "published"),
           eq(observations.target, "TEACHER"),
+          eq(observations.schoolYearId, activeYearId),
         ));
       obsCount = row?.obsCount ?? 0;
     }
@@ -150,7 +155,10 @@ router.post("/generate", qualitativeGenerationLimiter, async (req, res) => {
       scopedSchoolId = rawSchoolId;
     }
 
-    const [rubricSet] = await db.select().from(rubricSets).where(eq(rubricSets.slug, rubricSlug)).limit(1);
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) return res.status(503).json({ error: "No active school year configured." });
+
+    const [rubricSet] = await db.select().from(rubricSets).where(and(eq(rubricSets.slug, rubricSlug), eq(rubricSets.schoolYearId, activeYearId))).limit(1);
     if (!rubricSet) return res.status(404).json({ error: "Rubric not found" });
 
     const [school] = await db.select().from(schools).where(eq(schools.id, scopedSchoolId)).limit(1);
@@ -180,6 +188,7 @@ router.post("/generate", qualitativeGenerationLimiter, async (req, res) => {
         eq(observations.rubricSetId, rubricSet.id),
         eq(observations.status, "published"),
         eq(observations.target, "TEACHER"),
+        eq(observations.schoolYearId, activeYearId),
       ))
       .orderBy(observations.date);
 
@@ -209,7 +218,7 @@ router.post("/generate", qualitativeGenerationLimiter, async (req, res) => {
           dueDate:           actionSteps.dueDate,
         })
         .from(actionSteps)
-        .where(inArray(actionSteps.teacherEmployeeId, observedIds))
+        .where(and(inArray(actionSteps.teacherEmployeeId, observedIds), eq(actionSteps.schoolYearId, activeYearId)))
       : [];
 
     /* ── Server-side action step counts ── */

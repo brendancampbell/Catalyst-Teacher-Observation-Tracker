@@ -6,6 +6,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, inArray, and, ne, isNull, or } from "drizzle-orm";
 import { TtlCache } from "../lib/ttl-cache";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 /* Network-wide (schoolId=null) responses are cached for 2 minutes.
    School-scoped calls are already cheap and bypass the cache entirely. */
@@ -23,8 +24,14 @@ router.get("/", async (req, res) => {
     const schoolIdParam    = req.query.schoolId ? Number(req.query.schoolId) : null;
     const walkthroughsOnly = req.query.walkthroughsOnly === "true";
 
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, setSlug),
+      where: and(eq(rubricSets.slug, setSlug), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!rubricSet) {
       res.status(404).json({ error: `Rubric set '${setSlug}' not found` });
@@ -80,8 +87,8 @@ router.get("/", async (req, res) => {
       ? or(eq(observations.schoolId, schoolIdParam), isNull(observations.schoolId))
       : undefined;
     const obsWhere = walkthroughsOnly
-      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"), schoolObsFilter)
-      : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"), schoolObsFilter);
+      ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"), eq(observations.schoolYearId, activeYearId), schoolObsFilter)
+      : and(eq(observations.rubricSetId, rubricSet.id), ne(observations.status, "draft"), eq(observations.schoolYearId, activeYearId), schoolObsFilter);
 
     const allObs = await db.select().from(observations).where(obsWhere);
 
