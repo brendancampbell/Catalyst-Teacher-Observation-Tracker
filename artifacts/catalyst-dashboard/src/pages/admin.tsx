@@ -85,8 +85,7 @@ function Tip({ label, children }: { label: string; children: React.ReactNode }) 
   const show = () => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-    setPos({ x: (rect.left + rect.width / 2) / zoom, y: rect.bottom / zoom + 4 });
+    setPos({ x: rect.left + rect.width / 2, y: rect.bottom + 4 });
   };
   return (
     <>

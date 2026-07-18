@@ -506,12 +506,10 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
                                 cursor: hasDesc ? "help" : undefined,
                               }}
                               onMouseEnter={hasDesc ? (e) => {
-                                const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-                                setDomainTooltip({ slug: domain.id, x: e.clientX / z, y: e.clientY / z + 16, description: domain.description! });
+                                setDomainTooltip({ slug: domain.id, x: e.clientX, y: e.clientY + 16, description: domain.description! });
                               } : undefined}
                               onMouseMove={hasDesc ? (e) => {
-                                const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-                                setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX / z, y: e.clientY / z + 16 } : null);
+                                setDomainTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY + 16 } : null);
                               } : undefined}
                               onMouseLeave={hasDesc ? () => setDomainTooltip(null) : undefined}
                             >
@@ -819,8 +817,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
     {domainTooltip && domainTooltip.description && (() => {
       const TW = 280;
       const PAD = 10;
-      const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-      const vpW = window.innerWidth / z;
+      const vpW = window.innerWidth;
       const mouseX = domainTooltip.x;
       const idealLeft = mouseX - TW / 2;
       const clampedLeft = Math.max(PAD, Math.min(vpW - TW - PAD, idealLeft));
