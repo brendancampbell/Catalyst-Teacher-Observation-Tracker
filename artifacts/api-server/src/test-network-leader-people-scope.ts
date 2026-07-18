@@ -17,7 +17,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 
@@ -73,11 +73,11 @@ describe("GET /api/people — NETWORK_LEADER schoolId scope enforcement", () => 
   let realSchoolId: number;
 
   before(async () => {
-    /* Locate a real (non-Home-Office) school to use as the schoolId param */
+    /* Locate a real (non-Home-Office, active, non-archived) school for the schoolId param */
     const [realRow] = await db
       .select({ id: schools.id })
       .from(schools)
-      .where(eq(schools.isHomeOffice, false))
+      .where(and(eq(schools.isHomeOffice, false), eq(schools.isActive, true), eq(schools.isArchived, false)))
       .limit(1);
     assert.ok(realRow, "At least one real school must exist in the DB");
     realSchoolId = realRow.id;
