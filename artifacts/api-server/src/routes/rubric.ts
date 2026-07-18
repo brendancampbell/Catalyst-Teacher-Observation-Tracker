@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  rubricSets, rubricCategories, rubricDomains, observationScores,
+  rubricSets, rubricCategories, rubricDomains, observationScores, observations,
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
   createRubricCategoryBodySchema, createRubricSetBodySchema, patchRubricSetSchema,
 } from "@workspace/db/schema";
@@ -268,6 +268,32 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
     if (target !== undefined) updates.target = target;
     if (subjectAudience !== undefined) updates.subjectAudience = subjectAudience;
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
+
+    /* ── Slug-rename guard ────────────────────────────────────────────────
+       The rubric-set slug is used as a foreign reference in observations
+       (rubricSetSlug is stored/derived from it) and in dashboard URLs.
+       Renaming it when observations already exist would silently corrupt any
+       cached slug references and break bookmarked dashboard links.        */
+    if (newSlug !== undefined) {
+      const currentSet = await db.query.rubricSets.findFirst({
+        where: eq(rubricSets.slug, req.params.slug as string),
+        columns: { id: true, slug: true },
+      });
+
+      if (currentSet && newSlug.trim().toUpperCase() !== currentSet.slug) {
+        const [{ obsCount }] = await db
+          .select({ obsCount: count() })
+          .from(observations)
+          .where(eq(observations.rubricSetId, currentSet.id));
+
+        if (obsCount > 0) {
+          res.status(409).json({
+            error: `Cannot rename slug '${currentSet.slug}' — ${obsCount} observation${obsCount === 1 ? "" : "s"} reference this rubric set. Migrate those records before renaming.`,
+          });
+          return;
+        }
+      }
+    }
 
     const [updated] = await db
       .update(rubricSets)
