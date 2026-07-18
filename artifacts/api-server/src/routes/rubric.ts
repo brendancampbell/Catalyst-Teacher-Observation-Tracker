@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   rubricSets, rubricCategories, rubricDomains, observationScores,
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
+  createRubricCategoryBodySchema, createRubricSetBodySchema, patchRubricSetSchema,
 } from "@workspace/db/schema";
 import { schoolYears } from "@workspace/db/schema";
 import { asc, count, eq, and, ne, max, inArray } from "drizzle-orm";
@@ -80,16 +81,12 @@ router.put("/sets/reorder", requireNetworkAdmin, async (req, res) => {
 /* ── POST /api/rubric/sets ──────────────────────────────────────── */
 router.post("/sets", requireNetworkAdmin, async (req, res) => {
   try {
-    const { slug, name, gradeSpan, copyFromSlug, target, subjectAudience, schoolYearId } = req.body as {
-      slug: string;
-      name: string;
-      gradeSpan?: string;
-      copyFromSlug?: string;
-      target?: "TEACHER" | "SCHOOL";
-      subjectAudience?: "STEM" | "HUMANITIES" | "ALL";
-      schoolYearId?: number;
-    };
-    if (!slug || !name) { res.status(400).json({ error: "slug and name required" }); return; }
+    const parsed = createRubricSetBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    const { slug, name, gradeSpan, copyFromSlug, target, subjectAudience, schoolYearId } = parsed.data;
 
     /* Resolve school year — caller may supply one, otherwise use the active year. */
     const resolvedSchoolYearId = schoolYearId ?? await getActiveSchoolYearId();
@@ -256,16 +253,15 @@ router.post("/sets/:id/copy-forward", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
-    const { name, slug: newSlug, description, isArchived, gradeSpan, target, subjectAudience } = req.body as { name?: string; slug?: string; description?: string; isArchived?: boolean; gradeSpan?: string | null; target?: "TEACHER" | "SCHOOL"; subjectAudience?: "STEM" | "HUMANITIES" | "ALL" };
+    const parsed = patchRubricSetSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    const { name, slug: newSlug, description, isArchived, gradeSpan, target, subjectAudience } = parsed.data;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
-    if (newSlug !== undefined) {
-      const trimmed = newSlug.trim().toUpperCase();
-      if (!/^[A-Z0-9_-]+$/.test(trimmed)) {
-        res.status(400).json({ error: "Slug may only contain letters, numbers, hyphens, and underscores" }); return;
-      }
-      updates.slug = trimmed;
-    }
+    if (newSlug !== undefined) updates.slug = newSlug.trim().toUpperCase();
     if (description !== undefined) updates.description = description;
     if (isArchived !== undefined) updates.isArchived = isArchived;
     if (gradeSpan !== undefined) updates.gradeSpan = gradeSpan;
@@ -319,8 +315,12 @@ router.post("/:setSlug/categories", requireNetworkAdmin, async (req, res) => {
     });
     if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
-    const { name, displayOrder } = req.body;
-    if (!name) { res.status(400).json({ error: "name required" }); return; }
+    const parsed = createRubricCategoryBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    const { name, displayOrder } = parsed.data;
 
     const [cat] = await db.insert(rubricCategories)
       .values({ rubricSetId: rubricSet.id, name, displayOrder: displayOrder ?? 0 })

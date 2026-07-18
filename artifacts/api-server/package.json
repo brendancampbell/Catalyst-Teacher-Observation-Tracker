@@ -24,6 +24,7 @@
     "test:coach-admin-block": "tsx src/test-coach-admin-block.ts",
     "test:session-expiry": "tsx src/test-session-expiry.ts",
     "test:rubric-category-domain-validation": "tsx src/test-rubric-category-domain-validation.ts",
+    "test:rubric-set-validation": "tsx src/test-rubric-set-validation.ts",
     "test:action-steps-e2e": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-steps-e2e.ts",
     "seed:teachers": "tsx src/seed-teachers.ts",
     "test:demo-teachers": "tsx src/test-demo-teachers-visibility.ts",

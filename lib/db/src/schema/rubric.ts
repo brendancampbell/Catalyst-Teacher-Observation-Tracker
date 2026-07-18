@@ -72,6 +72,44 @@ export const patchRubricDomainSchema = insertRubricDomainSchema
   .omit({ categoryId: true, rubricSetId: true, schoolYearId: true })
   .partial();
 
+/* Rubric-set slug must be uppercase letters, numbers, hyphens, and underscores. */
+export const rubricSetSlugSchema = z
+  .string()
+  .min(1, "slug is required")
+  .regex(
+    /^[A-Z0-9_-]+$/,
+    "Slug may only contain letters, numbers, hyphens, and underscores",
+  );
+
+/* Body schema for POST /:setSlug/categories — name must be non-empty. */
+export const createRubricCategoryBodySchema = insertRubricCategorySchema
+  .omit({ rubricSetId: true })
+  .extend({ name: z.string().min(1, "name is required") });
+
+/* Body schema for POST /sets — schoolYearId is optional (resolved from active year)
+   and copyFromSlug is an extra convenience field not stored directly. */
+export const createRubricSetBodySchema = z.object({
+  slug:            rubricSetSlugSchema,
+  name:            z.string().min(1, "name is required"),
+  gradeSpan:       z.string().optional(),
+  description:     z.string().optional(),
+  target:          z.enum(["TEACHER", "SCHOOL"]).optional(),
+  subjectAudience: z.enum(["STEM", "HUMANITIES", "ALL"]).optional(),
+  schoolYearId:    z.number().int().optional(),
+  copyFromSlug:    z.string().optional(),
+});
+
+/* Body schema for PATCH /sets/:slug — all fields optional, slug validated. */
+export const patchRubricSetSchema = z.object({
+  name:            z.string().min(1).optional(),
+  slug:            rubricSetSlugSchema.optional(),
+  description:     z.string().optional(),
+  isArchived:      z.boolean().optional(),
+  gradeSpan:       z.string().nullable().optional(),
+  target:          z.enum(["TEACHER", "SCHOOL"]).optional(),
+  subjectAudience: z.enum(["STEM", "HUMANITIES", "ALL"]).optional(),
+});
+
 export type InsertRubricSet = z.infer<typeof insertRubricSetSchema>;
 export type InsertRubricCategory = z.infer<typeof insertRubricCategorySchema>;
 export type InsertRubricDomain = z.infer<typeof insertRubricDomainSchema>;
