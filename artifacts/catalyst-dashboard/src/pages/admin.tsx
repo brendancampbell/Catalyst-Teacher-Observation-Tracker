@@ -2748,21 +2748,20 @@ export default function AdminPage() {
 
   const isNetworkAdmin   = currentUser?.role === "NETWORK_ADMIN";
   const isNetworkLeader  = currentUser?.role === "NETWORK_LEADER";
-  const canManagePeople  = currentUser?.role === "NETWORK_ADMIN" || currentUser?.role === "SCHOOL_LEADER";
-  const canViewPeople    = isNetworkAdmin || isNetworkLeader || currentUser?.role === "SCHOOL_LEADER";
+  const canManagePeople  = isNetworkAdmin || isNetworkLeader || currentUser?.role === "SCHOOL_LEADER";
   const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
     ...(isNetworkAdmin ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
-    ...(canViewPeople  ? [{ id: "people" as AdminTab,        label: "Users" }]            : []),
+    ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]           : []),
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
   ];
 
-  const defaultTab: AdminTab = canViewPeople ? "people" : "rubric";
+  const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
   const visibleTab: AdminTab =
-    (activeTab === "rubric"       && !isNetworkAdmin) ? defaultTab :
-    (activeTab === "people"       && !canViewPeople)  ? defaultTab :
+    (activeTab === "rubric"       && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "people"       && !canManagePeople)  ? defaultTab :
     (activeTab === "schools"      && !isNetworkAdmin) ? defaultTab :
     (activeTab === "school-years" && !isNetworkAdmin) ? defaultTab :
     activeTab;
@@ -2986,7 +2985,7 @@ export default function AdminPage() {
       )}
 
       {/* ── People and Schools tabs ── */}
-      {visibleTab === "people"       && canViewPeople   && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} canWrite={canManagePeople} />}
+      {visibleTab === "people"       && canManagePeople && <PeopleManagement isNetworkAdmin={isNetworkAdmin} canBulkImport={canBulkImport} canWrite={canManagePeople} />}
       {visibleTab === "schools"      && isNetworkAdmin  && (
         <main className="flex-1 px-4 sm:px-6 py-5 max-w-4xl mx-auto w-full flex flex-col gap-5">
           <SchoolSettings />

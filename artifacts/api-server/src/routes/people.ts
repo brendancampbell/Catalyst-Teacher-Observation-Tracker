@@ -148,10 +148,12 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
    Create a new person.
    SCHOOL_LEADER: Coach or School Leader in own school only.
    NETWORK_ADMIN: any role, any school.                             */
-router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
-    const isNetworkAdmin = currentUser.role === "NETWORK_ADMIN";
+    const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
+    const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
+    const isNetworkScope  = isNetworkAdmin || isNetworkLeader;
 
     const {
       employeeId, firstName, lastName, email, role, schoolId,
@@ -178,7 +180,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       res.status(400).json({ error: `Invalid role: ${role}` }); return;
     }
 
-    if (!isNetworkAdmin) {
+    if (!isNetworkScope) {
       if (!SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole)) {
         res.status(403).json({ error: "School Leaders can only create Coach or School Leader people" }); return;
       }
@@ -191,7 +193,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res)
       res.status(400).json({ error: `Invalid department: ${department}` }); return;
     }
 
-    const assignedSchoolId = isNetworkAdmin ? (schoolId ?? null) : currentUser.schoolId;
+    const assignedSchoolId = isNetworkScope ? (schoolId ?? null) : currentUser.schoolId;
 
     /* ── Role/school Home Office validation ── */
     const roleSchoolError = await validateRoleSchool(
@@ -507,16 +509,17 @@ function isSelfDeactivation(currentUser: Express.User, empId: string, isActive: 
    Update a person's fields.
    SCHOOL_LEADER: own school, school-scoped roles only.
    NETWORK_ADMIN: any person, any role.                             */
-router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
-    const currentUser = req.user as Express.User;
+    const currentUser    = req.user as Express.User;
     const isNetworkAdmin = currentUser.role === "NETWORK_ADMIN";
+    const isNetworkScope = isNetworkAdmin || currentUser.role === "NETWORK_LEADER";
     const empId = String(req.params.employeeId);
 
     const target = await db.query.people.findFirst({ where: eq(people.employeeId, empId) });
     if (!target) { res.status(404).json({ error: "Person not found" }); return; }
 
-    if (!isNetworkAdmin) {
+    if (!isNetworkScope) {
       if (target.schoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Cannot edit people from another school" }); return;
       }
@@ -528,8 +531,8 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
       }
     }
 
-    /* Network Admins must use the /reassign endpoint to change school */
-    if (isNetworkAdmin && "schoolId" in req.body) {
+    /* Network-scope editors must use /reassign to change school */
+    if (isNetworkScope && "schoolId" in req.body) {
       res.status(400).json({ error: "School changes must be made using the Reassign action" }); return;
     }
 
@@ -558,7 +561,7 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     if (department && !DEPARTMENT_VALUES.includes(department as typeof DEPARTMENT_VALUES[number])) {
       res.status(400).json({ error: `Invalid department: ${department}` }); return;
     }
-    if (!isNetworkAdmin && role && !SCHOOL_ASSIGNABLE_ROLES.includes(role) && role !== "NO_ACCESS") {
+    if (!isNetworkScope && role && !SCHOOL_ASSIGNABLE_ROLES.includes(role) && role !== "NO_ACCESS") {
       res.status(403).json({ error: "School Leaders can only assign Coach or School Leader roles" }); return;
     }
 
@@ -571,7 +574,7 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
     const effectiveInFT     = includeInFeedbackTracker !== undefined ? includeInFeedbackTracker : target.includeInFeedbackTracker;
 
     /* ── Role/school Home Office validation ── */
-    if (isNetworkAdmin) {
+    if (isNetworkScope) {
       const roleSchoolError = await validateRoleSchool(
         effectiveRole,
         effectiveSchoolId,
@@ -622,10 +625,10 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), asyn
 
 /* ── PATCH /api/people/:employeeId/toggle-active ─────────────────
    Soft-delete: flip isActive. Cannot deactivate yourself.          */
-router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
+router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
-    const currentUser = req.user as Express.User;
-    const isNetworkAdmin = currentUser.role === "NETWORK_ADMIN";
+    const currentUser    = req.user as Express.User;
+    const isNetworkScope = currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER";
     const empId = String(req.params.employeeId);
 
     const target = await db.query.people.findFirst({ where: eq(people.employeeId, empId) });
@@ -635,7 +638,7 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
       res.status(400).json({ error: "You cannot deactivate your own account" }); return;
     }
 
-    if (!isNetworkAdmin) {
+    if (!isNetworkScope) {
       if (target.schoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Cannot edit people from another school" }); return;
       }
