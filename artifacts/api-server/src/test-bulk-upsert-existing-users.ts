@@ -1,8 +1,7 @@
 /**
  * Integration tests: POST /api/people/bulk — upsert assignments for existing users.
  *
- * Verifies the four behaviours added in the "bulk upload upserts assignments"
- * change:
+ * Verifies the behaviours added in the "bulk upload upserts assignments" change:
  *   1. A CSV row for a person whose employeeId already exists → status "assigned"
  *      (old active assignment closed, new active assignment created).
  *   2. A CSV row for a person whose email already exists (different employeeId in
@@ -11,6 +10,10 @@
  *   4. A brand-new person still produces "created" (regression guard).
  *   5. Denormalized role/schoolId on the people record is updated when the
  *      assignment differs.
+ *   6. Stale people record + identical active assignment → denormalized fields
+ *      are still synced even when assignment is "skipped".
+ *   7. CSV row where employeeId and email resolve to two DIFFERENT existing records
+ *      → rejected as "error" (identity conflict, no write).
  *
  * Run with:
  *   pnpm --filter @workspace/api-server run test:bulk-upsert-existing-users
@@ -402,6 +405,146 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     assert.ok(person, "Person must still exist in DB");
     assert.equal(person.role, "SCHOOL_LEADER", "Denormalized role must be updated to SCHOOL_LEADER");
     assert.equal(person.schoolId, schoolBId, `Denormalized schoolId must be updated to ${schoolBId}`);
+  });
+  /* ── 6. Stale people record + identical active assignment → sync anyway ── */
+
+  test("6 — stale people record with identical active assignment still syncs denormalized fields", async () => {
+    const empId  = makeEmployeeId();
+    const email  = makeEmail("t6");
+    const today  = new Date().toISOString().slice(0, 10);
+    testPersonEmployeeIds.push(empId);
+
+    /*
+     * Seed a person whose denormalized people.role/schoolId is deliberately
+     * out-of-sync with the active assignment (simulates a previous partial write
+     * or manual DB edit).
+     */
+    await db.insert(people).values({
+      employeeId:               empId,
+      firstName:                "Test",
+      lastName:                 "UpsertT6",
+      email,
+      role:                     "COACH",       /* ← stale: should be SCHOOL_LEADER */
+      schoolId:                 schoolAId,     /* ← stale: should be schoolBId */
+      includeInFeedbackTracker: false,
+      isActive:                 true,
+    });
+    /* Active assignment already reflects the correct target state */
+    await db.insert(assignments).values({
+      userId:    empId,
+      role:      "SCHOOL_LEADER",
+      schoolId:  schoolBId,
+      startDate: today,
+      endDate:   null,
+    });
+
+    /* Act: upload the row that matches the active assignment (should be "skipped") */
+    const res = await apiBulk([{
+      employeeId: empId,
+      firstName:  "Test",
+      lastName:   "UpsertT6",
+      email,
+      role:       "SCHOOL_LEADER",
+      school:     String(schoolBId),
+    }], adminJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "skipped",
+      `Expected "skipped" (assignment unchanged), got "${body.results[0]!.status}"`,
+    );
+
+    /* Despite "skipped", the stale people record must have been corrected */
+    const [person] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people)
+      .where(eq(people.employeeId, empId));
+
+    assert.ok(person, "Person must exist");
+    assert.equal(
+      person.role,
+      "SCHOOL_LEADER",
+      `Denormalized role should be synced to SCHOOL_LEADER even on a "skipped" row — got "${person.role}"`,
+    );
+    assert.equal(
+      person.schoolId,
+      schoolBId,
+      `Denormalized schoolId should be synced to ${schoolBId} even on a "skipped" row — got ${person.schoolId}`,
+    );
+  });
+
+  /* ── 7. Conflicting employeeId + email → reject with "error" ─────────── */
+
+  test("7 — conflicting employeeId and email (different records) → rejected as 'error'", async () => {
+    const empIdA = makeEmployeeId();
+    const emailA = makeEmail("t7a");
+    const empIdB = makeEmployeeId();
+    const emailB = makeEmail("t7b");
+    testPersonEmployeeIds.push(empIdA, empIdB);
+
+    /* Seed two separate, legitimate people */
+    await db.insert(people).values([
+      {
+        employeeId:               empIdA,
+        firstName:                "Alice",
+        lastName:                 "UpsertT7",
+        email:                    emailA,
+        role:                     "COACH",
+        schoolId:                 schoolAId,
+        includeInFeedbackTracker: false,
+        isActive:                 true,
+      },
+      {
+        employeeId:               empIdB,
+        firstName:                "Bob",
+        lastName:                 "UpsertT7",
+        email:                    emailB,
+        role:                     "COACH",
+        schoolId:                 schoolAId,
+        includeInFeedbackTracker: false,
+        isActive:                 true,
+      },
+    ]);
+
+    /*
+     * Act: upload a row where employeeId matches Alice but email matches Bob.
+     * The route must detect the conflict and return "error" rather than silently
+     * updating the wrong account.
+     */
+    const res = await apiBulk([{
+      employeeId: empIdA,    /* matches Alice */
+      firstName:  "Conflict",
+      lastName:   "UpsertT7",
+      email:      emailB,    /* matches Bob */
+      role:       "SCHOOL_LEADER",
+      school:     String(schoolBId),
+    }], adminJar);
+
+    assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
+    const body = res.body as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(
+      body.results[0]!.status,
+      "error",
+      `Expected "error" for conflicting identity, got "${body.results[0]!.status}" — reason: ${body.results[0]!.reason}`,
+    );
+    assert.ok(
+      body.results[0]!.reason?.toLowerCase().includes("different"),
+      `Error reason should mention "different" records — got: "${body.results[0]!.reason}"`,
+    );
+
+    /* Neither Alice nor Bob should have been touched */
+    const [alice] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empIdA));
+    assert.equal(alice?.role, "COACH", "Alice's record must be unchanged");
+    assert.equal(alice?.schoolId, schoolAId, "Alice's schoolId must be unchanged");
+
+    const [bob] = await db
+      .select({ role: people.role, schoolId: people.schoolId })
+      .from(people).where(eq(people.employeeId, empIdB));
+    assert.equal(bob?.role, "COACH", "Bob's record must be unchanged");
   });
 });
 

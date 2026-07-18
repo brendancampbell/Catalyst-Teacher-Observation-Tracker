@@ -469,95 +469,123 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
       };
 
       try {
-        /* ── Step 1: Pre-check for an existing person ── */
-        const [existingPerson] = await db.select({
+        /* ── Step 1: Resolve existing person with conflict detection ── */
+        /*
+         * Query employeeId and email separately so that when both fields appear
+         * in the database but on DIFFERENT records (dirty/migrated data), we
+         * detect the conflict and reject the row rather than silently modifying
+         * the wrong account.
+         */
+        const [byEmpId] = await db.select({
           employeeId: people.employeeId,
           role:       people.role,
           schoolId:   people.schoolId,
-        }).from(people).where(
-          or(eq(people.employeeId, empId), eq(people.email, email!))
-        ).limit(1);
+        }).from(people).where(eq(people.employeeId, empId)).limit(1);
 
-        if (existingPerson) {
-          /* ── Existing person: upsert assignment only ── */
-          let resultStatus: "assigned" | "skipped" = "skipped";
-          let skipReason: string | undefined;
+        const [byEmail] = await db.select({
+          employeeId: people.employeeId,
+          role:       people.role,
+          schoolId:   people.schoolId,
+        }).from(people).where(eq(people.email, email!)).limit(1);
 
-          await db.transaction(async (tx) => {
-            /* Check for an active assignment (endDate IS NULL) */
-            const [existingActive] = await tx.select({
-              id:       assignments.id,
-              role:     assignments.role,
-              schoolId: assignments.schoolId,
-            }).from(assignments).where(
-              and(eq(assignments.userId, existingPerson.employeeId), isNull(assignments.endDate))
-            ).limit(1);
-
-            if (
-              existingActive &&
-              existingActive.role === role &&
-              existingActive.schoolId === schoolId
-            ) {
-              /* Identical active assignment already exists — idempotent no-op */
-              skipReason = "Active assignment already exists with the same role and school";
-              return;
-            }
-
-            /* Close the existing active assignment if it differs */
-            if (existingActive) {
-              await tx.update(assignments)
-                .set({ endDate: bulkToday })
-                .where(eq(assignments.id, existingActive.id));
-            }
-
-            /* ── Step 2: Create assignment for existing person ── */
-            await tx.insert(assignments).values({
-              userId:    existingPerson.employeeId,
-              role,
-              schoolId,
-              startDate: bulkToday,
-              endDate:   null,
-            });
-
-            /* ── Step 3: Sync denormalized role/schoolId on the person record ── */
-            if (existingPerson.role !== role || existingPerson.schoolId !== schoolId) {
-              await tx.update(people)
-                .set({ role, schoolId })
-                .where(eq(people.employeeId, existingPerson.employeeId));
-            }
-
-            resultStatus = "assigned";
+        if (byEmpId && byEmail && byEmpId.employeeId !== byEmail.employeeId) {
+          /* Ambiguous: employeeId and email resolve to two different records */
+          results.push({
+            row:    rowNum,
+            status: "error",
+            name:   displayName!,
+            email,
+            reason: "employeeId and email match different existing records — check for data errors",
           });
-
-          /* ── Step 4: Return "assigned" or "skipped" ── */
-          if (resultStatus === "skipped") {
-            results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: skipReason });
-          } else {
-            results.push({ row: rowNum, status: "assigned", name: displayName!, email });
-          }
         } else {
-          /* ── New person: create person + assignment ── */
-          await db.transaction(async (tx) => {
-            await tx.insert(people).values({
-              employeeId: empId,
-              firstName:  firstName,
-              lastName:   lastName ?? "",
-              email,
-              role,
-              schoolId,
-              includeInFeedbackTracker: includeInFB,
-              department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
-              gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+          const existingPerson = byEmpId ?? byEmail;
+
+          if (existingPerson) {
+            /* ── Existing person: upsert assignment + sync denormalized fields ── */
+            let resultStatus: "assigned" | "skipped" = "skipped";
+            let skipReason: string | undefined;
+
+            await db.transaction(async (tx) => {
+              /* Check for an active assignment (endDate IS NULL) */
+              const [existingActive] = await tx.select({
+                id:       assignments.id,
+                role:     assignments.role,
+                schoolId: assignments.schoolId,
+              }).from(assignments).where(
+                and(eq(assignments.userId, existingPerson.employeeId), isNull(assignments.endDate))
+              ).limit(1);
+
+              if (
+                existingActive &&
+                existingActive.role === role &&
+                existingActive.schoolId === schoolId
+              ) {
+                /* Identical active assignment — no assignment write needed */
+                skipReason = "Active assignment already exists with the same role and school";
+                resultStatus = "skipped";
+              } else {
+                /* Close the existing active assignment if it differs */
+                if (existingActive) {
+                  await tx.update(assignments)
+                    .set({ endDate: bulkToday })
+                    .where(eq(assignments.id, existingActive.id));
+                }
+
+                /* ── Step 2: Create assignment for existing person ── */
+                await tx.insert(assignments).values({
+                  userId:    existingPerson.employeeId,
+                  role,
+                  schoolId,
+                  startDate: bulkToday,
+                  endDate:   null,
+                });
+
+                resultStatus = "assigned";
+              }
+
+              /* ── Step 3: ALWAYS sync denormalized role/schoolId ── */
+              /*
+               * Run even when the assignment is skipped (identical) — the people
+               * record may have stale denormalized values from a previous partial
+               * write, and session lookups depend on these fields being accurate.
+               */
+              if (existingPerson.role !== role || existingPerson.schoolId !== schoolId) {
+                await tx.update(people)
+                  .set({ role, schoolId })
+                  .where(eq(people.employeeId, existingPerson.employeeId));
+              }
             });
-            await tx.insert(assignments).values({
-              userId:    empId,
-              role,
-              schoolId,
-              startDate: bulkToday,
-              endDate:   null,
+
+            /* ── Step 4: Return "assigned" or "skipped" ── */
+            if (resultStatus === "skipped") {
+              results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: skipReason });
+            } else {
+              results.push({ row: rowNum, status: "assigned", name: displayName!, email });
+            }
+          } else {
+            /* ── New person: create person + assignment ── */
+            await db.transaction(async (tx) => {
+              await tx.insert(people).values({
+                employeeId: empId,
+                firstName:  firstName,
+                lastName:   lastName ?? "",
+                email,
+                role,
+                schoolId,
+                includeInFeedbackTracker: includeInFB,
+                department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
+                gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
+              });
+              await tx.insert(assignments).values({
+                userId:    empId,
+                role,
+                schoolId,
+                startDate: bulkToday,
+                endDate:   null,
+              });
             });
-          });
-          results.push({ row: rowNum, status: "created", name: displayName!, email });
+            results.push({ row: rowNum, status: "created", name: displayName!, email });
+          }
         }
       } catch (err: unknown) {
         const code    = pgCode(err);
