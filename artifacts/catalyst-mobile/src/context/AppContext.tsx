@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import { School, RubricSet } from "@/lib/api";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch, School, RubricSet } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { isNetworkScope } from "@/lib/roles";
 
 const RUBRIC_LS_KEY  = "catalyst-mobile-selected-rubric";
 const SCHOOL_LS_KEY  = "catalyst-mobile-selected-school";
@@ -58,6 +61,26 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedSchool, setSelectedSchool] = useState<School | null>(loadStoredSchool);
   const [selectedRubric, setSelectedRubric] = useState<RubricSet | null>(loadStoredRubric);
+
+  const { user } = useAuth();
+  const networkScope = isNetworkScope(user);
+
+  const { data: schools } = useQuery<School[]>({
+    queryKey: ["schools"],
+    queryFn: () => apiFetch<School[]>("/api/admin/schools"),
+    enabled: networkScope && selectedSchool !== null,
+  });
+
+  useEffect(() => {
+    if (!schools || !selectedSchool) return;
+    const valid = schools.some((s) => s.id === selectedSchool.id);
+    if (!valid) {
+      setSelectedSchool(null);
+      try {
+        localStorage.removeItem(SCHOOL_LS_KEY);
+      } catch { /* ignore */ }
+    }
+  }, [schools, selectedSchool]);
 
   function handleSetSelectedSchool(s: School | null) {
     setSelectedSchool(s);
