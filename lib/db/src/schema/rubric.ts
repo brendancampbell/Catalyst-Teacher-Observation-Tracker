@@ -47,16 +47,17 @@ export const rubricDomains = pgTable("rubric_domains", {
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
 export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true });
 
-/* Domain slug must be lowercase letters, numbers, and hyphens.
+/* Domain slug must be lowercase letters, numbers, hyphens, and underscores.
    Accepts single-character slugs (e.g. "d") as well as multi-segment
-   slugs (e.g. "my-domain-1"). Uppercase and underscores are rejected
-   because domainSlug is matched by value in observation_scores rows. */
+   slugs (e.g. "my-domain-1" or "ratio_engagement"). Uppercase is rejected
+   because domainSlug is matched by value in observation_scores rows.
+   Underscores are allowed for backward compatibility with existing slugs. */
 export const domainSlugSchema = z
   .string()
   .min(1, "slug is required")
   .regex(
-    /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/,
-    "Slug must be lowercase letters, numbers, and hyphens only (e.g. 'my-domain-1')",
+    /^[a-z0-9][a-z0-9_-]*[a-z0-9]$|^[a-z0-9]$/,
+    "Slug must be lowercase letters, numbers, hyphens, and underscores only (e.g. 'my-domain-1')",
   );
 
 export const insertRubricDomainSchema = createInsertSchema(rubricDomains)

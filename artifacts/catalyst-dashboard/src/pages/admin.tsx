@@ -129,7 +129,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
   const [updDomError,       setUpdDomError]       = useState<string | null>(null);
 
   function slugify(s: string) {
-    return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   }
 
   const addCatMut = useMutation({
