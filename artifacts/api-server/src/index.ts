@@ -252,12 +252,37 @@ async function ensureSchoolYears(): Promise<void> {
       logger.info("School years already seeded — skipping");
       return;
     }
-    logger.info("School years table empty — seeding initial rows");
-    await client.query(`
-      INSERT INTO school_years (name, status) VALUES ('2025-2026', 'inactive');
-      INSERT INTO school_years (name, status) VALUES ('2026-2027', 'active');
-    `);
-    logger.info("School years seeded: 2025-2026 (inactive), 2026-2027 (active)");
+    logger.info("School years table empty — seeding initial row");
+    await client.query(
+      `INSERT INTO school_years (name, status) VALUES ('2025-2026', 'active')`,
+    );
+    logger.info("School years seeded: 2025-2026 (active)");
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureSchoolYearBackfill(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query<{ id: number }>(
+      `SELECT id FROM school_years WHERE status = 'active' LIMIT 1`,
+    );
+    if (!rows[0]) {
+      logger.warn("ensureSchoolYearBackfill: no active school year found — skipping");
+      return;
+    }
+    const activeId = rows[0].id;
+    const tables = ["rubric_sets", "rubric_domains", "observations", "action_steps"] as const;
+    for (const table of tables) {
+      const { rowCount } = await client.query(
+        `UPDATE ${table} SET school_year_id = $1 WHERE school_year_id IS NULL`,
+        [activeId],
+      );
+      if (rowCount && rowCount > 0) {
+        logger.info(`School year backfill: set ${rowCount} ${table} rows → year ${activeId}`);
+      }
+    }
   } finally {
     client.release();
   }
@@ -265,6 +290,7 @@ async function ensureSchoolYears(): Promise<void> {
 
 ensureSessionTable()
   .then(() => ensureSchoolYears())
+  .then(() => ensureSchoolYearBackfill())
   .then(() => ensureSchools())
   .then(() => ensureChatTables())
   .then(() => bootstrapAdmin())
