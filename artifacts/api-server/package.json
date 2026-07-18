@@ -39,7 +39,8 @@
     "test:rate-limit-observations": "tsx src/test-observation-rate-limit.ts",
     "test:ai-quota-grant-bypass": "bash ../../scripts/wait-for-api.sh tsx --test src/test-ai-quota-grant-bypass.ts",
     "test:quota-grant-cleanup": "tsx --test src/test-quota-grant-cleanup.ts",
-    "test:bulk-upsert-existing-users": "bash ../../scripts/wait-for-api.sh tsx --test src/test-bulk-upsert-existing-users.ts"
+    "test:bulk-upsert-existing-users": "bash ../../scripts/wait-for-api.sh tsx --test src/test-bulk-upsert-existing-users.ts",
+    "test:bulk-reassignment-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-bulk-reassignment-validation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
