@@ -550,7 +550,30 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
 /* ── DELETE /api/rubric/domains/:id ─────────────────────────────── */
 router.delete("/domains/:id", requireNetworkAdmin, async (req, res) => {
   try {
-    await db.delete(rubricDomains).where(eq(rubricDomains.id, Number(req.params.id)));
+    const domId = Number(req.params.id);
+    const force = req.query.force === "true";
+
+    if (!force) {
+      const domain = await db.query.rubricDomains.findFirst({
+        where: eq(rubricDomains.id, domId),
+        columns: { slug: true },
+      });
+      if (domain) {
+        const [{ scoreCount }] = await db
+          .select({ scoreCount: count() })
+          .from(observationScores)
+          .where(eq(observationScores.domainSlug, domain.slug));
+        if (Number(scoreCount) > 0) {
+          res.status(409).json({
+            error: `Cannot delete: ${scoreCount} observation score(s) reference this domain.`,
+            scoreCount: Number(scoreCount),
+          });
+          return;
+        }
+      }
+    }
+
+    await db.delete(rubricDomains).where(eq(rubricDomains.id, domId));
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /rubric/domains/:id error:", err);

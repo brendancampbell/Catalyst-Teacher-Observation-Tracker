@@ -138,6 +138,10 @@ args = "test:network-leader-people-scope"
 task = "workflow.run"
 args = "dashboard-vitest"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:domain-deletion-guard"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -453,6 +457,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-dashboard run test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:domain-deletion-guard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:domain-deletion-guard"
 
 [workflows.workflow.metadata]
 isValidation = true

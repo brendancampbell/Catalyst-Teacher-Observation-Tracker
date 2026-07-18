@@ -160,6 +160,18 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
   const delDomMut = useMutation({
     mutationFn: (id: number) => deleteDomain(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qKey }),
+    onError: (err: Error, id: number) => {
+      const httpErr = err as HttpError;
+      if (httpErr.status === 409 && httpErr.scoreCount !== undefined) {
+        const n = httpErr.scoreCount;
+        const msg = `This domain has ${n} observation score${n === 1 ? "" : "s"} linked to it. Deleting it will leave those observations with unresolvable scores.\n\nAre you sure you want to delete anyway?`;
+        if (window.confirm(msg)) {
+          deleteDomain(id, true)
+            .then(() => queryClient.invalidateQueries({ queryKey: qKey }))
+            .catch((e: Error) => window.alert(`Delete failed: ${e.message}`));
+        }
+      }
+    },
   });
 
   const catDragItem = useRef<number | null>(null);

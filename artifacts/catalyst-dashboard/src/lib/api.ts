@@ -244,8 +244,9 @@ export async function updateDomain(id: number, name: string, slug: string, descr
   });
 }
 
-export async function deleteDomain(id: number): Promise<void> {
-  await apiFetch<void>(`/rubric/domains/${id}`, { method: "DELETE" });
+export async function deleteDomain(id: number, force?: boolean): Promise<void> {
+  const qs = force ? "?force=true" : "";
+  await apiFetch<void>(`/rubric/domains/${id}${qs}`, { method: "DELETE" });
 }
 
 export async function reorderDomains(items: { id: number; displayOrder: number }[]): Promise<void> {

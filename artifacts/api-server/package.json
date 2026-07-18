@@ -46,7 +46,8 @@
     "test:category-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-category-deletion-guard.ts",
     "test:action-step-upsert": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-upsert.ts",
     "test:people-school-orphaned": "bash ../../scripts/wait-for-api.sh tsx --test src/test-people-school-orphaned.ts",
-    "test:network-leader-people-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-network-leader-people-scope.ts"
+    "test:network-leader-people-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-network-leader-people-scope.ts",
+    "test:domain-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-domain-deletion-guard.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
