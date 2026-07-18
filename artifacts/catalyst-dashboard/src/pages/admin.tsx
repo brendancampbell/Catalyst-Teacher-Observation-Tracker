@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
@@ -276,8 +277,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                   <span className="font-bold uppercase text-white truncate" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "0.02em" }}>{cat.name}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button title="Edit category" className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button>
-                  <button title="Delete category" className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (window.confirm(`Delete category "${cat.name}" and all its domains? This cannot be undone.`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button>
+                  <Tooltip><TooltipTrigger asChild><button title="Edit category" className="text-blue-300 hover:text-white p-1.5 rounded" onClick={() => startEditCat(cat)}><Pencil size={14} /></button></TooltipTrigger><TooltipContent>Edit category</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><button title="Delete category" className="text-red-400 hover:text-red-200 p-1.5 rounded" onClick={() => { if (window.confirm(`Delete category "${cat.name}" and all its domains? This cannot be undone.`)) delCatMut.mutate(cat.id); }}><Trash2 size={14} /></button></TooltipTrigger><TooltipContent>Delete category</TooltipContent></Tooltip>
                 </div>
               </>
             )}
@@ -358,8 +359,8 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
                         <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{dom.description}</p>
                       )}
                     </div>
-                    <button title="Edit domain" className="text-slate-400 hover:text-blue-600 p-1.5 rounded shrink-0" onClick={() => startEditDom(dom)}><Pencil size={13} /></button>
-                    <button title="Delete domain" className="text-slate-400 hover:text-red-500 p-1.5 rounded shrink-0" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button>
+                    <Tooltip><TooltipTrigger asChild><button title="Edit domain" className="text-slate-400 hover:text-blue-600 p-1.5 rounded shrink-0" onClick={() => startEditDom(dom)}><Pencil size={13} /></button></TooltipTrigger><TooltipContent>Edit domain</TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><button title="Delete domain" className="text-slate-400 hover:text-red-500 p-1.5 rounded shrink-0" onClick={() => { if (confirm(`Delete domain "${dom.name}"?`)) delDomMut.mutate(dom.id); }}><Trash2 size={13} /></button></TooltipTrigger><TooltipContent>Delete domain</TooltipContent></Tooltip>
                   </div>
                 )}
               </div>
