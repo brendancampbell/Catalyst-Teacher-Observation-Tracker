@@ -476,17 +476,28 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         });
         results.push({ row: rowNum, status: "created", name: displayName!, email });
       } catch (err: unknown) {
-        const isDuplicate = (e: unknown): boolean => {
-          if (typeof e !== "object" || e === null) return false;
+        /* Walk the error / cause chain to find the PG error code */
+        const pgCode = (e: unknown): string | null => {
+          if (typeof e !== "object" || e === null) return null;
           const obj = e as Record<string, unknown>;
-          if (obj["code"] === "23505") return true;
-          if (obj["cause"] && isDuplicate(obj["cause"])) return true;
-          return false;
+          if (typeof obj["code"] === "string") return obj["code"];
+          return obj["cause"] ? pgCode(obj["cause"]) : null;
         };
-        if (isDuplicate(err)) {
+        const pgMessage = (e: unknown): string | null => {
+          if (typeof e !== "object" || e === null) return null;
+          const obj = e as Record<string, unknown>;
+          if (typeof obj["detail"] === "string") return obj["detail"];
+          if (typeof obj["message"] === "string") return obj["message"];
+          return obj["cause"] ? pgMessage(obj["cause"]) : null;
+        };
+        const code    = pgCode(err);
+        const message = pgMessage(err);
+        console.error(`POST /people/bulk row ${rowNum} DB error [${code}]:`, message, err);
+        if (code === "23505") {
           results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: "Duplicate email or employee ID" });
         } else {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Database error" });
+          const hint = code ? `${code}: ${message ?? "unknown"}` : (message ?? "unknown database error");
+          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: `Database error — ${hint}` });
         }
       }
     }
