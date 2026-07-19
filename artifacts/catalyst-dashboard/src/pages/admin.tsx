@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -141,7 +142,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
     mutationFn: ({ id, name }: { id: number; name: string }) => updateCategory(id, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setEditingCatId(null);
     },
   });
@@ -175,7 +176,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
       updateDomain(id, name, description),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qKey });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       setEditingDomId(null);
       setUpdDomError(null);
     },
@@ -484,10 +485,10 @@ function RubricSetEditDialog({ slug, rubricSet, onClose }: { slug: string; rubri
   const [target,   setTarget]   = useState<"TEACHER" | "SCHOOL">(rubricSet.target ?? "TEACHER");
 
   function invalidate(newSlug?: string) {
-    queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
-    queryClient.invalidateQueries({ queryKey: ["rubric", slug] });
-    if (newSlug && newSlug !== slug) queryClient.invalidateQueries({ queryKey: ["rubric", newSlug] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rubricSets });
+    queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.rubric, slug] });
+    if (newSlug && newSlug !== slug) queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.rubric, newSlug] });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
   }
 
   const saveMut = useMutation({
@@ -2757,7 +2758,7 @@ function AIQuotaTab() {
   });
 
   const { data: allPeople = [] } = useQuery<PersonRow[]>({
-    queryKey: ["people"],
+    queryKey: QUERY_KEYS.people,
     queryFn:  () => fetchPeople({ includeInactive: false }),
     staleTime: 60_000,
   });
@@ -2771,7 +2772,7 @@ function AIQuotaTab() {
       note:           grantNote.trim() || undefined,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ai-quota-grants-all"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiQuotaGrantsAll });
       setShowGrantForm(false);
       setGrantEmployeeId("");
       setGrantNote("");
@@ -2781,7 +2782,7 @@ function AIQuotaTab() {
 
   const revokeMut = useMutation({
     mutationFn: (id: number) => revokeAIQuotaGrant(id),
-    onSuccess:  () => queryClient.invalidateQueries({ queryKey: ["ai-quota-grants-all"] }),
+    onSuccess:  () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiQuotaGrantsAll }),
   });
 
   const now = Date.now();
@@ -3097,7 +3098,7 @@ export default function AdminPage() {
   /* ── Rubric set management ───────────────────────────────────── */
   const queryClient = useQueryClient();
   const { data: rubricSets = [], isLoading: rubricSetsLoading } = useQuery<RubricSetRow[]>({
-    queryKey: ["rubricSets", "all"],
+    queryKey: [...QUERY_KEYS.rubricSets, "all"],
     queryFn: () => fetchRubricSets(true),
     staleTime: 60_000,
   });
@@ -3141,7 +3142,7 @@ export default function AdminPage() {
       newQSubjectAudience,
     ),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rubricSets });
       setSelectedRubricSetSlug(created.slug);
       setShowNewRubricSetDialog(false);
       setNewQName("");
@@ -3155,7 +3156,7 @@ export default function AdminPage() {
   const reorderMut = useMutation({
     mutationFn: (items: { slug: string; displayOrder: number }[]) => reorderRubricSets(items),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rubricSets"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rubricSets });
     },
   });
 

@@ -1,5 +1,6 @@
 import { Fragment, useState, useMemo, useLayoutEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
 import SchoolObservationModal from "@/components/SchoolObservationModal";
@@ -185,7 +186,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
-    queryKey: ["rubricSets"],
+    queryKey: QUERY_KEYS.rubricSets,
     // fetchRubricSets takes (includeArchived?: boolean); React Query would pass its
     // QueryFunctionContext as that arg, so wrap in an arrow to call with no args.
     queryFn: () => fetchRubricSets(),
@@ -201,7 +202,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
 
 
   const { data, isLoading, isError } = useQuery<DistrictSummaryData>({
-    queryKey: ["district", activeRubricSet, scoreType],
+    queryKey: [...QUERY_KEYS.district, activeRubricSet, scoreType],
     queryFn: () => fetchDistrictSummary(activeRubricSet, scoreType),
     staleTime: 30_000,
   });
@@ -808,7 +809,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
         categories={data.categories}
         onSaved={() => {
           setSchoolObsModalOpen(false);
-          queryClient.invalidateQueries({ queryKey: ["district", activeRubricSet, scoreType] });
+          queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.district, activeRubricSet, scoreType] });
         }}
       />
     )}

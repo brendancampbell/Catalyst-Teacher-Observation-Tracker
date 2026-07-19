@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
@@ -430,7 +431,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
   const isInitialRubric = selectedRubricSlug === initialRubricSet;
 
   const { data: altData, isFetching: altFetching } = useQuery({
-    queryKey: ["dashboard", selectedRubricSlug, schoolId ?? null],
+    queryKey: [...QUERY_KEYS.dashboard, selectedRubricSlug, schoolId ?? null],
     queryFn: () => fetchDashboard(selectedRubricSlug, schoolId ?? null),
     enabled: !isInitialRubric,
     staleTime: 60_000,
@@ -842,7 +843,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             });
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
-            await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
           }}
           onDelete={canEdit ? async (observationId) => {
             await deleteObservation(observationId);
@@ -852,7 +853,7 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
               return next;
             });
             setSelectedObservation(null);
-            await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
           } : undefined}
         />
       )}

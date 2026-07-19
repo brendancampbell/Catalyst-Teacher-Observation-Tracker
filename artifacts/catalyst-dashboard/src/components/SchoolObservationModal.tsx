@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   fetchAdminSchools,
   createSchoolObservation,
@@ -58,7 +59,7 @@ export default function SchoolObservationModal({
     "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   const { data: schools = [] } = useQuery<AdminSchool[]>({
-    queryKey: ["adminSchools"],
+    queryKey: QUERY_KEYS.adminSchools,
     queryFn:  fetchAdminSchools,
     staleTime: 60_000,
     enabled:   open,

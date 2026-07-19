@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { Sparkles, RefreshCw, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Users, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +94,7 @@ export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug, rubric
   const [collapsed, setCollapsed] = useState(false);
 
   const { data: cacheData, isLoading: cacheLoading } = useQuery({
-    queryKey: ["qualitative-themes", schoolId, rubricSlug],
+    queryKey: [...QUERY_KEYS.qualitativeThemes, schoolId, rubricSlug],
     queryFn:  () => fetchQualitativeThemes(schoolId!, rubricSlug),
     enabled:  schoolId != null && !!rubricSlug,
     staleTime: 5 * 60_000,
@@ -102,7 +103,7 @@ export function QualitativeThemesCard({ schoolId, schoolName, rubricSlug, rubric
   const { mutate: generate, isPending: generating, error: generateError } = useMutation({
     mutationFn: () => generateQualitativeThemes(schoolId!, rubricSlug),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["qualitative-themes", schoolId, rubricSlug] });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.qualitativeThemes, schoolId, rubricSlug] });
     },
   });
 

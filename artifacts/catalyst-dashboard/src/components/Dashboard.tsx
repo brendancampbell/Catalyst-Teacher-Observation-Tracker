@@ -3,6 +3,7 @@ import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   SUBJECTS,
   GRADE_LEVELS,
@@ -173,7 +174,7 @@ export default function Dashboard() {
   const didInitRubric = useRef(false);
 
   const { data: allRubricSets = [] } = useQuery<RubricSetRow[]>({
-    queryKey: ["rubricSets"],
+    queryKey: QUERY_KEYS.rubricSets,
     // fetchRubricSets takes (includeArchived?: boolean); React Query would pass its
     // QueryFunctionContext as that arg, so wrap in an arrow to call with no args.
     queryFn: () => fetchRubricSets(),
@@ -182,7 +183,7 @@ export default function Dashboard() {
   const rubricSets = allRubricSets.filter((q) => !q.isArchived);
 
   const { data: myLatestRubricSlug, isFetched: latestRubricFetched } = useQuery({
-    queryKey: ["myLatestRubricSlug"],
+    queryKey: QUERY_KEYS.myLatestRubricSlug,
     queryFn: fetchMyLatestRubricSlug,
     staleTime: Infinity,
   });
@@ -233,7 +234,7 @@ export default function Dashboard() {
   const walkthroughsOnly = viewMode === "walkthroughs";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard", activeRubricSet, effectiveSchoolId, walkthroughsOnly],
+    queryKey: [...QUERY_KEYS.dashboard, activeRubricSet, effectiveSchoolId, walkthroughsOnly],
     queryFn: () => fetchDashboard(activeRubricSet, effectiveSchoolId, walkthroughsOnly),
     staleTime: 30_000,
     enabled: !isDistrictHome && !!activeRubricSet,
@@ -523,7 +524,7 @@ export default function Dashboard() {
           masterActionStepId,
         });
       }
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
@@ -544,7 +545,7 @@ export default function Dashboard() {
         observer: updated.observer,
         scores: updated.scores as Record<string, Score>,
       });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
     } catch (err) {
       console.error("Failed to update observation:", err);
     } finally {
@@ -555,7 +556,7 @@ export default function Dashboard() {
   async function handleDeleteObs(teacherId: string, observationId: string) {
     try {
       await deleteObservation(observationId);
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
     } catch (err) {
       console.error("Failed to delete observation:", err);
     }

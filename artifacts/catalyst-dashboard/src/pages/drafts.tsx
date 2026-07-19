@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { useSearch } from "wouter";
 import {
   FileEdit, Trash2, RotateCcw, FileX, Loader2,
@@ -111,7 +112,7 @@ export default function DraftsPage() {
 
   /* ── Drafts query ───────────────────────────────────────────────── */
   const { data: drafts = [], isLoading, isError } = useQuery<DraftObservation[]>({
-    queryKey:  ["myDrafts"],
+    queryKey:  QUERY_KEYS.myDrafts,
     queryFn:   fetchMyDrafts,
     staleTime: 15_000,
   });
@@ -167,7 +168,7 @@ export default function DraftsPage() {
     try {
       await deleteObservation(draft.id);
       setSelected((prev) => { const next = new Set(prev); next.delete(draft.id); return next; });
-      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Draft deleted" });
     } catch {
       toast({ title: "Could not delete draft", variant: "destructive" });
@@ -185,11 +186,11 @@ export default function DraftsPage() {
     try {
       await Promise.all(ids.map((id) => deleteObservation(id)));
       setSelected(new Set());
-      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: `Deleted ${count} draft${count !== 1 ? "s" : ""}` });
     } catch {
       toast({ title: "Some drafts could not be deleted", variant: "destructive" });
-      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
     } finally {
       setBulkDeleting(false);
     }
@@ -242,7 +243,7 @@ export default function DraftsPage() {
         newActionStep,
         masterActionStepId,
       });
-      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Observation submitted!" });
       return String(obs.id);
     } catch (err) {
@@ -315,7 +316,7 @@ export default function DraftsPage() {
           masterActionStepId,
         });
       }
-      await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Observation submitted!" });
       return String(obs.id);
     } catch (err) {

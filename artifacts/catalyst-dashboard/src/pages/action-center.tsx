@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   CheckCircle2, Clock, Plus,
   TrendingUp, TrendingDown, BarChart2, Sparkles, Send,
@@ -612,21 +613,21 @@ export default function ActionCenterPage() {
 
   /* ── Rescore queue ─────────────────────────────────── */
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({
-    queryKey: ["rescoreQueue", schoolId],
+    queryKey: [...QUERY_KEYS.rescoreQueue, schoolId],
     queryFn:  () => fetchRescoreQueue(schoolId),
     staleTime: 30_000,
   });
 
   /* ── Overdue observations ───────────────────────────── */
   const { data: overdueTeachers = [] } = useQuery<OverdueTeacher[]>({
-    queryKey: ["overdueObservations", schoolId],
+    queryKey: [...QUERY_KEYS.overdueObservations, schoolId],
     queryFn:  () => fetchOverdueObservations(schoolId),
     staleTime: 60_000,
   });
 
   /* ── Dashboard data ──────────────────────────────────── */
   const { data: quarters = [], isLoading: quartersLoading } = useQuery<RubricSetRow[]>({
-    queryKey: ["quarters"],
+    queryKey: QUERY_KEYS.quarters,
     queryFn:  () => fetchRubricSets(),
     staleTime: 60_000,
   });
@@ -659,7 +660,7 @@ export default function ActionCenterPage() {
   const activeQuarterAudience: "STEM" | "HUMANITIES" | "ALL" = activeQuarterObj?.subjectAudience ?? "ALL";
 
   const { data: dashData } = useQuery({
-    queryKey: ["dashboard", activeQuarter, schoolId],
+    queryKey: [...QUERY_KEYS.dashboard, activeQuarter, schoolId],
     queryFn:  () => fetchDashboard(activeQuarter, schoolId),
     staleTime: 60_000,
     enabled:  !!activeQuarter,
@@ -671,20 +672,20 @@ export default function ActionCenterPage() {
 
   /* ── AI data ─────────────────────────────────────────── */
   const { data: insights } = useQuery<AIInsightsResponse>({
-    queryKey: ["ai-insights", activeQuarter, schoolId],
+    queryKey: [...QUERY_KEYS.aiInsights, activeQuarter, schoolId],
     queryFn:  () => fetchAIInsights(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
   const { data: calibrationFlags = [] } = useQuery<AICalibrationFlag[]>({
-    queryKey: ["ai-calibration-flags", activeQuarter, schoolId],
+    queryKey: [...QUERY_KEYS.aiCalibrationFlags, activeQuarter, schoolId],
     queryFn:  () => fetchAICalibrationFlags(activeQuarter, schoolId),
     staleTime: 60_000,
   });
 
   /* ── Overdue action steps ─────────────────────────────── */
   const { data: overdueActionSteps = [] } = useQuery<OverdueActionStep[]>({
-    queryKey: ["overdueActionSteps", schoolId],
+    queryKey: [...QUERY_KEYS.overdueActionSteps, schoolId],
     queryFn:  () => fetchOverdueActionSteps(schoolId),
     staleTime: 60_000,
   });
@@ -694,7 +695,7 @@ export default function ActionCenterPage() {
 
   /* ── District summary (for network comparison — network roles only) ── */
   const { data: districtData } = useQuery({
-    queryKey: ["district-summary", activeQuarter],
+    queryKey: [...QUERY_KEYS.districtSummary, activeQuarter],
     queryFn:  () => fetchDistrictSummary(activeQuarter),
     staleTime: 60_000,
     enabled:  !!activeQuarter && !isSchoolScoped,
@@ -702,7 +703,7 @@ export default function ActionCenterPage() {
 
   /* ── Network averages (for school-scoped roles only) ─────── */
   const { data: networkAvgsData } = useQuery({
-    queryKey: ["network-averages", activeQuarter],
+    queryKey: [...QUERY_KEYS.networkAverages, activeQuarter],
     queryFn:  () => fetchNetworkAverages(activeQuarter),
     staleTime: 60_000,
     enabled:  !!activeQuarter && isSchoolScoped,
@@ -864,12 +865,12 @@ export default function ActionCenterPage() {
         newActionStep,
         masterActionStepId,
       });
-      queryClient.invalidateQueries({ queryKey: ["rescoreQueue"] });
-      queryClient.invalidateQueries({ queryKey: ["overdueObservations"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["ai-calibration-flags"] });
-      queryClient.invalidateQueries({ queryKey: ["ai-insights"] });
-      queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rescoreQueue });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueObservations });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiCalibrationFlags });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiInsights });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
@@ -888,7 +889,7 @@ export default function ActionCenterPage() {
   const [streamingText, setStreamingText]           = useState("");
 
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<AIChatSession[]>({
-    queryKey: ["chatSessions"],
+    queryKey: QUERY_KEYS.chatSessions,
     queryFn:  fetchChatSessions,
     staleTime: 60_000,
   });
@@ -898,7 +899,7 @@ export default function ActionCenterPage() {
     isLoading: messagesLoading,
     isError:   messagesError,
   } = useQuery<AIChatMessage[]>({
-    queryKey: ["chatMessages", activeChatId],
+    queryKey: [...QUERY_KEYS.chatMessages, activeChatId],
     queryFn:  () => fetchChatSessionMessages(activeChatId!),
     enabled:  activeChatId !== null,
     staleTime: 5 * 60_000,
@@ -924,7 +925,7 @@ export default function ActionCenterPage() {
   const prevExhaustedRef        = useRef(false);
 
   const { data: quotaStatus } = useQuery<AIQuotaStatus>({
-    queryKey:       ["ai-quota-status"],
+    queryKey:       QUERY_KEYS.aiQuotaStatus,
     queryFn:        fetchAIQuotaStatus,
     refetchInterval: 60_000,
     staleTime:       30_000,
@@ -1072,7 +1073,7 @@ export default function ActionCenterPage() {
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
-      queryClient.invalidateQueries({ queryKey: ["chatMessages", sessionId] });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.chatMessages, sessionId] });
     } catch (err) {
       if ((err as Error)?.name === "AbortError") return;
       setChatTyping(false);
@@ -1126,7 +1127,7 @@ export default function ActionCenterPage() {
         [...prev.map((s) => s.id === sessionId ? { ...s, updatedAt: now } : s)]
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
-      queryClient.invalidateQueries({ queryKey: ["chatMessages", capturedSessionId!] });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.chatMessages, capturedSessionId!] });
     } catch (err) {
       setChatTyping(false);
       setStreamingText("");

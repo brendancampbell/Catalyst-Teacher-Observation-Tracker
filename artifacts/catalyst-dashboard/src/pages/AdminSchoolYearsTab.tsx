@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   Plus, X, Check, CheckCircle2, AlertTriangle, Zap,
   BookOpen, Users, ArrowRight, CalendarDays, ChevronRight, GripVertical,
@@ -38,7 +39,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
 
   /* ── Queries ── */
   const yearsQ = useQuery<SchoolYearRow[]>({
-    queryKey: ["admin-school-years"],
+    queryKey: QUERY_KEYS.adminSchoolYears,
     queryFn:  fetchSchoolYears,
   });
   const years      = yearsQ.data ?? [];
@@ -47,21 +48,21 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
 
   /* Rubric sets for the selected year (already copied / belonging to it) */
   const selectedYrSetsQ = useQuery<RubricSetRow[]>({
-    queryKey: ["school-year-rubric-sets", selectedId],
+    queryKey: [...QUERY_KEYS.schoolYearRubricSets, selectedId],
     queryFn:  () => fetchSchoolYearRubricSets(selectedId!),
     enabled:  selectedId != null,
   });
 
   /* Active year's non-archived sets — source for copy-forward during setup */
   const activeYrSetsQ = useQuery<RubricSetRow[]>({
-    queryKey: ["rubric-sets-for-copy"],
+    queryKey: QUERY_KEYS.rubricSetsForCopy,
     queryFn:  () => fetchRubricSets(false),
     enabled:  selectedYr?.status === "inactive",
   });
 
   /* Activation preview — fetched lazily when confirmation dialog opens */
   const previewQ = useQuery<SchoolYearActivationPreview>({
-    queryKey: ["activation-preview", selectedId],
+    queryKey: [...QUERY_KEYS.activationPreview, selectedId],
     queryFn:  () => fetchActivationPreview(selectedId!),
     enabled:  false,
     staleTime: 0,
@@ -71,7 +72,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
   const createMut = useMutation({
     mutationFn: createSchoolYear,
     onSuccess: (yr) => {
-      qc.invalidateQueries({ queryKey: ["admin-school-years"] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.adminSchoolYears });
       setShowCreate(false);
       setNewName("");
       setSelectedId(yr.id);
@@ -82,18 +83,21 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
     mutationFn: ({ sourceId, targetId }: { sourceId: number; targetId: number }) =>
       copyRubricSetForward(sourceId, targetId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["school-year-rubric-sets", selectedId] });
+      qc.invalidateQueries({ queryKey: [...QUERY_KEYS.schoolYearRubricSets, selectedId] });
     },
   });
 
   const activateMut = useMutation({
     mutationFn: () => activateSchoolYear(selectedId!),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-school-years"] });
-      qc.invalidateQueries({ queryKey: ["school-year-rubric-sets"] });
-      qc.invalidateQueries({ queryKey: ["rubric-sets"] });
-      qc.invalidateQueries({ queryKey: ["rubric-sets-for-copy"] });
-      qc.invalidateQueries({ queryKey: ["activation-preview"] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.adminSchoolYears });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.schoolYearRubricSets });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.rubricSets });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.rubricSetsForCopy });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.activationPreview });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.quarters });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
       setShowActivate(false);
       setConfirmText("");
     },
@@ -102,7 +106,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
   const reorderMut = useMutation({
     mutationFn: (items: { id: number; displayOrder: number }[]) => reorderSchoolYears(items),
     onSuccess: (updated) => {
-      qc.setQueryData(["admin-school-years"], updated);
+      qc.setQueryData(QUERY_KEYS.adminSchoolYears, updated);
     },
   });
 

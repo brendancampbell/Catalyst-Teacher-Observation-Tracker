@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { useLocation } from "wouter";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import {
@@ -61,7 +62,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
     isLoading,
     isError,
   } = useQuery<ActionStep[]>({
-    queryKey: ["action-steps", employeeId],
+    queryKey: [...QUERY_KEYS.actionSteps, employeeId],
     queryFn:  () => fetchActionSteps(employeeId),
     staleTime: 30_000,
     enabled:   !!employeeId,
@@ -69,7 +70,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
 
   /* Resolve teacher name from the people list when the prop isn't supplied */
   const { data: resolvedName } = useQuery<string | undefined>({
-    queryKey: ["person-name", employeeId],
+    queryKey: [...QUERY_KEYS.personName, employeeId],
     queryFn:  async () => {
       const all   = await fetchPeople();
       const match = all.find((p) => p.employeeId === employeeId);
@@ -83,7 +84,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
 
   /* ── Rubric sets (for modal) ─────────────────────────── */
   const { data: quarters = [] } = useQuery<RubricSetRow[]>({
-    queryKey: ["quarters"],
+    queryKey: QUERY_KEYS.quarters,
     queryFn:  () => fetchRubricSets(),
     staleTime: 60_000,
   });
@@ -93,7 +94,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
 
   /* ── Dashboard data (teachers + rubric structure for modal) ── */
   const { data: dashData } = useQuery({
-    queryKey: ["dashboard", activeQuarter, currentUser?.schoolId],
+    queryKey: [...QUERY_KEYS.dashboard, activeQuarter, currentUser?.schoolId],
     queryFn:  () => fetchDashboard(activeQuarter, currentUser?.schoolId),
     staleTime: 60_000,
     enabled:   !!activeQuarter,
@@ -110,8 +111,8 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
     setMasteringId(id);
     try {
       await masterActionStep(id);
-      queryClient.invalidateQueries({ queryKey: ["action-steps", employeeId] });
-      queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
     } catch { /* silent */ }
     finally { setMasteringId(null); }
   }
@@ -147,9 +148,9 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         newActionStep,
         masterActionStepId,
       });
-      queryClient.invalidateQueries({ queryKey: ["action-steps", employeeId] });
-      queryClient.invalidateQueries({ queryKey: ["overdueActionSteps"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
