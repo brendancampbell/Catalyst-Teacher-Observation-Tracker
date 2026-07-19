@@ -225,11 +225,11 @@ describe("Action Steps — end-to-end flow", () => {
       id: number;
       text: string;
       status: string;
-      assignedDuringObservationId?: number;
+      assignedDuringObservationId?: string;
     }>;
     assert.ok(Array.isArray(steps) && steps.length > 0, "Should return at least one action step");
 
-    const linked = steps.find((s) => s.assignedDuringObservationId === createdObsId);
+    const linked = steps.find((s) => s.assignedDuringObservationId === String(createdObsId));
     assert.ok(
       linked,
       `Expected a step with assignedDuringObservationId=${createdObsId}, got: ${JSON.stringify(steps.map((s) => s.assignedDuringObservationId))}`,

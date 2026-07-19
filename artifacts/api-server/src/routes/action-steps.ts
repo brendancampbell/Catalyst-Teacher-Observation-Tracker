@@ -112,14 +112,14 @@ router.get("/", requireAuth, async (req, res) => {
       teacherEmployeeId:           r.teacherEmployeeId,
       assignedByEmployeeId:        r.assignedByEmployeeId ?? undefined,
       assignedByName:              r.assignedByFirst ? `${r.assignedByFirst} ${r.assignedByLast ?? ""}`.trim() : undefined,
-      assignedDuringObservationId: r.assignedDuringObservationId ?? undefined,
+      assignedDuringObservationId: r.assignedDuringObservationId != null ? String(r.assignedDuringObservationId) : undefined,
       text:                        r.text,
       dueDate:                     r.dueDate,
       status:                      r.status,
       masteredAt:                  r.masteredAt?.toISOString() ?? undefined,
       masteredByEmployeeId:        r.masteredByEmployeeId ?? undefined,
       masteredByName:              r.masteredByEmployeeId ? (masteredByMap.get(r.masteredByEmployeeId) ?? undefined) : undefined,
-      masteredDuringObservationId: r.masteredDuringObservationId ?? undefined,
+      masteredDuringObservationId: r.masteredDuringObservationId != null ? String(r.masteredDuringObservationId) : undefined,
       createdAt:                   r.createdAt.toISOString(),
     })));
   } catch (err) {
@@ -191,13 +191,13 @@ router.get("/latest", requireAuth, async (req, res) => {
       teacherEmployeeId:           r.teacherEmployeeId,
       assignedByEmployeeId:        r.assignedByEmployeeId ?? undefined,
       assignedByName:              r.assignedByFirst ? `${r.assignedByFirst} ${r.assignedByLast ?? ""}`.trim() : undefined,
-      assignedDuringObservationId: r.assignedDuringObservationId ?? undefined,
+      assignedDuringObservationId: r.assignedDuringObservationId != null ? String(r.assignedDuringObservationId) : undefined,
       text:                        r.text,
       dueDate:                     r.dueDate,
       status:                      r.status,
       masteredAt:                  r.masteredAt?.toISOString() ?? undefined,
       masteredByEmployeeId:        r.masteredByEmployeeId ?? undefined,
-      masteredDuringObservationId: r.masteredDuringObservationId ?? undefined,
+      masteredDuringObservationId: r.masteredDuringObservationId != null ? String(r.masteredDuringObservationId) : undefined,
       createdAt:                   r.createdAt.toISOString(),
     });
   } catch (err) {

@@ -108,13 +108,8 @@ export function ObservationDetailModal({
     let cancelled = false;
     fetchActionSteps(teacher.employeeId).then((steps) => {
       if (cancelled) return;
-      // Use == (loose equality) to handle the string/number mismatch between
-      // observation.id (string from frontend) and assignedDuringObservationId
-      // (number serialised from the DB integer column).
-      // eslint-disable-next-line eqeqeq
-      setAssignedSteps(steps.filter((s) => s.assignedDuringObservationId != null && s.assignedDuringObservationId == observation.id));
-      // eslint-disable-next-line eqeqeq
-      setMasteredSteps(steps.filter((s) => s.masteredDuringObservationId != null && s.masteredDuringObservationId == observation.id));
+      setAssignedSteps(steps.filter((s) => s.assignedDuringObservationId != null && s.assignedDuringObservationId === observation.id));
+      setMasteredSteps(steps.filter((s) => s.masteredDuringObservationId != null && s.masteredDuringObservationId === observation.id));
     }).catch(() => {
       if (!cancelled) { setAssignedSteps([]); setMasteredSteps([]); }
     });
