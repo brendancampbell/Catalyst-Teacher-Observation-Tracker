@@ -367,9 +367,9 @@ describe("ObservationPage — draft restore round-trip", () => {
     renderPage();
 
     /* The "Mark as Mastered" button acts as the toggle; when the draft restores
-       masterActionStepId the button caption switches to "Marked as Mastered". */
+       masterActionStepId the button caption switches to "Will mark as mastered". */
     await waitFor(
-      () => expect(screen.getByText("Marked as Mastered")).toBeTruthy(),
+      () => expect(screen.getByText("Will mark as mastered")).toBeTruthy(),
       { timeout: 4000 },
     );
   });

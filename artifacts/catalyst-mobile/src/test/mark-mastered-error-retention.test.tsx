@@ -136,7 +136,7 @@ async function waitForMasteredButton(): Promise<HTMLElement> {
 
 /** Returns true when the mastery button shows the "marked" text */
 function isMasteredButtonActive(): boolean {
-  const btn = screen.queryByRole("button", { name: /Marked as Mastered/i });
+  const btn = screen.queryByRole("button", { name: /Will mark as mastered/i });
   return btn !== null;
 }
 
@@ -183,9 +183,9 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
 
     const btn = await waitForMasteredButton();
 
-    /* Click to mark as mastered — button text changes to "Marked as Mastered" */
+    /* Click to mark as mastered — button text changes to "Will mark as mastered" */
     await act(async () => { fireEvent.click(btn); });
-    expect(screen.getByRole("button", { name: /Marked as Mastered/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Will mark as mastered/i })).toBeTruthy();
 
     /* Submit — updateObservation throws */
     const submitBtn = screen.getByRole("button", { name: /Submit/i });
@@ -197,7 +197,7 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
       { timeout: 4000 },
     );
 
-    /* Mastery toggle must remain in the "Marked as Mastered" state */
+    /* Mastery toggle must remain in the "Will mark as mastered" state */
     expect(isMasteredButtonActive()).toBe(true);
   });
 
@@ -206,7 +206,7 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
 
     const btn = await waitForMasteredButton();
     await act(async () => { fireEvent.click(btn); });
-    expect(screen.getByRole("button", { name: /Marked as Mastered/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Will mark as mastered/i })).toBeTruthy();
 
     const submitBtn = screen.getByRole("button", { name: /Submit/i });
 
@@ -292,7 +292,7 @@ describe("Mark as Mastered — retained after network error on POST (new observa
     /* Click to mark — hasContent is still false, so auto-save does not update
        draftId; the submit will go through the POST path */
     await act(async () => { fireEvent.click(btn); });
-    expect(screen.getByRole("button", { name: /Marked as Mastered/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Will mark as mastered/i })).toBeTruthy();
 
     const submitBtn = screen.getByRole("button", { name: /Submit/i });
     await act(async () => { fireEvent.click(submitBtn); });
@@ -302,7 +302,7 @@ describe("Mark as Mastered — retained after network error on POST (new observa
       { timeout: 4000 },
     );
 
-    /* Mastery toggle must remain in the "Marked as Mastered" state */
+    /* Mastery toggle must remain in the "Will mark as mastered" state */
     expect(isMasteredButtonActive()).toBe(true);
   });
 

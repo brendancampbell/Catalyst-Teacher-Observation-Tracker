@@ -917,7 +917,8 @@ export default function ObservationPage() {
 
               {/* Last action step banner */}
               {!loadingLastActionStep && lastActionStep && (() => {
-                const displayMastered = lastActionStep.status === "mastered" || (lastActionStep.status === "open" && markMastered);
+                const alreadyMastered = lastActionStep.status === "mastered";
+                const displayMastered = alreadyMastered || (lastActionStep.status === "open" && markMastered);
                 return (
                 <div
                   className="rounded-lg px-3 py-3 space-y-2"
@@ -931,9 +932,11 @@ export default function ObservationPage() {
                       className="text-xs font-bold uppercase tracking-wider"
                       style={{ color: displayMastered ? "#15803D" : "#C2410C" }}
                     >
-                      {displayMastered
+                      {alreadyMastered
                         ? "✓ Previous Action Step (Mastered)"
-                        : "↻ Previous Action Step (Open)"}
+                        : displayMastered
+                          ? "↻ Previous Action Step (Open — will be mastered on submit)"
+                          : "↻ Previous Action Step (Open)"}
                     </span>
                     {lastActionStep.dueDate < todayIso! && !displayMastered && (
                       <span
@@ -990,7 +993,7 @@ export default function ObservationPage() {
                         }
                       >
                         <CheckCircle size={13} />
-                        {markMastered ? "Marked as Mastered" : "Mark as Mastered"}
+                        {markMastered ? "Will mark as mastered" : "Mark as Mastered"}
                       </button>
                     )}
                     <button
