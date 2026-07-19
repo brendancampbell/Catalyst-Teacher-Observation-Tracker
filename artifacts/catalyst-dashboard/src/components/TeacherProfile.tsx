@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { toast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
@@ -420,6 +421,8 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             : s,
         ),
       );
+    } catch {
+      toast({ title: "Could not mark step as mastered", variant: "destructive" });
     } finally {
       setMasteringId(null);
     }

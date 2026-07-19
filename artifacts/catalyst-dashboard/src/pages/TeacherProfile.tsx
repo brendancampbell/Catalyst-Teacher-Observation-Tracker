@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { toast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import {
@@ -113,8 +114,9 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
       await masterActionStep(id);
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
-    } catch { /* silent */ }
-    finally { setMasteringId(null); }
+    } catch {
+      toast({ title: "Could not mark step as mastered", variant: "destructive" });
+    } finally { setMasteringId(null); }
   }
 
   /* ── Submit observation from modal ───────────────────── */
