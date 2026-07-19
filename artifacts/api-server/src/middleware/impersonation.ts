@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { checkActiveThisYear } from "../lib/passport.js";
 
 const SKIP_PATHS = [
   "/api/auth/impersonate",
@@ -50,6 +51,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
 
     if (rows.length > 0 && rows[0].isActive) {
       const target = rows[0];
+      const activeThisYear = await checkActiveThisYear(target.employeeId);
       (req as Request & { realUser?: Express.User }).realUser = req.user;
       req.user = {
         employeeId:               target.employeeId,
@@ -61,6 +63,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
         schoolId:                 target.schoolId ?? null,
         googleId:                 target.googleId,
         isActive:                 target.isActive,
+        activeThisYear,
         includeInFeedbackTracker: target.includeInFeedbackTracker,
         department:               target.department ?? null,
         gradeLevel:               target.gradeLevel ?? null,
