@@ -158,7 +158,6 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "AC Cross-School Test A",
         status:             "published",
         target:             "SCHOOL",
       })
@@ -184,7 +183,6 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "AC Cross-School Test B",
         status:             "published",
         target:             "SCHOOL",
       })

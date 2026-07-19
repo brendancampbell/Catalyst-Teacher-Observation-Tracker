@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, boolean, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean, real, timestamp, time, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { people } from "./people";
@@ -9,20 +9,28 @@ import { schoolYears } from "./school-years";
 export const observations = pgTable("observations", {
   id:                  serial("id").primaryKey(),
   observedEmployeeId:  text("observed_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
-  schoolId:            integer("school_id").references(() => schools.id, { onDelete: "cascade" }),
+  schoolId:            integer("school_id").references(() => schools.id, { onDelete: "restrict" }),
   schoolYearId:        integer("school_year_id").notNull().$type<number>().references(() => schoolYears.id),
-  rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
+  rubricSetId:         integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "restrict" }),
   observerEmployeeId:  text("observer_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
-  observerEmail:       text("observer_email"),
   date:                date("date").notNull(),
   course:              text("course"),
   strengths:           text("strengths"),
   growthAreas:         text("growth_areas"),
-  observer:            text("observer").notNull().default("Principal Rivera"),
-  time:                text("time"),
+  /* time column: native PostgreSQL TIME WITHOUT TIME ZONE (nullable).
+     Any pre-existing text values that are not valid time strings should be
+     treated as NULL. Stored as "HH:MM:SS" on return from the DB.          */
+  time:                time("time"),
   isWalkthrough:       boolean("is_walkthrough").notNull().default(false),
   editedByEmployeeId:  text("edited_by_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
-  editedAt:            timestamp("edited_at", { withTimezone: true }),
+  /* updated_at replaces the former edited_at column (renamed, not dropped).
+     Intentionally nullable with NO default: NULL means "never edited after
+     creation"; a non-null value records the last time the observation was
+     mutated after its initial save. This differs from created_at (always
+     set) and the timestamps on other tables (defaultNow). Any PUT handler
+     that writes to this record must set updated_at = now() explicitly.    */
+  updatedAt:           timestamp("updated_at", { withTimezone: true }),
+  createdAt:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   status:              text("status").notNull().default("published"),
   target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
   snapshotGradeSpan:   text("snapshot_grade_span"),
@@ -33,7 +41,11 @@ export const observationScores = pgTable("observation_scores", {
   observationId: integer("observation_id").notNull().references(() => observations.id, { onDelete: "cascade" }),
   domainSlug:    text("domain_slug").notNull(),
   score:         real("score").notNull(),
-});
+  createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("observation_scores_obs_domain_uniq").on(t.observationId, t.domainSlug),
+]);
 
 export const insertObservationSchema = createInsertSchema(observations).omit({ id: true });
 

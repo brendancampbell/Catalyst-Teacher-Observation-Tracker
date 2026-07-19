@@ -197,7 +197,6 @@ describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
         schoolYearId:        SCHOOL_YEAR_ID,
         rubricSetId:         guardedSetId,
         date:                "2025-01-15",
-        observer:            "Test Observer",
         status:              "published",
       },
       {
@@ -207,7 +206,6 @@ describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
         schoolYearId:        SCHOOL_YEAR_ID,
         rubricSetId:         forcedSetId,
         date:                "2025-01-15",
-        observer:            "Test Observer",
         status:              "published",
       },
     ]).returning({ id: observations.id });
@@ -252,7 +250,6 @@ describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
       schoolYearId:       SCHOOL_YEAR_ID,
       rubricSetId:        xSetAId,
       date:               "2025-01-15",
-      observer:           "Test Observer",
       status:             "published",
     }).returning({ id: observations.id });
     createdObsIds.push(xObs.id);

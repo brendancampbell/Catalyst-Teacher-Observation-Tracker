@@ -173,7 +173,6 @@ describe("Due-date ISO format validation — POST obs, PUT obs, PATCH action-ste
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: ADMIN_EID,
         date:               "2025-07-01",
-        observer:           "DDVal Test Suite",
         status:             "published",
         target:             "TEACHER",
       })

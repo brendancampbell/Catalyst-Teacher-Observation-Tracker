@@ -111,20 +111,16 @@ async function seedDev() {
   ).returning();
 
   console.log("Inserting observations and scores…");
-  const observerNames = ["Marcus Wilson", "Jessica Rivera", "Brendan Campbell", "Amanda Lee", "David Thompson"];
-
   for (const teacher of insertedTeachers) {
     const numObs = 2 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numObs; i++) {
       const daysAgo = 5 + i * 14 + Math.floor(Math.random() * 7);
-      const observer = observerNames[Math.floor(Math.random() * observerNames.length)];
       const isWalkthrough = Math.random() < 0.3;
 
       const [obs] = await db.insert(observations).values({
         observedEmployeeId: teacher.employeeId,
         rubricSetId:        rubricSetId,
         date:               rDate(daysAgo),
-        observer,
         isWalkthrough,
         strengths:    isWalkthrough ? null : "Strong routines and student engagement throughout.",
         growthAreas:  isWalkthrough ? null : "Continue developing academic monitoring strategies.",

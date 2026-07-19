@@ -92,15 +92,22 @@ router.get("/", async (req, res) => {
 
     const allObs = await db.select().from(observations).where(obsWhere);
 
-    /* ── Fetch editor names for audit trail ───────────────────────── */
+    /* ── Batch-fetch editor and observer names for audit trail ────── */
     const editorIds = [...new Set(allObs.map((o) => o.editedByEmployeeId).filter((id): id is string => id != null))];
+    const observerIds = [...new Set(allObs.map((o) => o.observerEmployeeId).filter((id): id is string => id != null))];
+    const allPeopleIds = [...new Set([...editorIds, ...observerIds])];
     const editorMap = new Map<string, string>();
-    if (editorIds.length > 0) {
-      const editors = await db
-        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName })
+    const observerMap = new Map<string, { name: string; email: string }>();
+    if (allPeopleIds.length > 0) {
+      const personRows = await db
+        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName, email: people.email })
         .from(people)
-        .where(inArray(people.employeeId, editorIds));
-      for (const e of editors) editorMap.set(e.employeeId, `${e.firstName} ${e.lastName}`.trim());
+        .where(inArray(people.employeeId, allPeopleIds));
+      for (const p of personRows) {
+        const fullName = `${p.firstName} ${p.lastName}`.trim();
+        if (editorIds.includes(p.employeeId)) editorMap.set(p.employeeId, fullName);
+        if (observerIds.includes(p.employeeId)) observerMap.set(p.employeeId, { name: fullName, email: p.email });
+      }
     }
 
     const obsIds = allObs.map((o) => o.id);
@@ -143,11 +150,11 @@ router.get("/", async (req, res) => {
           isWalkthrough:      o.isWalkthrough,
           strengths:          o.strengths ?? undefined,
           growthAreas:        o.growthAreas ?? undefined,
-          observer:           o.observer,
+          observer:           o.observerEmployeeId ? (observerMap.get(o.observerEmployeeId)?.name ?? "") : "",
           observerEmployeeId: o.observerEmployeeId ?? undefined,
-          observerEmail:      o.observerEmail ?? undefined,
+          observerEmail:      o.observerEmployeeId ? (observerMap.get(o.observerEmployeeId)?.email ?? undefined) : undefined,
           editedBy:           o.editedByEmployeeId ? (editorMap.get(o.editedByEmployeeId) ?? undefined) : undefined,
-          editedAt:           o.editedAt?.toISOString() ?? undefined,
+          editedAt:           o.updatedAt?.toISOString() ?? undefined,
           scores:             scoresByObs.get(o.id) ?? {},
         })),
     }));

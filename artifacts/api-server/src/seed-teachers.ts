@@ -128,11 +128,6 @@ async function seedTeachers() {
     return;
   }
 
-  const observerNames = [
-    "Marcus Wilson", "Jessica Rivera", "Amanda Lee",
-    "David Thompson", "Karen Williams",
-  ];
-
   let totalObs = 0;
   console.log("Inserting observations and scores for new teachers…");
 
@@ -140,7 +135,6 @@ async function seedTeachers() {
     const numObs = 2 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numObs; i++) {
       const daysAgo = 5 + i * 14 + Math.floor(Math.random() * 7);
-      const observer = observerNames[Math.floor(Math.random() * observerNames.length)];
       const isWalkthrough = Math.random() < 0.3;
 
       const [obs] = await db.insert(observations).values({
@@ -148,7 +142,6 @@ async function seedTeachers() {
         observedEmployeeId: teacher.employeeId,
         rubricSetId,
         date:               rDate(daysAgo),
-        observer,
         isWalkthrough,
         strengths:   isWalkthrough ? null : "Strong routines and student engagement throughout.",
         growthAreas: isWalkthrough ? null : "Continue developing academic monitoring strategies.",

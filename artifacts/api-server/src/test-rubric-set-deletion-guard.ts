@@ -166,7 +166,6 @@ describe("DELETE /api/rubric/sets/:slug — observation-count guard", () => {
         schoolYearId:        SCHOOL_YEAR_ID,
         rubricSetId:         guardedSetId,
         date:                "2025-01-15",
-        observer:            "Test Observer",
         status:              "published",
       },
       {
@@ -176,7 +175,6 @@ describe("DELETE /api/rubric/sets/:slug — observation-count guard", () => {
         schoolYearId:        SCHOOL_YEAR_ID,
         rubricSetId:         forcedSetId,
         date:                "2025-01-15",
-        observer:            "Test Observer",
         status:              "published",
       },
     ]).returning({ id: observations.id });

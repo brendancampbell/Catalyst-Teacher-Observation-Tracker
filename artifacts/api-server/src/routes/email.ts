@@ -438,11 +438,19 @@ router.post(
     });
     if (!obs) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    /* ── Load teacher early — needed for both auth and email recipient ── */
+    /* ── Load teacher and observer early — needed for auth, recipient, and HTML ── */
     const teacher = obs.observedEmployeeId
       ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observedEmployeeId) })
       : null;
     if (!teacher) { res.status(404).json({ error: "Teacher not found" }); return; }
+
+    /* Derive observer display name from the people table. */
+    const observerPerson = obs.observerEmployeeId
+      ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observerEmployeeId) })
+      : null;
+    const observerName = observerPerson
+      ? `${observerPerson.firstName} ${observerPerson.lastName}`.trim()
+      : null;
 
     /* ── Authorization: school-scoped users may only access their own school ──
          TEACHER-target observations store schoolId = null on the observation row;
@@ -617,7 +625,7 @@ router.post(
       date: obs.date,
       time: obs.time,
       course: obs.course,
-      observer: obs.observer,
+      observer: observerName ?? "",
       scoreMap,
       prevScoreMap,
       categories,

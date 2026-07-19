@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, pgEnum, uniqueIndex, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schoolYears } from "./school-years";
@@ -18,6 +18,8 @@ export const rubricSets = pgTable("rubric_sets", {
   displayOrder:    integer("display_order").notNull().default(0),
   target:          evaluationTargetEnum("target").notNull().default("TEACHER"),
   subjectAudience: subjectAudienceEnum("subject_audience").notNull().default("ALL"),
+  createdAt:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:       timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("rubric_sets_year_slug_uniq").on(t.schoolYearId, t.slug),
 ]);
@@ -27,6 +29,8 @@ export const rubricCategories = pgTable("rubric_categories", {
   rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
   name:         text("name").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
+  createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const rubricDomains = pgTable("rubric_domains", {
@@ -40,6 +44,8 @@ export const rubricDomains = pgTable("rubric_domains", {
   slug:         text("slug").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
   description:  text("description"),
+  createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("rubric_domains_year_set_slug_uniq").on(t.schoolYearId, t.rubricSetId, t.slug),
 ]);

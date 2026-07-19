@@ -209,7 +209,6 @@ describe("Cross-school auth — COACH role", () => {
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "Coach Cross-School Test A",
         status:             "published",
         target:             "SCHOOL",
       })
@@ -235,7 +234,6 @@ describe("Cross-school auth — COACH role", () => {
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "Coach Cross-School Test B",
         status:             "published",
         target:             "SCHOOL",
       })

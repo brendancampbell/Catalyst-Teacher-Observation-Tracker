@@ -1,4 +1,4 @@
-import { pgTable, text, pgEnum, integer, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, text, pgEnum, integer, boolean, date, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schools } from "./schools";
@@ -51,10 +51,17 @@ export const people = pgTable("people", {
   includeInFeedbackTracker:    boolean("include_in_feedback_tracker").notNull().default(false),
   schoolId:                    integer("school_id").references(() => schools.id, { onDelete: "set null" }),
   department:                  departmentEnum("department"),
+  /* grade_level is stored as text[] in PostgreSQL.
+     For Redshift / EDW exports, serialize as a pipe-delimited string:
+     e.g. gradeLevel.join("|") → "9|10|11".
+     Do NOT use JSON or array syntax; Redshift COPY does not support pg arrays.
+     If the field is empty, export as an empty string "".               */
   gradeLevel:                  text("grade_level").array(),
   needsRescore:                boolean("needs_rescore").notNull().default(false),
   rescoreDueDate:              date("rescore_due_date"),
   rescoreSchoolYearId:         integer("rescore_school_year_id").references(() => schoolYears.id, { onDelete: "set null" }),
+  createdAt:                   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:                   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertPersonSchema = createInsertSchema(people).omit({ employeeId: true });

@@ -158,7 +158,6 @@ describe("Email send-observation — school-scope authorization", () => {
         rubricSetId:        createdRubricSetId,
         observerEmployeeId: SL_EID,
         date:               "2025-08-01",
-        observer:           "Email Scope SL",
         status:             "published",
         target:             "TEACHER",
       })
@@ -174,7 +173,6 @@ describe("Email send-observation — school-scope authorization", () => {
         rubricSetId:        createdRubricSetId,
         observerEmployeeId: SL_EID,
         date:               "2025-08-02",
-        observer:           "Email Scope SL",
         status:             "published",
         target:             "TEACHER",
       })

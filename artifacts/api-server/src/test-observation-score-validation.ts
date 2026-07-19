@@ -237,7 +237,6 @@ describe("Observation score input validation — POST and PUT", () => {
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: ADMIN_EID,
         date:               "2025-07-02",
-        observer:           "Score Val Test",
         status:             "published",
         target:             "TEACHER",
       })
@@ -295,7 +294,6 @@ describe("Observation score input validation — POST and PUT", () => {
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: ADMIN_EID,
         date:               "2025-07-03",
-        observer:           "Score Val Test",
         status:             "published",
         target:             "TEACHER",
       })
@@ -352,11 +350,10 @@ describe("Observation score input validation — POST and PUT", () => {
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: ADMIN_EID,
         date:               "2025-07-05",
-        observer:           "Score Val Test",
         status:             "draft",
         target:             "TEACHER",
       })
-      .returning({ id: observations.id, status: observations.status, editedAt: observations.editedAt });
+      .returning({ id: observations.id, status: observations.status, updatedAt: observations.updatedAt });
     assert.ok(obs, "Failed to create test observation for mutation guard test");
     createdObsIds.push(obs.id);
 
@@ -388,9 +385,9 @@ describe("Observation score input validation — POST and PUT", () => {
       `Status should still be 'draft', but got '${rowAfter.status}' — PUT mutated the row before returning 400`,
     );
     assert.equal(
-      rowAfter.editedAt?.toISOString() ?? null,
-      obs.editedAt?.toISOString() ?? null,
-      "editedAt should not have changed on a failed PUT",
+      rowAfter.updatedAt?.toISOString() ?? null,
+      obs.updatedAt?.toISOString() ?? null,
+      "updatedAt should not have changed on a failed PUT",
     );
   });
 

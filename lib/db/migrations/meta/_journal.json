@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1784486543556,
+      "tag": "0000_absent_gabe_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784700000000,
+      "tag": "0001_add_school_years_and_assignments",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784800000000,
+      "tag": "0002_rubric_sets_school_year",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784900000000,
+      "tag": "0003_observations_action_steps_school_year",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785000000000,
+      "tag": "0004_school_years_display_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1753000000000,
+      "tag": "0005_schema_hardening",
+      "breakpoints": true
+    }
+  ]
+}

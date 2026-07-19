@@ -18,6 +18,7 @@ export const actionSteps = pgTable("action_steps", {
   masteredByEmployeeId:        text("mastered_by_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   masteredDuringObservationId: integer("mastered_during_observation_id").references(() => observations.id, { onDelete: "set null" }),
   createdAt:                   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:                   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   schoolYearId:                integer("school_year_id").notNull().$type<number>().references(() => schoolYears.id),
   snapshotSchoolId:            integer("snapshot_school_id").references(() => schools.id, { onDelete: "set null" }),
   snapshotGradeSpan:           text("snapshot_grade_span"),
@@ -25,7 +26,7 @@ export const actionSteps = pgTable("action_steps", {
 });
 
 export const insertActionStepSchema = createInsertSchema(actionSteps)
-  .omit({ id: true, createdAt: true })
+  .omit({ id: true, createdAt: true, updatedAt: true })
   .refine((data) => data.status === "open" || data.status === "mastered", {
     path: ["status"],
     message: "status must be 'open' or 'mastered'",

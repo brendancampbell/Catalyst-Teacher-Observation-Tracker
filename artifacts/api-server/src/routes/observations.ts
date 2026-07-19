@@ -90,6 +90,32 @@ async function validateScores(
   return { ok: true };
 }
 
+/* ── fetchObserverInfo ────────────────────────────────────────────────
+   Batch-fetches observer name and email for a set of employeeIds.
+   Returns a map of employeeId → { name, email }.                      */
+async function fetchObserverInfo(
+  ids: string[],
+): Promise<Map<string, { name: string; email: string }>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({
+      employeeId: people.employeeId,
+      firstName:  people.firstName,
+      lastName:   people.lastName,
+      email:      people.email,
+    })
+    .from(people)
+    .where(inArray(people.employeeId, ids));
+  const map = new Map<string, { name: string; email: string }>();
+  for (const r of rows) {
+    map.set(r.employeeId, {
+      name:  `${r.firstName} ${r.lastName}`.trim(),
+      email: r.email,
+    });
+  }
+  return map;
+}
+
 /* ── GET /api/observations/my-latest-rubric ─────────────────────────
    Returns the slug of the rubric set containing the current user's
    most recent PUBLISHED observation (by date). Returns { slug: null }
@@ -133,6 +159,7 @@ router.get("/drafts", async (req, res) => {
       .select({
         id:                  observations.id,
         observedEmployeeId:  observations.observedEmployeeId,
+        observerEmployeeId:  observations.observerEmployeeId,
         personFirst:         people.firstName,
         personLast:          people.lastName,
         rubricSetId:         observations.rubricSetId,
@@ -144,7 +171,6 @@ router.get("/drafts", async (req, res) => {
         isWalkthrough:       observations.isWalkthrough,
         strengths:           observations.strengths,
         growthAreas:         observations.growthAreas,
-        observer:            observations.observer,
         status:              observations.status,
         actionStepText:      actionSteps.text,
         actionStepDueDate:   actionSteps.dueDate,
@@ -178,27 +204,38 @@ router.get("/drafts", async (req, res) => {
       scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
     }
 
-    res.json(drafts.map((d) => ({
-      id:                String(d.id),
-      observedEmployeeId: d.observedEmployeeId ?? undefined,
-      teacherName:       d.personFirst
-        ? [d.personFirst, d.personLast].filter(Boolean).join(" ") || undefined
-        : undefined,
-      rubricSetId:      d.rubricSetId,
-      rubricSetSlug:    d.rubricSetSlug,
-      rubricSetName:    d.rubricSetName,
-      date:             d.date,
-      time:             d.time ?? undefined,
-      course:           d.course ?? undefined,
-      isWalkthrough:    d.isWalkthrough,
-      strengths:        d.strengths ?? undefined,
-      growthAreas:      d.growthAreas ?? undefined,
-      actionStepText:   d.actionStepText ?? undefined,
-      actionStepDueDate: d.actionStepDueDate ?? undefined,
-      observer:         d.observer,
-      status:           d.status,
-      scores:           scoresByObs.get(d.id) ?? {},
-    })));
+    /* Derive observer display name from the people table.
+       For drafts the observer is always the current user, but we look it
+       up the same way as published observations for consistency.          */
+    const observerIds = [...new Set(
+      drafts.map((d) => d.observerEmployeeId).filter((id): id is string => id != null),
+    )];
+    const observerMap = await fetchObserverInfo(observerIds);
+
+    res.json(drafts.map((d) => {
+      const observerInfo = d.observerEmployeeId ? observerMap.get(d.observerEmployeeId) : undefined;
+      return {
+        id:                String(d.id),
+        observedEmployeeId: d.observedEmployeeId ?? undefined,
+        teacherName:       d.personFirst
+          ? [d.personFirst, d.personLast].filter(Boolean).join(" ") || undefined
+          : undefined,
+        rubricSetId:      d.rubricSetId,
+        rubricSetSlug:    d.rubricSetSlug,
+        rubricSetName:    d.rubricSetName,
+        date:             d.date,
+        time:             d.time ?? undefined,
+        course:           d.course ?? undefined,
+        isWalkthrough:    d.isWalkthrough,
+        strengths:        d.strengths ?? undefined,
+        growthAreas:      d.growthAreas ?? undefined,
+        actionStepText:   d.actionStepText ?? undefined,
+        actionStepDueDate: d.actionStepDueDate ?? undefined,
+        observer:         observerInfo?.name ?? currentUser.name ?? "",
+        status:           d.status,
+        scores:           scoresByObs.get(d.id) ?? {},
+      };
+    }));
   } catch (err) {
     console.error("GET /observations/drafts error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -259,19 +296,28 @@ router.get("/", async (req, res) => {
       scoresByObs.get(s.observationId)![s.domainSlug] = s.score;
     }
 
-    res.json(rows.map((o) => ({
-      id:                 String(o.id),
-      schoolId:           o.schoolId,
-      target:             o.target,
-      date:               o.date,
-      strengths:          o.strengths ?? undefined,
-      growthAreas:        o.growthAreas ?? undefined,
-      observer:           o.observer,
-      observerEmployeeId: o.observerEmployeeId ?? undefined,
-      observerEmail:      o.observerEmail ?? undefined,
-      status:             o.status,
-      scores:             scoresByObs.get(o.id) ?? {},
-    })));
+    /* Batch-fetch observer names/emails from people table */
+    const observerIds = [...new Set(
+      rows.map((o) => o.observerEmployeeId).filter((id): id is string => id != null),
+    )];
+    const observerMap = await fetchObserverInfo(observerIds);
+
+    res.json(rows.map((o) => {
+      const observerInfo = o.observerEmployeeId ? observerMap.get(o.observerEmployeeId) : undefined;
+      return {
+        id:                 String(o.id),
+        schoolId:           o.schoolId,
+        target:             o.target,
+        date:               o.date,
+        strengths:          o.strengths ?? undefined,
+        growthAreas:        o.growthAreas ?? undefined,
+        observer:           observerInfo?.name ?? "",
+        observerEmployeeId: o.observerEmployeeId ?? undefined,
+        observerEmail:      observerInfo?.email ?? undefined,
+        status:             o.status,
+        scores:             scoresByObs.get(o.id) ?? {},
+      };
+    }));
   } catch (err) {
     console.error("GET /observations error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -321,6 +367,14 @@ router.get("/:id", async (req, res) => {
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obsId));
 
+    /* Derive observer name/email from the people table */
+    const observerMap = await fetchObserverInfo(
+      existing.observerEmployeeId ? [existing.observerEmployeeId] : [],
+    );
+    const observerInfo = existing.observerEmployeeId
+      ? observerMap.get(existing.observerEmployeeId)
+      : undefined;
+
     res.json({
       id:                 String(existing.id),
       date:               existing.date,
@@ -329,9 +383,9 @@ router.get("/:id", async (req, res) => {
       isWalkthrough:      existing.isWalkthrough,
       strengths:          existing.strengths ?? undefined,
       growthAreas:        existing.growthAreas ?? undefined,
-      observer:           existing.observer,
+      observer:           observerInfo?.name ?? "",
       observerEmployeeId: existing.observerEmployeeId ?? undefined,
-      observerEmail:      existing.observerEmail ?? undefined,
+      observerEmail:      observerInfo?.email ?? undefined,
       status:             existing.status,
       target:             existing.target,
       schoolId:           existing.schoolId ?? undefined,
@@ -345,17 +399,18 @@ router.get("/:id", async (req, res) => {
 
 /* ── POST /api/observations ─────────────────────────────────────────
    Body: { observedEmployeeId, rubricSetId, date, strengths?, growthAreas?,
-           observer?, scores, isWalkthrough?, status?, target?,
+           scores, isWalkthrough?, status?, target?,
            schoolId? }
    For target=SCHOOL: schoolId required, observedEmployeeId ignored,
    caller must be NETWORK_ADMIN.
-   observerEmployeeId is ALWAYS derived from the authenticated session. */
+   observerEmployeeId is ALWAYS derived from the authenticated session.
+   observer name/email are derived from the observer's people record.   */
 router.post("/", async (req, res) => {
   try {
     const {
       observedEmployeeId, teacherId,
       rubricSetId, quarterId, date, time, course, strengths, growthAreas,
-      observer, scores, isWalkthrough, status, target, schoolId,
+      scores, isWalkthrough, status, target, schoolId,
     } = req.body;
 
     /* Legacy support: teacherId (old field) falls back to observedEmployeeId */
@@ -363,6 +418,15 @@ router.post("/", async (req, res) => {
     const resolvedRubricSetId = rubricSetId ?? quarterId;
     const resolvedStatus: string = status === "draft" ? "draft" : "published";
     const resolvedTarget: "TEACHER" | "SCHOOL" = target === "SCHOOL" ? "SCHOOL" : "TEACHER";
+
+    /* Validate `time` format early so clients get a 400, not a DB error.
+       Accepted: HH:MM or HH:MM:SS (24-hour, hours 0-23, mins/secs 0-59). */
+    if (time !== undefined && time !== null && time !== "") {
+      if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(String(time))) {
+        res.status(400).json({ error: "Invalid time format. Use HH:MM or HH:MM:SS (24-hour)." });
+        return;
+      }
+    }
 
     const creator = req.user as Express.User;
 
@@ -418,9 +482,7 @@ router.post("/", async (req, res) => {
         course:              course || null,
         strengths:           strengths || null,
         growthAreas:         growthAreas || null,
-        observer:            observer || creator.name,
         observerEmployeeId:  creator.employeeId,
-        observerEmail:       creator.email,
         isWalkthrough:       false,
         status:              resolvedStatus,
         target:              "SCHOOL",
@@ -439,6 +501,14 @@ router.post("/", async (req, res) => {
       const savedScores = await db.select().from(observationScores)
         .where(eq(observationScores.observationId, obs.id));
 
+      /* Derive observer name/email from people */
+      const observerMap = await fetchObserverInfo(
+        obs.observerEmployeeId ? [obs.observerEmployeeId] : [],
+      );
+      const observerInfo = obs.observerEmployeeId
+        ? observerMap.get(obs.observerEmployeeId)
+        : undefined;
+
       dashboardCache.invalidatePrefix("dashboard:");
       districtCache.invalidatePrefix("district:");
       networkAvgsCache.invalidatePrefix("network-avgs:");
@@ -450,9 +520,9 @@ router.post("/", async (req, res) => {
         date:               obs.date,
         strengths:          obs.strengths ?? undefined,
         growthAreas:        obs.growthAreas ?? undefined,
-        observer:           obs.observer,
+        observer:           observerInfo?.name ?? "",
         observerEmployeeId: obs.observerEmployeeId ?? undefined,
-        observerEmail:      obs.observerEmail ?? undefined,
+        observerEmail:      observerInfo?.email ?? undefined,
         status:             obs.status,
         scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
       });
@@ -556,9 +626,7 @@ router.post("/", async (req, res) => {
         course:              course || null,
         strengths:           strengths || null,
         growthAreas:         growthAreas || null,
-        observer:            observer || creator.name,
         observerEmployeeId:  creator.employeeId,
-        observerEmail:       creator.email,
         isWalkthrough:       !!isWalkthrough,
         status:              resolvedStatus,
         target:              "TEACHER",
@@ -632,6 +700,14 @@ router.post("/", async (req, res) => {
     const savedScores = await db.select().from(observationScores)
       .where(eq(observationScores.observationId, obs.id));
 
+    /* Derive observer name/email from people */
+    const observerMap = await fetchObserverInfo(
+      obs.observerEmployeeId ? [obs.observerEmployeeId] : [],
+    );
+    const observerInfo = obs.observerEmployeeId
+      ? observerMap.get(obs.observerEmployeeId)
+      : undefined;
+
     dashboardCache.invalidatePrefix("dashboard:");
     districtCache.invalidatePrefix("district:");
     networkAvgsCache.invalidatePrefix("network-avgs:");
@@ -644,9 +720,9 @@ router.post("/", async (req, res) => {
       isWalkthrough:      obs.isWalkthrough,
       strengths:          obs.strengths ?? undefined,
       growthAreas:        obs.growthAreas ?? undefined,
-      observer:           obs.observer,
+      observer:           observerInfo?.name ?? "",
       observerEmployeeId: obs.observerEmployeeId ?? undefined,
-      observerEmail:      obs.observerEmail ?? undefined,
+      observerEmail:      observerInfo?.email ?? undefined,
       status:             obs.status,
       scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
@@ -663,10 +739,9 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { strengths, growthAreas, observer, scores, status, newActionStep, masterActionStepId } = req.body as {
+    const { strengths, growthAreas, scores, status, newActionStep, masterActionStepId } = req.body as {
       strengths?: string;
       growthAreas?: string;
-      observer?: string;
       scores?: Record<string, number>;
       status?: string;
       newActionStep?: { text: string; dueDate: string };
@@ -798,8 +873,9 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       snapshotRolePut = teacherRowPut?.role ?? null;
     }
 
+    /* updatedAt is set on edits by non-draft-owner; draft autosaves leave it null */
     const auditFields = !isDraftEdit
-      ? { editedByEmployeeId: currentUser.employeeId, editedAt: new Date() }
+      ? { editedByEmployeeId: currentUser.employeeId, updatedAt: new Date() }
       : {};
 
     /* ── Transactional write: obs update + scores + action steps ─── */
@@ -808,7 +884,6 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         .set({
           strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
           growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
-          observer:    observer    !== undefined ? (observer    || existing.observer) : existing.observer,
           status:      resolvedStatus,
           ...auditFields,
         })
@@ -904,6 +979,14 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       editedByName = editor ? `${editor.firstName} ${editor.lastName}`.trim() : undefined;
     }
 
+    /* Derive observer name/email from people */
+    const observerMap = await fetchObserverInfo(
+      updated.observerEmployeeId ? [updated.observerEmployeeId] : [],
+    );
+    const observerInfo = updated.observerEmployeeId
+      ? observerMap.get(updated.observerEmployeeId)
+      : undefined;
+
     res.json({
       id:                 String(updated.id),
       date:               updated.date,
@@ -912,12 +995,12 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       isWalkthrough:      updated.isWalkthrough,
       strengths:          updated.strengths  ?? undefined,
       growthAreas:        updated.growthAreas ?? undefined,
-      observer:           updated.observer,
+      observer:           observerInfo?.name ?? "",
       observerEmployeeId: updated.observerEmployeeId ?? undefined,
-      observerEmail:      updated.observerEmail ?? undefined,
+      observerEmail:      observerInfo?.email ?? undefined,
       status:             updated.status,
       editedBy:           editedByName,
-      editedAt:           updated.editedAt?.toISOString() ?? undefined,
+      editedAt:           updated.updatedAt?.toISOString() ?? undefined,
       scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
     });
   } catch (err) {

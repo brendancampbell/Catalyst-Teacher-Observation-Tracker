@@ -166,7 +166,6 @@ describe("masterActionStepId — draft autosave must not trigger mastery", () =>
       scores:             {},
       strengths:          "Good questioning",
       growthAreas:        "Wait time",
-      observer:           "MasterDraft Test Suite",
       isWalkthrough:      false,
       status:             "draft",
       masterActionStepId: scenarioAbStepId,
@@ -253,7 +252,6 @@ describe("masterActionStepId — draft autosave must not trigger mastery", () =>
       scores:        {},
       strengths:     "Clear objectives",
       growthAreas:   "Cold-call equity",
-      observer:      "MasterDraft Test Suite",
       isWalkthrough: false,
       status:        "draft",
     }, adminJar);

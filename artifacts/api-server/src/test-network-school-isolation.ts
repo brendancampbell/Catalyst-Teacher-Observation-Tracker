@@ -240,7 +240,6 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
         rubricSetId:        rs.id,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "Net Isolation Test",
         status:             "published",
         target:             "TEACHER",
       })
@@ -265,7 +264,6 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
         rubricSetId:        rs.id,
         observerEmployeeId: null,
         date:               "2025-06-01",
-        observer:           "Net Isolation Test",
         status:             "published",
         target:             "TEACHER",
       })

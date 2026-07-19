@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, uniqueIndex, timestamp } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -16,6 +16,8 @@ export const assignments = pgTable(
     schoolYearId: integer("school_year_id").notNull().references(() => schoolYears.id),
     startDate:    date("start_date").notNull(),
     endDate:      date("end_date"),
+    createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("assignments_user_year_active_uniq")

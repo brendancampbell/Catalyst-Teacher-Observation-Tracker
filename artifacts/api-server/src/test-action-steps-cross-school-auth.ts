@@ -123,7 +123,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     const [obsA] = await db.insert(observations).values({
       schoolYearId:                1,
       observedEmployeeId: TEACHER_A_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
-      date: "2025-06-01", observer: "Action Step Test", status: "published", target: "TEACHER",
+      date: "2025-06-01", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
     obsAId = obsA!.id;
     createdObsIds.push(obsAId);
@@ -131,7 +131,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     const [obsB] = await db.insert(observations).values({
       schoolYearId:                1,
       observedEmployeeId: TEACHER_B_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
-      date: "2025-06-01", observer: "Action Step Test", status: "published", target: "TEACHER",
+      date: "2025-06-01", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
     obsBId = obsB!.id;
     createdObsIds.push(obsBId);
@@ -222,7 +222,6 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
       observedEmployeeId: TEACHER_B_EID,
       rubricSetId: RUBRIC_SET_ID,
       date: "2025-07-01",
-      observer: "Test",
       status: "draft",
       scores: {},
       newActionStep: { text: "Should be blocked", dueDate: "2099-12-31" },

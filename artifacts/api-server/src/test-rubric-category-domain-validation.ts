@@ -155,7 +155,6 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
       observedEmployeeId: null,
       observerEmployeeId: null,
       date:               "2025-01-01",
-      observer:           "Test Observer",
       status:             "published",
       target:             "TEACHER",
     }).returning();

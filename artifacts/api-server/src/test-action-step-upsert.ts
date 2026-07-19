@@ -131,7 +131,6 @@ describe("PUT /observations/:id — action-step upsert guard", () => {
       scores:        {},
       strengths:     "Clear explanations",
       growthAreas:   "Cold-calling",
-      observer:      "Upsert Test Suite",
       isWalkthrough: false,
       status:        "published",
     }, adminJar);

@@ -188,7 +188,6 @@ describe("Action Steps — end-to-end flow", () => {
       scores:        {},
       strengths:     "Strong pacing",
       growthAreas:   "Cold-calling technique",
-      observer:      "E2E Test Suite",
       isWalkthrough: false,
       status:        "published",
       newActionStep: {
@@ -368,7 +367,6 @@ describe("Action Steps — end-to-end flow", () => {
       scores:              {},
       strengths:           "Good energy",
       growthAreas:         "Transitions",
-      observer:            "E2E Test Suite",
       isWalkthrough:       false,
       status:              "published",
       masterActionStepId:  masterTestStepId,
@@ -422,7 +420,6 @@ describe("Action Steps — end-to-end flow", () => {
       scores:        {},
       strengths:     "Wait time improving",
       growthAreas:   "Cold-call equity",
-      observer:      "E2E Test Suite",
       isWalkthrough: false,
       status:        "draft",
     }, adminJar);
@@ -512,7 +509,6 @@ describe("Action Steps — end-to-end flow", () => {
       scores:        {},
       strengths:     "Consistent routines",
       growthAreas:   "Wait time",
-      observer:      "E2E Test Suite",
       isWalkthrough: false,
       status:        "published",
     }, adminJar);

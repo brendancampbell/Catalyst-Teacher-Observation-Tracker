@@ -136,7 +136,6 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-01-01",
-        observer:           "Cross-School Test",
         status:             "published",
         target:             "SCHOOL",
       })
@@ -155,7 +154,6 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-01-01",
-        observer:           "Cross-School Test",
         status:             "published",
         target:             "SCHOOL",
       })
@@ -176,7 +174,6 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: LEADER_B_EID,
         date:               "2025-01-01",
-        observer:           "Cross-School Draft Test",
         status:             "draft",
         target:             "TEACHER",
       })
@@ -294,7 +291,6 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
         rubricSetId:        RUBRIC_SET_ID,
         observerEmployeeId: null,
         date:               "2025-01-02",
-        observer:           "Cross-School Test Re",
         status:             "published",
         target:             "SCHOOL",
       })

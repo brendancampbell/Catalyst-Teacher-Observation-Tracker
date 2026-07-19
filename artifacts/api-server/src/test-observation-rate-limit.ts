@@ -153,7 +153,6 @@ describe("Observation mutation rate limiter — PUT /api/observations/:id", () =
         rubricSetId:        rs.id,
         observerEmployeeId: ADMIN_EID,
         date:               "2025-07-01",
-        observer:           "Rate Limit Test",
         status:             "draft",
         target:             "TEACHER",
       })
