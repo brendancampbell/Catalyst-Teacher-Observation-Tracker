@@ -170,6 +170,10 @@ args = "dashboard-domain-tooltip-cursor-tracking"
 task = "workflow.run"
 args = "test:master-action-step-draft"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:observation-score-validation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -576,6 +580,17 @@ args = "pnpm --filter @workspace/api-server run test:master-action-step-draft"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "test:observation-score-validation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:observation-score-validation"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
