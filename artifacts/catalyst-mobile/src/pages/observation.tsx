@@ -153,6 +153,7 @@ export default function ObservationPage() {
     el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
   }, [actionStepText]);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActionStepReqRef = useRef(0);
 
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
 
@@ -184,6 +185,7 @@ export default function ObservationPage() {
   /* ── Fetch last action step on teacher change ───────────────────── */
   const fetchLastActionStep = useCallback(async (tid: string) => {
     if (!tid) return;
+    const token = ++lastActionStepReqRef.current;
     setLoadingLastActionStep(true);
     setLastActionStep(null);
     setMarkMastered(false);
@@ -191,11 +193,15 @@ export default function ObservationPage() {
       const result = await apiFetch<ActionStep | null>(
         `/api/action-steps/latest?teacherEmployeeId=${encodeURIComponent(tid)}`,
       );
+      if (token !== lastActionStepReqRef.current) return;
       setLastActionStep(result);
     } catch {
+      if (token !== lastActionStepReqRef.current) return;
       setLastActionStep(null);
     } finally {
-      setLoadingLastActionStep(false);
+      if (token === lastActionStepReqRef.current) {
+        setLoadingLastActionStep(false);
+      }
     }
   }, []);
 
