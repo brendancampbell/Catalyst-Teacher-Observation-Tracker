@@ -9,12 +9,15 @@
  *   1. Named observer string → name appears verbatim in the rendered HTML
  *   2. Empty observer string  → Observer row renders without crashing
  *
- *   Integration (route via live API):
- *   3. observerEmployeeId set to a real person → route resolves the name and
- *      does not return 500.  Response may be 200 or 502 (Resend unavailable in
- *      test env) — both are acceptable; only 500 indicates a broken lookup.
- *   4. observerEmployeeId = null → empty-string fallback, not 500
- *   5. Observer person row deleted (FK onDelete: "set null") → observerEmployeeId
+ *   Integration (live DB + buildHtmlEmail pipeline):
+ *   3. observerEmployeeId set → DB lookup resolves "Bobby Observer", and that
+ *      name appears verbatim in the HTML produced by buildHtmlEmail.
+ *
+ *   Integration (route via live API — crash-safety checks):
+ *   4. Route with observerEmployeeId set → does not return 500
+ *      (200 if Resend is live, 502 when Resend unavailable in test env)
+ *   5. observerEmployeeId = null → empty-string fallback, not 500
+ *   6. Observer person row deleted (FK onDelete: "set null") → observerEmployeeId
  *      is automatically nulled by Postgres; route still succeeds (not 500)
  *
  * Run:
@@ -280,7 +283,47 @@ describe("Email observer name — schema-change regression", () => {
       .catch(() => {});
   });
 
-  test("3 — observerEmployeeId set → name resolved: route succeeds (not 500)", async () => {
+  test("3 — observerEmployeeId → DB lookup resolves full name, name appears in rendered HTML", async () => {
+    /* Replicate the exact resolution the route performs:
+     *   1. Load the observation
+     *   2. findFirst on people where employeeId = obs.observerEmployeeId
+     *   3. Join firstName + lastName → pass to buildHtmlEmail
+     *   4. Assert the name appears verbatim in the HTML output
+     *
+     * This tests the full pipeline (DB → name → HTML) without needing Resend. */
+    const [obs] = await db
+      .select({ observerEmployeeId: observations.observerEmployeeId })
+      .from(observations)
+      .where(eq(observations.id, OBS_WITH_OBSERVER_ID))
+      .limit(1);
+    assert.ok(obs, "Observation fixture must exist");
+    assert.equal(obs.observerEmployeeId, OBSERVER_EID, "observerEmployeeId should point to OBSERVER_EID fixture");
+
+    /* Same query as the route */
+    const observerPerson = obs.observerEmployeeId
+      ? await db.query.people.findFirst({ where: eq(people.employeeId, obs.observerEmployeeId) })
+      : undefined;
+    const observerName = observerPerson
+      ? `${observerPerson.firstName} ${observerPerson.lastName}`.trim()
+      : "";
+
+    assert.equal(
+      observerName,
+      "Bobby Observer",
+      `DB lookup should resolve to "Bobby Observer" but got "${observerName}"`,
+    );
+
+    const html = buildHtmlEmail(minimalEmailParams(observerName));
+    assert.ok(
+      html.includes("Bobby Observer"),
+      `Expected "Bobby Observer" in rendered HTML after DB-resolved name was passed to buildHtmlEmail.\n` +
+      `Observer-section snippet: ${html.slice(html.indexOf("Observer"), html.indexOf("Observer") + 300)}`,
+    );
+  });
+
+  test("4 — route with observerEmployeeId set → does not return 500", async () => {
+    /* Route-level crash-safety check: Resend may be unavailable (→ 502) but
+       the observer DB lookup must not crash the handler (→ 500). */
     const res = await apiPost(
       "/email/send-observation",
       { observationId: OBS_WITH_OBSERVER_ID, intro: "Great.", subject: "Feedback" },
@@ -299,7 +342,7 @@ describe("Email observer name — schema-change regression", () => {
     );
   });
 
-  test("4 — observerEmployeeId = null → empty-string fallback: route succeeds (not 500)", async () => {
+  test("5 — observerEmployeeId = null → empty-string fallback: route does not return 500", async () => {
     const res = await apiPost(
       "/email/send-observation",
       { observationId: OBS_NULL_OBSERVER_ID, intro: "Great.", subject: "Feedback" },
@@ -313,7 +356,7 @@ describe("Email observer name — schema-change regression", () => {
     );
   });
 
-  test("5 — observer person deleted (FK → null) → route succeeds (not 500)", async () => {
+  test("6 — observer person deleted (FK → null) → route does not return 500", async () => {
     /* Confirm the FK cascade actually nulled the field */
     const [row] = await db
       .select({ observerEmployeeId: observations.observerEmployeeId })
