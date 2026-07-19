@@ -415,6 +415,35 @@ async function migrate() {
         ON ai_quota_grants (expires_at)
     `);
 
+    /* ── 18. Convert observations.time from text → native TIME ─── */
+    {
+      const { rows: timeColRows } = await client.query<{ data_type: string }>(
+        `SELECT data_type FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'observations'
+           AND column_name = 'time'`,
+      );
+      if (timeColRows.length === 0) {
+        console.log("  observations.time: column not yet present — skipping.");
+      } else if (timeColRows[0].data_type === "text") {
+        console.log("  observations.time: converting text → time…");
+        await client.query(`
+          ALTER TABLE observations
+            ALTER COLUMN "time" TYPE time USING (
+              CASE
+                WHEN "time" IS NULL THEN NULL
+                WHEN "time" ~ '^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$'
+                  THEN "time"::time
+                ELSE NULL
+              END
+            )
+        `);
+        console.log("  observations.time: converted text → time");
+      } else {
+        console.log("  observations.time: already native time — skipping");
+      }
+    }
+
     console.log("Pre-migration complete.");
   } finally {
     client.release();
