@@ -10,6 +10,7 @@ import DraftsPage from "@/pages/drafts";
 import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import TeacherProfilePage from "@/pages/TeacherProfile";
+import SupportPage from "@/pages/SupportPage";
 import { UserProvider, useUser } from "@/context/UserContext";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { HttpError } from "@/lib/api";
@@ -83,6 +84,9 @@ function Router() {
       </Route>
       <Route path="/drafts">
         <ProtectedRoute><DraftsPage /></ProtectedRoute>
+      </Route>
+      <Route path="/support">
+        <ProtectedRoute><SupportPage /></ProtectedRoute>
       </Route>
       <Route path="/teacher/:employeeId">
         <ProtectedRoute><TeacherProfileRoute /></ProtectedRoute>
