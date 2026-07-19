@@ -96,9 +96,10 @@ async function cleanup() {
 describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
   let jar: Jar;
 
-  let emptyDomId:   number;
-  let guardedDomId: number;
-  let forcedDomId:  number;
+  let emptyDomId:    number;
+  let guardedDomId:  number;
+  let forcedDomId:   number;
+  let crossSetDomId: number;
 
   const guardedSlug = `ddg-guard-${ts}`;
   const forcedSlug  = `ddg-force-${ts}`;
@@ -217,6 +218,46 @@ describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
       { observationId: guardedObsId, domainSlug: guardedSlug, score: 0.5 },
       { observationId: forcedObsId,  domainSlug: forcedSlug,  score: 1   },
     ]);
+
+    /* 7 ── Cross-set isolation: two sets share a domain slug; only set A has
+       scores.  Deleting set B's domain must succeed despite the slug collision. */
+    const sharedSlug = `ddg-xset-${ts}`;
+    const xSets = await db.insert(rubricSets).values([
+      { name: `DDG XSet A ${ts}`, slug: `ddg-xset-a-${ts}`, displayOrder: 9993, schoolYearId: SCHOOL_YEAR_ID, target: "TEACHER" },
+      { name: `DDG XSet B ${ts}`, slug: `ddg-xset-b-${ts}`, displayOrder: 9994, schoolYearId: SCHOOL_YEAR_ID, target: "TEACHER" },
+    ]).returning({ id: rubricSets.id });
+    createdSetIds.push(...xSets.map((r) => r.id));
+    const [xSetAId, xSetBId] = xSets.map((r) => r.id);
+
+    const xCats = await db.insert(rubricCategories).values([
+      { rubricSetId: xSetAId, name: `DDG XSet Cat A ${ts}`, displayOrder: 1 },
+      { rubricSetId: xSetBId, name: `DDG XSet Cat B ${ts}`, displayOrder: 1 },
+    ]).returning({ id: rubricCategories.id });
+    createdCatIds.push(...xCats.map((r) => r.id));
+    const [xCatAId, xCatBId] = xCats.map((r) => r.id);
+
+    const xDoms = await db.insert(rubricDomains).values([
+      { categoryId: xCatAId, rubricSetId: xSetAId, schoolYearId: SCHOOL_YEAR_ID, name: "DDG XSet Dom A", slug: sharedSlug, displayOrder: 1 },
+      { categoryId: xCatBId, rubricSetId: xSetBId, schoolYearId: SCHOOL_YEAR_ID, name: "DDG XSet Dom B", slug: sharedSlug, displayOrder: 1 },
+    ]).returning({ id: rubricDomains.id });
+    createdDomIds.push(...xDoms.map((r) => r.id));
+    const [xDomAId, xDomBId] = xDoms.map((r) => r.id);
+    crossSetDomId = xDomBId; // set B's domain — no scores
+
+    /* Score ONLY under set A's observation — set B should not see these. */
+    const [xObs] = await db.insert(observations).values({
+      observedEmployeeId: teacher.employeeId,
+      observerEmployeeId: adminEmployeeId,
+      schoolId:           anySchool.id,
+      schoolYearId:       SCHOOL_YEAR_ID,
+      rubricSetId:        xSetAId,
+      date:               "2025-01-15",
+      observer:           "Test Observer",
+      status:             "published",
+    }).returning({ id: observations.id });
+    createdObsIds.push(xObs.id);
+    await db.insert(observationScores).values({ observationId: xObs.id, domainSlug: sharedSlug, score: 1 });
+    void xDomAId; // set A's domain not deleted in tests; cascade removes it
   });
 
   after(cleanup);
@@ -246,5 +287,18 @@ describe("DELETE /api/rubric/domains/:id — score-count guard", () => {
     const { status } = await apiDelete(`/rubric/domains/${forcedDomId}?force=true`, jar);
     assert.equal(status, 204, `Expected 204 with force=true`);
     createdDomIds = createdDomIds.filter((id) => id !== forcedDomId);
+  });
+
+  /* ── Test 4: cross-set isolation — same slug, scores only in the OTHER set ── */
+  test("4 — domain whose slug has scores only in a different rubric set deletes with 204", async () => {
+    /* crossSetDomId belongs to set B; set A has a score for the same slug.
+       The fixed guard joins through observations.rubric_set_id, so it should
+       count 0 scores for set B and allow deletion. */
+    const { status, body } = await apiDelete(`/rubric/domains/${crossSetDomId}`, jar);
+    assert.equal(
+      status, 204,
+      `Expected 204 (cross-set isolation), got ${status}: ${JSON.stringify(body)}`,
+    );
+    createdDomIds = createdDomIds.filter((id) => id !== crossSetDomId);
   });
 });

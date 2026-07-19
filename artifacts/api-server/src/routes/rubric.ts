@@ -468,15 +468,22 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
        guard (force=false) and the audit warning (force=true). */
     const domains = await db.query.rubricDomains.findMany({
       where: eq(rubricDomains.categoryId, catId),
-      columns: { slug: true },
+      columns: { slug: true, rubricSetId: true },
     });
 
     if (domains.length > 0) {
       const slugs = domains.map((d) => d.slug);
+      const rubricSetId = domains[0]!.rubricSetId;
       const [row] = await db
         .select({ scoreCount: count() })
         .from(observationScores)
-        .where(inArray(observationScores.domainSlug, slugs));
+        .innerJoin(observations, eq(observations.id, observationScores.observationId))
+        .where(
+          and(
+            inArray(observationScores.domainSlug, slugs),
+            eq(observations.rubricSetId, rubricSetId),
+          )
+        );
       const scoreCount = Number(row.scoreCount);
 
       if (scoreCount > 0) {
@@ -491,6 +498,7 @@ router.delete("/categories/:id", requireNetworkAdmin, async (req, res) => {
            warning so the event is visible in monitoring and server logs. */
         console.warn("FORCE_DELETE_SCORED_CATEGORY", {
           categoryId:   catId,
+          rubricSetId,
           domainSlugs:  slugs,
           scoreCount,
           requestedBy:  user?.employeeId ?? "unknown",
@@ -656,14 +664,20 @@ router.delete("/domains/:id", requireNetworkAdmin, async (req, res) => {
        guard (force=false) and the audit warning (force=true). */
     const domain = await db.query.rubricDomains.findFirst({
       where: eq(rubricDomains.id, domId),
-      columns: { slug: true },
+      columns: { slug: true, rubricSetId: true },
     });
 
     if (domain) {
       const [row] = await db
         .select({ scoreCount: count() })
         .from(observationScores)
-        .where(eq(observationScores.domainSlug, domain.slug));
+        .innerJoin(observations, eq(observations.id, observationScores.observationId))
+        .where(
+          and(
+            eq(observationScores.domainSlug, domain.slug),
+            eq(observations.rubricSetId, domain.rubricSetId),
+          )
+        );
       const scoreCount = Number(row.scoreCount);
 
       if (scoreCount > 0) {
@@ -679,6 +693,7 @@ router.delete("/domains/:id", requireNetworkAdmin, async (req, res) => {
         console.warn("FORCE_DELETE_SCORED_DOMAIN", {
           domainId:    domId,
           domainSlug:  domain.slug,
+          rubricSetId: domain.rubricSetId,
           scoreCount,
           requestedBy: user?.employeeId ?? "unknown",
         });

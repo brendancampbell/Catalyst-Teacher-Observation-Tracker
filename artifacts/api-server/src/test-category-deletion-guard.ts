@@ -94,9 +94,10 @@ async function cleanup() {
 describe("DELETE /api/rubric/categories/:id — score-count guard", () => {
   let jar: Jar;
 
-  let emptyCatId:   number;
-  let guardedCatId: number;
-  let forcedCatId:  number;
+  let emptyCatId:    number;
+  let guardedCatId:  number;
+  let forcedCatId:   number;
+  let crossSetCatId: number;
 
   const guardedSlug = `guard-dom-${ts}`;
   const forcedSlug  = `force-dom-${ts}`;
@@ -206,6 +207,43 @@ describe("DELETE /api/rubric/categories/:id — score-count guard", () => {
       { observationId: guardedObsId, domainSlug: guardedSlug, score: 0.5 },
       { observationId: forcedObsId,  domainSlug: forcedSlug,  score: 1   },
     ]);
+
+    /* 7 ── Cross-set isolation: two sets share a domain slug; only set A has
+       scores.  Deleting set B's category must succeed despite the slug collision. */
+    const sharedSlug2 = `cdg-xset-${ts}`;
+    const xSets = await db.insert(rubricSets).values([
+      { name: `CDG XSet A ${ts}`, slug: `cdg-xset-a-${ts}`, displayOrder: 9993, schoolYearId: SCHOOL_YEAR_ID, target: "TEACHER" },
+      { name: `CDG XSet B ${ts}`, slug: `cdg-xset-b-${ts}`, displayOrder: 9994, schoolYearId: SCHOOL_YEAR_ID, target: "TEACHER" },
+    ]).returning({ id: rubricSets.id });
+    createdSetIds.push(...xSets.map((r) => r.id));
+    const [xSetAId, xSetBId] = xSets.map((r) => r.id);
+
+    const xCats = await db.insert(rubricCategories).values([
+      { rubricSetId: xSetAId, name: `CDG XSet Cat A ${ts}`, displayOrder: 1 },
+      { rubricSetId: xSetBId, name: `CDG XSet Cat B ${ts}`, displayOrder: 1 },
+    ]).returning({ id: rubricCategories.id });
+    createdCatIds.push(...xCats.map((r) => r.id));
+    const [xCatAId, xCatBId] = xCats.map((r) => r.id);
+    crossSetCatId = xCatBId; // set B's category — no scores
+
+    await db.insert(rubricDomains).values([
+      { categoryId: xCatAId, rubricSetId: xSetAId, schoolYearId: SCHOOL_YEAR_ID, name: "CDG XSet Dom A", slug: sharedSlug2, displayOrder: 1 },
+      { categoryId: xCatBId, rubricSetId: xSetBId, schoolYearId: SCHOOL_YEAR_ID, name: "CDG XSet Dom B", slug: sharedSlug2, displayOrder: 1 },
+    ]);
+
+    /* Score ONLY under set A's observation — set B should not see these. */
+    const [xObs] = await db.insert(observations).values({
+      observedEmployeeId: teacher.employeeId,
+      observerEmployeeId: adminEmployeeId,
+      schoolId:           anySchool.id,
+      schoolYearId:       SCHOOL_YEAR_ID,
+      rubricSetId:        xSetAId,
+      date:               "2025-01-15",
+      observer:           "Test Observer",
+      status:             "published",
+    }).returning({ id: observations.id });
+    createdObsIds.push(xObs.id);
+    await db.insert(observationScores).values({ observationId: xObs.id, domainSlug: sharedSlug2, score: 1 });
   });
 
   after(cleanup);
@@ -235,5 +273,18 @@ describe("DELETE /api/rubric/categories/:id — score-count guard", () => {
     const { status } = await apiDelete(`/rubric/categories/${forcedCatId}?force=true`, jar);
     assert.equal(status, 204, `Expected 204 with force=true`);
     createdCatIds = createdCatIds.filter((id) => id !== forcedCatId);
+  });
+
+  /* ── Test 4: cross-set isolation — same slug, scores only in the OTHER set ── */
+  test("4 — category whose domain slug has scores only in a different rubric set deletes with 204", async () => {
+    /* crossSetCatId belongs to set B; set A has a score for the same domain slug.
+       The fixed guard joins through observations.rubric_set_id, so it should
+       count 0 scores for set B and allow deletion. */
+    const { status, body } = await apiDelete(`/rubric/categories/${crossSetCatId}`, jar);
+    assert.equal(
+      status, 204,
+      `Expected 204 (cross-set isolation), got ${status}: ${JSON.stringify(body)}`,
+    );
+    createdCatIds = createdCatIds.filter((id) => id !== crossSetCatId);
   });
 });
