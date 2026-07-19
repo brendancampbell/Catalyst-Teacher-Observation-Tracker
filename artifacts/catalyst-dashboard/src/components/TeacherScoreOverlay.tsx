@@ -375,7 +375,7 @@ interface Props {
   schoolId?: number | null;
 }
 
-export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
+export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
   const { currentUser } = useUser();
   const queryClient = useQueryClient();
 

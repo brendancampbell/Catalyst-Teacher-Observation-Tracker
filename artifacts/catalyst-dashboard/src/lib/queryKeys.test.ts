@@ -33,7 +33,7 @@ describe("QUERY_KEYS — activateMut.onSuccess invalidation coverage", () => {
 
   /**
    * useQuery keys declared across Dashboard.tsx, DistrictDashboard.tsx,
-   * action-center.tsx, TeacherProfile.tsx (page + component), and admin.tsx
+   * action-center.tsx, TeacherProfile.tsx (page), TeacherScoreOverlay.tsx (overlay), and admin.tsx
    * that depend on the active school year.
    */
   const consumerKeys = [

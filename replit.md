@@ -135,7 +135,7 @@ All routes mounted at `/api`:
 - `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
 - `components/Dashboard.tsx` — Main grid; routes DISTRICT_ADMIN (no schoolId) → DistrictDashboard; filters teachers by URL schoolId or currentUser.schoolId; includes "Walkthroughs Only" toggle
 - `components/DistrictDashboard.tsx` — District-level school grid with per-school domain averages + drill-down
-- `components/TeacherProfile.tsx` — Full teacher view
+- `components/TeacherScoreOverlay.tsx` — Full teacher score overlay view
 - `components/DrillDownModal.tsx` — Domain trend chart + observation list
 - `components/NewObservationModal.tsx` — Observation entry form; district walkthrough toggle for DISTRICT_ADMIN
 - `components/ObservationDetailModal.tsx` — View/edit individual observation

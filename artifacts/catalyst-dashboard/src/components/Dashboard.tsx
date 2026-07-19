@@ -19,7 +19,7 @@ import { useUser } from "@/context/UserContext";
 import { ScoreCell, getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { DrillDownModal } from "@/components/DrillDownModal";
-import { TeacherProfile } from "@/components/TeacherProfile";
+import { TeacherScoreOverlay } from "@/components/TeacherScoreOverlay";
 import DistrictDashboard from "@/components/DistrictDashboard";
 
 type ViewMode = "recent" | "periodAvg" | "walkthroughs";
@@ -605,7 +605,7 @@ export default function Dashboard() {
   return (
     <>
     {profileTeacher ? (
-      <TeacherProfile
+      <TeacherScoreOverlay
         teacher={profileTeacher}
         onBack={() => setTeacherProfileId(null)}
         onNewObs={() => setNewObsOpen(true)}

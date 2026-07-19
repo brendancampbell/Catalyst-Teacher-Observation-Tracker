@@ -9,7 +9,7 @@ vi.mock("@/components/AppHeader",          () => ({ default: () => null }));
 vi.mock("@/components/FilterMultiSelect",  () => ({ FilterMultiSelect: () => null }));
 vi.mock("@/components/NewObservationModal",() => ({ NewObservationModal: () => null }));
 vi.mock("@/components/DrillDownModal",     () => ({ DrillDownModal: () => null }));
-vi.mock("@/components/TeacherProfile",     () => ({ TeacherProfile: () => null }));
+vi.mock("@/components/TeacherScoreOverlay", () => ({ TeacherScoreOverlay: () => null }));
 vi.mock("@/components/DistrictDashboard",  () => ({ default: () => null }));
 vi.mock("@/components/ImpersonationBanner",() => ({ default: () => null }));
 

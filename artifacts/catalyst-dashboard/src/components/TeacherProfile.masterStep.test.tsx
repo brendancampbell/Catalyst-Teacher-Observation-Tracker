@@ -163,7 +163,7 @@ function makeQueryClient() {
 }
 
 /* ── Tests ──────────────────────────────────────────────────────────────── */
-describe("TeacherProfile component — handleMasterStep cache invalidation", () => {
+describe("TeacherScoreOverlay component — handleMasterStep cache invalidation", () => {
   beforeEach(() => {
     (globalThis as Record<string, unknown>).ResizeObserver = ResizeObserverStub;
     mockFetchActionSteps.mockResolvedValue([OPEN_STEP]);
@@ -184,13 +184,13 @@ describe("TeacherProfile component — handleMasterStep cache invalidation", () 
     const qc = makeQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
-    const { TeacherProfile } = await import("@/components/TeacherProfile");
+    const { TeacherScoreOverlay } = await import("@/components/TeacherScoreOverlay");
 
     render(
       React.createElement(
         QueryClientProvider,
         { client: qc },
-        React.createElement(TeacherProfile, {
+        React.createElement(TeacherScoreOverlay, {
           teacher:            TEACHER_FIXTURE,
           onBack:             vi.fn(),
           onNewObs:           vi.fn(),
@@ -248,13 +248,13 @@ describe("TeacherProfile component — handleMasterStep cache invalidation", () 
     const qc = makeQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
-    const { TeacherProfile } = await import("@/components/TeacherProfile");
+    const { TeacherScoreOverlay } = await import("@/components/TeacherScoreOverlay");
 
     render(
       React.createElement(
         QueryClientProvider,
         { client: qc },
-        React.createElement(TeacherProfile, {
+        React.createElement(TeacherScoreOverlay, {
           teacher:            TEACHER_FIXTURE,
           onBack:             vi.fn(),
           onNewObs:           vi.fn(),
@@ -308,13 +308,13 @@ describe("TeacherProfile component — handleMasterStep cache invalidation", () 
   it("updates local state optimistically — step no longer appears as open after mastering", async () => {
     const qc = makeQueryClient();
 
-    const { TeacherProfile } = await import("@/components/TeacherProfile");
+    const { TeacherScoreOverlay } = await import("@/components/TeacherScoreOverlay");
 
     render(
       React.createElement(
         QueryClientProvider,
         { client: qc },
-        React.createElement(TeacherProfile, {
+        React.createElement(TeacherScoreOverlay, {
           teacher:            TEACHER_FIXTURE,
           onBack:             vi.fn(),
           onNewObs:           vi.fn(),

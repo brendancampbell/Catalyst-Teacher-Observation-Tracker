@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 /**
  * Confirms that the ActionStepsCard and ActionStepsDrawer components in
- * src/components/TeacherProfile.tsx work correctly on a real teacher profile.
+ * src/components/TeacherScoreOverlay.tsx work correctly on a real teacher profile.
  *
  * Test data
  * ---------
@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
  * Navigation
  * ----------
  * The ActionStepsCard + ActionStepsDrawer pattern lives in
- * src/components/TeacherProfile.tsx, which renders as an overlay inside the
+ * src/components/TeacherScoreOverlay.tsx, which renders as an overlay inside the
  * main dashboard.  A network admin defaults to the school-grid home, so the
  * test navigates to schoolId=14 (showing the teacher table), then clicks the
  * "Grace Liu" button to open her profile overlay — the same path a real user
@@ -25,7 +25,7 @@ import { test, expect } from "@playwright/test";
  *
  * Layout expectations
  * -------------------
- * The right rail of the TeacherProfile overlay renders (top to bottom):
+ * The right rail of the TeacherScoreOverlay renders (top to bottom):
  *   1. ActionStepsCard  (lg:col-span-2)
  *   2. ✦ Teacher Strengths (Glows)
  *   3. ↑ Growth Areas (Grows)
