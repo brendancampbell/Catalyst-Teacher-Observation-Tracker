@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, boolean, real, timestamp, time, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean, real, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { people } from "./people";
@@ -17,7 +17,7 @@ export const observations = pgTable("observations", {
   course:              text("course"),
   strengths:           text("strengths"),
   growthAreas:         text("growth_areas"),
-  time:                time("time"),
+  time:                text("time"),
   isWalkthrough:       boolean("is_walkthrough").notNull().default(false),
   editedByEmployeeId:  text("edited_by_employee_id").references(() => people.employeeId, { onDelete: "set null" }),
   updatedAt:           timestamp("updated_at", { withTimezone: true }),

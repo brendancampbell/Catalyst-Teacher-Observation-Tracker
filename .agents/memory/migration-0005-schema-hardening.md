@@ -25,3 +25,11 @@ All timestamp/date columns above must be present in the Drizzle schema files. Zo
 **Why:** CASCADE was intentional before migration 0005 but RESTRICT is the hardened behavior. The force-delete path previously relied on cascade; it now requires an explicit delete.
 
 **How to apply:** Wrap the force-delete in `db.transaction(tx => { tx.delete(observations).where(...); tx.delete(rubricSets).where(...); })`.
+
+## observations.time is kept as text() permanently
+
+`observations.time` was intended to become a native PostgreSQL `time` type, but Replit's publish-time migration generator emits a bare `ALTER COLUMN ... SET DATA TYPE time` with no USING clause. PostgreSQL rejects this for text→time because the conversion needs an explicit USING expression. There is no code hook that runs before Replit's migration step.
+
+**Resolution:** The Drizzle schema declares `time: text("time")`. Both `time()` and `text()` surface as plain JS strings, so nothing in application code changed. Production already stored this column as text, so Replit's diff sees no change and skips the migration entirely.
+
+**Do not change this back to `time()` unless production has already been manually converted** — doing so will re-introduce the failing ALTER on every publish attempt.
