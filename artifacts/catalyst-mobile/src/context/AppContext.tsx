@@ -71,6 +71,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     enabled: networkScope && selectedSchool !== null,
   });
 
+  const { data: rubricSets } = useQuery<RubricSet[]>({
+    queryKey: ["rubricSets"],
+    queryFn: () => apiFetch<RubricSet[]>("/api/rubric/sets"),
+    enabled: selectedRubric !== null,
+  });
+
   useEffect(() => {
     if (!schools || !selectedSchool) return;
     const valid = schools.some((s) => s.id === selectedSchool.id);
@@ -81,6 +87,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch { /* ignore */ }
     }
   }, [schools, selectedSchool]);
+
+  useEffect(() => {
+    if (!rubricSets || !selectedRubric) return;
+    const valid = rubricSets.some((r) => r.id === selectedRubric.id);
+    if (!valid) {
+      setSelectedRubric(null);
+      try {
+        localStorage.removeItem(RUBRIC_LS_KEY);
+      } catch { /* ignore */ }
+    }
+  }, [rubricSets, selectedRubric]);
 
   function handleSetSelectedSchool(s: School | null) {
     setSelectedSchool(s);

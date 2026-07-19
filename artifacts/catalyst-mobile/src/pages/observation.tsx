@@ -392,7 +392,7 @@ export default function ObservationPage() {
         } else {
           const obs = await createObservation({
             teacherId,
-            rubricSetId: selectedRubric.id,
+            rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
             date,
             course: course || undefined,
             scores: scoresRecord,
@@ -470,7 +470,7 @@ export default function ObservationPage() {
       } else {
         const obs = await createObservation({
           teacherId,
-          rubricSetId: selectedRubric.id,
+          rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
           date,
           course: course || undefined,
           scores: scores as Record<string, Score>,
@@ -583,7 +583,7 @@ export default function ObservationPage() {
           method: "POST",
           body: JSON.stringify({
             observedEmployeeId: teacherId,
-            rubricSetId: selectedRubric.id,
+            rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
             date,
             course: course || null,
             strengths: strengths || null,
