@@ -53,7 +53,8 @@
     "test:rubric-set-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-deletion-guard.ts",
     "test:master-action-step-draft": "bash ../../scripts/wait-for-api.sh tsx --test src/test-master-action-step-draft.ts",
     "test:school-year-activation-cache": "bash ../../scripts/wait-for-api.sh tsx --test src/test-school-year-activation-cache.ts",
-    "test:action-step-school-year-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-school-year-scope.ts"
+    "test:action-step-school-year-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-school-year-scope.ts",
+    "test:action-step-transfer-authz": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-transfer-authz.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

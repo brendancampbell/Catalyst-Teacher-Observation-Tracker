@@ -21,25 +21,20 @@ async function checkSchool(id: number): Promise<SchoolCheckResult> {
 
 const router = Router();
 
-/* ── Helper: resolve the schoolId for a teacher employee ID ─────── */
-async function getTeacherSchoolId(teacherEmployeeId: string): Promise<number | null> {
-  const person = await db.query.people.findFirst({ where: eq(people.employeeId, teacherEmployeeId) });
-  return person?.schoolId ?? null;
-}
-
-/* ── Helper: assert caller may access a teacher's action steps ──── *
-   SCHOOL_LEADER and COACH: teacher must belong to their school.
+/* ── Helper: assert caller may access an action step by its frozen school ──
+   Accepts the step's already-fetched snapshotSchoolId (set at creation time)
+   so there is no live people lookup and no post-transfer data leak.
+   SCHOOL_LEADER and COACH: step's snapshotSchoolId must match callerSchoolId.
    NETWORK_LEADER / NETWORK_ADMIN: always allowed.
-   Returns { ok: false, status, error } on denial.                   */
-async function assertTeacherAccess(
+   Fails closed on null snapshotSchoolId (unattributable step).             */
+function assertStepAccess(
   callerRole: string,
   callerSchoolId: number | null | undefined,
-  teacherEmployeeId: string,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  snapshotSchoolId: number | null,
+): { ok: true } | { ok: false; status: number; error: string } {
   if (callerRole === "SCHOOL_LEADER" || callerRole === "COACH") {
-    const teacherSchoolId = await getTeacherSchoolId(teacherEmployeeId);
     if (!callerSchoolId) return { ok: false, status: 403, error: "No school assigned to this user" };
-    if (teacherSchoolId !== callerSchoolId) {
+    if (snapshotSchoolId !== callerSchoolId) {
       return { ok: false, status: 403, error: "Cannot access action steps for a teacher outside your school" };
     }
   }
@@ -56,13 +51,24 @@ router.get("/", requireAuth, async (req, res) => {
       return;
     }
 
-    const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, teacherEmployeeId);
-    if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    /* For SCHOOL_LEADER/COACH: scope the query to snapshotSchoolId = callerSchoolId
+       so results are inherently restricted to steps created while the teacher
+       belonged to this school — no live people lookup needed.               */
+    if (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH") {
+      if (!currentUser.schoolId) {
+        res.status(403).json({ error: "No school assigned to this user" }); return;
+      }
+    }
 
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
+
+    const schoolScopeCondition =
+      (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH")
+        ? eq(actionSteps.snapshotSchoolId, currentUser.schoolId!)
+        : sql`1=1`;
 
     const rows = await db
       .select({
@@ -82,10 +88,12 @@ router.get("/", requireAuth, async (req, res) => {
       })
       .from(actionSteps)
       .leftJoin(people, eq(people.employeeId, actionSteps.assignedByEmployeeId))
-      .where(and(eq(actionSteps.teacherEmployeeId, teacherEmployeeId), eq(actionSteps.schoolYearId, activeYearId)))
+      .where(and(
+        eq(actionSteps.teacherEmployeeId, teacherEmployeeId),
+        eq(actionSteps.schoolYearId, activeYearId),
+        schoolScopeCondition,
+      ))
       .orderBy(desc(actionSteps.createdAt));
-
-    const ids = rows.map((r) => r.id);
 
     /* Fetch masteredBy names in one query */
     const masteredByIds = [...new Set(rows.map((r) => r.masteredByEmployeeId).filter(Boolean) as string[])];
@@ -130,13 +138,21 @@ router.get("/latest", requireAuth, async (req, res) => {
       return;
     }
 
-    const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, teacherEmployeeId);
-    if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    if (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH") {
+      if (!currentUser.schoolId) {
+        res.status(403).json({ error: "No school assigned to this user" }); return;
+      }
+    }
 
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
+
+    const schoolScopeCondition =
+      (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH")
+        ? eq(actionSteps.snapshotSchoolId, currentUser.schoolId!)
+        : sql`1=1`;
 
     const rows = await db
       .select({
@@ -156,7 +172,11 @@ router.get("/latest", requireAuth, async (req, res) => {
       })
       .from(actionSteps)
       .leftJoin(people, eq(people.employeeId, actionSteps.assignedByEmployeeId))
-      .where(and(eq(actionSteps.teacherEmployeeId, teacherEmployeeId), eq(actionSteps.schoolYearId, activeYearId)))
+      .where(and(
+        eq(actionSteps.teacherEmployeeId, teacherEmployeeId),
+        eq(actionSteps.schoolYearId, activeYearId),
+        schoolScopeCondition,
+      ))
       .orderBy(desc(actionSteps.createdAt))
       .limit(1);
 
@@ -287,10 +307,10 @@ router.patch("/:id/master", requireAuth, async (req, res) => {
       res.status(404).json({ error: "Action step not found" }); return;
     }
 
-    if (step.status === "mastered") { res.status(400).json({ error: "Action step is already mastered" }); return; }
-
-    const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, step.teacherEmployeeId);
+    const access = assertStepAccess(currentUser.role, currentUser.schoolId, step.snapshotSchoolId);
     if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+
+    if (step.status === "mastered") { res.status(400).json({ error: "Action step is already mastered" }); return; }
 
     const [updated] = await db.update(actionSteps)
       .set({
@@ -328,10 +348,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
       res.status(404).json({ error: "Action step not found" }); return;
     }
 
-    if (step.status === "mastered") { res.status(400).json({ error: "Cannot edit a mastered action step" }); return; }
-
-    const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, step.teacherEmployeeId);
+    const access = assertStepAccess(currentUser.role, currentUser.schoolId, step.snapshotSchoolId);
     if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+
+    if (step.status === "mastered") { res.status(400).json({ error: "Cannot edit a mastered action step" }); return; }
 
     const { text, dueDate } = req.body;
     if (text === undefined && dueDate === undefined) {
