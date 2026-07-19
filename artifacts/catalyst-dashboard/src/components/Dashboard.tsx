@@ -525,6 +525,8 @@ export default function Dashboard() {
         });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);
