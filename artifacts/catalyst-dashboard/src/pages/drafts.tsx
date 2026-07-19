@@ -219,6 +219,9 @@ export default function DraftsPage() {
     isWalkthrough: boolean,
     time:         string,
     course:       string,
+    _draftId?:    string,
+    newActionStep?: { text: string; dueDate: string },
+    masterActionStepId?: number,
   ): Promise<string> {
     if (!newObsData) return "";
     setNewObsSaving(true);
@@ -236,6 +239,8 @@ export default function DraftsPage() {
         observerId:   currentUser?.id,
         isWalkthrough,
         status: "published",
+        newActionStep,
+        masterActionStepId,
       });
       await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
       toast({ title: "Observation submitted!" });
@@ -276,6 +281,8 @@ export default function DraftsPage() {
     time:         string,
     course:       string,
     draftId?:     string,
+    newActionStep?: { text: string; dueDate: string },
+    masterActionStepId?: number,
   ): Promise<string> {
     if (!resumeData) return "";
     setResumeSaving(true);
@@ -287,6 +294,8 @@ export default function DraftsPage() {
           growthAreas: growthAreas || undefined,
           scores,
           status: "published",
+          newActionStep,
+          masterActionStepId,
         });
       } else {
         obs = await createObservation({
@@ -302,6 +311,8 @@ export default function DraftsPage() {
           observerId:   currentUser?.id,
           isWalkthrough,
           status: "published",
+          newActionStep,
+          masterActionStepId,
         });
       }
       await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
