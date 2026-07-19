@@ -1,30 +1,45 @@
 export type SubjectAudience = "STEM" | "HUMANITIES" | "ALL";
 
-const STEM_SUBJECTS = new Set([
-  "math", "mathematics", "algebra", "geometry", "calculus", "statistics",
-  "science", "biology", "chemistry", "physics", "earth science",
-  "compsci", "computer science", "cs", "computing", "engineering",
-  "technology", "stem",
-]);
+type Department =
+  | "English"
+  | "Math"
+  | "Science"
+  | "History"
+  | "Spanish"
+  | "Physical Education"
+  | "Comp Sci/Engineering"
+  | "Visual Arts"
+  | "College"
+  | "Other";
 
-const HUMANITIES_SUBJECTS = new Set([
-  "ela", "english", "english language arts", "language arts",
-  "history", "social studies", "geography", "civics", "economics",
-  "humanities", "reading", "writing", "literature",
-]);
+const DEPARTMENT_AUDIENCE: Record<Department, SubjectAudience> = {
+  "Math":                 "STEM",
+  "Science":              "STEM",
+  "Comp Sci/Engineering": "STEM",
+  "English":              "HUMANITIES",
+  "History":              "HUMANITIES",
+  "Spanish":              "HUMANITIES",
+  "Physical Education":   "ALL",
+  "Visual Arts":          "ALL",
+  "College":              "ALL",
+  "Other":                "ALL",
+};
+
+const KNOWN_DEPARTMENTS = new Set<string>(Object.keys(DEPARTMENT_AUDIENCE));
 
 /**
- * Returns the audience bucket for a teacher's subject.
- * Returns "ALL" for unclassified subjects (Art, PE, Music, etc.) and null subjects.
- * Those teachers only appear when the rubric audience is "ALL".
+ * Returns the audience bucket for a teacher's department value.
+ * Returns "ALL" for null/undefined/empty and for any value not in the
+ * known department enum (logs a console.warn so the gap is surfaced).
  */
 export function classifySubject(subject: string | null | undefined): SubjectAudience {
   if (!subject) return "ALL";
-  const normalized = subject.toLowerCase().trim();
-  if (STEM_SUBJECTS.has(normalized)) return "STEM";
-  for (const s of STEM_SUBJECTS) { if (normalized.includes(s)) return "STEM"; }
-  if (HUMANITIES_SUBJECTS.has(normalized)) return "HUMANITIES";
-  for (const s of HUMANITIES_SUBJECTS) { if (normalized.includes(s)) return "HUMANITIES"; }
+  const trimmed = subject.trim();
+  if (!trimmed) return "ALL";
+  if (KNOWN_DEPARTMENTS.has(trimmed)) {
+    return DEPARTMENT_AUDIENCE[trimmed as Department];
+  }
+  console.warn(`classifySubject: unknown department value "${trimmed}" — falling back to "ALL"`);
   return "ALL";
 }
 
@@ -32,10 +47,10 @@ export function classifySubject(subject: string | null | undefined): SubjectAudi
  * Whether a teacher with the given subject should appear in the dropdown
  * when a rubric with the given audience is selected.
  *
- * - STEM audience   → only STEM teachers
- * - HUMANITIES audience → only Humanities teachers
- * - ALL audience    → every teacher
- * - Unclassified teachers (Art, PE, Music, null) → only for ALL audience
+ * - STEM audience        → only STEM teachers
+ * - HUMANITIES audience  → only Humanities teachers
+ * - ALL audience         → every teacher
+ * - Unclassified teachers (Visual Arts, PE, College, null) → only for ALL audience
  */
 export function teacherMatchesAudience(
   subject: string | null | undefined,
