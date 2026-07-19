@@ -531,7 +531,10 @@ router.post("/", async (req, res) => {
         res.status(400).json({ error: "masterActionStepId does not belong to the observed teacher" });
         return;
       }
-      if (masterStep.status !== "open") {
+      // Only enforce "must be open" when actually publishing — draft autosaves carry
+      // masterActionStepId on every tick and must be accepted silently; the step may
+      // already be mastered by the time the observation is finally published.
+      if (resolvedStatus === "published" && masterStep.status !== "open") {
         res.status(400).json({ error: "masterActionStepId is not currently open" });
         return;
       }
@@ -570,7 +573,7 @@ router.post("/", async (req, res) => {
         await tx.insert(observationScores).values(scoreRows);
       }
 
-      if (masterStep) {
+      if (masterStep && resolvedStatus === "published") {
         await tx.update(actionSteps)
           .set({
             status:              "mastered",
@@ -721,6 +724,9 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       }
     }
 
+    const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
+    const isPublishing = existing.status === "draft" && resolvedStatus === "published";
+
     /* ── Action step validation (TEACHER target only) ─────────────── */
     if (newActionStep !== undefined && existing.target === "TEACHER") {
       if (!newActionStep.text || !newActionStep.dueDate) {
@@ -747,7 +753,10 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         res.status(400).json({ error: "masterActionStepId does not belong to the observed teacher" });
         return;
       }
-      if (masterStepForPut.status !== "open") {
+      // Only enforce "must be open" when actually publishing — draft autosaves carry
+      // masterActionStepId on every tick and must be accepted silently; the step may
+      // already be mastered by the time the observation is finally published.
+      if (resolvedStatus === "published" && masterStepForPut.status !== "open") {
         res.status(400).json({ error: "masterActionStepId is not currently open" });
         return;
       }
@@ -781,9 +790,6 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       snapshotRolePut = teacherRowPut?.role ?? null;
     }
 
-    const resolvedStatus = status === "draft" ? "draft" : status === "published" ? "published" : existing.status;
-    const isPublishing = existing.status === "draft" && resolvedStatus === "published";
-
     const auditFields = !isDraftEdit
       ? { editedByEmployeeId: currentUser.employeeId, editedAt: new Date() }
       : {};
@@ -811,7 +817,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         if (scoreRows.length > 0) await tx.insert(observationScores).values(scoreRows);
       }
 
-      if (masterStepForPut) {
+      if (masterStepForPut && resolvedStatus === "published") {
         await tx.update(actionSteps)
           .set({
             status:              "mastered",

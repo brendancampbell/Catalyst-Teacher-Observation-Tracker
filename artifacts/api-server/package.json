@@ -50,7 +50,8 @@
     "test:people-school-orphaned": "bash ../../scripts/wait-for-api.sh tsx --test src/test-people-school-orphaned.ts",
     "test:network-leader-people-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-network-leader-people-scope.ts",
     "test:domain-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-domain-deletion-guard.ts",
-    "test:rubric-set-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-deletion-guard.ts"
+    "test:rubric-set-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-deletion-guard.ts",
+    "test:master-action-step-draft": "bash ../../scripts/wait-for-api.sh tsx --test src/test-master-action-step-draft.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
