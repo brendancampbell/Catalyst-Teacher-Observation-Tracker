@@ -112,6 +112,18 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
                 <LifeBuoy size={14} strokeWidth={2} />
                 Support
               </a>
+            ) : role === "COACH" || role === "SCHOOL_LEADER" ? (
+              <a
+                href={`${basePath}/training-school-coach.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+                style={{ color: NAVY, textDecoration: "none" }}
+              >
+                <LifeBuoy size={14} strokeWidth={2} />
+                Support
+              </a>
             ) : (
               <a
                 href={`${basePath}/support`}
