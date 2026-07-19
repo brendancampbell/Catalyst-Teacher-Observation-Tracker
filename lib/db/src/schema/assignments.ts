@@ -26,6 +26,6 @@ export const assignments = pgTable(
   ],
 );
 
-export const insertAssignmentSchema = createInsertSchema(assignments).omit({ id: true });
+export const insertAssignmentSchema = createInsertSchema(assignments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAssignment = z.infer<typeof insertAssignmentSchema>;
 export type Assignment = typeof assignments.$inferSelect;

@@ -37,8 +37,6 @@ export const rubricDomains = pgTable("rubric_domains", {
   id:           serial("id").primaryKey(),
   categoryId:   integer("category_id").notNull().references(() => rubricCategories.id, { onDelete: "cascade" }),
   rubricSetId:  integer("rubric_set_id").notNull().references(() => rubricSets.id, { onDelete: "cascade" }),
-  /* Denormalized from rubric_sets so we can enforce (school_year_id, slug) uniqueness
-     without a join. Stamped on insert and kept in sync via copy-forward logic. */
   schoolYearId: integer("school_year_id").notNull().$type<number>().references(() => schoolYears.id),
   name:         text("name").notNull(),
   slug:         text("slug").notNull(),
@@ -50,14 +48,9 @@ export const rubricDomains = pgTable("rubric_domains", {
   uniqueIndex("rubric_domains_year_set_slug_uniq").on(t.schoolYearId, t.rubricSetId, t.slug),
 ]);
 
-export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true });
-export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true });
+export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRubricCategorySchema = createInsertSchema(rubricCategories).omit({ id: true, createdAt: true, updatedAt: true });
 
-/* Domain slug must be lowercase letters, numbers, hyphens, and underscores.
-   Accepts single-character slugs (e.g. "d") as well as multi-segment
-   slugs (e.g. "my-domain-1" or "ratio_engagement"). Uppercase is rejected
-   because domainSlug is matched by value in observation_scores rows.
-   Underscores are allowed for backward compatibility with existing slugs. */
 export const domainSlugSchema = z
   .string()
   .min(1, "slug is required")
@@ -67,19 +60,17 @@ export const domainSlugSchema = z
   );
 
 export const insertRubricDomainSchema = createInsertSchema(rubricDomains)
-  .omit({ id: true })
+  .omit({ id: true, createdAt: true, updatedAt: true })
   .extend({ slug: domainSlugSchema });
 
-/* Patch schemas — partial updates that omit the FK fields callers never supply. */
 export const patchRubricCategorySchema = createInsertSchema(rubricCategories)
-  .omit({ id: true, rubricSetId: true })
+  .omit({ id: true, rubricSetId: true, createdAt: true, updatedAt: true })
   .partial();
 
 export const patchRubricDomainSchema = insertRubricDomainSchema
   .omit({ categoryId: true, rubricSetId: true, schoolYearId: true })
   .partial();
 
-/* Rubric-set slug must be uppercase letters, numbers, hyphens, and underscores. */
 export const rubricSetSlugSchema = z
   .string()
   .min(1, "slug is required")
@@ -88,13 +79,10 @@ export const rubricSetSlugSchema = z
     "Slug may only contain letters, numbers, hyphens, and underscores",
   );
 
-/* Body schema for POST /:setSlug/categories — name must be non-empty. */
 export const createRubricCategoryBodySchema = insertRubricCategorySchema
   .omit({ rubricSetId: true })
   .extend({ name: z.string().min(1, "name is required") });
 
-/* Body schema for POST /sets — schoolYearId is optional (resolved from active year)
-   and copyFromSlug is an extra convenience field not stored directly. */
 export const createRubricSetBodySchema = z.object({
   slug:            rubricSetSlugSchema,
   name:            z.string().min(1, "name is required"),
@@ -106,7 +94,6 @@ export const createRubricSetBodySchema = z.object({
   copyFromSlug:    z.string().optional(),
 });
 
-/* Body schema for PATCH /sets/:slug — all fields optional, slug validated. */
 export const patchRubricSetSchema = z.object({
   name:            z.string().min(1).optional(),
   slug:            rubricSetSlugSchema.optional(),
@@ -126,6 +113,5 @@ export type RubricDomain = typeof rubricDomains.$inferSelect;
 
 export type SubjectAudience = "STEM" | "HUMANITIES" | "ALL";
 
-/* ── Backward-compat aliases (remove after full migration) ─────── */
 export const rubricQuarters = rubricSets;
 export type RubricQuarter = RubricSet;

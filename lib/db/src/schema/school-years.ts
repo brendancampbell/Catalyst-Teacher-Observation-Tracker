@@ -9,17 +9,13 @@ export const schoolYears = pgTable("school_years", {
   name:         text("name").notNull(),
   status:       schoolYearStatusEnum("status").notNull().default("active"),
   displayOrder: integer("display_order").notNull().default(0),
-  /* Academic calendar boundaries — both nullable for legacy rows. */
   startDate:    date("start_date"),
   endDate:      date("end_date"),
   createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const insertSchoolYearSchema = createInsertSchema(schoolYears, {
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must be YYYY-MM-DD").optional(),
-  endDate:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "endDate must be YYYY-MM-DD").optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSchoolYearSchema = createInsertSchema(schoolYears).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type InsertSchoolYear = z.infer<typeof insertSchoolYearSchema>;
 export type SchoolYear = typeof schoolYears.$inferSelect;

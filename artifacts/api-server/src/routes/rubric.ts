@@ -350,7 +350,12 @@ router.delete("/sets/:slug", requireNetworkAdmin, async (req, res) => {
       }
     }
 
-    await db.delete(rubricSets).where(eq(rubricSets.id, set.id));
+    await db.transaction(async (tx) => {
+      /* The rubric_set FK on observations is now RESTRICT (migration 0005).
+         With force=true we must delete referencing observations first.     */
+      await tx.delete(observations).where(eq(observations.rubricSetId, set.id));
+      await tx.delete(rubricSets).where(eq(rubricSets.id, set.id));
+    });
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /rubric/sets/:slug error:", err);
