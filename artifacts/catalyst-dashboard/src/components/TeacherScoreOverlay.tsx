@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
@@ -393,18 +393,16 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   const [actionStepsDrawerOpen, setActionStepsDrawerOpen] = useState(false);
 
   /* ── Action Steps ─────────────────────────────────────────────── */
-  const [actionSteps, setActionSteps] = useState<ActionStep[]>([]);
-  const [actionStepsLoading, setActionStepsLoading] = useState(false);
+  const {
+    data: actionSteps = [],
+    isLoading: actionStepsLoading,
+  } = useQuery<ActionStep[]>({
+    queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId],
+    queryFn:  () => fetchActionSteps(teacher.employeeId!),
+    enabled:  !!teacher.employeeId,
+    staleTime: 30_000,
+  });
   const [masteringId, setMasteringId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!teacher.employeeId) return;
-    setActionStepsLoading(true);
-    fetchActionSteps(teacher.employeeId)
-      .then(setActionSteps)
-      .catch(() => setActionSteps([]))
-      .finally(() => setActionStepsLoading(false));
-  }, [teacher.employeeId]);
 
   const openSteps = actionSteps.filter((s) => s.status === "open");
   const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
@@ -414,12 +412,14 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
     setMasteringId(stepId);
     try {
       await masterActionStep(stepId);
-      setActionSteps((prev) =>
-        prev.map((s) =>
-          s.id === stepId
-            ? { ...s, status: "mastered" as const, masteredAt: new Date().toISOString() }
-            : s,
-        ),
+      queryClient.setQueryData(
+        [...QUERY_KEYS.actionSteps, teacher.employeeId],
+        (prev: ActionStep[] | undefined) =>
+          (prev ?? []).map((s) =>
+            s.id === stepId
+              ? { ...s, status: "mastered" as const, masteredAt: new Date().toISOString() }
+              : s,
+          ),
       );
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
