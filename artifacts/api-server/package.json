@@ -55,7 +55,8 @@
     "test:school-year-activation-cache": "bash ../../scripts/wait-for-api.sh tsx --test src/test-school-year-activation-cache.ts",
     "test:action-step-school-year-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-school-year-scope.ts",
     "test:action-step-transfer-authz": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-transfer-authz.ts",
-    "test:due-date-format-validation": "tsx src/test-due-date-format-validation.ts"
+    "test:due-date-format-validation": "tsx src/test-due-date-format-validation.ts",
+    "test:email-observer-name": "bash ../../scripts/wait-for-api.sh tsx src/test-email-observer-name.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

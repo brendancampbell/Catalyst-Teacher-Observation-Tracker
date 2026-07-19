@@ -634,18 +634,27 @@ router.post(
     });
 
     /* ── Send via Resend ───────────────────────────────────── */
-    const { client, fromEmail } = await getUncachableResendClient();
+    /* getUncachableResendClient throws when Resend is not connected; treat that
+       as a 502 (upstream dependency down) rather than a 500 (our code crashed). */
+    let resendResult: { error: unknown } | null = null;
+    try {
+      const { client, fromEmail } = await getUncachableResendClient();
+      resendResult = await client.emails.send({
+        from: fromEmail || "Uncommon Schools Catalyst <onboarding@resend.dev>",
+        to: [teacherEmail],
+        subject: sanitizedSubject,
+        html,
+      });
+    } catch (resendErr) {
+      console.error("Resend unavailable:", resendErr);
+      res.status(502).json({ error: String(resendErr) });
+      return;
+    }
 
-    const { error: resendError } = await client.emails.send({
-      from: fromEmail || "Uncommon Schools Catalyst <onboarding@resend.dev>",
-      to: [teacherEmail],
-      subject: sanitizedSubject,
-      html,
-    });
-
-    if (resendError) {
-      console.error("Resend error:", resendError);
-      res.status(502).json({ error: resendError.message });
+    if (resendResult?.error) {
+      console.error("Resend error:", resendResult.error);
+      const errMsg = (resendResult.error as { message?: string }).message ?? String(resendResult.error);
+      res.status(502).json({ error: errMsg });
       return;
     }
 
