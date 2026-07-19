@@ -1118,6 +1118,10 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                       setIsWalkthrough(false);
                       setAutoSaveStatus("idle");
                       setLastSavedTime(null);
+                      setNewActionStepText("");
+                      setNewActionStepDueDate("");
+                      setMarkMastered(false);
+                      setLatestActionStep(null);
                       toast({ title: "Draft discarded" });
                     } catch {
                       toast({ title: "Could not discard draft", variant: "destructive" });
