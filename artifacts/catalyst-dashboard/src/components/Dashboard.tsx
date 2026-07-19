@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { calcOverallAvgFromScores } from "@/lib/utils";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
@@ -66,9 +67,23 @@ function calcCategoryAvg(teachers: Teacher[], catDomains: DomainEntry[], viewMod
 }
 
 /* Overall average = avg of category sub-avgs.
-   Single teacher: pass a one-element array.
-   Group rollup:   pass all teachers in the group. */
+   Single teacher: delegates to calcOverallAvgFromScores via a flat domain-scores map.
+   Group rollup:   pass all teachers in the group → avg of per-teacher avgs. */
 function calcOverallAvg(teachers: Teacher[], categories: CategoryEntry[], viewMode: ViewMode): number | null {
+  if (teachers.length === 1) {
+    const t = teachers[0];
+    const scores: Record<string, number | undefined> = {};
+    for (const cat of categories) {
+      for (const d of cat.domains) {
+        const score = viewMode === "periodAvg"
+          ? getQuarterDomainScore(t, d.id)
+          : getMostRecentDomainScore(t, d.id);
+        scores[d.id] = score ?? undefined;
+      }
+    }
+    return calcOverallAvgFromScores(scores, categories);
+  }
+  // Group rollup: avg of per-teacher category avgs
   const catAvgs = categories
     .map((c) => calcCategoryAvg(teachers, c.domains, viewMode))
     .filter((s): s is number => s !== null);

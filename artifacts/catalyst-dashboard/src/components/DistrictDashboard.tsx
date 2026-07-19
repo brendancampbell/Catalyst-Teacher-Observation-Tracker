@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary, fetchRubricSets, REGIONS, GRADE_SPANS } from "@/lib/api";
 import type { DistrictSummaryData, DistrictSchoolRow, RubricSetRow, CategoryEntry } from "@/lib/api";
+import { calcOverallAvgFromScores } from "@/lib/utils";
 import SchoolObservationModal from "@/components/SchoolObservationModal";
 import { getScoreColor, getScoreTextColor } from "@/components/ScoreCell";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -48,14 +49,6 @@ function computeCatSubAvgs(
   return result;
 }
 
-/* Overall = avg of category sub-averages */
-function computeOverall(catSubAvgs: Record<string, number | null>): number | null {
-  const vals = Object.values(catSubAvgs).filter((v): v is number => v !== null);
-  return vals.length
-    ? vals.reduce((a, b) => a + b, 0) / vals.length
-    : null;
-}
-
 /* Build the rows to display based on the current view-by setting */
 function buildDisplayRows(
   schools:        DistrictSchoolRow[],
@@ -70,6 +63,10 @@ function buildDisplayRows(
       const subLabel = isSchoolTarget
         ? (s.observedCount === 0 ? "No observations yet" : `${s.observedCount} observation${s.observedCount !== 1 ? "s" : ""} · avg`)
         : `${s.teacherCount} teacher${s.teacherCount !== 1 ? "s" : ""} · ${s.observedCount} observed`;
+      const adaptedForOverall: Record<string, number | undefined> = {};
+      for (const [k, v] of Object.entries(s.domainAverages)) {
+        adaptedForOverall[k] = v ?? undefined;
+      }
       return {
         key:           String(s.id),
         label:         s.name,
@@ -78,7 +75,7 @@ function buildDisplayRows(
         schoolId:      s.id,
         domainAverages: s.domainAverages,
         catSubAvgs,
-        overall:       computeOverall(catSubAvgs),
+        overall:       calcOverallAvgFromScores(adaptedForOverall, categories),
         teacherCount:  s.teacherCount,
         observedCount: s.observedCount,
       };
@@ -118,8 +115,12 @@ function buildDisplayRows(
       domainAverages[slug] = cnt > 0 ? domainSums[slug] / cnt : null;
     }
 
-    const catSubAvgs    = computeCatSubAvgs(domainAverages, categories);
-    const overall       = computeOverall(catSubAvgs);
+    const catSubAvgs = computeCatSubAvgs(domainAverages, categories);
+    const adaptedForOverall: Record<string, number | undefined> = {};
+    for (const [k, v] of Object.entries(domainAverages)) {
+      adaptedForOverall[k] = v ?? undefined;
+    }
+    const overall = calcOverallAvgFromScores(adaptedForOverall, categories);
     const teacherCount  = grp.reduce((s, r) => s + r.teacherCount,  0);
     const observedCount = grp.reduce((s, r) => s + r.observedCount, 0);
 
