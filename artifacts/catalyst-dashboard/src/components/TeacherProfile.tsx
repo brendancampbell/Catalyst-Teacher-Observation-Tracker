@@ -421,6 +421,8 @@ export function TeacherProfile({ teacher, onBack, onNewObs, rubricSets, initialR
             : s,
         ),
       );
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
     } catch {
       toast({ title: "Could not mark step as mastered", variant: "destructive" });
     } finally {
