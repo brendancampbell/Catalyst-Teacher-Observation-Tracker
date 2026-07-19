@@ -1326,7 +1326,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                       onClick={() => {
                         setNewActionStepText(latestActionStep.text);
                         setNewActionStepDueDate(latestActionStep.dueDate);
-                        setActionStepDueDateError(null);
+                        setActionStepDueDateError(
+                          latestActionStep.dueDate < todayIso
+                            ? "Due date must be today or in the future. Please update it."
+                            : null
+                        );
                       }}
                       className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
                       style={{ backgroundColor: "white", borderColor: "#dc2626", color: "#dc2626" }}
