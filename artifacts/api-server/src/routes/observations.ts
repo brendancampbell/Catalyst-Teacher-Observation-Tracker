@@ -511,6 +511,10 @@ router.post("/", async (req, res) => {
         res.status(400).json({ error: "newActionStep requires both text and dueDate" });
         return;
       }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newActionStep.dueDate)) {
+        res.status(400).json({ error: "newActionStep.dueDate must be a valid ISO date (YYYY-MM-DD)" });
+        return;
+      }
       const today = new Date().toISOString().split("T")[0]!;
       if (newActionStep.dueDate < today) {
         res.status(400).json({ error: "newActionStep.dueDate must be today or in the future" });
@@ -731,6 +735,10 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     if (newActionStep !== undefined && existing.target === "TEACHER") {
       if (!newActionStep.text || !newActionStep.dueDate) {
         res.status(400).json({ error: "newActionStep requires both text and dueDate" });
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(newActionStep.dueDate)) {
+        res.status(400).json({ error: "newActionStep.dueDate must be a valid ISO date (YYYY-MM-DD)" });
         return;
       }
       const today = new Date().toISOString().split("T")[0]!;

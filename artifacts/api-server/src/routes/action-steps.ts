@@ -359,6 +359,9 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
 
     if (dueDate !== undefined) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+        res.status(400).json({ error: "dueDate must be a valid ISO date (YYYY-MM-DD)" }); return;
+      }
       const today = new Date().toISOString().split("T")[0]!;
       if (dueDate < today) {
         res.status(400).json({ error: "dueDate must be today or in the future" }); return;
