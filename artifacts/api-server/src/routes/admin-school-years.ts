@@ -4,6 +4,15 @@ import { schoolYears, rubricSets } from "@workspace/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { invalidateActiveSchoolYearCache } from "../lib/active-school-year";
+import { dashboardCache } from "./dashboard";
+import { districtCache } from "./district";
+import { networkAvgsCache } from "./action-center";
+
+function invalidateAnalyticsCaches() {
+  dashboardCache.invalidatePrefix("dashboard:");
+  districtCache.invalidatePrefix("district:");
+  networkAvgsCache.invalidatePrefix("network-avgs:");
+}
 
 const router = Router();
 
@@ -177,6 +186,7 @@ router.post("/:id/activate", async (req, res) => {
     }
 
     invalidateActiveSchoolYearCache();
+    invalidateAnalyticsCaches();
 
     const [updated] = await db
       .select()

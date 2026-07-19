@@ -51,7 +51,8 @@
     "test:network-leader-people-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-network-leader-people-scope.ts",
     "test:domain-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-domain-deletion-guard.ts",
     "test:rubric-set-deletion-guard": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-deletion-guard.ts",
-    "test:master-action-step-draft": "bash ../../scripts/wait-for-api.sh tsx --test src/test-master-action-step-draft.ts"
+    "test:master-action-step-draft": "bash ../../scripts/wait-for-api.sh tsx --test src/test-master-action-step-draft.ts",
+    "test:school-year-activation-cache": "bash ../../scripts/wait-for-api.sh tsx --test src/test-school-year-activation-cache.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
