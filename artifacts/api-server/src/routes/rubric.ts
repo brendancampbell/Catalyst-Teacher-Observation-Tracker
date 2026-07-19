@@ -253,6 +253,12 @@ router.post("/sets/:id/copy-forward", requireNetworkAdmin, async (req, res) => {
 /* ── PATCH /api/rubric/sets/:slug ───────────────────────────────── */
 router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const parsed = patchRubricSetSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: firstZodError(parsed.error) });
@@ -276,7 +282,7 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
        cached slug references and break bookmarked dashboard links.        */
     if (newSlug !== undefined) {
       const currentSet = await db.query.rubricSets.findFirst({
-        where: eq(rubricSets.slug, req.params.slug as string),
+        where: and(eq(rubricSets.slug, req.params.slug as string), eq(rubricSets.schoolYearId, activeYearId)),
         columns: { id: true, slug: true },
       });
 
@@ -298,7 +304,7 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
     const [updated] = await db
       .update(rubricSets)
       .set(updates)
-      .where(eq(rubricSets.slug, req.params.slug as string))
+      .where(and(eq(rubricSets.slug, req.params.slug as string), eq(rubricSets.schoolYearId, activeYearId)))
       .returning();
 
     if (!updated) { res.status(404).json({ error: "Rubric set not found" }); return; }
@@ -355,8 +361,14 @@ router.delete("/sets/:slug", requireNetworkAdmin, async (req, res) => {
 /* ── GET /api/rubric/:setSlug ───────────────────────────────────── */
 router.get("/:setSlug", async (req, res) => {
   try {
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, req.params.setSlug as string),
+      where: and(eq(rubricSets.slug, req.params.setSlug as string), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
@@ -376,8 +388,14 @@ router.get("/:setSlug", async (req, res) => {
 /* ── POST /api/rubric/:setSlug/categories ───────────────────────── */
 router.post("/:setSlug/categories", requireNetworkAdmin, async (req, res) => {
   try {
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const rubricSet = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, req.params.setSlug as string),
+      where: and(eq(rubricSets.slug, req.params.setSlug as string), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!rubricSet) { res.status(404).json({ error: "Rubric set not found" }); return; }
 

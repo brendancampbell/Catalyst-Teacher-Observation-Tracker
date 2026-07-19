@@ -2,3 +2,4 @@
 - [Observations & Action Steps School Year + Frozen Snapshots](obs-action-steps-school-year.md) — schoolYearId/snapshot fields on obs+steps; bidirectional Drizzle relation naming rules
 - [rubric_domains unique index correction](rubric-domain-unique-index.md) — correct index is (school_year_id, rubric_set_id, slug); old (school_year_id, slug) crashed startup via pg 23505
 - [Assignments school-year scoping](assignments-school-year-scoping.md) — assignments.school_year_id gates access; activeThisYear check skips users with no prior assignments
+- [Rubric slug endpoints need year filter](rubric-slug-year-filter.md) — GET /:setSlug, PATCH /sets/:slug, POST /:setSlug/categories must AND with schoolYearId=activeYearId or they return the oldest year's copy

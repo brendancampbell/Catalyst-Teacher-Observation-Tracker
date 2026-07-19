@@ -162,6 +162,10 @@ args = "mobile-vitest"
 task = "workflow.run"
 args = "test:rubric-set-deletion-guard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-domain-tooltip-cursor-tracking"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -543,6 +547,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:rubric-set-deletion-guard"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-domain-tooltip-cursor-tracking"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && PW_BASE_URL=http://127.0.0.1:18277 CHROMIUM_PATH=$(which chromium) pnpm playwright test --config playwright.config.ts e2e/domain-tooltip-cursor-tracking.spec.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
