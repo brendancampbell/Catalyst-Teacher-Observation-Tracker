@@ -548,6 +548,8 @@ export default function Dashboard() {
         scores: updated.scores as Record<string, Score>,
       });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
     } catch (err) {
       console.error("Failed to update observation:", err);
     } finally {
@@ -559,6 +561,8 @@ export default function Dashboard() {
     try {
       await deleteObservation(observationId);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
     } catch (err) {
       console.error("Failed to delete observation:", err);
     }
