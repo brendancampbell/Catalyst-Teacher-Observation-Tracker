@@ -109,6 +109,24 @@ const DASHBOARD_STUB = {
   rubricSet: { id: 7, slug: "Q1", name: "Q1 2026" },
 };
 
+const DRAFT_STUB = {
+  id:                  "draft-abc",
+  observedEmployeeId:  "teacher-1",
+  teacherName:         "Ms. Smith",
+  date:                "2026-07-01",
+  scores:              {},
+  strengths:           "",
+  growthAreas:         "",
+  isWalkthrough:       false,
+  status:              "draft",
+  rubricSetId:         7,
+  rubricSetSlug:       "Q1",
+  rubricSetName:       "Q1 2026",
+  course:              null,
+  time:                null,
+  schoolYearId:        null,
+};
+
 function makeQC() {
   return new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -219,5 +237,131 @@ describe("Drafts page — handleSubmitNew forwards action-step data", () => {
     expect(mockCreate).toHaveBeenCalledOnce();
     const payload = mockCreate.mock.calls[0][0] as Record<string, unknown>;
     expect(payload.masterActionStepId).toBe(42);
+  });
+});
+
+/* ================================================================== */
+/* handleSubmitResumed forwards newActionStep into update/create       */
+/* ================================================================== */
+describe("Drafts page — handleSubmitResumed forwards action-step data", () => {
+  beforeEach(() => {
+    capturedOnSubmit = null;
+    mockFetchDrafts.mockResolvedValue([DRAFT_STUB]);
+    mockFetchSlug.mockResolvedValue("Q1");
+    mockFetchDash.mockResolvedValue(DASHBOARD_STUB);
+    mockCreate.mockResolvedValue({ id: "obs-new" });
+    mockUpdate.mockResolvedValue({ id: "obs-upd" });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes newActionStep into updateObservation when a draftId is present", async () => {
+    const { default: DraftsPage } = await import("@/pages/drafts");
+    const qc = makeQC();
+
+    render(
+      React.createElement(
+        QueryClientProvider,
+        { client: qc },
+        React.createElement(DraftsPage),
+      ),
+    );
+
+    /* Wait for the drafts list to load and the Resume button to appear */
+    await waitFor(
+      () => expect(screen.getByText("Resume")).toBeTruthy(),
+      { timeout: 2000 },
+    );
+
+    /* Click Resume — triggers handleResume → fetchDashboard → sets resumeData */
+    fireEvent.click(screen.getByText("Resume"));
+
+    /* Wait for the resumed modal to open */
+    await waitFor(
+      () => expect(screen.getByTestId("modal-open")).toBeTruthy(),
+      { timeout: 2000 },
+    );
+
+    expect(capturedOnSubmit).not.toBeNull();
+
+    const actionStep = { text: "Improve questioning", dueDate: "2026-08-15" };
+
+    /* Simulate the modal calling onSubmit with draftId supplied (branch: updateObservation) */
+    await act(async () => {
+      await capturedOnSubmit!(
+        "teacher-1",       // teacherId
+        "2026-07-01",      // date
+        { "d-1": 2 },      // scores
+        "<p>Strong</p>",   // strengths
+        "<p>Grow</p>",     // growthAreas
+        false,             // isWalkthrough
+        "10:00",           // time
+        "Math",            // course
+        "draft-abc",       // draftId ← triggers updateObservation
+        actionStep,        // newActionStep ← the value under test
+        undefined,         // masterActionStepId
+      );
+    });
+
+    expect(mockUpdate).toHaveBeenCalledOnce();
+    expect(mockCreate).not.toHaveBeenCalled();
+    const payload = mockUpdate.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.newActionStep).toEqual(actionStep);
+  });
+
+  it("passes newActionStep into createObservation when no draftId is present", async () => {
+    const { default: DraftsPage } = await import("@/pages/drafts");
+    const qc = makeQC();
+
+    render(
+      React.createElement(
+        QueryClientProvider,
+        { client: qc },
+        React.createElement(DraftsPage),
+      ),
+    );
+
+    /* Wait for the drafts list to load and the Resume button to appear */
+    await waitFor(
+      () => expect(screen.getByText("Resume")).toBeTruthy(),
+      { timeout: 2000 },
+    );
+
+    /* Click Resume — triggers handleResume → fetchDashboard → sets resumeData */
+    fireEvent.click(screen.getByText("Resume"));
+
+    /* Wait for the resumed modal to open */
+    await waitFor(
+      () => expect(screen.getByTestId("modal-open")).toBeTruthy(),
+      { timeout: 2000 },
+    );
+
+    expect(capturedOnSubmit).not.toBeNull();
+
+    const actionStep = { text: "Narrate the positive", dueDate: "2026-09-01" };
+
+    /* Simulate the modal calling onSubmit without draftId (branch: createObservation) */
+    await act(async () => {
+      await capturedOnSubmit!(
+        "teacher-1",       // teacherId
+        "2026-07-01",      // date
+        { "d-1": 3 },      // scores
+        "<p>Well done</p>",// strengths
+        "<p>Keep up</p>",  // growthAreas
+        false,             // isWalkthrough
+        "11:00",           // time
+        "Science",         // course
+        undefined,         // draftId ← omitted, triggers createObservation
+        actionStep,        // newActionStep ← the value under test
+        undefined,         // masterActionStepId
+      );
+    });
+
+    expect(mockCreate).toHaveBeenCalledOnce();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    const payload = mockCreate.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload.newActionStep).toEqual(actionStep);
   });
 });
