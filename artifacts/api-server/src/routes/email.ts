@@ -633,6 +633,16 @@ router.post(
       actionStepContext,
     });
 
+    /* ── Dry-run mode (test/preview) ──────────────────────── */
+    /* When ?dryRun=true is present, skip Resend and return the rendered HTML
+       so callers (e.g. test suites) can assert on exactly what would be sent.
+       This lets CI verify the full name-resolution → HTML pipeline without
+       a live Resend connection.                                               */
+    if (req.query.dryRun === "true") {
+      res.json({ ok: true, dryRun: true, html });
+      return;
+    }
+
     /* ── Send via Resend ───────────────────────────────────── */
     /* getUncachableResendClient throws when Resend is not connected; treat that
        as a 502 (upstream dependency down) rather than a 500 (our code crashed). */

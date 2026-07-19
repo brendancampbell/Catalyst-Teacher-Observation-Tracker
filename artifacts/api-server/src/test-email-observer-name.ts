@@ -356,6 +356,50 @@ describe("Email observer name — schema-change regression", () => {
     );
   });
 
+  test("7 — dryRun=true: route returns HTML payload containing the observer's full name (end-to-end stub)", async () => {
+    /* This test closes the gap between tests 3 and 4:
+     *   - Test 3 proves the DB lookup + buildHtmlEmail pipeline is correct in isolation.
+     *   - Test 4 proves the route doesn't crash, but cannot inspect what HTML was built.
+     *   - This test fires the real route with ?dryRun=true, which skips Resend and returns
+     *     the HTML that would have been sent.  That lets us assert the observer name travels
+     *     correctly through the entire route — DB lookup → observerName variable → buildHtmlEmail
+     *     → outbound payload — without a live Resend connection.
+     */
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Cookie": coachJar.cookieHeader,
+    };
+    const res = await fetch(
+      `${BASE}/email/send-observation?dryRun=true`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ observationId: OBS_WITH_OBSERVER_ID, intro: "Great lesson.", subject: "Feedback" }),
+      },
+    );
+
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200 from dryRun route, got ${res.status}`,
+    );
+
+    const json = await res.json() as { ok?: boolean; dryRun?: boolean; html?: string };
+
+    assert.equal(json.ok, true, "Response should have ok: true");
+    assert.equal(json.dryRun, true, "Response should have dryRun: true");
+    assert.ok(
+      typeof json.html === "string" && json.html.length > 0,
+      "Response should include a non-empty html field",
+    );
+
+    assert.ok(
+      json.html!.includes("Bobby Observer"),
+      `Expected "Bobby Observer" in the HTML payload sent to Resend, but it was absent.\n` +
+      `Observer section snippet: ${json.html!.slice(json.html!.indexOf("Observer"), json.html!.indexOf("Observer") + 300)}`,
+    );
+  });
+
   test("6 — observer person deleted (FK → null) → route does not return 500", async () => {
     /* Confirm the FK cascade actually nulled the field */
     const [row] = await db
