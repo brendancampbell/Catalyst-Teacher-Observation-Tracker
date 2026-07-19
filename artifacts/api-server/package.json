@@ -34,6 +34,7 @@
     "test:bulk-people-role-escalation": "tsx --test src/test-bulk-people-role-escalation.ts",
     "test:network-school-isolation": "tsx --test src/test-network-school-isolation.ts",
     "test:ai-qualitative-school-scope": "tsx --test src/test-ai-qualitative-school-scope.ts",
+    "test:ai-insights-rubric-year-scoping": "tsx --test src/test-ai-insights-rubric-year-scoping.ts",
     "test:ai-teacher-transfer-scope": "tsx --test src/test-ai-teacher-transfer-scope.ts",
     "test:overdue-action-steps": "tsx --test src/test-overdue-action-steps.ts",
     "test:feedback-tracker-homeoffice-exclusion": "tsx src/test-feedback-tracker-homeoffice-exclusion.ts",

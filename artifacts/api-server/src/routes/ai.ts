@@ -144,8 +144,11 @@ function weeksBetween(a: string, b: string): number {
   return Math.round(Math.abs(new Date(b).getTime() - new Date(a).getTime()) / msPerWeek);
 }
 
-async function getRubricSetId(slug: string): Promise<number | null> {
-  const rows = await db.select({ id: rubricSets.id }).from(rubricSets).where(eq(rubricSets.slug, slug)).limit(1);
+async function getRubricSetId(slug: string, schoolYearId?: number): Promise<number | null> {
+  const condition = schoolYearId != null
+    ? and(eq(rubricSets.slug, slug), eq(rubricSets.schoolYearId, schoolYearId))
+    : eq(rubricSets.slug, slug);
+  const rows = await db.select({ id: rubricSets.id }).from(rubricSets).where(condition).limit(1);
   return rows[0]?.id ?? null;
 }
 
@@ -1258,12 +1261,12 @@ router.get("/insights", async (req, res) => {
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
-    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
+    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug, activeYearId) : null;
 
     const personIds = await getPersonIds(scopedSchoolId);
     const domainAverages = await buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId);
@@ -1319,12 +1322,12 @@ router.get("/calibration-flags", async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, requested);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
-    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug) : null;
 
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
+    const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug, activeYearId) : null;
 
     const personIds = await getPersonIds(scopedSchoolId);
     const flags = await buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId);
@@ -1391,12 +1394,11 @@ router.post("/analysis", aiGenerationLimiter, async (req, res) => {
     const scopedSchoolId = resolveSchoolId(user, reqSchoolId ?? null);
     const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
 
-    const rubricSetId = await getRubricSetId(slug);
-
     const activeYearId = await getActiveSchoolYearId();
     if (!activeYearId) {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
+    const rubricSetId = await getRubricSetId(slug, activeYearId);
 
     const scopedPeople = await getScopedPeople(scopedSchoolId);
     const personIds = scopedPeople.map((p) => p.employeeId);
@@ -1522,7 +1524,7 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
       res.status(503).json({ error: "No active school year configured." }); return;
     }
 
-    const rubricSetId = await getRubricSetId(slug);
+    const rubricSetId = await getRubricSetId(slug, activeYearId);
     if (rubricSetId === null) {
       res.status(404).json({ error: `Rubric set '${slug}' not found` }); return;
     }
