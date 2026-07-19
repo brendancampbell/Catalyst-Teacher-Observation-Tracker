@@ -278,6 +278,15 @@ router.patch("/:id/master", requireAuth, async (req, res) => {
 
     const step = await db.query.actionSteps.findFirst({ where: eq(actionSteps.id, stepId) });
     if (!step) { res.status(404).json({ error: "Action step not found" }); return; }
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+    if (step.schoolYearId !== activeYearId) {
+      res.status(404).json({ error: "Action step not found" }); return;
+    }
+
     if (step.status === "mastered") { res.status(400).json({ error: "Action step is already mastered" }); return; }
 
     const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, step.teacherEmployeeId);
@@ -310,6 +319,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     const step = await db.query.actionSteps.findFirst({ where: eq(actionSteps.id, stepId) });
     if (!step) { res.status(404).json({ error: "Action step not found" }); return; }
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+    if (step.schoolYearId !== activeYearId) {
+      res.status(404).json({ error: "Action step not found" }); return;
+    }
+
     if (step.status === "mastered") { res.status(400).json({ error: "Cannot edit a mastered action step" }); return; }
 
     const access = await assertTeacherAccess(currentUser.role, currentUser.schoolId, step.teacherEmployeeId);
