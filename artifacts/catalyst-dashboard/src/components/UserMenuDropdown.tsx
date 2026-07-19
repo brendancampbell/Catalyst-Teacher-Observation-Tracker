@@ -100,15 +100,29 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
               </a>
             )}
 
-            <a
-              href={`${basePath}/support`}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
-              style={{ color: NAVY, textDecoration: "none" }}
-            >
-              <LifeBuoy size={14} strokeWidth={2} />
-              Support
-            </a>
+            {role === "NETWORK_LEADER" || role === "NETWORK_ADMIN" ? (
+              <a
+                href={`${basePath}/training-network-leader.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+                style={{ color: NAVY, textDecoration: "none" }}
+              >
+                <LifeBuoy size={14} strokeWidth={2} />
+                Support
+              </a>
+            ) : (
+              <a
+                href={`${basePath}/support`}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+                style={{ color: NAVY, textDecoration: "none" }}
+              >
+                <LifeBuoy size={14} strokeWidth={2} />
+                Support
+              </a>
+            )}
 
             {canAdmin && (
               <a
