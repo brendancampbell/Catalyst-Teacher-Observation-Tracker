@@ -273,10 +273,21 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
     setAutoSaveStatus("saving");
 
-    const newActionStepDraft =
+    const STALE_DATE_MSG = "Due date must be today or in the future. Please update it.";
+    const staleDueDate = newActionStepDueDate.length > 0 && newActionStepDueDate < todayIso;
+
+    let newActionStepDraft =
       newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0
         ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
         : undefined;
+
+    if (staleDueDate) {
+      setActionStepDueDateError(STALE_DATE_MSG);
+      newActionStepDraft = undefined;
+    } else if (actionStepDueDateError === STALE_DATE_MSG) {
+      setActionStepDueDateError(null);
+    }
+
     const masterActionStepIdDraft =
       markMastered && latestActionStep?.status === "open" ? latestActionStep.id : undefined;
 
