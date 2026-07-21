@@ -408,6 +408,18 @@ async function ensureSchoolYearBackfill(): Promise<void> {
   }
 }
 
+/* ── Start listening immediately so the deployment healthcheck passes
+   during the startup window. Startup tasks (migrations, seeding) run
+   in the background and complete within a few seconds in production.
+   If any startup task fails we log and exit so the platform retries. */
+app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
+  logger.info({ port }, "Server listening");
+});
+
 ensureSessionTable()
   .then(() => ensureSchoolYears())
   .then(() => ensureSchoolYearBackfill())
@@ -425,16 +437,8 @@ ensureSessionTable()
         logger.warn({ err, event: "quota_grant_cleanup_failed" }, "Quota grant cleanup failed"),
       );
     }, QUOTA_GRANT_CLEANUP_INTERVAL_MS).unref();
-
-    app.listen(port, (err) => {
-      if (err) {
-        logger.error({ err }, "Error listening on port");
-        process.exit(1);
-      }
-      logger.info({ port }, "Server listening");
-    });
   })
   .catch((err) => {
-    logger.error({ err }, "Startup failed — aborting");
+    logger.error({ err }, "Startup tasks failed — aborting");
     process.exit(1);
   });
