@@ -43,6 +43,13 @@
       "when": 1753000000000,
       "tag": "0005_schema_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1753056000000,
+      "tag": "0006_school_number_not_null",
+      "breakpoints": true
     }
   ]
 }
