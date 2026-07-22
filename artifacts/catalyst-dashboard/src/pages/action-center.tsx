@@ -2479,7 +2479,7 @@ export default function ActionCenterPage() {
           </DialogHeader>
           <DialogDescription className="text-sm text-slate-600 text-center">
             You&apos;ve used all available AI tokens for this 15-minute window.
-            Tokens reset automatically. Need access right away? Contact IT to request additional tokens.
+            Tokens reset automatically. Need access right away? Contact Catalyst Support to request additional tokens.
           </DialogDescription>
           <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-3">
             <a
