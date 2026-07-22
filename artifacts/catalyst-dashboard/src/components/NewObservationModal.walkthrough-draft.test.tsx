@@ -206,6 +206,95 @@ describe("NewObservationModal — autosave captures isWalkthrough correctly", ()
 /* ================================================================== */
 /* Group 2: draft restore restores isWalkthrough (real timers)        */
 /* ================================================================== */
+describe("NewObservationModal — auto-detected draft (checkForDraft) preserves isWalkthrough", () => {
+  beforeEach(() => {
+    mockCreateObservation.mockResolvedValue({ id: "draft-abc" });
+    mockUpdateObservation.mockResolvedValue({ id: "draft-abc" });
+    mockFetchLatestActionStep.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("restores isWalkthrough=true when a matching draft is auto-detected", async () => {
+    mockFetchMyDrafts.mockResolvedValue([
+      { ...STUB_DRAFT_BASE, isWalkthrough: true },
+    ]);
+
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+
+    render(
+      React.createElement(NewObservationModal, makeProps({
+        freshStart:       false,
+        defaultTeacherId: "teacher-1",
+        /* no resumeDraftId — exercises the checkForDraft path */
+      })),
+    );
+
+    /* Let checkForDraft's async fetchMyDrafts call settle */
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const t = screen.getByRole("switch", { name: /walkthrough/i });
+      expect(t.getAttribute("aria-checked")).toBe("true");
+    }, { timeout: 2000 });
+  });
+
+  it("preserves isWalkthrough=false when the auto-detected draft has it off", async () => {
+    mockFetchMyDrafts.mockResolvedValue([
+      { ...STUB_DRAFT_BASE, isWalkthrough: false },
+    ]);
+
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+
+    render(
+      React.createElement(NewObservationModal, makeProps({
+        freshStart:       false,
+        defaultTeacherId: "teacher-1",
+      })),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const t = screen.getByRole("switch", { name: /walkthrough/i });
+      expect(t.getAttribute("aria-checked")).toBe("false");
+    }, { timeout: 2000 });
+  });
+
+  it("leaves isWalkthrough=false when no draft matches the teacher/rubricSet", async () => {
+    mockFetchMyDrafts.mockResolvedValue([
+      { ...STUB_DRAFT_BASE, observedEmployeeId: "teacher-99", isWalkthrough: true },
+    ]);
+
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+
+    render(
+      React.createElement(NewObservationModal, makeProps({
+        freshStart:       false,
+        defaultTeacherId: "teacher-1",
+      })),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const t = screen.getByRole("switch", { name: /walkthrough/i });
+      expect(t.getAttribute("aria-checked")).toBe("false");
+    }, { timeout: 2000 });
+  });
+});
+
+/* ================================================================== */
+/* Group 3: draft restore restores isWalkthrough (real timers)        */
+/* ================================================================== */
 describe("NewObservationModal — draft restore preserves isWalkthrough", () => {
   beforeEach(() => {
     mockCreateObservation.mockResolvedValue({ id: "draft-abc" });
