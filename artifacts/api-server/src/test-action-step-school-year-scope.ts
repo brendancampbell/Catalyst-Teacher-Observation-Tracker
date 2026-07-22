@@ -132,6 +132,7 @@ describe("Action-step PATCH handlers — school-year scope guard", () => {
     /* Seed an action step in the prior (inactive) school year */
     const [priorStep] = await db.insert(actionSteps).values({
       schoolYearId:         priorYearId,
+      snapshotSchoolId:     testSchoolId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: COACH_EID,
       text:                 "ASSR-TEST: prior-year step (should be immutable via PATCH)",
@@ -144,6 +145,7 @@ describe("Action-step PATCH handlers — school-year scope guard", () => {
     /* Seed an action step in the current (active) school year */
     const [currentStep] = await db.insert(actionSteps).values({
       schoolYearId:         activeYearId,
+      snapshotSchoolId:     testSchoolId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: COACH_EID,
       text:                 "ASSR-TEST: current-year step (PATCH should succeed)",
@@ -248,6 +250,7 @@ describe("Action-step PATCH handlers — school-year scope guard", () => {
     /* Seed a fresh step for this test (the one from before() is now mastered) */
     const [freshStep] = await db.insert(actionSteps).values({
       schoolYearId:         activeYearId,
+      snapshotSchoolId:     testSchoolId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: COACH_EID,
       text:                 "ASSR-TEST-D: current-year step to edit",

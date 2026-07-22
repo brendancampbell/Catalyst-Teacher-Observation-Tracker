@@ -188,10 +188,10 @@ test.describe("AI quota warning banner and exhaustion modal", () => {
       "Exhaustion Dialog title must be visible when quota.remaining = 0",
     ).toBeVisible({ timeout: 10_000 });
 
-    /* "Email IT Support" mailto link */
+    /* "Email Catalyst Support" mailto link */
     await expect(
-      page.getByRole("link", { name: /Email IT Support/i }),
-      "Modal must contain the IT support mailto link",
+      page.getByRole("link", { name: /Email Catalyst Support/i }),
+      "Modal must contain the Catalyst Support mailto link",
     ).toBeVisible();
 
     /* "Dismiss" button inside the dialog */
