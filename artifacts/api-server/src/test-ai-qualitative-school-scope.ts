@@ -125,6 +125,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "Q01",
       })
       .returning({ id: schools.id });
     assert.ok(schA, "Failed to create School A");
@@ -143,6 +144,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "Q02",
       })
       .returning({ id: schools.id });
     assert.ok(schB, "Failed to create School B");

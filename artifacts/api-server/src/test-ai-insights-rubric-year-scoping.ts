@@ -108,6 +108,7 @@ async function setup() {
       isActive:     true,
       isArchived:   false,
       isHomeOffice: false,
+      schoolNumber: "I01",
     })
     .returning({ id: schools.id });
   assert.ok(sch, "Failed to create test school");
@@ -132,7 +133,7 @@ async function setup() {
   /* Create a rubric category and domain under the active rubric set */
   const [cat] = await db
     .insert(rubricCategories)
-    .values({ rubricSetId: createdActiveRsId, name: "TST Category Insights", displayOrder: 0, schoolYearId: activeYearId })
+    .values({ rubricSetId: createdActiveRsId, name: "TST Category Insights", displayOrder: 0 })
     .returning({ id: rubricCategories.id });
   assert.ok(cat, "Failed to create rubric category");
   createdCategoryId = cat.id;

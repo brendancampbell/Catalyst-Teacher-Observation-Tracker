@@ -133,6 +133,7 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "N01",
       })
       .returning({ id: schools.id });
     assert.ok(schA, "Failed to create School A");
@@ -150,6 +151,7 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "N02",
       })
       .returning({ id: schools.id });
     assert.ok(schB, "Failed to create School B");

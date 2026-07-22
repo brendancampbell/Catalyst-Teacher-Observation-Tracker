@@ -118,6 +118,7 @@ describe("POST /api/people/bulk — school name matching", () => {
         abbreviation: COLLISION_A_ABBR,
         region:       "Newark",
         gradeSpan:    "ES",
+        schoolNumber: "B01",
       },
       {
         displayName:  "Catalyst Test Collision School Display B",
@@ -125,6 +126,7 @@ describe("POST /api/people/bulk — school name matching", () => {
         abbreviation: COLLISION_B_ABBR,
         region:       "Newark",
         gradeSpan:    "MS",
+        schoolNumber: "B02",
       },
     ]).onConflictDoNothing();
   });

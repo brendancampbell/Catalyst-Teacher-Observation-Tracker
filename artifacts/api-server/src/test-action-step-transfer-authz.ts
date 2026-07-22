@@ -110,6 +110,7 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "T01",
       })
       .returning({ id: schools.id });
     assert.ok(schA, "Failed to insert School A");
@@ -128,6 +129,7 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "T02",
       })
       .returning({ id: schools.id });
     assert.ok(schB, "Failed to insert School B");

@@ -106,6 +106,7 @@ describe("Frozen school snapshots — observation and action step remain pinned 
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "S01",
       })
       .returning({ id: schools.id });
     assert.ok(schA, "Failed to insert School A");
@@ -124,6 +125,7 @@ describe("Frozen school snapshots — observation and action step remain pinned 
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "S02",
       })
       .returning({ id: schools.id });
     assert.ok(schB, "Failed to insert School B");

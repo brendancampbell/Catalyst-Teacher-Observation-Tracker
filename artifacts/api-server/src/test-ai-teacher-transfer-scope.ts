@@ -137,6 +137,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "X01",
       })
       .returning({ id: schools.id });
     assert.ok(schA, "Failed to create School A");
@@ -154,6 +155,7 @@ describe("AI qualitative context — teacher transfer school-scope isolation (HT
         isActive:     true,
         isArchived:   false,
         isHomeOffice: false,
+        schoolNumber: "X02",
       })
       .returning({ id: schools.id });
     assert.ok(schB, "Failed to create School B");

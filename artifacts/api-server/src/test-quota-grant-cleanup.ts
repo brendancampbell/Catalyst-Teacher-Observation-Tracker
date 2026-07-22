@@ -42,6 +42,7 @@ before(async () => {
     abbreviation: `CT${String(RUN_TAG).slice(-6)}`,
     region:       "Test",
     gradeSpan:    "K-12",
+    schoolNumber: "C01",
   }).returning({ id: schools.id });
   testSchoolId = school.id;
 
