@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Router } from "express";
 import { db, pool } from "@workspace/db";
 import {
@@ -59,13 +60,23 @@ router.get("/sets", async (req, res) => {
   }
 });
 
+const reorderSetsSchema = z.array(
+  z.object({
+    slug: z.string().min(1, "slug must be a non-empty string"),
+    displayOrder: z.number().int("displayOrder must be an integer"),
+  })
+);
+
 /* ── PUT /api/rubric/sets/reorder ───────────────────────────────── */
 router.put("/sets/reorder", requireNetworkAdmin, async (req, res) => {
   try {
-    const items = req.body as { slug: string; displayOrder: number }[];
-    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    const parsed = reorderSetsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
     await Promise.all(
-      items.map(({ slug, displayOrder }) =>
+      parsed.data.map(({ slug, displayOrder }) =>
         db.update(rubricSets).set({ displayOrder }).where(eq(rubricSets.slug, slug))
       )
     );
@@ -435,13 +446,23 @@ router.post("/:setSlug/categories", requireNetworkAdmin, async (req, res) => {
   }
 });
 
+const reorderByIdSchema = z.array(
+  z.object({
+    id: z.number().int("id must be an integer"),
+    displayOrder: z.number().int("displayOrder must be an integer"),
+  })
+);
+
 /* ── PUT /api/rubric/categories/reorder ─────────────────────────── */
 router.put("/categories/reorder", requireNetworkAdmin, async (req, res) => {
   try {
-    const items = req.body as { id: number; displayOrder: number }[];
-    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    const parsed = reorderByIdSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
     await Promise.all(
-      items.map(({ id, displayOrder }) =>
+      parsed.data.map(({ id, displayOrder }) =>
         db.update(rubricCategories).set({ displayOrder }).where(eq(rubricCategories.id, id))
       )
     );
@@ -587,10 +608,13 @@ router.post("/categories/:id/domains", requireNetworkAdmin, async (req, res) => 
 /* ── PUT /api/rubric/domains/reorder ────────────────────────────── */
 router.put("/domains/reorder", requireNetworkAdmin, async (req, res) => {
   try {
-    const items = req.body as { id: number; displayOrder: number }[];
-    if (!Array.isArray(items)) { res.status(400).json({ error: "Expected an array" }); return; }
+    const parsed = reorderByIdSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
     await Promise.all(
-      items.map(({ id, displayOrder }) =>
+      parsed.data.map(({ id, displayOrder }) =>
         db.update(rubricDomains).set({ displayOrder }).where(eq(rubricDomains.id, id))
       )
     );
