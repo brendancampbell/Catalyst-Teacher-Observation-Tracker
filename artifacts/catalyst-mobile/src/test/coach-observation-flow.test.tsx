@@ -17,8 +17,8 @@
  */
 
 import React from "react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ── Shared mock state ─────────────────────────────────────────────────────
@@ -142,21 +142,23 @@ import LoginPage from "@/pages/login";
 vi.stubGlobal("import", { meta: { env: { BASE_URL: "/" } } });
 
 describe("Step 1 — COACH login routing", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     mockNavigate.mockClear();
     setupAppContext();
   });
 
-  it("redirects COACH to /rubric-picker (not /school-picker)", () => {
-    render(<LoginPage />);
+  it("redirects COACH to /rubric-picker (not /school-picker)", async () => {
+    await act(async () => { render(<LoginPage />); });
     expect(mockNavigate).toHaveBeenCalledWith("/rubric-picker");
     expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
     expect(mockNavigate).not.toHaveBeenCalledWith("/observation");
   });
 
-  it("redirects COACH with rubric already selected directly to /observation", () => {
+  it("redirects COACH with rubric already selected directly to /observation", async () => {
     setupAppContext({ selectedRubric: RUBRIC_SET });
-    render(<LoginPage />);
+    await act(async () => { render(<LoginPage />); });
     expect(mockNavigate).toHaveBeenCalledWith("/observation");
     expect(mockNavigate).not.toHaveBeenCalledWith("/rubric-picker");
     expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker");
@@ -168,6 +170,8 @@ describe("Step 1 — COACH login routing", () => {
 import RubricPickerPage from "@/pages/rubric-picker";
 
 describe("Step 2 — COACH rubric selection", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     mockNavigate.mockClear();
     mockSetSelectedRubric.mockClear();
@@ -181,7 +185,7 @@ describe("Step 2 — COACH rubric selection", () => {
   });
 
   it("does not redirect COACH to /school-picker when selectedSchool is null", async () => {
-    wrap(<RubricPickerPage />);
+    await act(async () => { wrap(<RubricPickerPage />); });
     // Give it time to run effects / render
     await waitFor(() =>
       expect(mockNavigate).not.toHaveBeenCalledWith("/school-picker"),
@@ -189,14 +193,14 @@ describe("Step 2 — COACH rubric selection", () => {
   });
 
   it("shows the available rubric set", async () => {
-    wrap(<RubricPickerPage />);
+    await act(async () => { wrap(<RubricPickerPage />); });
     await waitFor(() =>
       expect(screen.getByText("Coach Observation Rubric")).toBeInTheDocument(),
     );
   });
 
   it("calls setSelectedRubric and navigates to /observation when rubric is clicked", async () => {
-    wrap(<RubricPickerPage />);
+    await act(async () => { wrap(<RubricPickerPage />); });
     await waitFor(() =>
       expect(screen.getByText("Coach Observation Rubric")).toBeInTheDocument(),
     );
@@ -211,6 +215,8 @@ describe("Step 2 — COACH rubric selection", () => {
 import ObservationPage from "@/pages/observation";
 
 describe("Step 3 — COACH observation form", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     localStorage.clear();
     mockNavigate.mockClear();
@@ -231,7 +237,7 @@ describe("Step 3 — COACH observation form", () => {
   });
 
   it("renders the form without redirecting away (COACH has no schoolId requirement)", async () => {
-    wrap(<ObservationPage />);
+    await act(async () => { wrap(<ObservationPage />); });
     await waitFor(() =>
       expect(
         screen.getByPlaceholderText("What is this teacher doing well?"),
@@ -241,7 +247,7 @@ describe("Step 3 — COACH observation form", () => {
   });
 
   it("shows both strengths and growth-areas fields", async () => {
-    wrap(<ObservationPage />);
+    await act(async () => { wrap(<ObservationPage />); });
     await waitFor(() => {
       expect(screen.getByPlaceholderText("What is this teacher doing well?")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Where should this teacher focus next?")).toBeInTheDocument();
@@ -249,14 +255,14 @@ describe("Step 3 — COACH observation form", () => {
   });
 
   it("displays the teacher name in the select dropdown", async () => {
-    wrap(<ObservationPage />);
+    await act(async () => { wrap(<ObservationPage />); });
     await waitFor(() =>
       expect(screen.getByText(/Jordan Lee/)).toBeInTheDocument(),
     );
   });
 
   it("submits the observation via apiFetch POST when the form is submitted", async () => {
-    wrap(<ObservationPage />);
+    await act(async () => { wrap(<ObservationPage />); });
 
     // Wait for form to appear (teacher list loaded)
     await waitFor(() =>

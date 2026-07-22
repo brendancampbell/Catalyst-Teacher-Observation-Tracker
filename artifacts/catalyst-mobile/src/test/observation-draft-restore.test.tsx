@@ -17,8 +17,8 @@
  */
 
 import React from "react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ObservationPage, { localDraftKey } from "@/pages/observation";
 import type { LocalDraft } from "@/pages/observation";
@@ -146,6 +146,8 @@ function strengthsField(): HTMLTextAreaElement {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("ObservationPage — draft restore round-trip", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -181,7 +183,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       JSON.stringify(makeDraft("emp-001", "Excellent questioning technique")),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     await waitFor(
       () => expect(strengthsField().value).toBe("Excellent questioning technique"),
@@ -196,7 +198,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       JSON.stringify(makeDraft("emp-001", "Strong lesson structure")),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Teacher A auto-selected on mount → draft loads */
     await waitFor(
@@ -224,7 +226,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       JSON.stringify(makeDraft("emp-001", "Great use of cold call")),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Confirm Teacher A's draft loaded */
     const select = await screen.findByRole("combobox", {}, { timeout: 4000 });
@@ -257,7 +259,8 @@ describe("ObservationPage — draft restore round-trip", () => {
 
   it("write + restore: action step fields are written to localStorage on input and restored on remount", async () => {
     /* ── Phase 1: user enters action step text → localStorage is written ── */
-    const { unmount } = renderPage();
+    let unmount!: () => void;
+    await act(async () => { ({ unmount } = renderPage()); });
 
     /* Wait for Teacher A to be auto-selected (guarantees teacherId state is set) */
     const select = await screen.findByRole("combobox", {}, { timeout: 4000 }) as HTMLSelectElement;
@@ -294,7 +297,7 @@ describe("ObservationPage — draft restore round-trip", () => {
     unmount();
 
     /* ── Phase 2: remount → switch back to Teacher B → fields restore ── */
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const select2 = await screen.findByRole("combobox", {}, { timeout: 4000 }) as HTMLSelectElement;
     await waitFor(() => expect(select2.value).not.toBe(""), { timeout: 4000 });
@@ -319,7 +322,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const actionStepArea = () =>
       screen.getByPlaceholderText(
@@ -364,7 +367,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* The "Mark as Mastered" button acts as the toggle; when the draft restores
        masterActionStepId the button caption switches to "Will mark as mastered". */
@@ -385,7 +388,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const actionStepArea = () =>
       screen.getByPlaceholderText(
@@ -427,7 +430,7 @@ describe("ObservationPage — draft restore round-trip", () => {
       JSON.stringify(makeDraft("emp-001", "Excellent wait time")),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     await waitFor(
       () => expect(strengthsField().value).toBe("Excellent wait time"),
@@ -474,6 +477,7 @@ describe("ObservationPage — draft restore round-trip", () => {
  * score pill buttons actually render and can be asserted against.
  */
 describe("ObservationPage — 0.0 (Not Yet) score preservation through draft save-and-resume", () => {
+  afterEach(() => { cleanup(); });
   const RUBRIC_WITH_DOMAIN = {
     rubricSet: { id: 7, slug: "default", name: "Test Rubric" },
     categories: [
@@ -512,7 +516,7 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     await waitFor(
       () => {
@@ -545,7 +549,7 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Wait for draft to load (score pill selected) */
     await waitFor(
@@ -587,7 +591,7 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
       }),
     );
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Wait for the score to restore */
     await waitFor(
@@ -637,7 +641,7 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
       },
     ]);
 
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Wait for the server draft to load: the "Not Yet" pill must be selected */
     await waitFor(

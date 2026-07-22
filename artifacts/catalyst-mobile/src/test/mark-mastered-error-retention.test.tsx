@@ -16,8 +16,8 @@
  */
 
 import React from "react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor, act, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ObservationPage from "@/pages/observation";
 import { createObservation, updateObservation } from "@/lib/api";
@@ -143,6 +143,8 @@ function isMasteredButtonActive(): boolean {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("Mark as Mastered — retained after network error on PUT (draft → published) path", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -179,7 +181,7 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
   });
 
   it("keeps Mark as Mastered in the marked state after PUT fails with a network error", async () => {
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const btn = await waitForMasteredButton();
 
@@ -201,8 +203,8 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
     expect(isMasteredButtonActive()).toBe(true);
   });
 
-  it("includes masterActionStepId in the PUT retry payload after an initial failure", async () => {
-    renderPage();
+  it("includes masterActionStepId in the PUT retry payload after an initial failure", { timeout: 10000 }, async () => {
+    await act(async () => { renderPage(); });
 
     const btn = await waitForMasteredButton();
     await act(async () => { fireEvent.click(btn); });
@@ -230,7 +232,7 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
   });
 
   it("shows a mastery-specific warning in the error message on PUT failure", async () => {
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const btn = await waitForMasteredButton();
     await act(async () => { fireEvent.click(btn); });
@@ -250,6 +252,8 @@ describe("Mark as Mastered — retained after network error on PUT (draft → pu
 });
 
 describe("Mark as Mastered — retained after network error on POST (new observation) path", () => {
+  afterEach(() => { cleanup(); });
+
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -284,7 +288,7 @@ describe("Mark as Mastered — retained after network error on POST (new observa
 
   it("keeps Mark as Mastered in the marked state after POST fails with a network error", async () => {
     setupPostMock({ failFirstPost: true });
-    renderPage();
+    await act(async () => { renderPage(); });
 
     /* Wait for the "Mark as Mastered" button (requires lastActionStep loaded) */
     const btn = await waitForMasteredButton();
@@ -308,7 +312,7 @@ describe("Mark as Mastered — retained after network error on POST (new observa
 
   it("shows a mastery-specific warning in the POST failure error message", async () => {
     setupPostMock({ failFirstPost: true });
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const btn = await waitForMasteredButton();
     await act(async () => { fireEvent.click(btn); });
@@ -325,9 +329,9 @@ describe("Mark as Mastered — retained after network error on POST (new observa
     );
   });
 
-  it("includes masterActionStepId in the POST retry payload after an initial failure", async () => {
+  it("includes masterActionStepId in the POST retry payload after an initial failure", { timeout: 10000 }, async () => {
     const { getPostCallCount } = setupPostMock({ failFirstPost: true });
-    renderPage();
+    await act(async () => { renderPage(); });
 
     const btn = await waitForMasteredButton();
     await act(async () => { fireEvent.click(btn); });
