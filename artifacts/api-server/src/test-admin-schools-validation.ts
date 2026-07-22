@@ -82,6 +82,7 @@ const VALID_SCHOOL = {
   abbreviation: "TST_ADMIN_VAL",
   region:       "Newark",
   gradeSpan:    "ES",
+  schoolNumber: "A01",
 };
 
 /* ── Tests ───────────────────────────────────────────────────────────────── */
@@ -190,6 +191,7 @@ describe("Admin schools — region & grade-span validation", () => {
         abbreviation: "TST_BULK_VAL",
         region:       "NOT_A_REAL_REGION",
         gradeSpan:    "ES",
+        schoolNumber: "BLK01",
       },
     ], jar);
 
@@ -217,6 +219,7 @@ describe("Admin schools — region & grade-span validation", () => {
         abbreviation: "TST_BULK_GS",
         region:       "Newark",
         gradeSpan:    "NOT_A_REAL_SPAN",
+        schoolNumber: "BLK02",
       },
     ], jar);
 
