@@ -186,6 +186,10 @@ args = "test:walkthrough-draft-cycle"
 task = "workflow.run"
 args = "test:ai-insights-rubric-year-scoping"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:rubric-reorder-validation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -633,6 +637,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:ai-insights-rubric-year-scoping"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:rubric-reorder-validation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:rubric-reorder-validation"
 
 [workflows.workflow.metadata]
 isValidation = true
