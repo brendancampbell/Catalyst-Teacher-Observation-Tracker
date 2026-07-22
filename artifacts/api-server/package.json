@@ -59,7 +59,8 @@
     "test:action-step-transfer-authz": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-transfer-authz.ts",
     "test:due-date-format-validation": "tsx src/test-due-date-format-validation.ts",
     "test:email-observer-name": "bash ../../scripts/wait-for-api.sh tsx src/test-email-observer-name.ts",
-    "test:rubric-set-slug-chat-cascade": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-slug-chat-cascade.ts"
+    "test:rubric-set-slug-chat-cascade": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-slug-chat-cascade.ts",
+    "test:rubric-reorder-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-reorder-validation.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
