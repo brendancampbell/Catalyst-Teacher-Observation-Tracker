@@ -50,6 +50,13 @@
       "when": 1753056000000,
       "tag": "0006_school_number_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784730433963,
+      "tag": "0007_boring_ravenous",
+      "breakpoints": true
     }
   ]
 }
