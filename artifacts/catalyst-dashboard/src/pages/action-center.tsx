@@ -2483,11 +2483,11 @@ export default function ActionCenterPage() {
           </DialogDescription>
           <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-3">
             <a
-              href="mailto:ITSupport@uncommonschools.org?subject=AI%20Token%20Request"
+              href="mailto:catalyst@uncommonschools.org?subject=AI%20Token%20Request"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-bold transition-opacity hover:opacity-90"
               style={{ backgroundColor: YELLOW, color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em", fontSize: 15 }}
             >
-              Email IT Support
+              Email Catalyst Support
             </a>
             <Button
               variant="outline"
