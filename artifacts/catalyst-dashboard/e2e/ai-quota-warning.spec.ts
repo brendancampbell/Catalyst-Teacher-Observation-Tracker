@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Verifies the quota warning UX added in Task #471:
  *   1. Low quota (chat.remaining ≤ 3) → amber banner in Data Assistant tab
- *   2. Exhausted quota (remaining = 0) → shadcn Dialog modal with IT support link
+ *   2. Exhausted quota (remaining = 0) → shadcn Dialog modal with Catalyst Support link
  *   3. Banner dismiss → hides banner, sets sessionStorage["ai_quota_banner_dismissed"]
  *   4. Modal dismiss suppresses poll-based re-trigger; a fresh 429 re-opens the modal
  *
