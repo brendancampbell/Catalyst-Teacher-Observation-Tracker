@@ -549,12 +549,12 @@ isValidation = true
 name = "mobile-vitest"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-mobile run test"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "test:rubric-set-deletion-guard"
