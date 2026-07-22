@@ -187,12 +187,11 @@ async function ensureSchools(): Promise<void> {
       `);
     }
 
-    /* ── Step 9: Enforce NOT NULL once all rows have values ── */
+    /* ── Step 9: Enforce NOT NULL on legacy columns that pre-date drizzle push ── */
     await client.query(`
       ALTER TABLE schools
         ALTER COLUMN full_name     SET NOT NULL,
-        ALTER COLUMN abbreviation  SET NOT NULL,
-        ALTER COLUMN school_number SET NOT NULL
+        ALTER COLUMN abbreviation  SET NOT NULL
     `);
 
     /* ── Step 10: One-time cleanup — clear includeInFeedbackTracker for HO users ── */

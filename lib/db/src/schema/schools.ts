@@ -18,7 +18,7 @@ export const schools = pgTable("schools", {
   isActive:     boolean("is_active").notNull().default(true),
   isArchived:   boolean("is_archived").notNull().default(false),
   isHomeOffice: boolean("is_home_office").notNull().default(false),
-  schoolNumber: text("school_number").notNull(),
+  schoolNumber: text("school_number"),
   createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
