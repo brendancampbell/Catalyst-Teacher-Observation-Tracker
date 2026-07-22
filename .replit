@@ -494,12 +494,12 @@ isValidation = true
 name = "dashboard-vitest"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/catalyst-dashboard run test"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "test:domain-deletion-guard"
