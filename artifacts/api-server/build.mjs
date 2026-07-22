@@ -20,6 +20,7 @@ async function buildAll() {
       path.resolve(artifactDir, "src/migrate.ts"),
       path.resolve(artifactDir, "src/seed.ts"),
       path.resolve(artifactDir, "src/seed-dev.ts"),
+      path.resolve(artifactDir, "src/seed-dev-extra-obs.ts"),
     ],
     platform: "node",
     bundle: true,
