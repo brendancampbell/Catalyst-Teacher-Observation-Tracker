@@ -182,6 +182,10 @@ args = "check:schema-sync"
 task = "workflow.run"
 args = "test:walkthrough-draft-cycle"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:ai-insights-rubric-year-scoping"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -618,6 +622,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && npx vitest run src/components/NewObservationModal.walkthrough-draft.test.tsx"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:ai-insights-rubric-year-scoping"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:ai-insights-rubric-year-scoping"
 
 [workflows.workflow.metadata]
 isValidation = true
