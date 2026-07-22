@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   rubricSets, rubricCategories, rubricDomains, observationScores, observations,
   insertRubricDomainSchema, patchRubricCategorySchema, patchRubricDomainSchema,
@@ -301,13 +301,27 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
       }
     }
 
+    const oldSlug = req.params.slug as string;
+
     const [updated] = await db
       .update(rubricSets)
       .set(updates)
-      .where(and(eq(rubricSets.slug, req.params.slug as string), eq(rubricSets.schoolYearId, activeYearId)))
+      .where(and(eq(rubricSets.slug, oldSlug), eq(rubricSets.schoolYearId, activeYearId)))
       .returning();
 
     if (!updated) { res.status(404).json({ error: "Rubric set not found" }); return; }
+
+    /* ── Cascade slug rename to chat_messages ────────────────────────────────
+       chat_messages.rubric_set_slug is a denormalised reference used for AI
+       context lookups. When the slug changes, update all matching rows so
+       future AI queries pick up the correct rubric context.               */
+    if (newSlug !== undefined && updated.slug !== oldSlug) {
+      await pool.query(
+        `UPDATE chat_messages SET rubric_set_slug = $1 WHERE rubric_set_slug = $2`,
+        [updated.slug, oldSlug],
+      );
+    }
+
     res.json(updated);
   } catch (err: unknown) {
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
