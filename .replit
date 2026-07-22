@@ -190,6 +190,10 @@ args = "test:ai-insights-rubric-year-scoping"
 task = "workflow.run"
 args = "test:rubric-reorder-validation"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:rubric-set-slug-chat-cascade"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -648,6 +652,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:rubric-reorder-validation"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:rubric-set-slug-chat-cascade"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:rubric-set-slug-chat-cascade"
 
 [workflows.workflow.metadata]
 isValidation = true
