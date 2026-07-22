@@ -61,6 +61,25 @@ async function apiPatch(
   return { status: res.status, body: parsed };
 }
 
+async function apiPost(
+  path: string,
+  body: unknown,
+  jar: Jar,
+): Promise<{ status: number; body: unknown }> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: jar.cookieHeader,
+      origin: "http://localhost:3000",
+    },
+    body: JSON.stringify(body),
+  });
+  let parsed: unknown = null;
+  try { parsed = await res.json(); } catch { /* empty */ }
+  return { status: res.status, body: parsed };
+}
+
 /* ── DB helpers ───────────────────────────────────────────────────────────── */
 
 async function seedChatMessage(sessionId: number, rubricSetSlug: string): Promise<number> {
@@ -245,5 +264,34 @@ describe("PATCH /api/rubric/sets/:slug — slug rename cascades to chat_messages
 
     const m4Slug = await getChatSlug(createdMsgIds[3]!);
     assert.equal(m4Slug, guardedSlug, "Blocked rename must leave chat_messages unchanged");
+  });
+
+  /* ── Test 4: force-rename via /rename-slug succeeds even with observations ─ */
+
+  test("4 — POST /rename-slug migrates slug and cascades to chat_messages atomically", async () => {
+    const forcedNewSlug = `${guardedSlug}-FORCE`;
+
+    const { status, body } = await apiPost(
+      `/rubric/sets/${guardedSlug}/rename-slug`,
+      { newSlug: forcedNewSlug },
+      jar,
+    );
+    assert.equal(status, 200, `Expected 200, got ${status}: ${JSON.stringify(body)}`);
+    const b = body as { slug?: string };
+    assert.equal(b.slug, forcedNewSlug, "Response should return the new slug");
+
+    /* chat_messages referencing guardedSlug must now reference forcedNewSlug */
+    const m4Slug = await getChatSlug(createdMsgIds[3]!);
+    assert.equal(m4Slug, forcedNewSlug, `chat_messages slug must be updated to ${forcedNewSlug}`);
+
+    /* Observation that was blocking the PATCH rename must still exist */
+    const stillExists = await db
+      .select({ id: observations.id })
+      .from(observations)
+      .where(eq(observations.id, createdObsIds[0]!));
+    assert.equal(stillExists.length, 1, "Observation must not be deleted by the rename");
+
+    /* Update cleanup tracking to use the new slug for rubric set deletion */
+    /* guardedSetId is still valid — the rename only changes the slug column */
   });
 });

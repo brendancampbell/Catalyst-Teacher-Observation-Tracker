@@ -30,6 +30,9 @@ let schoolId: number;
 /* ── slugs used for test 2 (rename blocked) ──────────────────────── */
 let lockedSetSlug: string;
 
+/* ── slug used for test 4 (force-migrate via rename-slug endpoint) ── */
+let migratedLockedSetSlug: string;
+
 /* ── slugs used for test 3 (rename succeeds) ─────────────────────── */
 let freeSetSlug:    string;
 let renamedSetSlug: string;
@@ -85,8 +88,12 @@ test.describe("Rubric set slug validation — admin editor", () => {
     await request.post("/api/auth/dev-login", {
       data: { employeeId: ADMIN_EID },
     }).catch(() => {});
-    /* Archive both test sets */
+    /* Archive all test sets — migratedLockedSetSlug may differ from lockedSetSlug
+       if test 4 ran successfully; try both to be safe.                            */
     await request.patch(`/api/rubric/sets/${lockedSetSlug}`, {
+      data: { isArchived: true },
+    }).catch(() => {});
+    await request.patch(`/api/rubric/sets/${migratedLockedSetSlug}`, {
       data: { isArchived: true },
     }).catch(() => {});
     await request.patch(`/api/rubric/sets/${renamedSetSlug}`, {
@@ -167,6 +174,30 @@ test.describe("Rubric set slug validation — admin editor", () => {
     });
 
     expect(alertMessage).toMatch(/observation/i);
+  });
+
+  /* ── Test 4: rename-slug endpoint migrates slug even when observations exist */
+
+  test("rename-slug endpoint migrates slug atomically even when observations reference the set", async ({ page }) => {
+    migratedLockedSetSlug = `TST-MIG-${RUN_ID}`;
+
+    /* Call the rename-slug API directly — no UI needed */
+    const resp = await page.request.post(`/api/rubric/sets/${lockedSetSlug}/rename-slug`, {
+      data: { newSlug: migratedLockedSetSlug },
+    });
+
+    expect(resp.status(), `rename-slug should return 200, got ${resp.status()}: ${await resp.text()}`).toBe(200);
+
+    const body = await resp.json() as { slug: string };
+    expect(body.slug).toBe(migratedLockedSetSlug);
+
+    /* The rubric set must now be reachable under the new slug */
+    const checkResp = await page.request.get(`/api/rubric/${migratedLockedSetSlug}`);
+    expect(checkResp.status(), "New slug must resolve to the rubric set").toBe(200);
+
+    /* The old slug must no longer resolve */
+    const oldResp = await page.request.get(`/api/rubric/${lockedSetSlug}`);
+    expect(oldResp.status(), "Old slug must return 404 after rename").toBe(404);
   });
 
   /* ── Test 3: slug rename succeeds when no observations reference it */

@@ -343,6 +343,84 @@ router.patch("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   }
 });
 
+/* ── POST /api/rubric/sets/:slug/rename-slug ─────────────────────
+   Atomically renames a rubric-set slug even when observations exist.
+   Both rubric_sets.slug AND chat_messages.rubric_set_slug are updated
+   in a single database transaction so neither can become stale.       */
+router.post("/sets/:slug/rename-slug", requireNetworkAdmin, async (req, res) => {
+  try {
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
+    const renameSchema = z.object({
+      newSlug: z.string().min(1, "newSlug is required").regex(
+        /^[A-Z0-9][A-Z0-9-]*[A-Z0-9]$|^[A-Z0-9]$/,
+        "newSlug must be uppercase letters, digits, or hyphens (no leading/trailing hyphens)",
+      ),
+    });
+    const parsed = renameSchema.safeParse({
+      newSlug: typeof req.body?.newSlug === "string"
+        ? req.body.newSlug.trim().toUpperCase()
+        : req.body?.newSlug,
+    });
+    if (!parsed.success) {
+      res.status(400).json({ error: firstZodError(parsed.error) });
+      return;
+    }
+    const { newSlug } = parsed.data;
+    const oldSlug = (req.params.slug as string).trim().toUpperCase();
+
+    if (newSlug === oldSlug) {
+      res.status(400).json({ error: "newSlug is the same as the current slug" });
+      return;
+    }
+
+    /* Use a raw client so both writes share one transaction */
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const { rows } = await client.query<Record<string, unknown>>(
+        `UPDATE rubric_sets
+            SET slug = $1
+          WHERE slug = $2
+            AND school_year_id = $3
+          RETURNING *`,
+        [newSlug, oldSlug, activeYearId],
+      );
+
+      if (rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Rubric set not found" });
+        return;
+      }
+
+      await client.query(
+        `UPDATE chat_messages SET rubric_set_slug = $1 WHERE rubric_set_slug = $2`,
+        [newSlug, oldSlug],
+      );
+
+      await client.query("COMMIT");
+      res.json(rows[0]);
+    } catch (innerErr: unknown) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw innerErr;
+    } finally {
+      client.release();
+    }
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
+      res.status(409).json({ error: "A rubric set with that slug already exists in this school year" });
+      return;
+    }
+    console.error("POST /rubric/sets/:slug/rename-slug error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── DELETE /api/rubric/sets/:slug ──────────────────────────────── */
 router.delete("/sets/:slug", requireNetworkAdmin, async (req, res) => {
   try {
