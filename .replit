@@ -194,6 +194,10 @@ args = "test:rubric-reorder-validation"
 task = "workflow.run"
 args = "test:rubric-set-slug-chat-cascade"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:school-year-activation-cache"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -663,6 +667,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:rubric-set-slug-chat-cascade"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:school-year-activation-cache"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:school-year-activation-cache"
 
 [workflows.workflow.metadata]
 isValidation = true
