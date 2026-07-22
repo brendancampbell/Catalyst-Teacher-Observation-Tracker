@@ -178,6 +178,10 @@ args = "test:observation-score-validation"
 task = "workflow.run"
 args = "check:schema-sync"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:walkthrough-draft-cycle"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -603,6 +607,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/db run check:schema-sync"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:walkthrough-draft-cycle"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && npx vitest run src/components/NewObservationModal.walkthrough-draft.test.tsx"
 
 [workflows.workflow.metadata]
 isValidation = true
