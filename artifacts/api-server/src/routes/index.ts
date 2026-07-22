@@ -26,6 +26,9 @@ if (!isProduction) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { default: devAuthRouter } = require("./dev-auth") as { default: import("express").Router };
   router.use("/auth", devAuthRouter);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: devSeedRouter } = require("./dev-seed") as { default: import("express").Router };
+  router.use("/dev", devSeedRouter);
 }
 /* Health check — no auth, must be publicly reachable for deployment probe */
 router.use(healthRouter);
