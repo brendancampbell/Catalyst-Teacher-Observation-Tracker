@@ -174,13 +174,13 @@ function assertKeyInvalidated(
   label: string,
 ) {
   const calls = spy.mock.calls;
-  const matched = calls.some((args) => {
+  const matched = calls.some((args: unknown[]) => {
     const opts = args[0] as { queryKey?: unknown[] } | undefined;
     return predicate(opts?.queryKey);
   });
   expect(
     matched,
-    `Expected queryClient.invalidateQueries to be called with ${label} but calls were: ${JSON.stringify(calls.map((a) => (a[0] as Record<string, unknown>)?.queryKey))}`,
+    `Expected queryClient.invalidateQueries to be called with ${label} but calls were: ${JSON.stringify(calls.map((a: unknown[]) => (a[0] as Record<string, unknown>)?.queryKey))}`,
   ).toBe(true);
 }
 
