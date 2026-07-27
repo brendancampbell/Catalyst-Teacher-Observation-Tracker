@@ -419,7 +419,7 @@ export async function generateQualitativeThemesSummary(contextStr: string): Prom
   try {
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: `You are an expert instructional coach analyst. Analyze classroom observation data and return ONLY a valid JSON object — no markdown fences, no explanation, no text before or after the JSON.`,
       messages: [{ role: "user", content: contextStr }],
     });

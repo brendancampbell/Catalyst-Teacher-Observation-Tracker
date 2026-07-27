@@ -280,7 +280,8 @@ ${stepsBlock}
 
 ---
 
-TASK: Identify recurring qualitative themes from the STRENGTHS and GROWTH AREAS comment text above.
+TASK: Identify the TOP 3 most widely-recurring qualitative themes from the STRENGTHS and the TOP 3 most widely-recurring themes from the GROWTH AREAS comment text above.
+Rank by the number of DIFFERENT teachers whose observations reflect the theme (highest first).
 A theme is "recurring" only if similar language or concepts appear in observations from at least 2 DIFFERENT teachers.
 Base every theme directly on specific language from the comment text — do not invent or infer from scores.
 
@@ -308,6 +309,8 @@ Return ONLY a valid JSON object (no markdown fences, no explanation):
 }
 
 Rules:
+- Return AT MOST 3 entries in recurringGlows (the 3 most prevalent strengths by teacher count)
+- Return AT MOST 3 entries in recurringGrows (the 3 most prevalent growth areas by teacher count)
 - Only include themes that appear across 2+ DIFFERENT teachers
 - Base themes on the written comment text, not on numerical scores
 - teacherIds must be exact employeeId strings from the data above
@@ -343,11 +346,11 @@ Rules:
       }));
     }
 
-    /* ── Merge into final result ── */
+    /* ── Merge into final result (cap at top 3 each as a hard server-side guard) ── */
     const result = {
       schoolName:     school.displayName,
-      recurringGlows: enrichThemes(parsed.recurringGlows ?? []),
-      recurringGrows: enrichThemes(parsed.recurringGrows ?? []),
+      recurringGlows: enrichThemes((parsed.recurringGlows ?? []).slice(0, 3)),
+      recurringGrows: enrichThemes((parsed.recurringGrows ?? []).slice(0, 3)),
       actionStepFollowThrough: {
         open:                  openCount,
         overdue:               overdueCount,
