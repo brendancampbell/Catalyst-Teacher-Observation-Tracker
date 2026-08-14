@@ -69,10 +69,10 @@ export default function AccessDeniedPage() {
           <div className="text-center flex flex-col gap-2">
             <p className="font-semibold text-slate-800 text-lg">Access Denied</p>
             <p className="text-slate-500 text-sm leading-relaxed">
-              We're sorry — your Google account doesn't have access to Catalyst.
+              Please make sure you're signing in with your <strong className="text-slate-700">Uncommon Schools email address</strong>.
             </p>
             <p className="text-slate-500 text-sm leading-relaxed">
-              If you believe this is a mistake, please email <strong className="text-slate-700">Catalyst Support</strong> at <a href="mailto:catalyst@uncommonschools.org" className="underline hover:text-slate-900">catalyst@uncommonschools.org</a>.
+              If you're already using your Uncommon email and believe this is a mistake, please email <strong className="text-slate-700">Catalyst Support</strong> at <a href="mailto:catalyst@uncommonschools.org" className="underline hover:text-slate-900">catalyst@uncommonschools.org</a>.
             </p>
           </div>
 

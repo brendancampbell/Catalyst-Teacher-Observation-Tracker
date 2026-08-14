@@ -29,6 +29,11 @@ describe("Dashboard AccessDeniedPage — Catalyst Support email", () => {
     expect(screen.getByText("Catalyst Support")).toBeTruthy();
   });
 
+  it("prompts users to confirm they are using their Uncommon Schools email", () => {
+    render(<AccessDeniedPage />);
+    expect(screen.getByText("Uncommon Schools email address")).toBeTruthy();
+  });
+
   it("renders the 'Back to Sign In' button linking to /login", () => {
     render(<AccessDeniedPage />);
     const backLink = screen.getByRole("link", { name: /back to sign in/i });
