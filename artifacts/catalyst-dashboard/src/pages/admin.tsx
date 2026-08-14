@@ -40,6 +40,10 @@ import {
   fetchAllAIQuotaGrants,
   createAIQuotaGrant,
   revokeAIQuotaGrant,
+  fetchAdminNotifications,
+  createAdminNotification,
+  updateAdminNotification,
+  deleteAdminNotification,
   REGIONS,
   GRADE_SPANS,
   type FullRubric,
@@ -56,6 +60,8 @@ import {
   type AIQuotaGrant,
   type AIQuotaGrantType,
   type AIQuotaGrantWithPerson,
+  type PlatformNotification,
+  type NotificationDisplayMode,
   HttpError,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
@@ -3078,10 +3084,294 @@ function AIQuotaTab() {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   NOTIFICATIONS TAB
+   ════════════════════════════════════════════════════════════════ */
+
+function NotificationsTab() {
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [], isLoading } = useQuery<PlatformNotification[]>({
+    queryKey: QUERY_KEYS.adminNotifications,
+    queryFn:  fetchAdminNotifications,
+    staleTime: 60_000,
+  });
+
+  const [showForm, setShowForm]               = useState(false);
+  const [editingId, setEditingId]             = useState<number | null>(null);
+  const [formTitle, setFormTitle]             = useState("");
+  const [formBody, setFormBody]               = useState("");
+  const [formMode, setFormMode]               = useState<NotificationDisplayMode>("ONCE");
+  const [formActive, setFormActive]           = useState(false);
+
+  function openCreate() {
+    setEditingId(null);
+    setFormTitle("");
+    setFormBody("");
+    setFormMode("ONCE");
+    setFormActive(false);
+    setShowForm(true);
+  }
+
+  function openEdit(n: PlatformNotification) {
+    setEditingId(n.id);
+    setFormTitle(n.title);
+    setFormBody(n.body);
+    setFormMode(n.displayMode);
+    setFormActive(n.isActive);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+  }
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      createAdminNotification({ title: formTitle.trim(), body: formBody.trim(), displayMode: formMode, isActive: formActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminNotifications });
+      closeForm();
+    },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: () =>
+      updateAdminNotification(editingId!, { title: formTitle.trim(), body: formBody.trim(), displayMode: formMode, isActive: formActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminNotifications });
+      closeForm();
+    },
+    onError: (err: Error) => alert(err.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => deleteAdminNotification(id),
+    onSuccess:  () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminNotifications }),
+  });
+
+  const toggleActiveMut = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      updateAdminNotification(id, { isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminNotifications }),
+  });
+
+  const isPending = createMut.isPending || updateMut.isPending;
+  const canSubmit = formTitle.trim().length > 0 && formBody.trim().length > 0 && !isPending;
+
+  const inputCls = "border border-slate-200 rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300";
+
+  return (
+    <main className="flex-1 px-4 sm:px-6 py-5 max-w-5xl mx-auto w-full flex flex-col gap-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-bold" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em" }}>
+            Platform Notifications
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Compose pop-up messages shown to all platform users upon login.
+          </p>
+        </div>
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.03em" }}
+        >
+          <Plus size={14} /> New Notification
+        </button>
+      </div>
+
+      {/* Create / Edit form */}
+      {showForm && (
+        <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col gap-4" style={{ border: `2px solid ${NAVY}` }}>
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-sm" style={{ color: NAVY }}>
+              {editingId ? "Edit Notification" : "New Notification"}
+            </p>
+            <button onClick={closeForm} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {/* Title */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Title</label>
+              <input
+                className={inputCls}
+                placeholder="Notification title"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                maxLength={200}
+              />
+            </div>
+
+            {/* Body */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Body</label>
+              <textarea
+                className={`${inputCls} resize-y min-h-[80px]`}
+                placeholder="Notification message…"
+                value={formBody}
+                onChange={(e) => setFormBody(e.target.value)}
+                rows={4}
+              />
+            </div>
+
+            {/* Display Mode */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Display Mode</label>
+              <div className="flex items-center gap-5 py-1">
+                {(["ONCE", "EVERY_LOGIN"] as const).map((mode) => (
+                  <label key={mode} className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
+                    <input
+                      type="radio"
+                      name="notif-mode"
+                      value={mode}
+                      checked={formMode === mode}
+                      onChange={() => setFormMode(mode)}
+                      className="accent-blue-600 w-4 h-4"
+                    />
+                    {mode === "ONCE" ? "Once (dismissed forever after first view)" : 'Every Login (repeats until "Do not show again")'}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="notif-active"
+                checked={formActive}
+                onChange={(e) => setFormActive(e.target.checked)}
+                className="accent-blue-600 w-4 h-4"
+              />
+              <label htmlFor="notif-active" className="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                Active (visible to users immediately)
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={closeForm}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => editingId ? updateMut.mutate() : createMut.mutate()}
+              disabled={!canSubmit}
+              className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+            >
+              {isPending ? "Saving…" : editingId ? "Save Changes" : "Create Notification"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications list */}
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <div className="inline-block w-8 h-8 rounded-full border-4 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+        </div>
+      ) : notifications.length === 0 ? (
+        <div className="text-center py-16 text-slate-400 text-sm">
+          No notifications yet. Create one to broadcast a message to all users.
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #dde3f0" }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Title</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Mode</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Created</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {notifications.map((n, idx) => (
+                <tr
+                  key={n.id}
+                  style={{ borderTop: idx > 0 ? "1px solid #f1f5f9" : undefined }}
+                  className="hover:bg-slate-50 transition-colors"
+                >
+                  <td className="px-4 py-3 font-medium text-slate-800 max-w-[240px]">
+                    <div className="truncate" title={n.title}>{n.title}</div>
+                    <div className="text-slate-400 text-xs mt-0.5 truncate" title={n.body}>{n.body}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: n.displayMode === "ONCE" ? "#eff6ff" : "#fef9ee",
+                        color:           n.displayMode === "ONCE" ? "#1d4ed8" : "#92400e",
+                      }}
+                    >
+                      {n.displayMode === "ONCE" ? "Once" : "Every Login"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleActiveMut.mutate({ id: n.id, isActive: !n.isActive })}
+                      disabled={toggleActiveMut.isPending}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-colors"
+                      style={{
+                        backgroundColor: n.isActive ? "#dcfce7" : "#f1f5f9",
+                        color:           n.isActive ? "#15803d" : "#64748b",
+                        borderColor:     n.isActive ? "#86efac" : "#e2e8f0",
+                      }}
+                      title={n.isActive ? "Click to deactivate" : "Click to activate"}
+                    >
+                      {n.isActive ? "Active" : "Inactive"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                    {new Date(n.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 justify-end">
+                      <button
+                        onClick={() => openEdit(n)}
+                        className="text-slate-400 hover:text-blue-600 p-1.5 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete notification "${n.title}"? This cannot be undone.`)) {
+                            deleteMut.mutate(n.id);
+                          }
+                        }}
+                        disabled={deleteMut.isPending}
+                        className="text-slate-400 hover:text-red-500 p-1.5 rounded transition-colors disabled:opacity-50"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "people" | "schools" | "school-years" | "ai-quota";
+type AdminTab = "rubric" | "people" | "schools" | "school-years" | "ai-quota" | "notifications";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -3226,15 +3516,17 @@ export default function AdminPage() {
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
     ...(isNetworkAdmin ? [{ id: "ai-quota" as AdminTab,      label: "AI Quota" }]         : []),
+    ...(isNetworkAdmin ? [{ id: "notifications" as AdminTab, label: "Notifications" }]    : []),
   ];
 
   const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
   const visibleTab: AdminTab =
-    (activeTab === "rubric"       && !isNetworkAdmin)   ? defaultTab :
-    (activeTab === "people"       && !canManagePeople)  ? defaultTab :
-    (activeTab === "schools"      && !isNetworkAdmin)   ? defaultTab :
-    (activeTab === "school-years" && !isNetworkAdmin)   ? defaultTab :
-    (activeTab === "ai-quota"     && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "rubric"         && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "people"         && !canManagePeople)  ? defaultTab :
+    (activeTab === "schools"        && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "school-years"   && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "ai-quota"       && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "notifications"  && !isNetworkAdmin)   ? defaultTab :
     activeTab;
 
   return (
@@ -3465,7 +3757,8 @@ export default function AdminPage() {
       {visibleTab === "school-years" && isNetworkAdmin  && (
         <AdminSchoolYearsTab onGoToUsers={() => setActiveTab("people")} />
       )}
-      {visibleTab === "ai-quota"     && isNetworkAdmin  && <AIQuotaTab />}
+      {visibleTab === "ai-quota"        && isNetworkAdmin  && <AIQuotaTab />}
+      {visibleTab === "notifications"   && isNetworkAdmin  && <NotificationsTab />}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
       {showNewRubricSetDialog && (

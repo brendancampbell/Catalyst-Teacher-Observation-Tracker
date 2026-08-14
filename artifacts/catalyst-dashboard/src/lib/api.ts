@@ -739,3 +739,63 @@ export async function createAIQuotaGrant(payload: {
 export async function revokeAIQuotaGrant(id: number): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/ai/quota-grants/${id}`, { method: "DELETE" });
 }
+
+/* ── Platform Notifications ─────────────────────────────────────── */
+
+export type NotificationDisplayMode = "ONCE" | "EVERY_LOGIN";
+
+export interface PlatformNotification {
+  id:                  number;
+  title:               string;
+  body:                string;
+  displayMode:         NotificationDisplayMode;
+  isActive:            boolean;
+  createdByEmployeeId: string | null;
+  createdAt:           string;
+  updatedAt:           string;
+}
+
+/* Admin endpoints */
+
+export async function fetchAdminNotifications(): Promise<PlatformNotification[]> {
+  return apiFetch<PlatformNotification[]>("/admin/notifications");
+}
+
+export async function createAdminNotification(payload: {
+  title:       string;
+  body:        string;
+  displayMode: NotificationDisplayMode;
+  isActive?:   boolean;
+}): Promise<PlatformNotification> {
+  return apiFetch<PlatformNotification>("/admin/notifications", {
+    method: "POST",
+    body:   JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminNotification(
+  id: number,
+  payload: Partial<{ title: string; body: string; displayMode: NotificationDisplayMode; isActive: boolean }>,
+): Promise<PlatformNotification> {
+  return apiFetch<PlatformNotification>(`/admin/notifications/${id}`, {
+    method: "PATCH",
+    body:   JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminNotification(id: number): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/admin/notifications/${id}`, { method: "DELETE" });
+}
+
+/* User-facing endpoints */
+
+export async function fetchActiveNotifications(): Promise<PlatformNotification[]> {
+  return apiFetch<PlatformNotification[]>("/notifications/active");
+}
+
+export async function dismissNotification(id: number, permanent: boolean): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/notifications/${id}/dismiss`, {
+    method: "POST",
+    body:   JSON.stringify({ permanent }),
+  });
+}

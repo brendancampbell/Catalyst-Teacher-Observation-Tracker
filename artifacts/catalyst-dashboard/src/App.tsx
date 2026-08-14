@@ -13,6 +13,7 @@ import TeacherProfilePage from "@/pages/TeacherProfile";
 import SupportPage from "@/pages/SupportPage";
 import { UserProvider, useUser } from "@/context/UserContext";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
+import NotificationModal from "@/components/NotificationModal";
 import { HttpError } from "@/lib/api";
 import { cleanupStaleLocalStorageKeys } from "@/lib/localStorageCleanup";
 import { type ReactNode, useEffect } from "react";
@@ -103,6 +104,7 @@ function App() {
         <TooltipProvider>
           <div className="h-full flex flex-col overflow-hidden">
             <ImpersonationBanner />
+            <NotificationModal />
             <div className="flex-1 min-h-0 overflow-hidden">
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <Router />

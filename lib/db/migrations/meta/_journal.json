@@ -57,6 +57,13 @@
       "when": 1784730433963,
       "tag": "0007_boring_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786679781052,
+      "tag": "0008_workable_betty_ross",
+      "breakpoints": true
     }
   ]
 }

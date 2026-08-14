@@ -7,6 +7,7 @@ import { chatSessions, chatMessages } from "./chat";
 import { assignments } from "./assignments";
 import { schoolYears } from "./school-years";
 import { actionSteps } from "./action-steps";
+import { platformNotifications, notificationDismissals } from "./platform-notifications";
 
 export const schoolYearsRelations = relations(schoolYears, ({ many }) => ({
   rubricSets:   many(rubricSets),
@@ -100,4 +101,14 @@ export const chatSessionsRelations = relations(chatSessions, ({ one, many }) => 
 
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   session: one(chatSessions, { fields: [chatMessages.sessionId], references: [chatSessions.id] }),
+}));
+
+export const platformNotificationsRelations = relations(platformNotifications, ({ one, many }) => ({
+  createdBy:   one(people, { fields: [platformNotifications.createdByEmployeeId], references: [people.employeeId] }),
+  dismissals:  many(notificationDismissals),
+}));
+
+export const notificationDismissalsRelations = relations(notificationDismissals, ({ one }) => ({
+  notification: one(platformNotifications, { fields: [notificationDismissals.notificationId], references: [platformNotifications.id] }),
+  person:       one(people,               { fields: [notificationDismissals.employeeId],     references: [people.employeeId] }),
 }));

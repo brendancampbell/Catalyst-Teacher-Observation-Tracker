@@ -15,6 +15,8 @@ import peopleRouter from "./people";
 import qualitativeThemesRouter from "./qualitative-themes";
 import adminSchoolYearsRouter from "./admin-school-years";
 import aiQuotaGrantsRouter from "./ai-quota-grants";
+import adminNotificationsRouter from "./admin-notifications";
+import notificationsRouter from "./notifications";
 import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middleware/auth";
 import { isProduction } from "../config/env";
 
@@ -43,8 +45,10 @@ router.use("/admin/schools",      requireAuth, requireNetworkScope, adminSchools
 router.use("/admin/school-years", requireAuth, adminSchoolYearsRouter);
 router.use("/action-center",requireAuth, actionCenterRouter);
 router.use("/action-steps", requireAuth, actionStepsRouter);
-router.use("/ai/quota-grants",     requireAuth, aiQuotaGrantsRouter);
-router.use("/ai",                  requireAuth, aiRouter);
+router.use("/ai/quota-grants",        requireAuth, aiQuotaGrantsRouter);
+router.use("/ai",                     requireAuth, aiRouter);
+router.use("/admin/notifications",    requireAuth, adminNotificationsRouter);
+router.use("/notifications",          requireAuth, notificationsRouter);
 router.use("/email",               requireAuth, emailRouter);
 router.use("/qualitative-themes",  requireAuth, qualitativeThemesRouter);
 

@@ -59,4 +59,8 @@ export const QUERY_KEYS = {
 
   // ── My latest rubric slug ────────────────────────────────────────
   myLatestRubricSlug:   ["myLatestRubricSlug"]     as const,
+
+  // ── Platform notifications ───────────────────────────────────────
+  adminNotifications:   ["admin-notifications"]    as const,
+  activeNotifications:  ["active-notifications"]   as const,
 } as const;
