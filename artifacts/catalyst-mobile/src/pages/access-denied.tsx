@@ -64,7 +64,7 @@ export default function AccessDeniedPage() {
               We're sorry — your Google account doesn't have access to Catalyst.
             </p>
             <p className="text-slate-500 text-sm leading-relaxed">
-              If you believe this is a mistake, please contact your <strong className="text-slate-700">Director of Operations (DOO)</strong> to be provisioned.
+              If you believe this is a mistake, please email <strong className="text-slate-700">Catalyst Support</strong> at <a href="mailto:catalyst@uncommonschools.org" className="underline hover:text-slate-900">catalyst@uncommonschools.org</a>.
             </p>
           </div>
 
