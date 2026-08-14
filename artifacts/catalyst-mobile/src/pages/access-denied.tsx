@@ -31,8 +31,9 @@ export default function AccessDeniedPage() {
             Catalyst
           </h1>
           <p
-            className="text-white uppercase text-center"
+            className="uppercase text-center"
             style={{
+              color: NAVY,
               fontFamily: "'Bebas Neue', sans-serif",
               fontSize: 16,
               letterSpacing: "0.08em",
