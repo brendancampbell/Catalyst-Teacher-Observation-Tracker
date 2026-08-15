@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 /**
  * Confirms that clicking an Instant Analysis suggestion chip sends a follow-up

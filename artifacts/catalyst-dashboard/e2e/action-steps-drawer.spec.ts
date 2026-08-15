@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 /**
  * Confirms that the ActionStepsCard and ActionStepsDrawer components in

@@ -45,7 +45,7 @@
  * Bullet marginLeft = nestLevel * 16; nestLevel 2 (≥4 leading spaces) → 32 px.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 const LOGIN_EMPLOYEE_ID = "U10";
 const FAKE_SESSION_ID   = 99_998;
