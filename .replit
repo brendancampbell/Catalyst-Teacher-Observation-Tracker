@@ -210,6 +210,10 @@ args = "test:api-server"
 task = "workflow.run"
 args = "test:rubric-set-validation"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:email-observer-name"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -723,6 +727,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:rubric-set-validation"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:email-observer-name"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:email-observer-name"
 
 [workflows.workflow.metadata]
 isValidation = true
