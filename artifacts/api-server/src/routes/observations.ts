@@ -824,6 +824,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     }
 
     let masterStepForPut: typeof actionSteps.$inferSelect | null = null;
+    let masteryWarning: string | undefined;
     if (masterActionStepId !== undefined && existing.target === "TEACHER") {
       masterStepForPut = await db.query.actionSteps.findFirst({
         where: eq(actionSteps.id, Number(masterActionStepId)),
@@ -840,8 +841,14 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       // masterActionStepId on every tick and must be accepted silently; the step may
       // already be mastered by the time the observation is finally published.
       if (resolvedStatus === "published" && masterStepForPut.status !== "open") {
-        res.status(400).json({ error: "masterActionStepId is not currently open" });
-        return;
+        // Soft-warning path: save the observation but skip the mastery write.
+        // This happens when someone else masters the step between the draft save
+        // and the final publish.  The observation is saved; only the mastery is skipped.
+        masteryWarning =
+          "The action step you selected to mark as mastered had already been mastered " +
+          "before this observation was published. The observation was saved successfully, " +
+          "but the mastery was not recorded again.";
+        masterStepForPut = null;
       }
     }
 
@@ -1002,6 +1009,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       editedBy:           editedByName,
       editedAt:           updated.updatedAt?.toISOString() ?? undefined,
       scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      ...(masteryWarning !== undefined ? { masteryWarning } : {}),
     });
   } catch (err) {
     console.error("PUT /observations/:id error:", err);

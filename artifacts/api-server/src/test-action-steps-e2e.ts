@@ -97,6 +97,10 @@ let noMasterTestObsId: number;         /* observation with no masterActionStepId
 let draftPutStepId: number;            /* open step to be mastered via PUT        */
 let draftPutObsId: number;             /* draft observation ID                    */
 
+/* State for checkpoint 11 — already-mastered step soft-warning path */
+let alreadyMasteredStepId: number;     /* step mastered before the draft publishes */
+let alreadyMasteredObsId: number;      /* draft observation ID for this scenario   */
+
 describe("Action Steps — end-to-end flow", () => {
   before(async () => {
     /* Resolve an existing school and rubric set to attach test data to */
@@ -158,6 +162,9 @@ describe("Action Steps — end-to-end flow", () => {
     if (draftPutStepId) {
       await db.delete(actionSteps).where(eq(actionSteps.id, draftPutStepId)).catch(() => {});
     }
+    if (alreadyMasteredStepId) {
+      await db.delete(actionSteps).where(eq(actionSteps.id, alreadyMasteredStepId)).catch(() => {});
+    }
     if (createdObsId) {
       await db.delete(observations).where(eq(observations.id, createdObsId)).catch(() => {});
     }
@@ -169,6 +176,9 @@ describe("Action Steps — end-to-end flow", () => {
     }
     if (draftPutObsId) {
       await db.delete(observations).where(eq(observations.id, draftPutObsId)).catch(() => {});
+    }
+    if (alreadyMasteredObsId) {
+      await db.delete(observations).where(eq(observations.id, alreadyMasteredObsId)).catch(() => {});
     }
     await db
       .delete(people)
@@ -536,6 +546,99 @@ describe("Action Steps — end-to-end flow", () => {
       null,
       "masteredAt should remain null when masterActionStepId was not sent",
     );
+  });
+
+  /* ── Checkpoint 11 ───────────────────────────────────────────────
+     PUT /observations/:id (draft → published) with a masterActionStepId
+     that was already mastered by someone else before the publish.
+     The observation must save successfully (200) and the response must
+     include a masteryWarning field; the step must remain mastered and
+     its DB state must NOT be overwritten.                              */
+  test("11 — PUT draft→published with already-mastered step returns masteryWarning (soft-warning path)", async () => {
+    /* Create a draft observation */
+    const draftRes = await request("POST", "/observations", {
+      teacherId:     TEACHER_EID,
+      rubricSetId:   rubricSetId,
+      date:          "2026-07-16",
+      time:          "09:30",
+      course:        "E2E CP11: Already-mastered step warning",
+      scores:        {},
+      strengths:     "Strong questioning",
+      growthAreas:   "Wait time",
+      isWalkthrough: false,
+      status:        "draft",
+    }, adminJar);
+
+    assert.ok(
+      draftRes.status === 200 || draftRes.status === 201,
+      `Draft POST expected 200/201, got ${draftRes.status}: ${JSON.stringify(draftRes.body)}`,
+    );
+    alreadyMasteredObsId = Number((draftRes.body as { id?: string | number }).id);
+    assert.ok(alreadyMasteredObsId, "Draft response should include id");
+
+    /* Seed an open action step */
+    const [seededStep] = await db.insert(actionSteps).values({
+      schoolYearId:         1,
+      teacherEmployeeId:    TEACHER_EID,
+      assignedByEmployeeId: ADMIN_EID,
+      text:                 "E2E CP11: Step mastered by someone else before publish",
+      dueDate:              "2027-12-31",
+      status:               "open",
+    }).returning();
+    assert.ok(seededStep, "Should have inserted a test action step");
+    alreadyMasteredStepId = seededStep.id;
+
+    /* Simulate another user mastering the step before this draft publishes */
+    await db.update(actionSteps)
+      .set({
+        status:               "mastered",
+        masteredAt:           new Date(),
+        masteredByEmployeeId: ADMIN_EID,
+      })
+      .where(eq(actionSteps.id, alreadyMasteredStepId));
+
+    /* PUT to publish the draft, carrying the now-already-mastered stepId */
+    const putRes = await request(
+      "PUT",
+      `/observations/${alreadyMasteredObsId}`,
+      {
+        status:             "published",
+        masterActionStepId: alreadyMasteredStepId,
+      },
+      adminJar,
+    );
+
+    /* Observation must save successfully — NOT a 400 */
+    assert.ok(
+      putRes.status === 200 || putRes.status === 201,
+      `PUT expected 200/201 (soft-warning path), got ${putRes.status}: ${JSON.stringify(putRes.body)}`,
+    );
+
+    /* Response must include a masteryWarning field */
+    const putBody = putRes.body as { id?: string | number; masteryWarning?: string };
+    assert.ok(
+      typeof putBody.masteryWarning === "string" && putBody.masteryWarning.length > 0,
+      `Expected masteryWarning string in response, got: ${JSON.stringify(putBody.masteryWarning)}`,
+    );
+
+    /* Observation status must be "published" */
+    const savedObs = await db.query.observations.findFirst({
+      where: eq(observations.id, alreadyMasteredObsId),
+    });
+    assert.equal(savedObs?.status, "published", "Observation should now be published");
+
+    /* The action step DB row must still be mastered — masteredByEmployeeId unchanged */
+    const step = await db.query.actionSteps.findFirst({
+      where: eq(actionSteps.id, alreadyMasteredStepId),
+    });
+    assert.ok(step, "Action step should still exist");
+    assert.equal(step.status, "mastered", "Step must remain mastered");
+    assert.equal(
+      step.masteredByEmployeeId,
+      ADMIN_EID,
+      "masteredByEmployeeId must not be overwritten by the stale publish",
+    );
+    assert.ok(step.masteredAt, "masteredAt must be set");
   });
 });
 

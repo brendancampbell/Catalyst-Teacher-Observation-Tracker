@@ -288,7 +288,7 @@ export default function DraftsPage() {
     if (!resumeData) return "";
     setResumeSaving(true);
     try {
-      let obs;
+      let obs: { id: string | number; masteryWarning?: string };
       if (draftId) {
         obs = await updateObservation(draftId, {
           strengths:   strengths   || undefined,
@@ -298,6 +298,13 @@ export default function DraftsPage() {
           newActionStep,
           masterActionStepId,
         });
+        if (obs.masteryWarning) {
+          toast({
+            title: "Observation submitted — mastery note",
+            description: obs.masteryWarning,
+            variant: "destructive",
+          });
+        }
       } else {
         obs = await createObservation({
           teacherId,
@@ -317,7 +324,7 @@ export default function DraftsPage() {
         });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
-      toast({ title: "Observation submitted!" });
+      if (!obs.masteryWarning) toast({ title: "Observation submitted!" });
       return String(obs.id);
     } catch (err) {
       console.error("Failed to submit observation:", err);

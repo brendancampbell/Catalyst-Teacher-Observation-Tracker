@@ -78,8 +78,8 @@ export async function createObservation(payload: CreateObservationPayload): Prom
   });
 }
 
-export async function updateObservation(id: string, payload: UpdateObservationPayload): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>(`/api/observations/${id}`, {
+export async function updateObservation(id: string, payload: UpdateObservationPayload): Promise<{ id: string; masteryWarning?: string }> {
+  return apiFetch<{ id: string; masteryWarning?: string }>(`/api/observations/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

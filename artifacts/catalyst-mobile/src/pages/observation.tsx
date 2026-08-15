@@ -104,6 +104,7 @@ export default function ObservationPage() {
   const [saving, setSaving] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [masteryWarning, setMasteryWarning] = useState<string | null>(null);
   /* ── Action step state ──────────────────────────────────────────── */
   const [lastActionStep, setLastActionStep] = useState<ActionStep | null>(null);
   const [loadingLastActionStep, setLoadingLastActionStep] = useState(false);
@@ -537,6 +538,7 @@ export default function ObservationPage() {
     setMarkMastered(false);
     setLastActionStep(null);
     setSubmitError(null);
+    setMasteryWarning(null);
   }
 
   async function doSubmit() {
@@ -575,8 +577,9 @@ export default function ObservationPage() {
 
     try {
       const currentDraftId = draftIdRef.current;
+      let pendingMasteryWarning: string | undefined;
       if (currentDraftId) {
-        await updateObservation(currentDraftId, {
+        const putResult = await updateObservation(currentDraftId, {
           strengths: strengths || undefined,
           growthAreas: growthAreas || undefined,
           scores: scores as Record<string, Score>,
@@ -584,6 +587,7 @@ export default function ObservationPage() {
           newActionStep: newActionStepPayload,
           masterActionStepId: masterActionStepIdPayload,
         });
+        pendingMasteryWarning = putResult.masteryWarning;
       } else {
         await apiFetch("/api/observations", {
           method: "POST",
@@ -603,9 +607,11 @@ export default function ObservationPage() {
       }
       clearLocalDraft();
       setConfirmed(true);
+      const capturedWarning = pendingMasteryWarning;
       setTimeout(() => {
         setConfirmed(false);
-        resetForm();
+        resetForm(); // clears masteryWarning
+        if (capturedWarning) setMasteryWarning(capturedWarning);
       }, 2500);
     } catch (err: unknown) {
       const base = err instanceof Error ? err.message : "Failed to save observation";
@@ -1071,6 +1077,11 @@ export default function ObservationPage() {
               </div>
             </div>
 
+            {masteryWarning && (
+              <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold">
+                ⚠️ {masteryWarning}
+              </div>
+            )}
             {submitError && (
               <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
                 {submitError}
