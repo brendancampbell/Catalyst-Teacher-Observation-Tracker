@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS school_years (
   status school_year_status NOT NULL DEFAULT 'active'
 );
 
+-- ⚠️  DATA SEED — also mirrored in ensureSchoolYears() in artifacts/api-server/src/index.ts
+-- `drizzle-kit push` skips migration files, so environments set up with push
+-- rely solely on the startup ensure*() call below.  See lib/db/README.md §Data backfills.
 -- Seed the initial active school year (idempotent)
 INSERT INTO school_years (name, status)
 SELECT '2025-2026', 'active'

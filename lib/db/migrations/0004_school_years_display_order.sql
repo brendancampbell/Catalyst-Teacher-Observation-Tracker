@@ -1,3 +1,7 @@
+-- ⚠️  MIXED DDL + DATA — the UPDATE below populates display_order on existing rows
+-- immediately after the column is added.  `drizzle-kit push` skips migration files,
+-- so any environment set up with push will have display_order = 0 on all rows until
+-- the admin manually reorders years via the API.  See lib/db/README.md §Data backfills.
 ALTER TABLE school_years ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0;
 
 UPDATE school_years

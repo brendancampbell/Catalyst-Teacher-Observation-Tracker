@@ -28,3 +28,29 @@ applied and skip them silently.
 - **`push-force`** has been removed from `package.json` scripts. If you need
   to recover a broken local database, drop and recreate it instead of reaching
   for push-force.
+
+## ⚠️ Data backfills in migration files
+
+`drizzle-kit migrate` runs `.sql` migration files in order, so `UPDATE` /
+`INSERT` statements inside them **do** execute — but only for environments that
+use `migrate`.  Any environment initialised with `drizzle-kit push` (which
+applies schema diffs directly without touching migration files) will silently
+miss every data statement in every `.sql` file.
+
+**Rule: every data backfill must have a matching `ensure*()` call in
+`artifacts/api-server/src/index.ts` that is idempotent and runs on every
+boot.**
+
+| Migration file | Data statement | Startup mirror |
+|---|---|---|
+| `0001_add_school_years_and_assignments.sql` | `INSERT INTO school_years` | `ensureSchoolYears()` |
+| `0004_school_years_display_order.sql` | `UPDATE school_years SET display_order` | populated by migration only — display_order is reorderable via API |
+| `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | `ensureSchools()` Step 7 (ON CONFLICT DO UPDATE) |
+
+When you write a new migration file that contains `INSERT` or `UPDATE`
+statements:
+
+1. Mark it with the `⚠️  DATA BACKFILL` banner (see `0006` for the template).
+2. Add (or extend) an `ensure*()` function in `index.ts` that performs the
+   same work idempotently.
+3. Update the table above.

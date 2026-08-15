@@ -1,3 +1,15 @@
+-- ⚠️  DATA BACKFILL — MUST ALSO EXIST IN ensureSchools() AT STARTUP
+--
+-- The UPDATE statements below are data-only (no schema change).
+-- `drizzle-kit push` skips migration files entirely, so any environment that
+-- was initialised with push instead of migrate never had these rows updated.
+-- As of Task #614 the canonical backfill lives in ensureSchools() (Step 7)
+-- inside artifacts/api-server/src/index.ts, which runs on every boot and
+-- uses ON CONFLICT DO UPDATE to keep school_number in sync.
+--
+-- Rule: every data backfill in a migration file MUST have a matching
+-- idempotent ensure*() call in index.ts.  See lib/db/README.md §Data backfills.
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Populate school_number for all schools then enforce NOT NULL
 
 -- CP region
