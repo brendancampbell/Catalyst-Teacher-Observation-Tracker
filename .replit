@@ -202,6 +202,10 @@ args = "test:action-step-school-year-scope"
 task = "workflow.run"
 args = "test:action-step-transfer-authz"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:api-server"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -693,6 +697,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:action-step-transfer-authz"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:api-server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test"
 
 [workflows.workflow.metadata]
 isValidation = true

@@ -61,7 +61,8 @@
     "test:due-date-format-validation": "tsx src/test-due-date-format-validation.ts",
     "test:email-observer-name": "bash ../../scripts/wait-for-api.sh tsx src/test-email-observer-name.ts",
     "test:rubric-set-slug-chat-cascade": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-slug-chat-cascade.ts",
-    "test:rubric-reorder-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-reorder-validation.ts"
+    "test:rubric-reorder-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-reorder-validation.ts",
+    "test": "tsx --test src/test-impersonation-middleware.ts && tsx --test src/test-overdue-action-steps.ts && tsx --test src/test-quota-grant-cleanup.ts && tsx src/test-email-html-injection.ts && tsx src/test-email-escape-guard.ts && tsx src/test-email-subject-sanitization.ts && tsx src/test-return-to-redirect.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
