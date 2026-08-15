@@ -5,6 +5,37 @@ import {
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
+// ── Production safety guard ──────────────────────────────────────────────────
+// Fails closed: any DATABASE_URL whose hostname is not localhost or 127.0.0.1
+// is treated as a remote/production database and will be rejected.
+// Override only possible via explicit DEV_SEED_FORCE=true (never set in prod).
+const nodeEnv        = process.env.NODE_ENV ?? "";
+const dbUrl          = process.env.DATABASE_URL ?? "";
+const forceOverride  = process.env.DEV_SEED_FORCE === "true";
+
+function isLocalDb(url: string): boolean {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+const isProdEnv   = nodeEnv === "production";
+const isRemoteDb  = !isLocalDb(dbUrl);
+
+if ((isProdEnv || isRemoteDb) && !forceOverride) {
+  console.error(
+    "ERROR: seed-dev refuses to run outside a local development environment.\n" +
+    `  NODE_ENV       = ${nodeEnv || "(unset)"}\n` +
+    `  DATABASE_URL hostname is ${isRemoteDb ? "remote (non-localhost)" : "local"}\n` +
+    "  To override for a trusted non-local dev DB, set DEV_SEED_FORCE=true (never use in production)."
+  );
+  process.exit(1);
+}
+
 const DOMAIN_SLUGS = [
   "confident_presence", "wtd_cycle", "ratio_engagement", "joy",
   "f15_entry", "f15_fluency", "f15_launch",
