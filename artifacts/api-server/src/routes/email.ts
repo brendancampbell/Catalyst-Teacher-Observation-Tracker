@@ -639,7 +639,7 @@ router.post(
        This lets CI verify the full name-resolution → HTML pipeline without
        a live Resend connection.                                               */
     if (req.query.dryRun === "true") {
-      res.json({ ok: true, dryRun: true, html });
+      res.json({ ok: true, dryRun: true, html, to: teacherEmail });
       return;
     }
 

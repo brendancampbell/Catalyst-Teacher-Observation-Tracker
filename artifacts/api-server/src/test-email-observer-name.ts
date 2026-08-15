@@ -400,6 +400,47 @@ describe("Email observer name — schema-change regression", () => {
     );
   });
 
+  test("8 — dryRun=true: response `to` field equals the teacher's DB email, not a caller-supplied value", async () => {
+    /* Fetch the teacher's email from the DB so we can assert against it without
+       hard-coding the fixture value in the assertion (guards against fixture drift). */
+    const teacherRow = await db.query.people.findFirst({
+      where: eq(people.employeeId, TEACHER_EID),
+    });
+    assert.ok(teacherRow?.email, "Teacher fixture must have an email address");
+    const expectedEmail = teacherRow!.email!;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Cookie": coachJar.cookieHeader,
+    };
+    const res = await fetch(
+      `${BASE}/email/send-observation?dryRun=true`,
+      {
+        method: "POST",
+        headers,
+        /* Deliberately do NOT pass any `to` / recipient field in the body —
+           the route must derive the address solely from the DB.              */
+        body: JSON.stringify({ observationId: OBS_WITH_OBSERVER_ID, intro: "Great lesson.", subject: "Feedback" }),
+      },
+    );
+
+    assert.equal(res.status, 200, `Expected 200 from dryRun route, got ${res.status}`);
+
+    const json = await res.json() as { ok?: boolean; dryRun?: boolean; html?: string; to?: string };
+
+    assert.equal(json.ok, true, "Response should have ok: true");
+    assert.equal(json.dryRun, true, "Response should have dryRun: true");
+    assert.ok(
+      typeof json.to === "string" && json.to.length > 0,
+      `Response must include a non-empty 'to' field. Got: ${JSON.stringify(json.to)}`,
+    );
+    assert.equal(
+      json.to,
+      expectedEmail,
+      `'to' field (${json.to}) must equal the teacher's DB email (${expectedEmail}), not any caller-supplied value`,
+    );
+  });
+
   test("6 — observer person deleted (FK → null) → route does not return 500", async () => {
     /* Confirm the FK cascade actually nulled the field */
     const [row] = await db
