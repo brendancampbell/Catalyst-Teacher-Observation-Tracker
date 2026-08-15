@@ -10,6 +10,7 @@ import { schoolYears } from "@workspace/db/schema";
 import { asc, count, eq, and, ne, max, inArray } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
+import { MAX_ACTIVE_SETS } from "../lib/rubric-constants";
 
 function firstZodError(err: { issues: { message: string }[] }): string {
   return err.issues[0]?.message ?? "Validation error";
@@ -106,7 +107,6 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
       return;
     }
 
-    const MAX_ACTIVE_SETS = 6;
     const [{ activeCount }] = await db.select({ activeCount: count() }).from(rubricSets).where(eq(rubricSets.isArchived, false));
     if (activeCount >= MAX_ACTIVE_SETS) {
       res.status(400).json({ error: `Maximum of ${MAX_ACTIVE_SETS} active rubric sets reached. Archive a set before creating a new one.` });

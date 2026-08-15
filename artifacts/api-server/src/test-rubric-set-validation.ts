@@ -33,6 +33,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, rubricSets, rubricCategories, schoolYears } from "@workspace/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { MAX_ACTIVE_SETS } from "./lib/rubric-constants.js";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -40,12 +41,6 @@ const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 const ADMIN_EID = "TST_RUBSET_VAL_ADMIN";
 const ALL_EIDS  = [ADMIN_EID];
-
-/**
- * Maximum non-archived rubric sets enforced by POST /rubric/sets.
- * Must stay in sync with the route's MAX_ACTIVE_SETS constant.
- */
-const MAX_ACTIVE_SETS = 6;
 
 let RUBRIC_ID:   number;
 let RUBRIC_SLUG: string;
