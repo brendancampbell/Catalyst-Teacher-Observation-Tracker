@@ -214,6 +214,10 @@ args = "test:rubric-set-validation"
 task = "workflow.run"
 args = "test:email-observer-name"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-action-center-invalidation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -738,6 +742,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:email-observer-name"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-action-center-invalidation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/catalyst-dashboard && pnpm vitest run --config vitest.config.ts src/components/Dashboard.actionCenter.invalidation.test.tsx"
 
 [workflows.workflow.metadata]
 isValidation = true
