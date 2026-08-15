@@ -849,6 +849,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+            await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           }}
           onDelete={canEdit ? async (observationId) => {
             await deleteObservation(observationId);
@@ -859,6 +861,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             });
             setSelectedObservation(null);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+            await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           } : undefined}
         />
       )}
