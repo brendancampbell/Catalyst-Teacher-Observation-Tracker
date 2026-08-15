@@ -218,6 +218,10 @@ args = "test:email-observer-name"
 task = "workflow.run"
 args = "dashboard-action-center-invalidation"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:dev-seed-guard"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -753,6 +757,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/catalyst-dashboard && pnpm vitest run --config vitest.config.ts src/components/Dashboard.actionCenter.invalidation.test.tsx"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:dev-seed-guard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:dev-seed-guard"
 
 [workflows.workflow.metadata]
 isValidation = true
