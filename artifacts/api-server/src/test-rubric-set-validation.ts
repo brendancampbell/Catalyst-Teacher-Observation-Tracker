@@ -32,7 +32,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, rubricSets, rubricCategories, schoolYears } from "@workspace/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -41,8 +41,14 @@ const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const ADMIN_EID = "TST_RUBSET_VAL_ADMIN";
 const ALL_EIDS  = [ADMIN_EID];
 
-let RUBRIC_ID:     number;
-let RUBRIC_SLUG:   string;
+/**
+ * Maximum non-archived rubric sets enforced by POST /rubric/sets.
+ * Must stay in sync with the route's MAX_ACTIVE_SETS constant.
+ */
+const MAX_ACTIVE_SETS = 6;
+
+let RUBRIC_ID:   number;
+let RUBRIC_SLUG: string;
 
 /* ── HTTP helpers ─────────────────────────────────────────────────────────── */
 
@@ -160,10 +166,38 @@ describe("Rubric-set mutation validation (POST /sets, PATCH /sets/:slug, POST /:
   });
 
   test("5 — POST /sets with valid payload → 201", async () => {
-    const jar = await loginAs(ADMIN_EID);
-    const slug = "TST-RUBSET-CREATE-OK";
+    /*
+     * The route enforces a global cap of MAX_ACTIVE_SETS non-archived sets.
+     * Everything — selecting, archiving, logging in, POSTing, and cleanup — is
+     * wrapped in a single try/finally so that any failure at any step still
+     * triggers restoration of temporarily archived sets.
+     */
+    const tempArchived: number[] = [];
     let createdId: number | undefined;
     try {
+      /* Determine how many slots to free, then archive them one by one,
+         recording each ID immediately so restoration is safe even if a
+         later archival or the POST itself throws. */
+      const nonArchived = await db
+        .select({ id: rubricSets.id })
+        .from(rubricSets)
+        .where(eq(rubricSets.isArchived, false));
+      const excess = nonArchived.length - (MAX_ACTIVE_SETS - 1);
+      if (excess > 0) {
+        const victims = nonArchived.filter((s) => s.id !== RUBRIC_ID).slice(0, excess);
+        assert.equal(
+          victims.length,
+          excess,
+          `Need ${excess} non-fixture set(s) to temporarily archive, but only found ${victims.length}`,
+        );
+        for (const v of victims) {
+          await db.update(rubricSets).set({ isArchived: true }).where(eq(rubricSets.id, v.id));
+          tempArchived.push(v.id); // recorded before proceeding so finally always restores it
+        }
+      }
+
+      const jar = await loginAs(ADMIN_EID);
+      const slug = "TST-RUBSET-CREATE-OK";
       const res = await request("POST", "/rubric/sets", {
         slug,
         name: "Valid RubSet Create",
@@ -176,6 +210,10 @@ describe("Rubric-set mutation validation (POST /sets, PATCH /sets/:slug, POST /:
     } finally {
       if (createdId != null) {
         await db.delete(rubricSets).where(eq(rubricSets.id, createdId)).catch(() => {});
+      }
+      /* Restore every set that was successfully archived back to its original state. */
+      for (const id of tempArchived) {
+        await db.update(rubricSets).set({ isArchived: false }).where(eq(rubricSets.id, id)).catch(() => {});
       }
     }
   });
@@ -225,8 +263,6 @@ describe("Rubric-set mutation validation (POST /sets, PATCH /sets/:slug, POST /:
     }, jar);
     assert.equal(res.status, 400, `Expected 400 for invalid slug in body, got ${res.status}: ${JSON.stringify(res.body)}`);
   });
-
-  /* ── POST /:setSlug/categories ───────────────────────────────────────────── */
 
   test("6b — PATCH /sets/:slug with string displayOrder (unknown field) → 400 'Nothing to update'", async () => {
     const jar = await loginAs(ADMIN_EID);

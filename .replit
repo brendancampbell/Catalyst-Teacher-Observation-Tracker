@@ -206,6 +206,10 @@ args = "test:action-step-transfer-authz"
 task = "workflow.run"
 args = "test:api-server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:rubric-set-validation"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -708,6 +712,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:rubric-set-validation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run test:rubric-set-validation"
 
 [workflows.workflow.metadata]
 isValidation = true
