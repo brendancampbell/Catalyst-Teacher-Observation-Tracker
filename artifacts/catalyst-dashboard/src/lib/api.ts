@@ -389,8 +389,8 @@ export async function fetchOverdueObservations(schoolId?: number | null): Promis
 
 import type { CreateObservationPayload, UpdateObservationPayload, DraftObservation } from "@workspace/api-types";
 
-export async function createObservation(payload: CreateObservationPayload): Promise<Observation> {
-  return apiFetch<Observation>("/observations", {
+export async function createObservation(payload: CreateObservationPayload): Promise<Observation & { masteryWarning?: string }> {
+  return apiFetch<Observation & { masteryWarning?: string }>("/observations", {
     method: "POST",
     body: JSON.stringify(payload),
   });

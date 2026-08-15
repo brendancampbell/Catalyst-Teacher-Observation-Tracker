@@ -593,6 +593,7 @@ router.post("/", async (req, res) => {
     }
 
     let masterStep: typeof actionSteps.$inferSelect | null = null;
+    let masteryWarning: string | undefined;
     if (masterActionStepId !== undefined) {
       masterStep = await db.query.actionSteps.findFirst({
         where: eq(actionSteps.id, Number(masterActionStepId)),
@@ -608,9 +609,12 @@ router.post("/", async (req, res) => {
       // Only enforce "must be open" when actually publishing — draft autosaves carry
       // masterActionStepId on every tick and must be accepted silently; the step may
       // already be mastered by the time the observation is finally published.
+      // Soft-warn path: observation saves normally, mastery write is skipped, and a
+      // masteryWarning field is included in the response so the client can inform the user.
       if (resolvedStatus === "published" && masterStep.status !== "open") {
-        res.status(400).json({ error: "masterActionStepId is not currently open" });
-        return;
+        masteryWarning =
+          `Action step "${masterStep.text}" is already ${masterStep.status} — the observation was saved but the mastery flag was not applied.`;
+        masterStep = null; // skip mastery write in the transaction below
       }
     }
 
@@ -725,6 +729,7 @@ router.post("/", async (req, res) => {
       observerEmail:      observerInfo?.email ?? undefined,
       status:             obs.status,
       scores:             Object.fromEntries(savedScores.map((s) => [s.domainSlug, s.score])),
+      ...(masteryWarning !== undefined ? { masteryWarning } : {}),
     });
   } catch (err) {
     console.error("POST /observations error:", err);

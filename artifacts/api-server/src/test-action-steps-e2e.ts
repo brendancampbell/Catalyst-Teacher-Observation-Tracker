@@ -101,6 +101,10 @@ let draftPutObsId: number;             /* draft observation ID                  
 let alreadyMasteredStepId: number;     /* step mastered before the draft publishes */
 let alreadyMasteredObsId: number;      /* draft observation ID for this scenario   */
 
+/* State for checkpoint 12 — POST direct-publish with already-mastered step */
+let directPostMasteredStepId: number;  /* step mastered before the direct POST    */
+let directPostObsId: number;           /* observation created via direct POST      */
+
 describe("Action Steps — end-to-end flow", () => {
   before(async () => {
     /* Resolve an existing school and rubric set to attach test data to */
@@ -179,6 +183,12 @@ describe("Action Steps — end-to-end flow", () => {
     }
     if (alreadyMasteredObsId) {
       await db.delete(observations).where(eq(observations.id, alreadyMasteredObsId)).catch(() => {});
+    }
+    if (directPostMasteredStepId) {
+      await db.delete(actionSteps).where(eq(actionSteps.id, directPostMasteredStepId)).catch(() => {});
+    }
+    if (directPostObsId) {
+      await db.delete(observations).where(eq(observations.id, directPostObsId)).catch(() => {});
     }
     await db
       .delete(people)
@@ -637,6 +647,84 @@ describe("Action Steps — end-to-end flow", () => {
       step.masteredByEmployeeId,
       ADMIN_EID,
       "masteredByEmployeeId must not be overwritten by the stale publish",
+    );
+    assert.ok(step.masteredAt, "masteredAt must be set");
+  });
+
+  /* ── Checkpoint 12 ───────────────────────────────────────────────
+     POST /observations (direct-publish, status="published") with a
+     masterActionStepId that was already mastered by the time the
+     observer hits Submit.  The observation must save (200/201) and
+     the response must include a masteryWarning field; the step DB
+     row must remain unchanged (mastered, original masteredBy).      */
+  test("12 — POST /observations direct-publish with already-mastered step returns masteryWarning", async () => {
+    /* Seed an open action step, then immediately mark it mastered */
+    const [seededStep] = await db.insert(actionSteps).values({
+      schoolYearId:         1,
+      teacherEmployeeId:    TEACHER_EID,
+      assignedByEmployeeId: ADMIN_EID,
+      text:                 "E2E CP12: Step mastered before direct POST publishes",
+      dueDate:              "2027-12-31",
+      status:               "open",
+    }).returning();
+    assert.ok(seededStep, "Should have inserted a test action step");
+    directPostMasteredStepId = seededStep.id;
+
+    /* Simulate the step being mastered by someone else */
+    await db.update(actionSteps)
+      .set({
+        status:               "mastered",
+        masteredAt:           new Date(),
+        masteredByEmployeeId: ADMIN_EID,
+      })
+      .where(eq(actionSteps.id, directPostMasteredStepId));
+
+    /* POST a direct-publish observation carrying the already-mastered stepId */
+    const res = await request("POST", "/observations", {
+      teacherId:          TEACHER_EID,
+      rubricSetId:        rubricSetId,
+      date:               "2026-07-17",
+      time:               "10:00",
+      course:             "E2E CP12: Direct-publish soft-warn",
+      scores:             {},
+      strengths:          "Clear objectives",
+      growthAreas:        "Exit tickets",
+      isWalkthrough:      false,
+      status:             "published",
+      masterActionStepId: directPostMasteredStepId,
+    }, adminJar);
+
+    /* Observation must save successfully — NOT a 400 */
+    assert.ok(
+      res.status === 200 || res.status === 201,
+      `POST expected 200/201 (soft-warning path), got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    const body = res.body as { id?: string | number; masteryWarning?: string };
+    assert.ok(body.id, "Response should include id");
+    directPostObsId = Number(body.id);
+
+    /* Response must include a masteryWarning field */
+    assert.ok(
+      typeof body.masteryWarning === "string" && body.masteryWarning.length > 0,
+      `Expected masteryWarning string in response, got: ${JSON.stringify(body.masteryWarning)}`,
+    );
+
+    /* Observation must be saved and published */
+    const savedObs = await db.query.observations.findFirst({
+      where: eq(observations.id, directPostObsId),
+    });
+    assert.equal(savedObs?.status, "published", "Observation should be published");
+
+    /* Action step DB row must remain mastered with original masteredByEmployeeId */
+    const step = await db.query.actionSteps.findFirst({
+      where: eq(actionSteps.id, directPostMasteredStepId),
+    });
+    assert.ok(step, "Action step should still exist");
+    assert.equal(step.status, "mastered", "Step must remain mastered");
+    assert.equal(
+      step.masteredByEmployeeId,
+      ADMIN_EID,
+      "masteredByEmployeeId must not be overwritten by the stale POST",
     );
     assert.ok(step.masteredAt, "masteredAt must be set");
   });

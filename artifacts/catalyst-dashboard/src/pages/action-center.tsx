@@ -9,6 +9,7 @@ import {
   RefreshCw, Pencil, Trash2, Square, PanelLeft, X, AlertCircle, Copy, AlertTriangle,
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
+import { toast } from "@/hooks/use-toast";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import {
   fetchRescoreQueue,
@@ -871,6 +872,13 @@ export default function ActionCenterPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiCalibrationFlags });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiInsights });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      if (obs.masteryWarning) {
+        toast({
+          title:       "Action step already mastered",
+          description: obs.masteryWarning,
+          variant:     "destructive",
+        });
+      }
       return obs.id;
     } catch (err) {
       console.error("Failed to save observation:", err);

@@ -589,7 +589,7 @@ export default function ObservationPage() {
         });
         pendingMasteryWarning = putResult.masteryWarning;
       } else {
-        await apiFetch("/api/observations", {
+        const postResult = await apiFetch<{ id: string; masteryWarning?: string }>("/api/observations", {
           method: "POST",
           body: JSON.stringify({
             observedEmployeeId: teacherId,
@@ -604,6 +604,7 @@ export default function ObservationPage() {
             masterActionStepId: masterActionStepIdPayload,
           }),
         });
+        pendingMasteryWarning = postResult.masteryWarning;
       }
       clearLocalDraft();
       setConfirmed(true);
