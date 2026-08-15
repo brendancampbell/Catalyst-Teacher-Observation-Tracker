@@ -1,3 +1,4 @@
+-- MIGRATE-DATA: populates school_number on all schools; mirrored by ensureSchools() step 7 (ON CONFLICT DO UPDATE) in api-server/src/index.ts
 -- ⚠️  DATA BACKFILL — MUST ALSO EXIST IN ensureSchools() AT STARTUP
 --
 -- The UPDATE statements below are data-only (no schema change).

@@ -3,6 +3,7 @@
 -- removes observer/observer_email columns, changes time type to native
 -- PostgreSQL TIME, adds uniqueness constraint on observation_scores,
 -- renames edited_at → updated_at on observations.
+-- MIGRATE-DATA: one-time data cleanup — DELETE FROM observation_scores removes malformed duplicate score rows created before the uniqueness constraint; no startup mirror needed
 --
 -- Idempotent: every statement is safe to re-run on an already-migrated DB.
 

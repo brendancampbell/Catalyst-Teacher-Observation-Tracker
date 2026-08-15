@@ -1,5 +1,6 @@
 -- Migration: add school_years and assignments tables
 -- Generated for: Task #447 — School Year & Assignment Data Model
+-- MIGRATE-DATA: INSERT INTO school_years seeds the initial active year; mirrored by ensureSchoolYears() in api-server/src/index.ts
 
 -- ── school_year_status enum ──────────────────────────────────────
 DO $$ BEGIN

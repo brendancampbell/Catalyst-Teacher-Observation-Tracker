@@ -1,5 +1,6 @@
 -- Migration: tie rubric sets and domains to school years
 -- Idempotent — safe to re-run.
+-- MIGRATE-DATA: one-time column population (school_year_id on rubric_sets and rubric_domains); new rows always receive school_year_id at creation time — no startup mirror needed
 
 -- ── 1. school_year_id on rubric_sets ────────────────────────────────
 ALTER TABLE rubric_sets ADD COLUMN IF NOT EXISTS school_year_id INTEGER REFERENCES school_years(id);

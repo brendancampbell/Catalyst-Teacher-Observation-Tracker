@@ -16,3 +16,4 @@ pnpm --filter @workspace/db run generate
 pnpm --filter @workspace/db run migrate
 cd lib/api-types && npx tsc -p tsconfig.json
 pnpm --filter @workspace/db run check:schema-sync
+pnpm --filter @workspace/db run check:migration-data

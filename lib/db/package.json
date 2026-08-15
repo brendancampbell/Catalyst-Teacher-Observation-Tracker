@@ -12,7 +12,8 @@
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
-    "check:schema-sync": "tsx src/check-schema-sync.ts"
+    "check:schema-sync": "tsx src/check-schema-sync.ts",
+    "check:migration-data": "tsx src/check-migration-data-statements.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

@@ -1,3 +1,4 @@
+-- MIGRATE-DATA: populates display_order on existing school_year rows; push-initialised environments start at 0 (safe default — reorderable via the API)
 -- ⚠️  MIXED DDL + DATA — the UPDATE below populates display_order on existing rows
 -- immediately after the column is added.  `drizzle-kit push` skips migration files,
 -- so any environment set up with push will have display_order = 0 on all rows until

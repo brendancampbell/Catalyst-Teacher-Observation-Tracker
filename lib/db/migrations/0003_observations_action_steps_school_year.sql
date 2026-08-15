@@ -1,3 +1,4 @@
+-- MIGRATE-DATA: one-time column population (school_year_id and snapshot fields on observations/action_steps); new rows always receive these values at creation — no startup mirror needed
 -- ── 1. observations: school_year_id ──────────────────────────────────
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS school_year_id INTEGER REFERENCES school_years(id);
 UPDATE observations
