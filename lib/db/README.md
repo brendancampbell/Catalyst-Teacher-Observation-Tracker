@@ -44,7 +44,7 @@ boot.**
 | Migration file | Data statement | Startup mirror |
 |---|---|---|
 | `0001_add_school_years_and_assignments.sql` | `INSERT INTO school_years` | `ensureSchoolYears()` |
-| `0004_school_years_display_order.sql` | `UPDATE school_years SET display_order` | populated by migration only — display_order is reorderable via API |
+| `0004_school_years_display_order.sql` | `UPDATE school_years SET display_order` | `ensureSchoolYears()` — applies the same ROW_NUMBER() ordering when all rows have display_order = 0 and more than one row exists |
 | `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | `ensureSchools()` Step 7 (ON CONFLICT DO UPDATE) |
 
 When you write a new migration file that contains `INSERT` or `UPDATE`

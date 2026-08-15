@@ -342,18 +342,50 @@ const QUOTA_GRANT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; /* 1 hour */
 async function ensureSchoolYears(): Promise<void> {
   const client = await pool.connect();
   try {
+    /* ── Seed the initial row if the table is empty ────────────────── */
     const { rows } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM school_years`,
     );
-    if (Number(rows[0].count) > 0) {
+    if (Number(rows[0].count) === 0) {
+      logger.info("School years table empty — seeding initial row");
+      await client.query(
+        `INSERT INTO school_years (name, status) VALUES ('2025-2026', 'active')`,
+      );
+      logger.info("School years seeded: 2025-2026 (active)");
+    } else {
       logger.info("School years already seeded — skipping");
-      return;
     }
-    logger.info("School years table empty — seeding initial row");
-    await client.query(
-      `INSERT INTO school_years (name, status) VALUES ('2025-2026', 'active')`,
-    );
-    logger.info("School years seeded: 2025-2026 (active)");
+
+    /* ── Mirror of 0004_school_years_display_order.sql UPDATE ─────────
+       Migration 0004 populates display_order using ROW_NUMBER(), but
+       drizzle-kit push skips migration files entirely.  Any environment
+       that was bootstrapped with push ends up with display_order = 0
+       on every row (the column default).  Detect that state — all rows
+       at zero with more than one row present — and apply the same
+       ordering logic idempotently.
+
+       The condition "NOT EXISTS (... WHERE display_order != 0)" is a
+       reliable indicator: the only way all rows stay at 0 is if the
+       migration UPDATE never ran, because any API reorder sets distinct
+       non-zero values on at least one row.                             */
+    const { rows: fixRows } = await client.query<{ needs_fix: boolean }>(`
+      SELECT (
+        (SELECT COUNT(*) FROM school_years) > 1
+        AND NOT EXISTS (SELECT 1 FROM school_years WHERE display_order != 0)
+      ) AS needs_fix
+    `);
+    if (fixRows[0].needs_fix) {
+      await client.query(`
+        UPDATE school_years
+        SET display_order = sub.rn
+        FROM (
+          SELECT id, (ROW_NUMBER() OVER (ORDER BY id DESC) - 1)::int AS rn
+          FROM school_years
+        ) sub
+        WHERE school_years.id = sub.id
+      `);
+      logger.info("School years: display_order populated via startup mirror (0004 migration data UPDATE was skipped)");
+    }
   } finally {
     client.release();
   }
