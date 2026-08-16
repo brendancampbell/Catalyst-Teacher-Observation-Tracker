@@ -1,4 +1,11 @@
--- MIGRATE-DATA: one-time column population (school_year_id and snapshot fields on observations/action_steps); new rows always receive these values at creation — no startup mirror needed
+-- ⚠️  MIXED DDL + DATA — one-time column population (school_year_id and snapshot
+-- fields on observations/action_steps/people); new rows always receive these
+-- values at creation — no startup mirror needed.
+-- Environments bootstrapped with `drizzle-kit push` skip migration files and will
+-- miss these backfills for any pre-existing rows.
+-- See lib/db/README.md §Data backfills.
+-- MIGRATE-DATA: backfills school_year_id and snapshot_* columns on pre-existing observations, action_steps, and people rows; new rows always supply these values — no ensure*() mirror required
+
 -- ── 1. observations: school_year_id ──────────────────────────────────
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS school_year_id INTEGER REFERENCES school_years(id);
 UPDATE observations

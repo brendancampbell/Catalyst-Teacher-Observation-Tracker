@@ -44,7 +44,10 @@ boot.**
 | Migration file | Data statement | Startup mirror |
 |---|---|---|
 | `0001_add_school_years_and_assignments.sql` | `INSERT INTO school_years` | `ensureSchoolYears()` |
+| `0002_rubric_sets_school_year.sql` | `UPDATE rubric_sets`, `UPDATE rubric_domains` | column-add backfill; new rows always supply school_year_id — no startup mirror needed |
+| `0003_observations_action_steps_school_year.sql` | `UPDATE observations`, `UPDATE action_steps`, `UPDATE people` | column-add backfill; new rows always supply school_year_id — no startup mirror needed |
 | `0004_school_years_display_order.sql` | `UPDATE school_years SET display_order` | `ensureSchoolYears()` — applies the same ROW_NUMBER() ordering when all rows have display_order = 0 and more than one row exists |
+| `0005_schema_hardening.sql` | `DELETE FROM observation_scores` | one-time dedup before uniqueness index; app enforces ON CONFLICT DO UPDATE going forward — no startup mirror needed |
 | `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | `ensureSchools()` Step 7 (ON CONFLICT DO UPDATE) |
 
 When you write a new migration file that contains `INSERT` or `UPDATE`

@@ -222,6 +222,14 @@ args = "dashboard-action-center-invalidation"
 task = "workflow.run"
 args = "test:dev-seed-guard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "check:migration-data-stmts"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test:migration-data-stmts"
+
 [[workflows.workflow]]
 name = "test:admin-schools-validation"
 author = "agent"
@@ -768,6 +776,28 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run test:dev-seed-guard"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "check:migration-data-stmts"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-migration-data-stmts.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test:migration-data-stmts"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/test-check-migration-data-stmts.sh"
 
 [workflows.workflow.metadata]
 isValidation = true

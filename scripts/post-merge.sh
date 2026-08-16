@@ -7,6 +7,11 @@ pnpm --filter @workspace/db exec tsx src/migrate-rubric-domain-rubric-set-id.ts
 pnpm --filter @workspace/db exec tsx src/backfill-school-year-id.ts
 pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts
 pnpm --filter @workspace/db run generate
+# Guard: reject any migration that contains DML without the required ⚠️ banner.
+# Running BEFORE migrate ensures an unbannered migration is caught before it
+# touches the database, avoiding a partial post-merge failure state.
+bash scripts/check-migration-data-stmts.sh
+pnpm --filter @workspace/db run check:migration-data
 # `drizzle-kit migrate` applies every unapplied .sql migration file in order.
 # This includes any data statements (UPDATE/INSERT) inside those files.
 # ⚠️  DATA BACKFILL NOTE: data backfills that live only in .sql files are
@@ -16,4 +21,3 @@ pnpm --filter @workspace/db run generate
 pnpm --filter @workspace/db run migrate
 cd lib/api-types && npx tsc -p tsconfig.json
 pnpm --filter @workspace/db run check:schema-sync
-pnpm --filter @workspace/db run check:migration-data

@@ -1,3 +1,9 @@
+-- ⚠️  MIXED DDL + DATA — the UPDATE statements below backfill school_year_id on
+-- existing rows immediately after the column is added.  Environments bootstrapped
+-- with `drizzle-kit push` skip migration files and will have NULL school_year_id
+-- on any rubric_sets / rubric_domains rows that existed before the column was added.
+-- See lib/db/README.md §Data backfills.
+--
 -- Migration: tie rubric sets and domains to school years
 -- Idempotent — safe to re-run.
 -- MIGRATE-DATA: one-time column population (school_year_id on rubric_sets and rubric_domains); new rows always receive school_year_id at creation time — no startup mirror needed

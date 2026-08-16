@@ -1,3 +1,8 @@
+-- ⚠️  MIXED DDL + DATA — contains a deduplication DELETE that removes duplicate
+-- observation_scores rows before a uniqueness index is added.  This is a
+-- one-time cleanup; the app enforces ON CONFLICT DO UPDATE going forward so no
+-- startup mirror is required.  See lib/db/README.md §Data backfills.
+--
 -- Migration: DB schema hardening & cleanup
 -- Adds timestamps, date fields, school_number, FK hardening,
 -- removes observer/observer_email columns, changes time type to native
