@@ -17,13 +17,22 @@ import { canAccessSchoolScopedRecord } from "../middleware/auth";
 const router = Router();
 
 /* ── Per-user rate limiter for mutation endpoints ────────────────────
-   Limits PUT and DELETE to 30 requests per 15-minute window per user
-   (or IP when unauthenticated). Blunts brute-force ID enumeration.    */
+   Limits PUT and DELETE per 15-minute window per user (or IP when
+   unauthenticated). Blunts brute-force ID enumeration.
+
+   The budget is sized for draft autosave, which PUTs the same observation
+   about 2s after any form change. Scoring a dozen domains and editing the
+   strengths/growth-areas fields costs roughly 5-10 PUTs per observation, so
+   a principal doing several observations back to back was capable of
+   exhausting the previous 30-request budget mid-draft — surfacing as
+   autosave silently failing with a 429 while they were still typing.
+   120 clears realistic drafting by a wide margin and still bounds
+   scripted enumeration.                                                */
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 const observationMutationLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
-  limit: 30,
+  limit: 120,
   /* Use a persistent PostgreSQL store in production so counters survive
      server restarts, deploys, and crash/scale events.  The default
      in-memory store is kept for local development (faster, no side-effects
