@@ -203,7 +203,7 @@ describe("Cross-school auth — COACH role", () => {
     const [obsA] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,
@@ -228,7 +228,7 @@ describe("Cross-school auth — COACH role", () => {
     const [obsB] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        SCHOOL_RUBRIC_SET_ID,

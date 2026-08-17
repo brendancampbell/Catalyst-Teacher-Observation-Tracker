@@ -1,17 +1,24 @@
 /**
  * Integration tests for Home Office / school assignment validation in
- * PATCH /api/people/:employeeId.
+ * POST /api/people/:employeeId/reassign.
+ *
+ * Previously these targeted PATCH /api/people/:employeeId. That endpoint no
+ * longer accepts schoolId at all — it rejects the field outright with
+ * "School changes must be made using the Reassign action", enforced by
+ * test-patch-people-school-change-lockout.ts. The Home Office rules these
+ * tests exercise still apply, but only on /reassign, which had no direct
+ * coverage. Repointed rather than deleted.
  *
  * Run with:
- *   pnpm --filter @workspace/api-server exec tsx src/test-patch-people-homeoffice-validation.ts
+ *   pnpm --filter @workspace/api-server exec tsx src/test-reassign-homeoffice-validation.ts
  *
  * Requires the dev server to be running (NODE_ENV=development) because it uses
  * the /api/auth/dev-login bypass to establish a session without OAuth.
  *
  * Scenarios:
- *   1. PATCH a COACH's schoolId to Home Office         → 400 error
- *   2. PATCH a NETWORK_LEADER's schoolId to real school → 400 error
- *   3. PATCH a NETWORK_LEADER's schoolId to Home Office → 200 success
+ *   1. Reassign a COACH to Home Office              → 400 error
+ *   2. Reassign a NETWORK_LEADER to a real school   → 400 error
+ *   3. Reassign a NETWORK_LEADER to Home Office     → 200 success
  */
 
 import { test, describe, before, after } from "node:test";
@@ -57,24 +64,6 @@ async function apiPost(
   return { status: res.status, body: responseBody };
 }
 
-async function apiPatch(
-  path: string,
-  body: unknown,
-  jar: Jar,
-): Promise<{ status: number; body: unknown }> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "Cookie": jar.cookieHeader,
-    },
-    body: JSON.stringify(body),
-  });
-  let responseBody: unknown;
-  try { responseBody = await res.json(); } catch { responseBody = null; }
-  return { status: res.status, body: responseBody };
-}
-
 /* ── Test person factory ──────────────────────────────────────────────────── */
 
 let testPersonEmployeeIds: string[] = [];
@@ -109,7 +98,7 @@ async function cleanup() {
 
 /* ── Tests ───────────────────────────────────────────────────────────────── */
 
-describe("PATCH /api/people/:employeeId — Home Office school validation", () => {
+describe("POST /api/people/:employeeId/reassign — Home Office school validation", () => {
   let jar: Jar;
   let homeOfficeSchoolId: number;
   let realSchoolId: number;
@@ -142,7 +131,7 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
 
   /* 1 ── PATCH COACH's schoolId to Home Office → 400 ──────────────────── */
 
-  test("1 — PATCH a COACH's schoolId to Home Office → 400 with Home Office error", async () => {
+  test("1 — Reassigning a COACH to Home Office → 400 with Home Office error", async () => {
     /* Create a COACH at a real school */
     const person = makePerson({ role: "COACH" });
     const bulkRes = await apiPost("/people/bulk", [{ ...person, school: realSchoolId }], jar);
@@ -169,8 +158,8 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
       });
     }
 
-    /* Now PATCH their schoolId to the Home Office school */
-    const patchRes = await apiPatch(`/people/${person.employeeId}`, { schoolId: homeOfficeSchoolId }, jar);
+    /* Now reassign them to the Home Office school */
+    const patchRes = await apiPost(`/people/${person.employeeId}/reassign`, { role: "COACH", schoolId: homeOfficeSchoolId }, jar);
 
     assert.equal(
       patchRes.status,
@@ -186,7 +175,7 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
 
   /* 2 ── PATCH NETWORK_LEADER's schoolId to a real school → 400 ───────── */
 
-  test("2 — PATCH a NETWORK_LEADER's schoolId to a real school → 400 with Home Office error", async () => {
+  test("2 — Reassigning a NETWORK_LEADER to a real school → 400 with Home Office error", async () => {
     /* Create a NETWORK_LEADER at Home Office via direct DB insert */
     const empId = makeEmployeeId();
     testPersonEmployeeIds.push(empId);
@@ -202,8 +191,8 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
       isActive:                 true,
     });
 
-    /* PATCH their schoolId to a real school */
-    const patchRes = await apiPatch(`/people/${empId}`, { schoolId: realSchoolId }, jar);
+    /* Reassign them to a real school */
+    const patchRes = await apiPost(`/people/${empId}/reassign`, { role: "NETWORK_LEADER", schoolId: realSchoolId }, jar);
 
     assert.equal(
       patchRes.status,
@@ -219,9 +208,9 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
 
   /* 3 ── PATCH NETWORK_LEADER's schoolId to Home Office → 200 ─────────── */
 
-  test("3 — PATCH a NETWORK_LEADER's schoolId to Home Office → 200 success", async () => {
+  test("3 — Reassigning a NETWORK_LEADER to Home Office → 200 success", async () => {
     /* Create a NETWORK_LEADER — start them at Home Office (valid state) then
-       move them to a real school directly in the DB, then PATCH back to Home
+       move them to a real school directly in the DB, then reassign back to Home
        Office to confirm the happy path returns 200. */
     const empId = makeEmployeeId();
     testPersonEmployeeIds.push(empId);
@@ -237,8 +226,8 @@ describe("PATCH /api/people/:employeeId — Home Office school validation", () =
       isActive:                 true,
     });
 
-    /* PATCH back to Home Office — should succeed */
-    const patchRes = await apiPatch(`/people/${empId}`, { schoolId: homeOfficeSchoolId }, jar);
+    /* Reassign back to Home Office — should succeed */
+    const patchRes = await apiPost(`/people/${empId}/reassign`, { role: "NETWORK_LEADER", schoolId: homeOfficeSchoolId }, jar);
 
     assert.equal(
       patchRes.status,

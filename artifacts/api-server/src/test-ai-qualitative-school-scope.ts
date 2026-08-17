@@ -215,7 +215,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
     const [obsA] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: TEACHER_A_EID,
         rubricSetId:        rs.id,
@@ -234,7 +234,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
     const [obsB] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: TEACHER_B_EID,
         rubricSetId:        rs.id,
@@ -253,7 +253,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
     const [stepA] = await db
       .insert(actionSteps)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         teacherEmployeeId: TEACHER_A_EID,
         text:              TEACHER_A_ACTION_STEP,
         dueDate:           "2026-08-01",
@@ -267,7 +267,7 @@ describe("AI qualitative context — school-scope isolation (HTTP)", () => {
     const [stepB] = await db
       .insert(actionSteps)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         teacherEmployeeId: TEACHER_B_EID,
         text:              TEACHER_B_ACTION_STEP,
         dueDate:           "2026-08-01",

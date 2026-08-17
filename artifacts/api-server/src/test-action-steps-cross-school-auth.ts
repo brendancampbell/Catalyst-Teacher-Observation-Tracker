@@ -22,7 +22,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { observations, people, schools, rubricSets, actionSteps } from "@workspace/db/schema";
+import { observations, people, schools, rubricSets, actionSteps, schoolYears } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
@@ -71,6 +71,7 @@ async function loginAs(employeeId: string): Promise<Jar> {
 let leaderAJar: Jar;
 let createdObsIds: number[] = [];
 let createdStepIds: number[] = [];
+let ACTIVE_SCHOOL_YEAR_ID: number;
 let stepAId: number;
 let stepBId: number;
 let obsAId: number;
@@ -94,6 +95,16 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
       .limit(1);
     assert.equal(firstRubricSet.length, 1, "Need at least 1 rubric set in the DB to run this test");
     RUBRIC_SET_ID = firstRubricSet[0]!.id;
+
+    /* Fixtures must live in the ACTIVE school year — every route filters on it,
+       so rows stamped with any other year are invisible to the API. */
+    const [activeYear] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+    assert.ok(activeYear, "Need an active school year in the DB");
+    ACTIVE_SCHOOL_YEAR_ID = activeYear.id;
 
     /* Create test users */
     await db.insert(people).values([
@@ -121,7 +132,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
 
     /* Observations for each teacher */
     const [obsA] = await db.insert(observations).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       observedEmployeeId: TEACHER_A_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
       date: "2025-06-01", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
@@ -129,7 +140,7 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
     createdObsIds.push(obsAId);
 
     const [obsB] = await db.insert(observations).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       observedEmployeeId: TEACHER_B_EID, rubricSetId: RUBRIC_SET_ID, schoolId: null,
       date: "2025-06-01", status: "published", target: "TEACHER",
     }).returning({ id: observations.id });
@@ -138,19 +149,19 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
 
     /* Action steps for each teacher */
     const [stepA] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       teacherEmployeeId: TEACHER_A_EID, assignedByEmployeeId: LEADER_A_EID,
       assignedDuringObservationId: obsAId, text: "Action step for teacher A",
-      dueDate: "2099-12-31", status: "open",
+      dueDate: "2099-12-31", status: "open", snapshotSchoolId: SCHOOL_A_ID,
     }).returning({ id: actionSteps.id });
     stepAId = stepA!.id;
     createdStepIds.push(stepAId);
 
     const [stepB] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       teacherEmployeeId: TEACHER_B_EID, assignedByEmployeeId: LEADER_B_EID,
       assignedDuringObservationId: obsBId, text: "Action step for teacher B",
-      dueDate: "2099-12-31", status: "open",
+      dueDate: "2099-12-31", status: "open", snapshotSchoolId: SCHOOL_B_ID,
     }).returning({ id: actionSteps.id });
     stepBId = stepB!.id;
     createdStepIds.push(stepBId);
@@ -186,18 +197,18 @@ describe("SCHOOL_LEADER cross-school auth — Action Steps", () => {
   test("3 — SCHOOL_LEADER GET /action-steps/overdue only includes their own school", async () => {
     /* Seed an overdue step for teacher A */
     const [overdueA] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       teacherEmployeeId: TEACHER_A_EID, assignedByEmployeeId: LEADER_A_EID,
       assignedDuringObservationId: null, text: "Overdue for teacher A",
-      dueDate: "2020-01-01", status: "open",
+      dueDate: "2020-01-01", status: "open", snapshotSchoolId: SCHOOL_A_ID,
     }).returning({ id: actionSteps.id });
     createdStepIds.push(overdueA!.id);
 
     const [overdueB] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                ACTIVE_SCHOOL_YEAR_ID,
       teacherEmployeeId: TEACHER_B_EID, assignedByEmployeeId: LEADER_B_EID,
       assignedDuringObservationId: null, text: "Overdue for teacher B",
-      dueDate: "2020-01-01", status: "open",
+      dueDate: "2020-01-01", status: "open", snapshotSchoolId: SCHOOL_B_ID,
     }).returning({ id: actionSteps.id });
     createdStepIds.push(overdueB!.id);
 

@@ -236,7 +236,7 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
     const [obsA] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: TEACHER_A_EID,
         rubricSetId:        rs.id,
@@ -260,7 +260,7 @@ describe("Network school isolation — Action Center and AI endpoints", () => {
     const [obsB] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: TEACHER_B_EID,
         rubricSetId:        rs.id,
