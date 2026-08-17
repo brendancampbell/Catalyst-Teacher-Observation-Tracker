@@ -4,7 +4,7 @@ import {
   people, rubricSets, rubricCategories,
   observations, observationScores, schools,
 } from "@workspace/db/schema";
-import { eq, inArray, and, ne, isNull, or } from "drizzle-orm";
+import { eq, inArray, and, ne } from "drizzle-orm";
 import { TtlCache } from "../lib/ttl-cache";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 
@@ -78,13 +78,18 @@ router.get("/", async (req, res) => {
           eq(people.includeInFeedbackTracker, true),
         ));
 
-    /* Include observations that belong to this school, plus legacy rows that
-       pre-date the schoolId stamp (those have schoolId = null).  The people
-       filter above already scopes the displayed roster to this school's
-       current staff, so null-schoolId rows can only surface for teachers
-       presently assigned here.                                             */
+    /* Strict school match. Observations with schoolId = null (legacy rows that
+       pre-date the stamp) are EXCLUDED.
+
+       This previously included them, reasoning that the roster filter above
+       already scopes the grid to this school's current staff, so a null-school
+       row "can only surface for teachers presently assigned here". That is
+       true and is exactly the problem: a teacher who transferred in IS on this
+       roster, so their unattributable prior-school observations surfaced under
+       their new school. Fail closed, matching the AI aggregation helpers and
+       the observation routes.                                              */
     const schoolObsFilter = schoolIdParam !== null
-      ? or(eq(observations.schoolId, schoolIdParam), isNull(observations.schoolId))
+      ? eq(observations.schoolId, schoolIdParam)
       : undefined;
     const obsWhere = walkthroughsOnly
       ? and(eq(observations.rubricSetId, rubricSet.id), eq(observations.isWalkthrough, true), ne(observations.status, "draft"), eq(observations.schoolYearId, activeYearId), schoolObsFilter)
