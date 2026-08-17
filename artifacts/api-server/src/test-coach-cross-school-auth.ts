@@ -159,6 +159,9 @@ describe("Cross-school auth — COACH role", () => {
         includeInFeedbackTracker: true,
         needsRescore:             true,
         rescoreDueDate:           "2025-06-01",
+        /* The rescore-queue route filters on rescoreSchoolYearId = active year;
+           leaving it null silently excludes the row. */
+        rescoreSchoolYearId:      activeSchoolYearId,
       },
       /* School B person who needs a rescore — must NOT appear in Coach A's rescore-queue */
       {
@@ -172,6 +175,9 @@ describe("Cross-school auth — COACH role", () => {
         includeInFeedbackTracker: true,
         needsRescore:             true,
         rescoreDueDate:           "2025-06-01",
+        /* The rescore-queue route filters on rescoreSchoolYearId = active year;
+           leaving it null silently excludes the row. */
+        rescoreSchoolYearId:      activeSchoolYearId,
       },
       /* School A teacher with no observations — should appear in Coach A's overdue list */
       {

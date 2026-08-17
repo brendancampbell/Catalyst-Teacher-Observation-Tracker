@@ -178,8 +178,13 @@ async function slugNameMap(slugs: string[]): Promise<Map<string, string>> {
 async function buildDomainAverages(personIds: string[], rubricSetId: number | null | undefined, scopedSchoolId: number | null | undefined, activeSchoolYearId: number): Promise<DomainAvg[]> {
   if (!personIds.length) return [];
 
+  /* Strict school match. Observations with schoolId = null (legacy rows that
+     pre-date the stamp) are EXCLUDED, not included: a teacher who transferred
+     into this school would otherwise drag their unattributable prior-school
+     observations into this school's AI context. Fail closed, matching
+     buildActionStepsData below and the observation routes.               */
   const schoolFilter = scopedSchoolId != null
-    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const whereClause = rubricSetId != null
@@ -220,8 +225,13 @@ async function buildCalibrationFlags(
 ): Promise<CalibrationFlag[]> {
   if (!personIds.length) return [];
 
+  /* Strict school match. Observations with schoolId = null (legacy rows that
+     pre-date the stamp) are EXCLUDED, not included: a teacher who transferred
+     into this school would otherwise drag their unattributable prior-school
+     observations into this school's AI context. Fail closed, matching
+     buildActionStepsData below and the observation routes.               */
   const schoolFilter = scopedSchoolId != null
-    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const whereClause = rubricSetId != null
@@ -582,8 +592,9 @@ async function buildRankedTeacherSection(
   if (!teacherPool.length) return "";
 
   const empIds = teacherPool.map((t) => t.employeeId);
+  /* Strict school match — see buildDomainAverages. Null-school rows fail closed. */
   const schoolFilter = scopedSchoolId !== null
-    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const whereClause = rubricSetId != null
@@ -650,8 +661,9 @@ async function buildTeacherBreakdowns(
   if (!matchedTeachers.length) return "";
 
   const empIds = matchedTeachers.map((t) => t.employeeId);
+  /* Strict school match — see buildDomainAverages. Null-school rows fail closed. */
   const schoolFilter = scopedSchoolId !== null
-    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const rows = await db
@@ -718,8 +730,9 @@ async function buildGlowsGrowsData(
 ): Promise<Map<string, GlowGrowEntry[]>> {
   if (!personIds.length) return new Map();
 
+  /* Strict school match — see buildDomainAverages. Null-school rows fail closed. */
   const schoolFilter = scopedSchoolId !== null
-    ? or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId))
+    ? eq(observations.schoolId, scopedSchoolId)
     : undefined;
 
   const rows = await db
@@ -1517,7 +1530,7 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
 
     if (isSchoolTarget) {
       const whereClause = scopedSchoolId != null
-        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId), or(eq(observations.schoolId, scopedSchoolId), isNull(observations.schoolId)))
+        ? and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId), eq(observations.schoolId, scopedSchoolId))
         : and(eq(observations.rubricSetId, rubricSetId), eq(observations.status, "published"), eq(observations.target, "SCHOOL"), eq(observations.schoolYearId, activeYearId));
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
