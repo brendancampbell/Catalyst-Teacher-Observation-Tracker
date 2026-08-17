@@ -30,11 +30,19 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ── Probe: returns 0 if the server answers any HTTP request ───────────────
+# Uses curl's exit status, which is 0 for any HTTP response (including 404
+# or 500) and non-zero when the connection itself fails. That is exactly the
+# question being asked, so no status-code parsing is needed.
+#
+# The previous implementation captured '%{http_code}' with a `|| echo "000"`
+# fallback. On a refused connection curl writes "000" to stdout AND exits
+# non-zero, so the fallback appended a second "000" — producing "000000",
+# which is not equal to "000", so the probe reported the server as UP when it
+# was down. The effect was that this script could never actually start a
+# server: it always took the fast path, and every test failed with
+# ECONNREFUSED unless a server happened to be running already.
 server_is_up() {
-  local code
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$URL" 2>/dev/null \
-         || echo "000")
-  [ "$code" != "000" ] && [ -n "$code" ]
+  curl -s -o /dev/null --max-time 2 "$URL" >/dev/null 2>&1
 }
 
 # ── Fast-path: server already running ────────────────────────────────────
