@@ -12,7 +12,11 @@
 #     background process on exit (even if tests fail).
 set -euo pipefail
 
-PORT="${PORT:-8080}"
+# Exported, not just assigned: the API server reads PORT from its environment
+# and exits immediately without it. A bare `PORT=...` assignment is visible to
+# this script but NOT to the background server process started below, so the
+# server died on boot while this script waited the full timeout for it.
+export PORT="${PORT:-8080}"
 URL="http://localhost:${PORT}/"
 MAX_WAIT=120
 INTERVAL=2
@@ -68,6 +72,14 @@ else
       printf ' ready (%ds)\n' "$elapsed"
       break
     fi
+    # If the server process has already exited there is nothing to wait for.
+    # Bail out now rather than burning the full timeout on a dead process.
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      printf ' FAILED\n' >&2
+      printf 'The API server exited during startup. Last 30 log lines:\n\n' >&2
+      tail -30 /tmp/api-server-bg.log >&2 || true
+      exit 1
+    fi
     printf '.'
     sleep "$INTERVAL"
     elapsed=$((elapsed + INTERVAL))
@@ -76,7 +88,7 @@ else
   if [ "$elapsed" -ge "$MAX_WAIT" ]; then
     printf ' TIMED OUT after %ds\n' "$MAX_WAIT" >&2
     printf 'Last server log:\n' >&2
-    tail -20 /tmp/api-server-bg.log >&2 || true
+    tail -30 /tmp/api-server-bg.log >&2 || true
     exit 1
   fi
 fi
