@@ -48,7 +48,29 @@ boot.**
 | `0003_observations_action_steps_school_year.sql` | `UPDATE observations`, `UPDATE action_steps`, `UPDATE people` | column-add backfill; new rows always supply school_year_id — no startup mirror needed |
 | `0004_school_years_display_order.sql` | `UPDATE school_years SET display_order` | `ensureSchoolYears()` — applies the same ROW_NUMBER() ordering when all rows have display_order = 0 and more than one row exists |
 | `0005_schema_hardening.sql` | `DELETE FROM observation_scores` | one-time dedup before uniqueness index; app enforces ON CONFLICT DO UPDATE going forward — no startup mirror needed |
-| `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | `ensureSchools()` Step 7 (ON CONFLICT DO UPDATE) |
+| `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | none — see "Schools are not seeded by code" below |
+
+### Schools are not seeded by code
+
+Schools — including the Home Office pseudo-school — are created and edited
+**exclusively through the admin UI**. Nothing in startup or deploy code inserts
+or updates rows in the `schools` table.
+
+This was not always true: `ensureSchools()` in `artifacts/api-server/src/index.ts`
+used to re-seed 52 hardcoded schools on every boot with `ON CONFLICT DO UPDATE`,
+which silently reverted any name, region, grade-span, or school-number edit an
+admin made through `PATCH /api/admin/schools/:id`. That function has been
+removed, along with the Home Office seed in `migrate.ts`.
+
+Consequence: a brand-new database has **no schools at all**, and no Home Office
+row. Because `NETWORK_LEADER` and `NETWORK_ADMIN` accounts must be assigned to a
+Home Office school, the first admin has to create it through the Schools tab
+(with the "is home office" flag set) before network-level users can be added.
+Existing environments are unaffected — their rows are already in place.
+
+`0006` is therefore an exception to the rule above: it is a historical one-time
+backfill for environments that already had the 52 schools, and it deliberately
+has no startup mirror.
 
 When you write a new migration file that contains `INSERT` or `UPDATE`
 statements:

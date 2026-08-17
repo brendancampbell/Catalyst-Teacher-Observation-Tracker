@@ -1,23 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { actionSteps, people, observations, schools } from "@workspace/db/schema";
+import { actionSteps, people, schools } from "@workspace/db/schema";
 import { eq, and, desc, lt, sql, asc } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
-
-type SchoolCheckResult = "ok" | "not_found" | "inactive";
-
-async function checkSchool(id: number): Promise<SchoolCheckResult> {
-  const rows = await db
-    .select({ id: schools.id, isActive: schools.isActive, isArchived: schools.isArchived })
-    .from(schools)
-    .where(eq(schools.id, id))
-    .limit(1);
-  if (rows.length === 0) return "not_found";
-  const s = rows[0]!;
-  if (!s.isActive || s.isArchived) return "inactive";
-  return "ok";
-}
 
 const router = Router();
 

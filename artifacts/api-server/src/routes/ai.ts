@@ -7,7 +7,6 @@ import {
   observationScores,
   actionSteps,
   people,
-  schools,
   rubricDomains,
   rubricSets,
   chatSessions,
@@ -125,25 +124,6 @@ const aiGenerationLimiter = rateLimit({
   legacyHeaders:   false,
 });
 
-type SchoolCheckResult = "ok" | "not_found" | "inactive";
-
-async function checkSchool(id: number): Promise<SchoolCheckResult> {
-  const rows = await db
-    .select({ id: schools.id, isActive: schools.isActive, isArchived: schools.isArchived })
-    .from(schools)
-    .where(eq(schools.id, id))
-    .limit(1);
-  if (rows.length === 0) return "not_found";
-  const s = rows[0]!;
-  if (!s.isActive || s.isArchived) return "inactive";
-  return "ok";
-}
-
-function weeksBetween(a: string, b: string): number {
-  const msPerWeek = 1000 * 60 * 60 * 24 * 7;
-  return Math.round(Math.abs(new Date(b).getTime() - new Date(a).getTime()) / msPerWeek);
-}
-
 async function getRubricSetId(slug: string, schoolYearId?: number): Promise<number | null> {
   const condition = schoolYearId != null
     ? and(eq(rubricSets.slug, slug), eq(rubricSets.schoolYearId, schoolYearId))
@@ -218,7 +198,6 @@ async function buildDomainAverages(personIds: string[], rubricSetId: number | nu
 
 async function buildCalibrationFlags(
   personIds: string[],
-  scope: "school" | "network",
   rubricSetId: number | null | undefined,
   scopedSchoolId: number | null | undefined,
   activeSchoolYearId: number,
@@ -557,22 +536,6 @@ const RELATIVE_TOP_KEYWORDS = [
   "star", "outstanding", "most proficient", "top teacher",
 ];
 
-/* ── Helper: detect "which teacher(s)" / "who has" intent ─────────────────── */
-const TEACHER_DATA_INTENT_KEYWORDS = [
-  "which teacher", "which of my teacher", "which staff",
-  "who has", "who have", "who scored", "who is below", "who are below",
-  "who is above", "who are above", "who needs", "who need",
-  "pulling down", "dragging down",
-  "name the teacher", "identify the teacher", "list the teacher",
-  "per teacher", "by teacher", "teacher breakdown", "individual teacher",
-  "each teacher", "every teacher",
-];
-
-function detectTeacherDataIntent(messageText: string): boolean {
-  const lower = messageText.toLowerCase();
-  return TEACHER_DATA_INTENT_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
 function detectRelativeReference(
   messageText: string,
 ): { kind: "bottom" | "top" | null; n: number } {
@@ -869,9 +832,8 @@ async function buildCombinedContext(
   }
 
   /* Detect teacher name mentions and relative references ("my weakest", "top 3", …) */
-  const matchedTeachers   = findMentionedTeachers(messageText, scopedPeople);
-  const relativeRef       = detectRelativeReference(messageText);
-  const teacherDataIntent = detectTeacherDataIntent(messageText);
+  const matchedTeachers = findMentionedTeachers(messageText, scopedPeople);
+  const relativeRef     = detectRelativeReference(messageText);
 
   /* If only one rubric is relevant (or none), build a single context block */
   const slugList = Array.from(mentionedSlugs);
@@ -885,7 +847,7 @@ async function buildCombinedContext(
 
     const [domainAverages, calibrationFlags] = await Promise.all([
       buildDomainAverages(personIds, rsId, scopedSchoolId, activeSchoolYearId),
-      buildCalibrationFlags(personIds, scope, rsId, scopedSchoolId, activeSchoolYearId),
+      buildCalibrationFlags(personIds, rsId, scopedSchoolId, activeSchoolYearId),
     ]);
 
     const ctx: AIContext = {
@@ -942,7 +904,7 @@ async function buildCombinedContext(
     if (!rsRow) continue;
     const [domainAverages, calibrationFlags] = await Promise.all([
       buildDomainAverages(personIds, rsRow.id, scopedSchoolId, activeSchoolYearId),
-      buildCalibrationFlags(personIds, scope, rsRow.id, scopedSchoolId, activeSchoolYearId),
+      buildCalibrationFlags(personIds, rsRow.id, scopedSchoolId, activeSchoolYearId),
     ]);
     const ctx: AIContext = {
       scope,
@@ -1076,7 +1038,6 @@ router.post("/chat/stream", aiChatLimiter, async (req, res) => {
     });
 
     let fullReply = "";
-    let streamError = false;
 
     try {
       fullReply = await generateAIResponseStreamRaw(message, contextStr, (chunk) => {
@@ -1087,7 +1048,6 @@ router.post("/chat/stream", aiChatLimiter, async (req, res) => {
         console.error("POST /ai/chat/stream AI error:", aiErr);
         fullReply = "I'm sorry — I wasn't able to generate a response right now. Please try again in a moment. In the meantime, you can check the Calibration Flags tab for the most recent data.";
         res.write(`data: ${JSON.stringify(fullReply)}\n\n`);
-        streamError = true;
       }
     }
 
@@ -1320,7 +1280,6 @@ router.get("/calibration-flags", async (req, res) => {
       if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
     }
     const scopedSchoolId = resolveSchoolId(user, requested);
-    const scope: "school" | "network" = scopedSchoolId !== null ? "school" : "network";
     const rubricSlug = typeof req.query.rubric === "string" ? req.query.rubric : null;
 
     const activeYearId = await getActiveSchoolYearId();
@@ -1330,7 +1289,7 @@ router.get("/calibration-flags", async (req, res) => {
     const rubricSetId = rubricSlug ? await getRubricSetId(rubricSlug, activeYearId) : null;
 
     const personIds = await getPersonIds(scopedSchoolId);
-    const flags = await buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId);
+    const flags = await buildCalibrationFlags(personIds, rubricSetId, scopedSchoolId, activeYearId);
     res.json(flags);
   } catch (err) {
     if (err instanceof NoSchoolAssignedError) {
@@ -1413,7 +1372,7 @@ router.post("/analysis", aiGenerationLimiter, async (req, res) => {
 
     const [domainAverages, calibrationFlags, actionStepsMap] = await Promise.all([
       buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId),
-      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId),
+      buildCalibrationFlags(personIds, rubricSetId, scopedSchoolId, activeYearId),
       buildActionStepsData(personIds, scopedSchoolId, activeYearId),
     ]);
 
@@ -1576,7 +1535,7 @@ router.post("/school-summary", aiGenerationLimiter, async (req, res) => {
     const personIds = await getPersonIds(scopedSchoolId);
     const [domainAverages, calibrationFlags] = await Promise.all([
       buildDomainAverages(personIds, rubricSetId, scopedSchoolId, activeYearId),
-      buildCalibrationFlags(personIds, scope, rubricSetId, scopedSchoolId, activeYearId),
+      buildCalibrationFlags(personIds, rubricSetId, scopedSchoolId, activeYearId),
     ]);
 
     const rescoreRows = personIds.length > 0

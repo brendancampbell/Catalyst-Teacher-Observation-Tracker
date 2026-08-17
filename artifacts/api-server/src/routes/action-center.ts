@@ -12,20 +12,6 @@ export const networkAvgsCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 100
 
 const router = Router();
 
-type SchoolCheckResult = "ok" | "not_found" | "inactive";
-
-async function checkSchool(id: number): Promise<SchoolCheckResult> {
-  const rows = await db
-    .select({ id: schools.id, isActive: schools.isActive, isArchived: schools.isArchived })
-    .from(schools)
-    .where(eq(schools.id, id))
-    .limit(1);
-  if (rows.length === 0) return "not_found";
-  const s = rows[0]!;
-  if (!s.isActive || s.isArchived) return "inactive";
-  return "ok";
-}
-
 /* ── GET /api/action-center/network-averages ─────────────────────
    Domain averages for authenticated users.
    - TEACHER-target rubrics: network-wide aggregate (no per-school

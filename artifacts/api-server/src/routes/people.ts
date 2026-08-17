@@ -91,9 +91,9 @@ async function validateRoleSchool(
 /* ── GET /api/people ──────────────────────────────────────────────
    Query params:
    - includeInFeedbackTracker=true   → filter to observable people
-   - schoolId=<n>                    → filter to school (NA only)
+   - schoolId=<n>                    → filter to school (network scope only)
    SCHOOL_LEADER / COACH: own school only
-   NETWORK_ADMIN: all                                               */
+   NETWORK_LEADER / NETWORK_ADMIN: all schools; pass schoolId to narrow  */
 router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
@@ -116,14 +116,10 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
       return;
     }
 
-    /* NETWORK_LEADER must filter to a specific school — they do not have
-       the cross-organisation enumeration privilege of NETWORK_ADMIN.    */
-    if (isNetworkLeader && !schoolIdParam) {
-      res.status(403).json({ error: "Network Leaders must specify a schoolId to list people" });
-      return;
-    }
-
-    /* Validate that NETWORK_LEADER's requested school is within their scope */
+    /* Validate that NETWORK_LEADER's requested school is within their scope.
+       Omitting schoolId is allowed and lists people across every school —
+       Network Leaders have organisation-wide visibility, same as NETWORK_ADMIN.
+       School-specific screens narrow the list by passing schoolId explicitly. */
     if (isNetworkLeader && schoolIdParam) {
       const access = await assertNetworkSchoolAccess(currentUser, schoolIdParam);
       if (!access.ok) {
@@ -132,11 +128,9 @@ router.get("/", requireRole("COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK
       }
     }
 
-    const effectiveSchoolId = isNetworkAdmin
-      ? (schoolIdParam ?? null)
-      : isNetworkLeader
-        ? schoolIdParam            // schoolIdParam already validated non-null above
-        : currentUser.schoolId ?? null;  // COACH / SCHOOL_LEADER
+    const effectiveSchoolId = isNetworkScope
+      ? (schoolIdParam ?? null)         // all schools unless one is named
+      : currentUser.schoolId ?? null;   // COACH / SCHOOL_LEADER
 
     let whereClause = undefined as ReturnType<typeof and> | undefined;
 

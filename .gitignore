@@ -41,6 +41,12 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Secrets — never commit. Real values belong in Replit Secrets / the host's
+# environment panel, not in the repo.
+.env
+.env.*
+!.env.example
+
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 

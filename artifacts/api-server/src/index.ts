@@ -36,178 +36,6 @@ async function ensureSessionTable(): Promise<void> {
   }
 }
 
-async function ensureSchools(): Promise<void> {
-  const client = await pool.connect();
-  try {
-    /* ── Step 1: Rename name → display_name if still on old schema ── */
-    const { rows: nameColRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'schools' AND column_name = 'name'
-      ) AS exists
-    `);
-    if (nameColRows[0].exists) {
-      logger.info("Schools: renaming name → display_name");
-      await client.query(`ALTER TABLE schools RENAME COLUMN name TO display_name`);
-    }
-
-    /* ── Step 2: Add full_name if missing ── */
-    const { rows: fnColRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'schools' AND column_name = 'full_name'
-      ) AS exists
-    `);
-    if (!fnColRows[0].exists) {
-      logger.info("Schools: adding full_name column");
-      await client.query(`ALTER TABLE schools ADD COLUMN full_name TEXT`);
-    }
-
-    /* ── Step 3: Add abbreviation if missing ── */
-    const { rows: abbrColRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'schools' AND column_name = 'abbreviation'
-      ) AS exists
-    `);
-    if (!abbrColRows[0].exists) {
-      logger.info("Schools: adding abbreviation column");
-      await client.query(`ALTER TABLE schools ADD COLUMN abbreviation TEXT`);
-    }
-
-    /* ── Step 4: Add unique constraint on abbreviation (required for ON CONFLICT) ── */
-    const { rows: uqRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM pg_constraint WHERE conname = 'schools_abbreviation_unique'
-      ) AS exists
-    `);
-    if (!uqRows[0].exists) {
-      await client.query(`ALTER TABLE schools ADD CONSTRAINT schools_abbreviation_unique UNIQUE (abbreviation)`);
-    }
-
-    /* ── Step 5: Add school_number column if missing ── */
-    await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS school_number TEXT`);
-
-    /* ── Step 6: Add is_home_office column if missing ── */
-    const { rows: hoColRows } = await client.query<{ exists: boolean }>(`
-      SELECT EXISTS(
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'schools' AND column_name = 'is_home_office'
-      ) AS exists
-    `);
-    if (!hoColRows[0].exists) {
-      logger.info("Schools: adding is_home_office column");
-      await client.query(`ALTER TABLE schools ADD COLUMN IF NOT EXISTS is_home_office BOOLEAN NOT NULL DEFAULT FALSE`);
-    }
-
-    /* ── Step 7: Seed the 52 canonical schools (idempotent by abbreviation) ── */
-    const SCHOOLS: Array<[string, string, string, string, string, string]> = [
-      ["Camden Prep Copewood ES",          "Camden Prep Copewood Elementary School",               "CP_CES",   "Camden",    "ES", "703"],
-      ["Camden Prep Copewood MS",          "Camden Prep Copewood Middle School",                   "CP_CMS",   "Camden",    "MS", "704"],
-      ["Camden Prep HS",                   "Camden Prep High School",                              "CP_HS",    "Camden",    "HS", "709"],
-      ["Camden Prep Mt Ephraim ES",        "Camden Prep Mt. Ephraim Elementary School",            "CP_MES",   "Camden",    "ES", "701"],
-      ["Camden Prep Mt Ephraim MS",        "Camden Prep Mt. Ephraim Middle School",                "CP_MMS",   "Camden",    "MS", "702"],
-      ["NSA Alexander Street ES",          "North Star Academy Alexander Street Elementary School","NSA_AES",  "Newark",    "ES", "310"],
-      ["NSA Central Avenue MS",            "North Star Academy Central Avenue Middle School",      "NSA_CMS",  "Newark",    "MS", "311"],
-      ["NSA Clinton Hill MS",              "North Star Academy Clinton Hill Middle School",        "NSA_CHMS", "Newark",    "MS", "303"],
-      ["NSA Downtown MS",                  "North Star Academy Downtown Middle School",            "NSA_DTMS", "Newark",    "MS", "301"],
-      ["NSA Fairmount ES",                 "North Star Academy Fairmount Elementary School",       "NSA_FES",  "Newark",    "ES", "307"],
-      ["NSA Liberty ES",                   "North Star Academy Liberty Elementary School",         "NSA_LES",  "Newark",    "ES", "308"],
-      ["NSA Lincoln Park ES",              "North Star Academy Lincoln Park Elementary School",    "NSA_LPES", "Newark",    "ES", "313"],
-      ["NSA Lincoln Park HS",              "North Star Academy Lincoln Park High School",          "NSA_LPHS", "Newark",    "HS", "312"],
-      ["NSA Lincoln Park MS",              "North Star Academy Lincoln Park Middle School",        "NSA_LPMS", "Newark",    "MS", "314"],
-      ["NSA Vailsburg ES",                 "North Star Academy Vailsburg Elementary School",       "NSA_VES",  "Newark",    "ES", "304"],
-      ["NSA Vailsburg MS",                 "North Star Academy Vailsburg Middle School",           "NSA_VMS",  "Newark",    "MS", "306"],
-      ["NSA Washington Park HS",           "North Star Academy Washington Park High School",       "NSA_WPHS", "Newark",    "HS", "302"],
-      ["NSA West Side Park ES",            "North Star Academy West Side Park Elementary School",  "NSA_WPES", "Newark",    "ES", "305"],
-      ["NSA West Side Park MS",            "North Star Academy West Side Park Middle School",      "NSA_WMS",  "Newark",    "MS", "309"],
-      ["RP Andrews Campus ES",             "Rochester Prep Andrews Campus Elementary School",      "RP_ACES",  "Rochester", "ES", "506"],
-      ["RP Brooks Campus MS",              "Rochester Prep Brooks Campus Middle School",           "RP_BCMS",  "Rochester", "MS", "501"],
-      ["RP Chili Campus MS",               "Rochester Prep Chili Campus Middle School",            "RP_CCMS",  "Rochester", "MS", "505"],
-      ["Rochester Prep HS",                "Rochester Prep High School",                           "RP_HS",    "Rochester", "HS", "509"],
-      ["RP Jay Campus ES",                 "Rochester Prep Jay Campus Elementary School",          "RP_JCES",  "Rochester", "ES", "504"],
-      ["RP St. Jacob Campus ES",           "Rochester Prep St. Jacob Campus Elementary School",   "RP_SJCES", "Rochester", "ES", "507"],
-      ["RP St. Jacob Campus MS",           "Rochester Prep St. Jacob Campus Middle School",       "RP_SJCMS", "Rochester", "MS", "508"],
-      ["Roxbury Prep Dorchester MS",       "Roxbury Prep Dorchester",                              "RXP_DC",   "Boston",    "MS", "603"],
-      ["Roxbury Prep HS",                  "Roxbury Prep High School",                             "RXP_HS",   "Boston",    "HS", "609"],
-      ["Roxbury Prep Proctor Street MS",   "Roxbury Prep Proctor Street",                          "RXP_PS",   "Boston",    "MS", "602"],
-      ["Uncommon Bed-Stuy East MS",        "Uncommon Bed-Stuy East Middle School",                 "NYC_UBEM", "NYC",       "MS", "203"],
-      ["Uncommon Bed-Stuy West ES",        "Uncommon Bed-Stuy West Elementary School",             "NYC_UBWE", "NYC",       "ES", "401"],
-      ["Uncommon Bed-Stuy West MS",        "Uncommon Bed-Stuy West Middle School",                 "NYC_UBWM", "NYC",       "MS", "405"],
-      ["Uncommon Brownsville North ES",    "Uncommon Brownsville North Elementary School",         "NYC_UBNE", "NYC",       "ES", "403"],
-      ["Uncommon Brownsville North MS",    "Uncommon Brownsville North Middle School",              "NYC_UBNM", "NYC",       "MS", "404"],
-      ["Uncommon Brownsville South ES",    "Uncommon Brownsville South Elementary School",         "NYC_UBSE", "NYC",       "ES", "402"],
-      ["Uncommon Brownsville South MS",    "Uncommon Brownsville South Middle School",              "NYC_UBSM", "NYC",       "MS", "406"],
-      ["Uncommon Canarsie ES",             "Uncommon Canarsie Elementary School",                  "NYC_UCES", "NYC",       "ES", "407"],
-      ["Uncommon Canarsie MS",             "Uncommon Canarsie Middle School",                      "NYC_UCMS", "NYC",       "MS", "408"],
-      ["Uncommon Charter HS",              "Uncommon Charter High School",                         "NYC_UCHS", "NYC",       "HS", "901"],
-      ["Uncommon Collegiate Charter HS",   "Uncommon Collegiate Charter High School",              "NYC_UCC",  "NYC",       "HS", "902"],
-      ["Uncommon Crown Heights ES",        "Uncommon Crown Heights Elementary School",             "NYC_UCHE", "NYC",       "ES", "208"],
-      ["Uncommon Excellence Boys ES",      "Uncommon Excellence Boys Elementary School",           "NYC_UEBE", "NYC",       "ES", "101"],
-      ["Uncommon Excellence Boys MS",      "Uncommon Excellence Boys Middle School",               "NYC_UEBM", "NYC",       "MS", "103"],
-      ["Uncommon Excellence Girls ES",     "Uncommon Excellence Girls Elementary School",          "NYC_UEGE", "NYC",       "ES", "102"],
-      ["Uncommon Excellence Girls MS",     "Uncommon Excellence Girls Middle School",              "NYC_UEGM", "NYC",       "MS", "104"],
-      ["Uncommon Kings ES",                "Uncommon Kings Elementary School",                     "NYC_UKES", "NYC",       "ES", "207"],
-      ["Uncommon Kings MS",                "Uncommon Kings Middle School",                         "NYC_UKMS", "NYC",       "MS", "202"],
-      ["Uncommon Leadership Charter HS",   "Uncommon Leadership Charter High School",              "NYC_ULC",  "NYC",       "HS", "904"],
-      ["Uncommon Ocean Hill MS",           "Uncommon Ocean Hill Middle School",                    "NYC_UOHM", "NYC",       "MS", "205"],
-      ["Uncommon Prep Charter HS",         "Uncommon Preparatory Charter High School",             "NYC_UPC",  "NYC",       "HS", "903"],
-      ["Uncommon Williamsburg ES",         "Uncommon Williamsburg Elementary School",              "NYC_UWES", "NYC",       "ES", "209"],
-      ["Uncommon Williamsburg MS",         "Uncommon Williamsburg Middle School",                  "NYC_UWMS", "NYC",       "MS", "201"],
-    ];
-
-    for (const [displayName, fullName, abbreviation, region, gradeSpan, schoolNumber] of SCHOOLS) {
-      await client.query(`
-        INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span, school_number)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (abbreviation) DO UPDATE
-          SET display_name   = EXCLUDED.display_name,
-              full_name      = EXCLUDED.full_name,
-              region         = EXCLUDED.region,
-              grade_span     = EXCLUDED.grade_span,
-              school_number  = EXCLUDED.school_number
-      `, [displayName, fullName, abbreviation, region, gradeSpan, schoolNumber]);
-    }
-
-    /* ── Step 8: Ensure the Home Office pseudo-school row exists with school_number ── */
-    const { rows: hoRows } = await client.query<{ exists: boolean }>(
-      `SELECT EXISTS(SELECT 1 FROM schools WHERE is_home_office = TRUE) AS exists`,
-    );
-    if (!hoRows[0].exists) {
-      logger.info("Schools: inserting Home Office pseudo-school");
-      await client.query(`
-        INSERT INTO schools (display_name, full_name, abbreviation, region, grade_span, is_home_office, is_active, school_number)
-        VALUES ('Home Office', 'Home Office', 'HO', '', '', TRUE, TRUE, '000')
-        ON CONFLICT (abbreviation) DO UPDATE SET is_home_office = TRUE, school_number = '000'
-      `);
-    } else {
-      await client.query(`
-        UPDATE schools SET school_number = '000'
-        WHERE is_home_office = TRUE AND school_number IS NULL
-      `);
-    }
-
-    /* ── Step 9: Enforce NOT NULL on legacy columns that pre-date drizzle push ── */
-    await client.query(`
-      ALTER TABLE schools
-        ALTER COLUMN full_name     SET NOT NULL,
-        ALTER COLUMN abbreviation  SET NOT NULL
-    `);
-
-    /* ── Step 10: One-time cleanup — clear includeInFeedbackTracker for HO users ── */
-    await client.query(`
-      UPDATE people
-         SET include_in_feedback_tracker = FALSE
-       WHERE include_in_feedback_tracker = TRUE
-         AND school_id IN (SELECT id FROM schools WHERE is_home_office = TRUE)
-    `);
-
-    logger.info("Schools: schema and seed complete");
-  } finally {
-    client.release();
-  }
-}
-
 async function ensureChatTables(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -245,8 +73,8 @@ async function ensureChatTables(): Promise<void> {
 }
 
 /* ── Backfill school_year_id on any NULL rows, then enforce NOT NULL ─────────
-   Mirrors the ensureSchools() approach: fill data first, then tighten the
-   constraint so the ALTER never runs against a table that still has NULLs.
+   Fill data first, then tighten the constraint so the ALTER never runs
+   against a table that still has NULLs.
    Safe to run multiple times — every UPDATE is filtered on IS NULL,
    and SET NOT NULL is idempotent once the column is already constrained. */
 async function ensureSchoolYearIds(): Promise<void> {
@@ -464,7 +292,6 @@ app.listen(port, (err) => {
 ensureSessionTable()
   .then(() => ensureSchoolYears())
   .then(() => ensureSchoolYearBackfill())
-  .then(() => ensureSchools())
   .then(() => ensureChatTables())
   .then(() => ensureSchoolYearIds())
   .then(() => bootstrapAdmin())

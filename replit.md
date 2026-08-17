@@ -39,17 +39,19 @@ artifacts-monorepo/
 
 ### Application Overview
 
-A principal observation tracker for Uncommon Schools. Principals log classroom observations for 20 teachers, scoring them on rubric domains across 3 categories. The dashboard shows most-recent or period-average scores for all teachers in a color-coded grid with category sub-averages and a Proficient column.
+A principal observation tracker for Uncommon Schools. Leaders log classroom observations for the staff at their school, scoring them on rubric domains grouped into categories. The dashboard shows most-recent or period-average scores for all teachers in a color-coded grid with category sub-averages and a Proficient column.
 
 ### Key Pages
 
 - `/` — Main dashboard grid (observation tracker)
-- `/admin` — Admin settings (Rubric Manager + Teacher Roster; COACH role blocked)
+- `/admin` — Admin settings (tabs are role-gated; COACH is blocked entirely)
+- `/action-center` — Rescore queue, overdue observations, overdue action steps
+- `/drafts` — The current user's unpublished observation drafts
+- `/teacher/:employeeId` — Individual profile with score history
 
 ### Features
 
 - Real-time data from PostgreSQL via Express API
-- 20 seeded teachers with 3 observations each (Q1 2026 data)
 - Filter by subject, grade level; view by teacher, subject, or grade
 - "Most Recent" vs "Quarter Average" toggle
 - Click any teacher name → full profile view
@@ -62,14 +64,14 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 - **User Permissions / RBAC**: Roles: COACH, SCHOOL_LEADER, NETWORK_LEADER, NETWORK_ADMIN
   - COACH: school-based, can view school data + create observations; no admin access
   - SCHOOL_LEADER: school-based, can view school data + create observations + edit school settings (roster)
-  - NETWORK_LEADER: network-based (no schoolId), sees district view + can create obs + edit school settings (roster); NO network settings (rubric/schools)
-  - NETWORK_ADMIN (Super Admin): network-based, full access to all views and all settings
+  - NETWORK_LEADER: assigned to the Home Office school, sees the district view and every school's data, can create observations and manage people network-wide; NO network settings (rubric / schools / school years)
+  - NETWORK_ADMIN (Super Admin): assigned to the Home Office school, full access to all views and all settings, and the only role that can impersonate
+  - NO_ACCESS: provisioned but blocked at login; sessions are invalidated immediately on downgrade
   - Authentication: Google OAuth 2.0 (passport.js) — only pre-provisioned emails can sign in
   - Admin button hidden from COACH role
   - Admin page blocked for COACH (shows Access Restricted screen)
   - Walkthrough toggle shown to SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN
-- **Teacher Roster** (Admin > Teacher Roster tab): Add, Edit, Deactivate teachers; show/hide inactive
-- **User Management** (Admin > Users tab): Add, Edit, Deactivate users (soft-delete via `users.isActive`). Deactivated users cannot log in (blocked at OAuth callback) and cannot be impersonated; existing impersonation sessions auto-terminate. NETWORK_ADMIN scope is global; SCHOOL_LEADER scope is own school + only COACH/SCHOOL_LEADER targets. Self-deactivation blocked.
+- **User Management** (Admin > Users tab): Add, Edit, Deactivate people (soft-delete via `people.isActive`). Covers both staff and observable teachers — they are the same table. Deactivated users cannot log in (blocked at OAuth callback) and cannot be impersonated; existing impersonation sessions auto-terminate. NETWORK_ADMIN scope is global; SCHOOL_LEADER scope is own school + only COACH/SCHOOL_LEADER targets. Self-deactivation blocked.
 
 ### Design
 
@@ -80,13 +82,25 @@ A principal observation tracker for Uncommon Schools. Principals log classroom o
 
 ### Database Schema (lib/db/src/schema/)
 
-- `users` — id, email, name, role (COACH | SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN), schoolId (FK), googleId (text, set on first Google login)
-- `teachers` — id, name, subject, gradeLevel (text[]), isActive (bool)
-- `rubric_sets` — id, slug (Q1), name, isActive, gradeSpan (nullable)
+There is **no `users` table and no `teachers` table** — both were consolidated
+into a single `people` table keyed by `employeeId`. Staff and observed teachers
+are the same records, distinguished by `role` and `includeInFeedbackTracker`.
+
+- `people` — employeeId (PK, text), firstName, lastName, email (NOT NULL, unique), googleId (unique, set on first Google login), role (COACH | SCHOOL_LEADER | NETWORK_LEADER | NETWORK_ADMIN | NO_ACCESS), isActive, includeInFeedbackTracker (marks someone as observable), schoolId (FK), department (enum), gradeLevel (text[]), needsRescore, rescoreDueDate, rescoreSchoolYearId
+- `schools` — id, displayName, fullName, abbreviation (unique), region, gradeSpan, isActive, isArchived, isHomeOffice, schoolNumber
+- `school_years` — id, name, status (active | inactive), displayOrder, startDate, endDate
+- `assignments` — userId (→people), role, schoolId, schoolYearId, startDate, endDate (NULL = current). Drives "is this person active this school year?"
+- `rubric_sets` — id, slug, name, schoolYearId, isActive, isArchived, gradeSpan, description, displayOrder, target (TEACHER | SCHOOL), subjectAudience (STEM | HUMANITIES | ALL). Unique on (schoolYearId, slug)
 - `rubric_categories` — id, rubricSetId, name, displayOrder
-- `rubric_domains` — id, categoryId, name, slug, displayOrder
-- `observations` — id, teacherId, rubricSetId, observerId (FK→users), date, strengths, growthAreas, observer
-- `observation_scores` — id, observationId, domainSlug, score (real: 0 / 0.5 / 1.0)
+- `rubric_domains` — id, categoryId, rubricSetId, schoolYearId, name, slug, displayOrder, description. Unique on (schoolYearId, rubricSetId, slug)
+- `observations` — id, observedEmployeeId, schoolId (frozen at creation — authorization uses this, not the teacher's current school), schoolYearId, rubricSetId, observerEmployeeId, date, time, course, strengths, growthAreas, isWalkthrough, status (draft | published), target (TEACHER | SCHOOL), snapshotGradeSpan, editedByEmployeeId, updatedAt
+- `observation_scores` — id, observationId, domainSlug, score (real: 0 / 0.5 / 1.0). Unique on (observationId, domainSlug)
+- `action_steps` — id, teacherEmployeeId, assignedByEmployeeId, assignedDuringObservationId, text, dueDate, status (open | mastered), masteredAt / masteredByEmployeeId / masteredDuringObservationId, schoolYearId, snapshotSchoolId, snapshotGradeSpan, snapshotRole
+- `chat_sessions` / `chat_messages` — AI assistant history, scoped per employeeId
+- `ai_quota_grants` — per-person extra AI request allowances that bypass rate limits
+- `platform_notifications` / `notification_dismissals` — admin-authored in-app announcements
+- `qualitative_themes_cache` — cached AI theme summaries, keyed (schoolId, rubricSlug)
+- `rate_limit_store` — persistent rate-limit counters (survives restarts)
 
 ### API Endpoints (artifacts/api-server/)
 
@@ -108,40 +122,45 @@ All routes mounted at `/api`:
 - `GET /api/auth/google/callback` — OAuth callback (handled by passport)
 - `GET /api/auth/me` — Returns current user JSON or 401
 - `POST /api/auth/logout` — Destroys session, redirects to `/`
-- `GET /api/users` — List users (SCHOOL_LEADER: own school only; NETWORK_ADMIN: all)
-- `POST /api/users` — Provision new user
-- `PATCH /api/users/:id` — Update user
-- `GET /api/district/summary?rubricSet=Q1` — Per-school aggregated domain averages (DISTRICT_ADMIN)
-- `GET /api/admin/teachers` — All teachers incl. inactive (admin roster)
-- `POST /api/admin/teachers` — Create teacher
-- `PATCH /api/admin/teachers/:id` — Update teacher name/subject/gradeLevel
-- `PATCH /api/admin/teachers/:id/toggle-active` — Toggle isActive
-- `PATCH /api/users/:id/toggle-active` — Soft-delete user (toggle isActive); blocks self
-- `GET /api/action-center/rescore-queue` — Teachers where needsRescore=true + school info + due date
+- `GET /api/people` — List people. COACH / SCHOOL_LEADER: own school. NETWORK_LEADER / NETWORK_ADMIN: all schools, or one via `?schoolId=`
+- `POST /api/people` — Create a person (also opens an assignment for the active year)
+- `POST /api/people/bulk` — CSV bulk import / re-assignment
+- `PATCH /api/people/:employeeId` — Update a person
+- `PATCH /api/people/:employeeId/toggle-active` — Soft-delete (blocks self-deactivation)
+- `POST /api/people/:employeeId/reassign` — Move to a new role/school (NETWORK_ADMIN)
+- `GET /api/district/summary?rubricSet=Q1` — Per-school aggregated domain averages (network scope)
+- `GET /api/admin/schools` — Schools CRUD (NETWORK_ADMIN for writes)
+- `GET /api/admin/school-years` — School-year CRUD + activation (NETWORK_ADMIN)
+- `GET /api/action-center/rescore-queue` — People where needsRescore=true + school info + due date
+- `GET /api/action-center/overdue-observations` — People not observed in 14+ days
+- `GET /api/action-steps` — Action steps; `PATCH /api/action-steps/:id/master` to mark mastered
+- `POST /api/ai/chat` · `/chat/stream` · `/analysis` · `/school-summary` — AI assistant (rate limited)
+- `POST /api/email/send-observation` — Send observation feedback to the teacher via Resend
+- `POST /api/auth/impersonate` · `/stop-impersonating` — NETWORK_ADMIN impersonation
 
-### Phase 5 Features (District Walkthrough + Action Center)
+### District Walkthrough + Action Center
 
 - **`observations.isWalkthrough`** (boolean, DB column `is_walkthrough`) — marks an observation as a district walkthrough
-- **`teachers.needsRescore`** (boolean, DB column `needs_rescore`) — set true when district walkthrough avg < 3.0
-- **`teachers.rescoreDueDate`** (date, DB column `rescore_due_date`) — 14 days after the walkthrough date
-- **Rescore logic**: POST /api/observations — if `isWalkthrough=true` and `observerId` resolves to DISTRICT_ADMIN, auto-flags teacher
+- **`people.needsRescore`** (boolean, DB column `needs_rescore`) — set true when a published walkthrough's mean score is **< 0.7** (scores are 0 / 0.5 / 1.0, so 0.7 is the proficiency threshold). A walkthrough at or above 0.7 clears the flag.
+- **`people.rescoreDueDate`** (date, DB column `rescore_due_date`) — 14 days after the walkthrough date
+- **`people.rescoreSchoolYearId`** — scopes the flag to the school year it was raised in
+- **Rescore logic**: `POST /api/observations` and `PUT /api/observations/:id` — fires when the observation is a published walkthrough and the creator is SCHOOL_LEADER, NETWORK_LEADER, or NETWORK_ADMIN
 - **Dashboard `?walkthroughsOnly=true`** — filters to walkthrough-only observations
-- **Action Center page** (`/action-center`) — rescore queue table with due date status
-- **NewObservationModal walkthrough toggle** — shown only to DISTRICT_ADMIN users
+- **Action Center page** (`/action-center`) — rescore queue, overdue observations, and overdue action steps. Always scoped to one school at a time, so a Network Leader viewing a school sees the same thing that school's leader sees.
 
 ### Frontend Client (artifacts/catalyst-dashboard/src/)
 
 - `lib/api.ts` — Typed fetch helpers for all API endpoints
-- `context/UserContext.tsx` — UserProvider + useUser hook (role switcher, localStorage persist)
-- `components/Dashboard.tsx` — Main grid; routes DISTRICT_ADMIN (no schoolId) → DistrictDashboard; filters teachers by URL schoolId or currentUser.schoolId; includes "Walkthroughs Only" toggle
+- `context/UserContext.tsx` — UserProvider + useUser hook (loads the session from `/api/auth/me`)
+- `components/Dashboard.tsx` — Main grid; routes network-scope users → DistrictDashboard; filters people by URL schoolId or currentUser.schoolId; includes "Walkthroughs Only" toggle
 - `components/DistrictDashboard.tsx` — District-level school grid with per-school domain averages + drill-down
 - `components/TeacherScoreOverlay.tsx` — Full teacher score overlay view
 - `components/DrillDownModal.tsx` — Domain trend chart + observation list
-- `components/NewObservationModal.tsx` — Observation entry form; district walkthrough toggle for DISTRICT_ADMIN
+- `components/NewObservationModal.tsx` — Observation entry form; walkthrough toggle for network-scope users
 - `components/ObservationDetailModal.tsx` — View/edit individual observation
-- `pages/admin.tsx` — Rubric Settings + Teacher Roster tabs; RBAC block for COACH
+- `pages/admin.tsx` — Rubric Settings, Users, Schools, School Years, AI Quota, Notifications tabs; tab visibility is role-gated and COACH is blocked entirely
 - `pages/action-center.tsx` — Rescore queue table with status badges and due dates
-- `data/dummy.ts` — Type definitions + helper functions (data now comes from API)
+- `components/RichTextDisplay.tsx` — Renders stored glows/grows, sanitised with DOMPurify
 
 ### Vite Proxy
 
@@ -149,25 +168,38 @@ The frontend proxies `/api` to `http://localhost:8080` in development (configure
 
 ### Email sending
 
-Direct email send via Resend is **currently disabled** in the UI because the Resend sending domain has not been verified yet. The green "✉ Send Email" button is hidden in the post-save observation preview.
+Direct email send via Resend is **not wired into the UI**, because the Resend
+sending domain has not been verified yet.
 
-Principals send observation feedback to teachers using the still-visible buttons:
-- **Open in Outlook** / **Outlook Web** — opens the principal's mail client with the subject and plain-text body pre-filled.
-- **Copy HTML** / **Copy Text** — copies the formatted email for pasting into any mail tool.
+In the post-save observation preview, principals get a single **Copy Email**
+button, which copies the formatted HTML for pasting into any mail client.
 
-All backend email plumbing remains intact and is not stubbed:
-- `artifacts/api-server/src/routes/email.ts` — `POST /api/email/send-observation` (still mounted, just no UI caller).
+**The backend is fully intact:**
+- `artifacts/api-server/src/routes/email.ts` — `POST /api/email/send-observation`, still mounted and functional (supports `?dryRun=true` to render without sending).
 - `artifacts/api-server/src/lib/resend.ts` — Resend client wrapper using the Replit Resend connector.
-- `sendObservationEmail()` in `artifacts/catalyst-dashboard/src/lib/api.ts` — frontend API call.
-- `handleSendEmail()` in `NewObservationModal.tsx` — frontend handler.
+- `sendObservationEmail()` in `artifacts/catalyst-dashboard/src/lib/api.ts` — the frontend API call, still exported.
+
+**The frontend is not.** `NewObservationModal.tsx` previously carried a
+`handleSendEmail()` handler plus `handleCopy()` / `handleOpenOutlook()` and an
+`EMAIL_DIRECT_SEND_ENABLED` flag. None of them were referenced by any button —
+the buttons had been removed while the handlers were left behind — so the
+"flip the flag to `true`" procedure documented here never actually worked. That
+dead code has been removed; recover it from git history if useful.
 
 **To re-enable direct send when Resend is ready:**
 1. Verify the sending domain (e.g. `uncommonschools.org` or a subdomain) in the Resend dashboard.
 2. Confirm the Replit Resend connector's `from_email` matches the verified domain.
-3. In `artifacts/catalyst-dashboard/src/components/NewObservationModal.tsx`, change `const EMAIL_DIRECT_SEND_ENABLED = false;` (top of file) to `true`.
+3. Add a "Send Email" button to the preview in `NewObservationModal.tsx` that calls the existing `sendObservationEmail()` helper.
 4. Restart the `artifacts/catalyst-dashboard: web` workflow.
 
-No backend or schema changes are required to flip it back on.
+No backend or schema changes are required — only the button and its handler.
+
+## Schools
+
+Schools — including the Home Office pseudo-school that network-level accounts
+must be assigned to — are created and edited **exclusively through the admin
+UI** (Admin → Schools). No startup or deploy code seeds or modifies the
+`schools` table. See `lib/db/README.md` for the history.
 
 ## Packages
 
@@ -184,7 +216,7 @@ Express 5 API server on port 8080. Routes in `src/routes/`:
 
 - `src/index.ts` — Pool + Drizzle instance
 - `src/schema/` — All table definitions + relations
-- `src/seed.ts` — Seeds 20 teachers + Q1 rubric + 60 observations
+- `src/seed.ts` — Seeds demo people, rubric sets, and observations
 - Run: `pnpm --filter @workspace/db run push` (push schema)
 - Run: `cd lib/db && pnpm exec tsx src/seed.ts` (reseed)
 
@@ -218,22 +250,3 @@ Only users pre-provisioned in the `users` table can sign in. To add a user:
 - Via seed: add to `artifacts/api-server/src/seed.ts` and re-run
 
 On first login, the user's `google_id` is populated automatically.
-
-## Pending Production Migration: teacher email NOT NULL
-
-The `teachers.email` column is currently **nullable + unique** in the schema. This is a temporary state to allow the production deploy to succeed (production has 80 existing teachers with no email).
-
-Three-step rollout:
-
-1. ✅ **Done (current).** Schema relaxed to `text("email").unique()`. Deploy this. The post-deploy migration on production will:
-   - `ALTER TABLE teachers ADD COLUMN email TEXT` (nullable — succeeds despite existing rows)
-   - `ALTER TABLE teachers ADD CONSTRAINT teachers_email_unique UNIQUE (email)` (succeeds; multiple NULLs allowed in unique indexes)
-
-2. **Backfill (manual, post-deploy).** Populate emails for the 80 existing teachers via:
-   - Admin UI → Teachers tab → edit each, OR
-   - Admin UI → Teachers tab → CSV bulk import (already validates email present + uniqueness)
-   - Verify with: `SELECT COUNT(*) FILTER (WHERE email IS NULL) FROM teachers;` (should be 0)
-
-3. **Tighten back to NOT NULL (follow-up deploy).** Change `lib/db/src/schema/teachers.ts` line 12 back to `text("email").notNull().unique()` and push. This will succeed only if step 2 left zero NULL rows.
-
-App-level validation in `admin-teachers.ts` already requires email on create/edit/CSV import, so no new teachers can be added without one — only the legacy 80 rows are temporarily allowed to have NULL.
