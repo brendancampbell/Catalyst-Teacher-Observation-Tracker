@@ -7,11 +7,14 @@
  * Requires the dev server to be running (NODE_ENV=development) because it uses
  * the /api/auth/dev-login bypass to establish a session without OAuth.
  *
- * The rate limiter allows 30 PUT requests per user per 15-minute window.
+ * The rate limiter allows 120 PUT requests per user per 15-minute window.
+ * The budget is sized for draft autosave, which PUTs on every pause in
+ * typing — see the comment on observationMutationLimiter. Keep LIMIT below
+ * in step with that value.
  *
  * Scenarios:
- *   1. Requests 1–30 from the same authenticated user → all return non-429
- *   2. Request 31 from the same user → 429 Too Many Requests
+ *   1. Requests 1–LIMIT from the same authenticated user → all return non-429
+ *   2. Request LIMIT+1 from the same user → 429 Too Many Requests
  */
 
 import { test, describe, before, after } from "node:test";
@@ -26,6 +29,9 @@ import { eq, asc, inArray } from "drizzle-orm";
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 /* Unique employee ID — ensures a fresh rate-limit bucket every run */
+/* Must match observationMutationLimiter's `limit` in routes/observations.ts */
+const LIMIT = 120;
+
 const ADMIN_EID  = `TST_RATE_LIMIT_OBS_ADMIN_${Date.now()}`;
 const TEACHER_EID = `TST_RATE_LIMIT_OBS_TEACHER_${Date.now()}`;
 
@@ -180,12 +186,11 @@ describe("Observation mutation rate limiter — PUT /api/observations/:id", () =
     await db.delete(people).where(inArray(people.employeeId, [ADMIN_EID, TEACHER_EID])).catch(() => {});
   });
 
-  /* ── Test 1: requests 1–30 are not blocked ──────────────────────────────── */
+  /* ── Test 1: requests up to the limit are not blocked ───────────────────── */
 
-  test("1 — Requests 1–30 return a non-429 status (rate limit not yet reached)", async () => {
+  test(`1 — Requests 1–${LIMIT} return a non-429 status (rate limit not yet reached)`, async () => {
     assert.ok(createdObsId !== null, "Test observation must exist before this test runs");
 
-    const LIMIT = 30;
     for (let i = 1; i <= LIMIT; i++) {
       const res = await request(
         "PUT",
@@ -201,15 +206,15 @@ describe("Observation mutation rate limiter — PUT /api/observations/:id", () =
     }
   });
 
-  /* ── Test 2: request 31 is blocked with 429 ─────────────────────────────── */
+  /* ── Test 2: the next request is blocked with 429 ───────────────────────── */
 
-  test("2 — Request 31 returns 429 Too Many Requests", async () => {
+  test(`2 — Request ${LIMIT + 1} returns 429 Too Many Requests`, async () => {
     assert.ok(createdObsId !== null, "Test observation must exist before this test runs");
 
     const res = await request(
       "PUT",
       `/observations/${createdObsId}`,
-      { strengths: "rate-limit-probe-31" },
+      { strengths: `rate-limit-probe-${LIMIT + 1}` },
       adminJar,
     );
     assert.equal(
