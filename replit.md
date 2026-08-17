@@ -135,7 +135,6 @@ All routes mounted at `/api`:
 - `GET /api/action-center/overdue-observations` — People not observed in 14+ days
 - `GET /api/action-steps` — Action steps; `PATCH /api/action-steps/:id/master` to mark mastered
 - `POST /api/ai/chat` · `/chat/stream` · `/analysis` · `/school-summary` — AI assistant (rate limited)
-- `POST /api/email/send-observation` — Send observation feedback to the teacher via Resend
 - `POST /api/auth/impersonate` · `/stop-impersonating` — NETWORK_ADMIN impersonation
 
 ### District Walkthrough + Action Center
@@ -168,31 +167,44 @@ The frontend proxies `/api` to `http://localhost:8080` in development (configure
 
 ### Email sending
 
-Direct email send via Resend is **not wired into the UI**, because the Resend
-sending domain has not been verified yet.
+Observation feedback is shared by **copy and paste only**. After saving an
+observation, the preview offers a single **Copy Email** button that copies
+formatted HTML for pasting into Outlook or any other mail client.
 
-In the post-save observation preview, principals get a single **Copy Email**
-button, which copies the formatted HTML for pasting into any mail client.
+There is no automated sending, and no email service integration. The
+server-side send route (`POST /api/email/send-observation`), the Resend client
+wrapper, and the `resend` / `sanitize-html` dependencies were all removed —
+the feature was never reachable from the UI and there are no plans to rebuild
+it. The Replit Resend connector, if still configured, is unused and can be
+disconnected.
 
-**The backend is fully intact:**
-- `artifacts/api-server/src/routes/email.ts` — `POST /api/email/send-observation`, still mounted and functional (supports `?dryRun=true` to render without sending).
-- `artifacts/api-server/src/lib/resend.ts` — Resend client wrapper using the Replit Resend connector.
-- `sendObservationEmail()` in `artifacts/catalyst-dashboard/src/lib/api.ts` — the frontend API call, still exported.
+**The email HTML is built entirely client-side** by `buildHtmlEmail()` in
+`artifacts/catalyst-dashboard/src/components/NewObservationModal.tsx`. Nothing
+about this flow touches the API server.
 
-**The frontend is not.** `NewObservationModal.tsx` previously carried a
-`handleSendEmail()` handler plus `handleCopy()` / `handleOpenOutlook()` and an
-`EMAIL_DIRECT_SEND_ENABLED` flag. None of them were referenced by any button —
-the buttons had been removed while the handlers were left behind — so the
-"flip the flag to `true`" procedure documented here never actually worked. That
-dead code has been removed; recover it from git history if useful.
+Because that function assembles a raw HTML string, every interpolated value
+must stay escaped:
+- `escapeEmailHtml()` — all plain fields (teacher name, course, observer,
+  rubric category and domain labels, dates, grade levels).
+- `sanitizeEmailRichText()` — TipTap rich text (glows, grows, action steps),
+  reduced to a formatting-only tag allowlist via DOMPurify.
 
-**To re-enable direct send when Resend is ready:**
-1. Verify the sending domain (e.g. `uncommonschools.org` or a subdomain) in the Resend dashboard.
-2. Confirm the Replit Resend connector's `from_email` matches the verified domain.
-3. Add a "Send Email" button to the preview in `NewObservationModal.tsx` that calls the existing `sendObservationEmail()` helper.
-4. Restart the `artifacts/catalyst-dashboard: web` workflow.
+The preview iframe is sandboxed without `allow-scripts`, but treat that as a
+backstop rather than the protection.
 
-No backend or schema changes are required — only the button and its handler.
+**If direct sending is ever wanted again**, the removed implementation is
+recoverable from git history — it was deleted in the commit following
+`6406c9a`:
+
+```bash
+git show 6406c9a:artifacts/api-server/src/routes/email.ts > email.ts
+git show 6406c9a:artifacts/api-server/src/lib/resend.ts   > resend.ts
+```
+
+Five test files covering HTML injection, escaping, subject sanitisation,
+observer naming, and school-scope authorisation were removed alongside it and
+are recoverable from the same commit. Expect to rewrite rather than restore:
+the Resend SDK and the surrounding schema will have moved on.
 
 ## Schools
 

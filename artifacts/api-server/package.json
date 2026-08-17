@@ -16,13 +16,9 @@
     "test:school-lookup": "tsx src/test-bulk-import-school-lookup.ts",
     "test:admin-schools-validation": "bash ../../scripts/wait-for-api.sh tsx src/test-admin-schools-validation.ts",
     "test:bulk-people-school-validation": "tsx src/test-bulk-people-school-validation.ts",
-    "test:email-injection": "tsx src/test-email-html-injection.ts",
-    "test:email-escape-guard": "tsx src/test-email-escape-guard.ts",
-    "test:email-subject-sanitization": "tsx src/test-email-subject-sanitization.ts",
     "test:return-to-redirect": "tsx src/test-return-to-redirect.ts",
     "test:coach-cross-school-auth": "tsx src/test-coach-cross-school-auth.ts",
     "test:observation-score-validation": "tsx src/test-observation-score-validation.ts",
-    "test:email-school-scope-auth": "tsx src/test-email-school-scope-auth.ts",
     "test:impersonation-endpoints": "tsx src/test-impersonation-endpoints.ts",
     "test:impersonation-middleware": "tsx --test src/test-impersonation-middleware.ts",
     "test:coach-admin-block": "tsx src/test-coach-admin-block.ts",
@@ -59,11 +55,10 @@
     "test:action-step-school-year-scope": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-school-year-scope.ts",
     "test:action-step-transfer-authz": "bash ../../scripts/wait-for-api.sh tsx --test src/test-action-step-transfer-authz.ts",
     "test:due-date-format-validation": "tsx src/test-due-date-format-validation.ts",
-    "test:email-observer-name": "bash ../../scripts/wait-for-api.sh tsx src/test-email-observer-name.ts",
     "test:rubric-set-slug-chat-cascade": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-set-slug-chat-cascade.ts",
     "test:rubric-reorder-validation": "bash ../../scripts/wait-for-api.sh tsx --test src/test-rubric-reorder-validation.ts",
     "test:dev-seed-guard": "tsx --test src/test-dev-seed-guard.ts",
-    "test": "tsx --test src/test-impersonation-middleware.ts && tsx --test src/test-overdue-action-steps.ts && tsx --test src/test-quota-grant-cleanup.ts && tsx src/test-email-html-injection.ts && tsx src/test-email-escape-guard.ts && tsx src/test-email-subject-sanitization.ts && tsx src/test-return-to-redirect.ts"
+    "test": "tsx --test src/test-impersonation-middleware.ts && tsx --test src/test-overdue-action-steps.ts && tsx --test src/test-quota-grant-cleanup.ts && tsx src/test-return-to-redirect.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
@@ -79,8 +74,6 @@
     "passport-google-oauth20": "^2.0.0",
     "pino": "^9",
     "pino-http": "^10",
-    "resend": "4.0.0",
-    "sanitize-html": "^2.17.6",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -91,7 +84,6 @@
     "@types/node": "catalog:",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
-    "@types/sanitize-html": "^2.16.1",
     "esbuild": "^0.28.1",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",

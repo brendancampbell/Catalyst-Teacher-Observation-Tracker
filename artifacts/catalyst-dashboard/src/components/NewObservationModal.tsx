@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus, Loader2, RotateCcw, AlertCircle, RefreshCw } from "lucide-react";
+import DOMPurify from "dompurify";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
@@ -8,6 +9,29 @@ import { fetchMyDrafts, deleteObservation, createObservation, updateObservation,
 import { toast } from "@/hooks/use-toast";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
+
+/* ── Email HTML escaping ──────────────────────────────────────────────
+   buildHtmlEmail() below assembles a raw HTML string that is rendered in
+   the preview iframe and copied to the clipboard for pasting into a mail
+   client. Every interpolated value must therefore be escaped, and any
+   rich text (TipTap output) sanitised, exactly as the server-side builder
+   used to do before it was removed. The preview iframe is sandboxed
+   without allow-scripts, but that is a backstop, not a substitute.        */
+const EMAIL_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "b", "i", "u", "s", "blockquote"];
+
+function escapeEmailHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Sanitise TipTap rich text down to a safe formatting-only subset. */
+function sanitizeEmailRichText(html: string): string {
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: EMAIL_ALLOWED_TAGS, ALLOWED_ATTR: [] });
+}
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -441,8 +465,8 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   function richToEmailHtml(text: string, color: string): string {
     if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
     const isHtml = /<[a-z][\s\S]*>/i.test(text);
-    if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${text}</div>`;
-    return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${text.trim()}</p>`;
+    if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${sanitizeEmailRichText(text)}</div>`;
+    return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
   }
 
   function buildHtmlEmail(intro: string, glowsText: string, growsText: string, mode: "all" | "scored" | "glows" = emailMode): string {
@@ -498,7 +522,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         if (domainsToShow.length === 0) continue;
         scoreTableRows += `
         <tr>
-          <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${cat.label}</td>
+          <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${escapeEmailHtml(cat.label)}</td>
         </tr>`;
         let catTotal = 0, catCount = 0;
         for (const domain of domainsToShow) {
@@ -508,7 +532,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
           const txt = scoreText(val);
           scoreTableRows += `
         <tr style="border-bottom:1px solid #e2e8f0;">
-          <td style="padding:8px 14px;font-size:13px;color:#374151;">${domain.label}</td>
+          <td style="padding:8px 14px;font-size:13px;color:#374151;">${escapeEmailHtml(domain.label)}</td>
           <td style="padding:8px 6px;text-align:center;">
             <span style="display:inline-block;background:${bg};color:${fg};border-radius:4px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${txt}</span>
           </td>
@@ -556,7 +580,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
-                <img src="${logoUrl}" alt="Uncommon Schools" height="36" style="${logoStyle}"/>
+                <img src="${escapeEmailHtml(logoUrl)}" alt="Uncommon Schools" height="36" style="${logoStyle}"/>
               </td>
               <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
                 Observation Feedback
@@ -572,7 +596,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       <!-- Greeting -->
       <tr>
         <td style="padding:28px 28px 0 28px;">
-          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${intro.replace(/\n/g, "<br/>")}</p>
+          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${escapeEmailHtml(intro).replace(/\n/g, "<br/>")}</p>
         </td>
       </tr>
 
@@ -583,31 +607,31 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
           <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;width:110px;background:#f8fafc;">Date</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${dateLabel}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(dateLabel)}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Time</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${time}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(time)}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Observer</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${observer}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(observer)}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Teacher</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacher?.name ?? ""}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(teacher?.name ?? "")}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Subject</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${teacher?.subject ?? ""}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(teacher?.subject ?? "")}</td>
             </tr>
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Grade</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${gradeLabel}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(gradeLabel)}</td>
             </tr>
             ${course ? `<tr>
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Course</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${course}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(course)}</td>
             </tr>` : ""}
           </table>
         </td>
@@ -662,7 +686,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       </tr>
 
       ${(() => {
-        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         const masteredStep = (markMastered && latestActionStep?.status === "open")
           ? { text: latestActionStep.text, masteredByName: observerName }
           : undefined;
@@ -676,7 +699,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         let rows = "";
         if (masteredStep) {
           const byLine = masteredStep.masteredByName
-            ? ` <span style="color:#6b7280;font-size:12px;">— mastered by ${esc(masteredStep.masteredByName)}</span>`
+            ? ` <span style="color:#6b7280;font-size:12px;">— mastered by ${escapeEmailHtml(masteredStep.masteredByName)}</span>`
             : "";
           rows += `
             <tr style="border-bottom:1px solid #d1fae5;">
@@ -686,19 +709,19 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         }
         if (stillOpenStep) {
           const assignedLine = stillOpenStep.assignedByName
-            ? ` <span style="color:#6b7280;font-size:12px;">— assigned by ${esc(stillOpenStep.assignedByName)}</span>`
+            ? ` <span style="color:#6b7280;font-size:12px;">— assigned by ${escapeEmailHtml(stillOpenStep.assignedByName)}</span>`
             : "";
           rows += `
             <tr style="border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;width:110px;">⏳ Still Open</td>
-              <td style="padding:8px 14px;font-size:13px;color:#78350f;">${richToEmailHtml(stillOpenStep.text, "#78350f")}<br/><span style="font-size:11px;color:#92400e;">Due: ${esc(stillOpenStep.dueDate)}</span>${assignedLine}</td>
+              <td style="padding:8px 14px;font-size:13px;color:#78350f;">${richToEmailHtml(stillOpenStep.text, "#78350f")}<br/><span style="font-size:11px;color:#92400e;">Due: ${escapeEmailHtml(stillOpenStep.dueDate)}</span>${assignedLine}</td>
             </tr>`;
         }
         if (newStep) {
           rows += `
             <tr>
               <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#1d4ed8;background:#eff6ff;width:110px;">🎯 New Step</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e3a8a;">${richToEmailHtml(newStep.text, "#1e3a8a")}<br/><span style="font-size:11px;color:#1e40af;">Due: ${esc(newStep.dueDate)}</span></td>
+              <td style="padding:8px 14px;font-size:13px;color:#1e3a8a;">${richToEmailHtml(newStep.text, "#1e3a8a")}<br/><span style="font-size:11px;color:#1e40af;">Due: ${escapeEmailHtml(newStep.dueDate)}</span></td>
             </tr>`;
         }
         return `

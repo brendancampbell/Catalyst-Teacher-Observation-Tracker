@@ -10,7 +10,6 @@ import adminSchoolsRouter from "./admin-schools";
 import actionCenterRouter from "./action-center";
 import actionStepsRouter from "./action-steps";
 import aiRouter from "./ai";
-import emailRouter from "./email";
 import peopleRouter from "./people";
 import qualitativeThemesRouter from "./qualitative-themes";
 import adminSchoolYearsRouter from "./admin-school-years";
@@ -49,7 +48,6 @@ router.use("/ai/quota-grants",        requireAuth, aiQuotaGrantsRouter);
 router.use("/ai",                     requireAuth, aiRouter);
 router.use("/admin/notifications",    requireAuth, adminNotificationsRouter);
 router.use("/notifications",          requireAuth, notificationsRouter);
-router.use("/email",               requireAuth, emailRouter);
 router.use("/qualitative-themes",  requireAuth, qualitativeThemesRouter);
 
 export default router;

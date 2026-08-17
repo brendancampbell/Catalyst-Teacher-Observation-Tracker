@@ -81,7 +81,6 @@ vi.mock("@/lib/api", () => ({
   updateObservation:     (...args: unknown[]) => mockUpdateObservation(...args),
   fetchMyDrafts:         (...args: unknown[]) => mockFetchMyDrafts(...args),
   fetchLatestActionStep: (...args: unknown[]) => mockFetchLatestActionStep(...args),
-  sendObservationEmail:  vi.fn(),
 }));
 
 /* ── Fixtures ── */

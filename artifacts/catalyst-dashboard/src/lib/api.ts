@@ -638,23 +638,6 @@ export async function generateQualitativeThemes(
   });
 }
 
-/* ── Email ──────────────────────────────────────────────────────── */
-
-export async function sendObservationEmail(payload: {
-  observationId: string;
-  intro: string;
-  glows: string;
-  grows: string;
-  subject: string;
-  teacherEmail: string;
-  logoUrl: string;
-}): Promise<{ ok: boolean }> {
-  return apiFetch<{ ok: boolean }>("/email/send-observation", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 /* ── Admin: School Years ─────────────────────────────────────────── */
 
 import type { SchoolYearRow, SchoolYearActivationPreview } from "@workspace/api-types";
