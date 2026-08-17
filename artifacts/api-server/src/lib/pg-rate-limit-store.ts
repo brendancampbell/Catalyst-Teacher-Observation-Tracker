@@ -10,7 +10,7 @@
  * The default in-memory store is retained for local development.
  */
 
-import type { Store, IncrementResponse } from "express-rate-limit";
+import type { Store, IncrementResponse, ClientRateLimitInfo } from "express-rate-limit";
 
 /** Minimal subset of pg.Pool that this store needs. */
 interface QueryablePool {
@@ -49,6 +49,25 @@ export class PgRateLimitStore implements Store {
 
     const row = rows[0]!;
     return { totalHits: row.hits, resetTime: row.expires_at };
+  }
+
+  /**
+   * Read the current window for a key without consuming a request.
+   *
+   * Optional in express-rate-limit's Store interface, but required here:
+   * GET /api/ai/usage-status reports remaining AI capacity by reading the
+   * store directly. An expired window is reported as absent so callers see
+   * a full allowance rather than stale hits.
+   */
+  async get(key: string): Promise<ClientRateLimitInfo | undefined> {
+    const { rows } = await this.pool.query<{ hits: number; expires_at: Date }>(
+      `SELECT hits, expires_at
+         FROM rate_limit_store
+        WHERE key = $1 AND expires_at > NOW()`,
+      [key],
+    );
+    const row = rows[0];
+    return row ? { totalHits: row.hits, resetTime: row.expires_at } : undefined;
   }
 
   async decrement(key: string): Promise<void> {

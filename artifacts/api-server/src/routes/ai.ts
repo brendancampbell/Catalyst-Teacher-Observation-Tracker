@@ -1,6 +1,6 @@
 import { Router } from "express";
-import rateLimit, { ipKeyGenerator, MemoryStore } from "express-rate-limit";
-import { db } from "@workspace/db";
+import rateLimit, { ipKeyGenerator, MemoryStore, type Store, type ClientRateLimitInfo } from "express-rate-limit";
+import { db, pool } from "@workspace/db";
 import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
 import {
   observations,
@@ -30,13 +30,29 @@ import {
 } from "../services/ai-service";
 import { effectiveSchoolId as resolveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { isProduction } from "../config/env";
+import { PgRateLimitStore } from "../lib/pg-rate-limit-store";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 const router = Router();
 
-/* ── In-memory rate-limiter stores (one per limiter so usage-status can query them) ── */
-const chatStore       = new MemoryStore();
-const generationStore = new MemoryStore();
+/* ── Rate-limiter stores (one per limiter so usage-status can query them) ──
+   Persistent in production so counters survive restarts, deploys and multiple
+   instances — an in-memory counter silently resets every deploy, which on the
+   AI endpoints means the spend cap resets with it. The in-memory store is kept
+   for local development. Both are instantiated explicitly (rather than letting
+   express-rate-limit create one) because GET /api/ai/usage-status reads the
+   store directly to report remaining capacity.                              */
+const AI_WINDOW_MS = 15 * 60 * 1000;
+
+/* `get` is optional on express-rate-limit's Store, but usage-status depends on
+   it, so require it here — both implementations provide it. */
+type ReadableStore = Store & { get(key: string): Promise<ClientRateLimitInfo | undefined> };
+
+const makeAiStore = (): ReadableStore =>
+  isProduction ? new PgRateLimitStore(pool, AI_WINDOW_MS) : new MemoryStore();
+
+const chatStore       = makeAiStore();
+const generationStore = makeAiStore();
 
 /* ── Per-user rate limiters for AI generation endpoints ──────────────
    Chat/stream: 20 requests per 15-minute window per user.
@@ -44,7 +60,7 @@ const generationStore = new MemoryStore();
    Uses employeeId as the key so limits are per account, not per IP.  */
 const aiChatLimiter = rateLimit({
   store:    chatStore,
-  windowMs: 15 * 60 * 1000,
+  windowMs: AI_WINDOW_MS,
   limit: 20,
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;
@@ -85,7 +101,7 @@ const aiChatLimiter = rateLimit({
 
 const aiGenerationLimiter = rateLimit({
   store:    generationStore,
-  windowMs: 15 * 60 * 1000,
+  windowMs: AI_WINDOW_MS,
   limit: 10,
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;

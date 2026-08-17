@@ -51,6 +51,41 @@ const observationMutationLimiter = rateLimit({
   legacyHeaders:   false,
 });
 
+/* ── Per-user rate limiter for observation creation ──────────────────
+   Deliberately a SEPARATE budget from the mutation limiter above, not a
+   shared one. Draft autosave PUTs the same observation every ~2s of idle
+   typing, so PUT traffic is high-volume and already spends most of the
+   30-request mutation budget. Folding POST into that bucket would make a
+   normal drafting session more likely to hit the limit.
+
+   Creation is low-volume by nature — a busy day of observations is well
+   under 20 — so 60 per 15-minute window never troubles real use while
+   still bounding automated row creation.                               */
+const observationCreateLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  limit: 60,
+  store: process.env.NODE_ENV === "production"
+    ? new PgRateLimitStore(pool, RATE_LIMIT_WINDOW_MS)
+    : undefined,
+  keyGenerator: (req) => {
+    const user = req.user as Express.User | undefined;
+    return user?.employeeId ?? ipKeyGenerator(req.ip ?? "");
+  },
+  handler: (req, res) => {
+    req.log.warn(
+      {
+        event:            "observation_create_rate_limit_exceeded",
+        actingEmployeeId: (req.user as Express.User | undefined)?.employeeId,
+        path:             req.path,
+      },
+      "observation create rate limit exceeded",
+    );
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+  },
+  standardHeaders: true,
+  legacyHeaders:   false,
+});
+
 /* ── validateScores ──────────────────────────────────────────────────
    Returns { ok: true } when every entry in `scores` has a value in
    {0, 0.5, 1} AND every key is a domain slug that belongs to the
@@ -400,7 +435,7 @@ router.get("/:id", async (req, res) => {
    caller must be NETWORK_ADMIN.
    observerEmployeeId is ALWAYS derived from the authenticated session.
    observer name/email are derived from the observer's people record.   */
-router.post("/", async (req, res) => {
+router.post("/", observationCreateLimiter, async (req, res) => {
   try {
     const {
       observedEmployeeId, teacherId,

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   observations,
   people,
@@ -18,14 +18,21 @@ import {
   assertNetworkSchoolAccess,
 } from "../middleware/auth";
 import { generateQualitativeThemesSummary } from "../services/ai-service";
+import { isProduction } from "../config/env";
+import { PgRateLimitStore } from "../lib/pg-rate-limit-store";
 
 const router = Router();
 
 /* ── Per-user rate limiter for the expensive AI generation endpoint ──
    10 requests per 15-minute window per authenticated user.
-   Uses employeeId as the key so limits are per account, not per IP.  */
+   Uses employeeId as the key so limits are per account, not per IP.
+   Persistent in production so the counter survives restarts and deploys and
+   is shared across instances; in-memory locally.                          */
+const QUALITATIVE_WINDOW_MS = 15 * 60 * 1000;
+
 const qualitativeGenerationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  store: isProduction ? new PgRateLimitStore(pool, QUALITATIVE_WINDOW_MS) : undefined,
+  windowMs: QUALITATIVE_WINDOW_MS,
   limit: 10,
   keyGenerator: (req) => {
     const user = req.user as Express.User | undefined;

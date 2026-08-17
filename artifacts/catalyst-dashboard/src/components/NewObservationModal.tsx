@@ -496,9 +496,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       return val === 0.5 ? "0.5" : String(val);
     }
 
-    // Trend: compare current scores to most recent prior observation for this teacher
+    /* Trend: compare current scores to the most recent PRIOR observation.
+       Only observations dated on or before this one count as prior — sorting
+       by date alone would let an observation dated in the future (a mistyped
+       year, say) become the baseline and invert the arrow. Drafts are already
+       excluded upstream by the dashboard query. */
     const prevObs = (teachers.find((t) => t.id === teacherId)?.observations ?? [])
-      .slice()
+      .filter((o) => o.date <= date)
       .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
     function trendHtml(domainId: string, currentVal: Score | undefined): string {
