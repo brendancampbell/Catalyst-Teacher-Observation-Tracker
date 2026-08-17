@@ -4,18 +4,13 @@ import { X, Plus, Loader2, RotateCcw, AlertCircle, RefreshCw } from "lucide-reac
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
-import { sendObservationEmail, fetchMyDrafts, deleteObservation, createObservation, updateObservation, fetchLatestActionStep } from "@/lib/api";
+import { fetchMyDrafts, deleteObservation, createObservation, updateObservation, fetchLatestActionStep } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
-
-// Direct email send is gated off until the Resend sending domain is verified.
-// Flip to `true` when the Resend connector is fully configured and the
-// sending domain is verified. See replit.md → "Email sending".
-const EMAIL_DIRECT_SEND_ENABLED = false;
 
 interface Props {
   teachers: Teacher[];
@@ -104,18 +99,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const isSubmittingRef   = useRef(false);
   const draftIdRef        = useRef<string | null>(null);
   const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; htmlEmail: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   const [copiedHtml, setCopiedHtml] = useState(false);
   const [editableIntro, setEditableIntro] = useState("");
   const [editableGlows, setEditableGlows] = useState("");
   const [editableGrows, setEditableGrows] = useState("");
   const [emailTab, setEmailTab] = useState<"preview" | "edit">("edit");
   const [editableSubject, setEditableSubject] = useState("");
-  const [savedObsId, setSavedObsId] = useState<string | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailSendError, setEmailSendError] = useState<string | null>(null);
-  const [outlookHint, setOutlookHint] = useState(false);
+  const [, setSavedObsId] = useState<string | null>(null);
   const [emailMode, setEmailMode] = useState<"all" | "scored" | "glows">("all");
 
   /* ── Action step state ────────────────────────────────────────── */
@@ -354,18 +344,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setIsWalkthrough(false);
     setEmailFeedback(false);
     setEmailPreview(null);
-    setCopied(false);
     setCopiedHtml(false);
     setEditableSubject("");
     setEditableIntro("");
     setEditableGlows("");
     setEditableGrows("");
     setEmailTab("edit");
-    setSavedObsId(null);
-    setSendingEmail(false);
-    setEmailSent(false);
-    setEmailSendError(null);
-    setOutlookHint(false);
     setEmailMode("all");
     setDraftId(null);
     setDraftResumedFrom(null);
@@ -463,7 +447,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
   function buildHtmlEmail(intro: string, glowsText: string, growsText: string, mode: "all" | "scored" | "glows" = emailMode): string {
     const teacher = teachers.find((t) => t.id === teacherId);
-    const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
     const dateLabel = formatDateLong(date);
     const observer = observerName ?? "Your Observer";
     const logoUrl = `${window.location.origin}/uncommon-logo-white.png`;
@@ -814,48 +797,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
   }
 
-  async function handleSendEmail() {
-    if (!savedObsId) return;
-    const teacher = teachers.find((t) => t.id === teacherId);
-    if (!teacher?.email) return;
-    setSendingEmail(true);
-    setEmailSendError(null);
-    try {
-      await sendObservationEmail({
-        observationId: savedObsId,
-        intro: editableIntro,
-        glows: editableGlows,
-        grows: editableGrows,
-        subject: editableSubject,
-        teacherEmail: teacher.email,
-        logoUrl: `${window.location.origin}/uncommon-logo-white.png`,
-      });
-      setEmailSent(true);
-      const teacherFirstName = teacher.firstName || teacher.name.split(" ")[0];
-      toast({
-        title: "Email sent",
-        description: `Email sent to ${teacherFirstName}`,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send email";
-      setEmailSendError(message);
-      toast({
-        title: "Failed to send email",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setSendingEmail(false);
-    }
-  }
-
-  function handleCopy(body: string) {
-    navigator.clipboard.writeText(body).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
-  }
-
   async function writeRichHtmlToClipboard(html: string): Promise<void> {
     const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
 
@@ -902,13 +843,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     try { await writeRichHtmlToClipboard(html); } catch { /* ignore */ }
     setCopiedHtml(true);
     setTimeout(() => setCopiedHtml(false), 3500);
-  }
-
-  async function handleOpenOutlook(outlookUrl: string) {
-    try { await writeRichHtmlToClipboard(liveHtmlEmail); } catch { /* ignore */ }
-    window.open(outlookUrl, "_blank", "noopener,noreferrer");
-    setOutlookHint(true);
-    setTimeout(() => setOutlookHint(false), 10000);
   }
 
   // Recomputes whenever the editable text fields change

@@ -21,7 +21,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { observations, observationScores, people, schools, rubricSets, rubricCategories, rubricDomains, schoolYears } from "@workspace/db/schema";
-import { eq, inArray, asc, and } from "drizzle-orm";
+import { eq, inArray, asc} from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -81,8 +81,6 @@ async function loginAs(employeeId: string): Promise<Jar> {
 /* ── Test state ───────────────────────────────────────────────────────────── */
 
 let leaderAJar: Jar;
-let obsAId: number;
-let obsBId: number;
 const TEST_DOMAIN_SLUG = "tst_ac_domain";
 
 describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection", () => {
@@ -163,7 +161,6 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
       })
       .returning({ id: observations.id });
     assert.ok(obsA, "Failed to insert School A test observation");
-    obsAId = obsA.id;
     createdObsIds.push(obsA.id);
 
     const [scoreA] = await db
@@ -188,7 +185,6 @@ describe("Action-center endpoint auth — SCHOOL_LEADER cross-school protection"
       })
       .returning({ id: observations.id });
     assert.ok(obsB, "Failed to insert School B test observation");
-    obsBId = obsB.id;
     createdObsIds.push(obsB.id);
 
     const [scoreB] = await db

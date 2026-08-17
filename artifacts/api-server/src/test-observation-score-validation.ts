@@ -29,7 +29,6 @@ const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 /* Resolved dynamically in before() */
 let SCHOOL_ID: number;
 let RUBRIC_SET_ID: number;
-let RUBRIC_SET_SLUG: string;
 let VALID_DOMAIN_SLUG: string;
 
 /* Temporary test entity IDs */
@@ -105,7 +104,6 @@ describe("Observation score input validation — POST and PUT", () => {
     assert.ok(rs, "Failed to insert test rubric set");
     createdRubricSetId = rs.id;
     RUBRIC_SET_ID      = rs.id;
-    RUBRIC_SET_SLUG    = rs.slug;
 
     const [cat] = await db
       .insert(rubricCategories)

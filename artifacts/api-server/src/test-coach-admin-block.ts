@@ -25,7 +25,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { asc, inArray } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 

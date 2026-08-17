@@ -9,7 +9,6 @@ import { isNetworkScope } from "@/lib/roles";
 import { ChevronRight, School as SchoolIcon, AlertCircle, Loader2 } from "lucide-react";
 
 const NAVY = "#1034B4";
-const YELLOW = "#FFB500";
 
 export default function SchoolPickerPage() {
   const { user } = useAuth();

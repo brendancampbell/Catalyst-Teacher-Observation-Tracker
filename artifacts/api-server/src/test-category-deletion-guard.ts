@@ -67,7 +67,6 @@ const ts = Date.now() + Math.floor(Math.random() * 1_000_000);
 let adminEmployeeId: string | null = null;
 let createdSetIds:   number[]      = [];
 let createdCatIds:   number[]      = [];
-let createdDomIds:   number[]      = [];
 let createdObsIds:   number[]      = [];
 
 async function cleanup() {
@@ -81,7 +80,6 @@ async function cleanup() {
     await db.delete(rubricSets).where(inArray(rubricSets.id, createdSetIds));
     createdSetIds  = [];
     createdCatIds  = [];
-    createdDomIds  = [];
   }
   if (adminEmployeeId) {
     await db.delete(people).where(eq(people.employeeId, adminEmployeeId));
@@ -157,7 +155,7 @@ describe("DELETE /api/rubric/categories/:id — score-count guard", () => {
     [emptyCatId, guardedCatId, forcedCatId] = createdCatIds;
 
     /* 5 ── Domains for the guarded and forced categories ─────────────────── */
-    const doms = await db.insert(rubricDomains).values([
+    await db.insert(rubricDomains).values([
       {
         categoryId:   guardedCatId,
         rubricSetId:  guardedSetId,
@@ -175,7 +173,6 @@ describe("DELETE /api/rubric/categories/:id — score-count guard", () => {
         displayOrder: 1,
       },
     ]).returning({ id: rubricDomains.id });
-    createdDomIds = doms.map((r) => r.id);
 
     /* 6 ── Observations + scores referencing each domain ─────────────────── */
     const obsRows = await db.insert(observations).values([

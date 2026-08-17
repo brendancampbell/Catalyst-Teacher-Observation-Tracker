@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const NAVY = "#1034B4";
-const YELLOW = "#FFB500";
 
 const SCORE_OPTIONS: { value: Score; label: string }[] = [
   { value: 0,   label: "Not Yet" },
@@ -160,8 +159,6 @@ export function ObservationDetailModal({
     }
   }
 
-  const inputBase =
-    "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   return (
     <>

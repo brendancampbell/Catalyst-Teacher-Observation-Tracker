@@ -183,15 +183,6 @@ for (const [name, payload] of timePayloads) {
  *      attribute-breakout patterns, or dangerous schemes.
  * ─────────────────────────────────────────────────────────────────────── */
 
-/** Re-implements formatDateLong exactly as it appears in email.ts. */
-function formatDateLong(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 const dateLabelPayloads: Array<[string, string]> = [
   ["script tag",           "<script>alert(1)</script>"],

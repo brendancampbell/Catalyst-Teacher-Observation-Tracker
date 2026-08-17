@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, pool } from "@workspace/db";
-import { schools, people } from "@workspace/db/schema";
+import { schools} from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { insertSchoolSchema, patchSchoolSchema } from "@workspace/db/schema";

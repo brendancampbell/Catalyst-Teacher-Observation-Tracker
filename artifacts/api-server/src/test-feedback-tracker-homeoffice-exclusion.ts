@@ -19,7 +19,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { eq, and } from "drizzle-orm";
+import { eq} from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 

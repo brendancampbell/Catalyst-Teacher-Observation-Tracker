@@ -1,4 +1,4 @@
-import type { Score, Teacher, Observation, InstantAnalysisStructured } from "@workspace/api-types";
+import type { Observation, InstantAnalysisStructured } from "@workspace/api-types";
 
 export type {
   Score,

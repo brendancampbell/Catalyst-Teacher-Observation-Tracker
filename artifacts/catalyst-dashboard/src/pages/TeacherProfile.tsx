@@ -2,12 +2,10 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import {
   fetchActionSteps,
   masterActionStep,
-  fetchPeople,
   fetchDashboard,
   fetchRubricSets,
   createObservation,
@@ -47,7 +45,6 @@ interface Props {
 
 export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   const { currentUser } = useUser();
@@ -70,18 +67,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   });
 
   /* Resolve teacher name from the people list when the prop isn't supplied */
-  const { data: resolvedName } = useQuery<string | undefined>({
-    queryKey: [...QUERY_KEYS.personName, employeeId],
-    queryFn:  async () => {
-      const all   = await fetchPeople();
-      const match = all.find((p) => p.employeeId === employeeId);
-      return match ? `${match.firstName} ${match.lastName}`.trim() : undefined;
-    },
-    staleTime: 5 * 60_000,
-    enabled:   !teacherName && !!employeeId,
-  });
 
-  const displayName = teacherName ?? resolvedName;
 
   /* ── Rubric sets (for modal) ─────────────────────────── */
   const { data: quarters = [] } = useQuery<RubricSetRow[]>({

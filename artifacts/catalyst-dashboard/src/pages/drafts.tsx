@@ -19,7 +19,6 @@ import {
   type CategoryEntry,
 } from "@/lib/api";
 import { NewObservationModal } from "@/components/NewObservationModal";
-import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
 import type { Teacher, DomainEntry, Score } from "@/data/dummy";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -66,7 +65,6 @@ export default function DraftsPage() {
   const { currentUser } = useUser();
   const queryClient     = useQueryClient();
   const baseUrl         = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-  const [, navigate]    = useLocation();
   const search          = useSearch();
 
   const [deleting,      setDeleting]      = useState<string | null>(null);
@@ -101,7 +99,7 @@ export default function DraftsPage() {
 
   /* ── New-observation modal state ─────────────────────────────────── */
   const [newObsOpen,    setNewObsOpen]    = useState(false);
-  const [newObsLoading, setNewObsLoading] = useState(false);
+  const [, setNewObsLoading] = useState(false);
   const [newObsSaving,  setNewObsSaving]  = useState(false);
   const [newObsData, setNewObsData] = useState<{
     teachers:    Teacher[];

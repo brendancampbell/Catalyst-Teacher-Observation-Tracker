@@ -20,7 +20,6 @@ import { isNetworkScope } from "@/lib/roles";
 import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff, RefreshCw } from "lucide-react";
 
 const NAVY = "#1034B4";
-const YELLOW = "#FFB500";
 
 const SCORE_OPTIONS: { value: Score; label: string }[] = [
   { value: 0, label: "Not Yet" },

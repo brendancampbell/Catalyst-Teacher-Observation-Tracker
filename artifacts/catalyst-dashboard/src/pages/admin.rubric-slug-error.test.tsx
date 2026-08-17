@@ -108,11 +108,6 @@ async function renderRubricSettings() {
 }
 
 /* Helper: find all buttons whose only direct child is an SVG (icon buttons) */
-function iconButtons() {
-  return Array.from(document.querySelectorAll("button")).filter(
-    (b) => b.querySelector("svg"),
-  );
-}
 
 /** Edit (pencil) buttons are the ones with class `hover:text-blue-600` */
 function editPencilButtons() {

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, Plus, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
@@ -404,9 +404,6 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   });
   const [masteringId, setMasteringId] = useState<number | null>(null);
 
-  const openSteps = actionSteps.filter((s) => s.status === "open");
-  const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
-  const todayIsoProfile = new Date().toISOString().slice(0, 10);
 
   async function handleMasterStep(stepId: number) {
     setMasteringId(stepId);
@@ -459,12 +456,6 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   );
 
   const recent = sortedObs[0];
-  const recentScores = useMemo(() => {
-    if (!recent) return [];
-    return activeCategories.flatMap((c) => c.domains)
-      .map((d) => ({ domain: d, score: recent.scores[d.id] as Score | undefined }))
-      .filter((x): x is { domain: typeof x.domain; score: Score } => x.score !== undefined);
-  }, [recent, activeCategories]);
 
   const allScores = useMemo(() => {
     return activeCategories.flatMap((c) => c.domains).map((d) => {

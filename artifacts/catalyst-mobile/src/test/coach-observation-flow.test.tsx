@@ -25,11 +25,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // We need to track navigate calls and selectedRubric mutations across pages.
 
 const mockNavigate = vi.fn();
-let capturedSelectedRubric: unknown = null;
 
-const mockSetSelectedRubric = vi.fn((rubric: unknown) => {
-  capturedSelectedRubric = rubric;
-});
+const mockSetSelectedRubric = vi.fn();
 
 const COACH_USER = {
   id: 99,
@@ -175,7 +172,6 @@ describe("Step 2 — COACH rubric selection", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockSetSelectedRubric.mockClear();
-    capturedSelectedRubric = null;
     setupAppContext();
 
     mockApiFetch.mockImplementation((url: string) => {

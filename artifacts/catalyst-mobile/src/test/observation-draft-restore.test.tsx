@@ -523,7 +523,6 @@ describe("ObservationPage — 0.0 (Not Yet) score preservation through draft sav
         /* The "Not Yet" pill (value 0) must have the selected style (red background),
            not the unselected grey — confirming 0 was NOT treated as falsy. */
         const notYetBtn = screen.getByTitle("Not Yet");
-        const style = window.getComputedStyle(notYetBtn);
         /* jsdom resolves inline styles; check backgroundColor or the style attribute */
         /* jsdom normalises hex colours to rgb() in inline styles */
         expect(notYetBtn.getAttribute("style")).toContain("rgb(252, 165, 165)");

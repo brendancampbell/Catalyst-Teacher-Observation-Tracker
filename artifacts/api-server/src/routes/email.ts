@@ -453,18 +453,19 @@ router.post(
       : null;
 
     /* ── Authorization: school-scoped users may only access their own school ──
-         TEACHER-target observations store schoolId = null on the observation row;
-         the teacher's actual school is on their people record.
-         SCHOOL-target observations store schoolId directly on obs.schoolId.      */
+         Authorize against the observation's OWN schoolId, which is frozen at
+         creation — never against the teacher's current school. A teacher who
+         transfers from School B to School A must not expose their School-B
+         observations to School A's staff.
+         Rows with schoolId = null (legacy, pre-stamp) cannot be attributed to
+         any school and are denied. This matches the fail-closed rule already
+         applied by GET / PUT / DELETE /api/observations/:id.                   */
     if (!isNetworkScope) {
       if (!currentUser.schoolId) {
         res.status(403).json({ error: "No school assigned to this user" });
         return;
       }
-      const effectiveSchoolId = obs.observedEmployeeId
-        ? teacher.schoolId
-        : obs.schoolId;
-      if (effectiveSchoolId !== currentUser.schoolId) {
+      if (obs.schoolId == null || obs.schoolId !== currentUser.schoolId) {
         res.status(403).json({ error: "Access denied" });
         return;
       }

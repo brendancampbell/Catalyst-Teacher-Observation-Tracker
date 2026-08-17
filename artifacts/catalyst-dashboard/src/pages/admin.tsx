@@ -4,7 +4,7 @@ import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, SkipForward, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
@@ -65,7 +65,7 @@ import {
   HttpError,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
-import { SUBJECTS, GRADE_LEVELS } from "@/data/dummy";
+import { GRADE_LEVELS } from "@/data/dummy";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -122,7 +122,7 @@ export function RubricSettings({ setSlug }: { setSlug: string }) {
   const [editingCatName, setEditingCatName] = useState("");
   const [editingDomId,   setEditingDomId]   = useState<number | null>(null);
   const [editingDomName, setEditingDomName] = useState("");
-  const [editingDomSlug, setEditingDomSlug] = useState("");
+  const [, setEditingDomSlug] = useState("");
   const [editingDomDesc, setEditingDomDesc] = useState("");
   const [addingCat,         setAddingCat]         = useState(false);
   const [newCatName,        setNewCatName]        = useState("");
@@ -1196,7 +1196,6 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
   const [search,          setSearch]          = useState("");
   const [filterRoles,     setFilterRoles]     = useState<string[]>([]);
   const [filterSchools,   setFilterSchools]   = useState<string[]>([]);
-  const [filterObservable, setFilterObservable] = useState(false);
 
   /* Pagination */
   const [page,     setPage]     = useState(1);
@@ -1807,7 +1806,6 @@ function SchoolCsvModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     }
   }
 
-  const validRows   = parsedRows.filter((r) => r.displayName && r.fullName && r.abbreviation && r.region && r.gradeSpan);
   const allRegions  = new Set(REGIONS as readonly string[]);
   const allSpans    = new Set(GRADE_SPANS as readonly string[]);
 
@@ -3450,20 +3448,6 @@ export default function AdminPage() {
     },
   });
 
-  function moveRubricSet(slug: string, direction: "left" | "right") {
-    const idx = activeSets.findIndex((q) => q.slug === slug);
-    if (idx < 0) return;
-    const swapIdx = direction === "left" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= activeSets.length) return;
-    const a = activeSets[idx];
-    const b = activeSets[swapIdx];
-    const newOrderA = b.displayOrder !== a.displayOrder ? b.displayOrder : (direction === "left" ? a.displayOrder - 1 : a.displayOrder + 1);
-    const newOrderB = a.displayOrder;
-    reorderMut.mutate([
-      { slug: a.slug, displayOrder: newOrderA },
-      { slug: b.slug, displayOrder: newOrderB },
-    ]);
-  }
 
   if (userLoading) {
     return (

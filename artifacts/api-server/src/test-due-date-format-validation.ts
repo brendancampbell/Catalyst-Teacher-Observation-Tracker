@@ -38,7 +38,6 @@ const TEACHER_EID = "TST_DDVAL_TEACHER";
 /* ── State resolved in before() ─────────────────────────────────────────── */
 let SCHOOL_ID: number;
 let RUBRIC_SET_ID: number;
-let RUBRIC_SET_SLUG: string;
 
 /* IDs created during setup — cleaned up in after() */
 let createdObsId: number | null = null;
@@ -115,7 +114,6 @@ describe("Due-date ISO format validation — POST obs, PUT obs, PATCH action-ste
     assert.ok(rs, "Failed to insert test rubric set");
     createdRubricSetId = rs.id;
     RUBRIC_SET_ID      = rs.id;
-    RUBRIC_SET_SLUG    = rs.slug;
 
     const [cat] = await db
       .insert(rubricCategories)

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
-import { requireRole, assertNetworkSchoolAccess, type UserRole } from "../middleware/auth";
+import { requireRole, assertNetworkSchoolAccess, canAccessSchoolScopedRecord, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
@@ -720,7 +720,9 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
     const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
 
     if (!isNetworkScope) {
-      if (target.schoolId !== currentUser.schoolId) {
+      /* Fail closed: a caller with no school, or a target with no school,
+         is denied rather than matching on null === null.                  */
+      if (!canAccessSchoolScopedRecord(currentUser, target.schoolId)) {
         res.status(403).json({ error: "Cannot edit people from another school" }); return;
       }
       if (
@@ -859,7 +861,9 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
     }
 
     if (!isNetworkScope) {
-      if (target.schoolId !== currentUser.schoolId) {
+      /* Fail closed: a caller with no school, or a target with no school,
+         is denied rather than matching on null === null.                  */
+      if (!canAccessSchoolScopedRecord(currentUser, target.schoolId)) {
         res.status(403).json({ error: "Cannot edit people from another school" }); return;
       }
       if (!SCHOOL_ASSIGNABLE_ROLES.includes(target.role as UserRole) && target.role !== "NO_ACCESS") {

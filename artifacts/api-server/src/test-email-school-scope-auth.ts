@@ -1,17 +1,23 @@
 /**
  * Regression tests for school-scope auth on POST /api/email/send-observation.
  *
- * Root cause fixed: TEACHER-target observations store schoolId = null on the
- * observation row. The old check compared obs.schoolId === currentUser.schoolId,
- * which was always false (null !== number), so every COACH/SCHOOL_LEADER attempt
- * was rejected with 403. The fix looks up the teacher's schoolId from the people
- * table when obs.observedEmployeeId is set.
+ * Authorization uses the observation's OWN schoolId, which is stamped at
+ * creation and never changes. It must NOT use the teacher's current school:
+ * a teacher who transfers from School B to School A would otherwise expose
+ * their School-B observations to School A staff.
+ *
+ * History: TEACHER-target observations once stored schoolId = null, so an
+ * earlier fix resolved the school via the teacher's people record. Observations
+ * have carried their own schoolId since, and the people-record lookup became a
+ * cross-school leak. These tests pin the corrected behaviour.
  *
  * Scenarios:
- *   1. SCHOOL_LEADER in School A sends email for a teacher in School A → NOT 403
+ *   1. SCHOOL_LEADER in School A sends email for a School-A observation → NOT 403
  *      (may be 502 if Resend key absent in test env — that's fine, auth passed)
- *   2. SCHOOL_LEADER in School A attempts to send email for a teacher in School B
- *      → 403
+ *   2. SCHOOL_LEADER in School A attempts a School-B observation → 403
+ *   3. Transferred teacher: observation stamped School B, teacher now in School A.
+ *      School A's leader → 403 (the leak this guards against)
+ *   4. Legacy observation with schoolId = null → 403 (fail closed)
  *
  * Run with:
  *   pnpm --filter @workspace/api-server run test:email-school-scope-auth
@@ -67,11 +73,14 @@ async function loginAs(employeeId: string): Promise<Jar> {
 const SL_EID        = "TST_EMAIL_SCOPE_SL";       // SCHOOL_LEADER in School A
 const TEACHER_A_EID = "TST_EMAIL_SCOPE_TCH_A";    // teacher in School A
 const TEACHER_B_EID = "TST_EMAIL_SCOPE_TCH_B";    // teacher in School B
+const TEACHER_T_EID = "TST_EMAIL_SCOPE_TCH_T";    // transferred B → A
 
 let SCHOOL_A_ID: number;
 let SCHOOL_B_ID: number;
-let OBS_A_ID: number;   // observation for TEACHER_A (School A)
-let OBS_B_ID: number;   // observation for TEACHER_B (School B)
+let OBS_A_ID: number;        // observation for TEACHER_A, stamped School A
+let OBS_B_ID: number;        // observation for TEACHER_B, stamped School B
+let OBS_TRANSFER_ID: number; // stamped School B; teacher now sits in School A
+let OBS_LEGACY_ID: number;   // legacy row with schoolId = null
 let createdRubricSetId: number;
 let createdCategoryId: number;
 let createdDomainId: number;
@@ -146,15 +155,26 @@ describe("Email send-observation — school-scope authorization", () => {
         isActive:                 true,
         includeInFeedbackTracker: false,
       },
+      {
+        /* Observed at School B, since transferred to School A */
+        employeeId:               TEACHER_T_EID,
+        firstName:                "Teacher",
+        lastName:                 "Transferred",
+        email:                    "tst.email.scope.tch.t@example.com",
+        role:                     "NO_ACCESS",
+        schoolId:                 SCHOOL_A_ID,
+        isActive:                 true,
+        includeInFeedbackTracker: false,
+      },
     ]).onConflictDoNothing();
 
-    /* Observations — TEACHER-target means schoolId = null on the row */
+    /* Observations carry their own schoolId, stamped at creation */
     const [obsA] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:       activeSchoolYearId,
         observedEmployeeId: TEACHER_A_EID,
-        schoolId:           null,
+        schoolId:           SCHOOL_A_ID,
         rubricSetId:        createdRubricSetId,
         observerEmployeeId: SL_EID,
         date:               "2025-08-01",
@@ -167,9 +187,9 @@ describe("Email send-observation — school-scope authorization", () => {
     const [obsB] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:       activeSchoolYearId,
         observedEmployeeId: TEACHER_B_EID,
-        schoolId:           null,
+        schoolId:           SCHOOL_B_ID,
         rubricSetId:        createdRubricSetId,
         observerEmployeeId: SL_EID,
         date:               "2025-08-02",
@@ -179,14 +199,46 @@ describe("Email send-observation — school-scope authorization", () => {
       .returning({ id: observations.id });
     OBS_B_ID = obsB!.id;
 
+    /* Transferred teacher: observation belongs to School B, person now in School A */
+    const [obsT] = await db
+      .insert(observations)
+      .values({
+        schoolYearId:       activeSchoolYearId,
+        observedEmployeeId: TEACHER_T_EID,
+        schoolId:           SCHOOL_B_ID,
+        rubricSetId:        createdRubricSetId,
+        observerEmployeeId: SL_EID,
+        date:               "2025-08-03",
+        status:             "published",
+        target:             "TEACHER",
+      })
+      .returning({ id: observations.id });
+    OBS_TRANSFER_ID = obsT!.id;
+
+    /* Legacy row predating the schoolId stamp */
+    const [obsL] = await db
+      .insert(observations)
+      .values({
+        schoolYearId:       activeSchoolYearId,
+        observedEmployeeId: TEACHER_A_EID,
+        schoolId:           null,
+        rubricSetId:        createdRubricSetId,
+        observerEmployeeId: SL_EID,
+        date:               "2025-08-04",
+        status:             "published",
+        target:             "TEACHER",
+      })
+      .returning({ id: observations.id });
+    OBS_LEGACY_ID = obsL!.id;
+
     slJar = await loginAs(SL_EID);
   });
 
   after(async () => {
     await db.delete(observationScores)
-      .where(inArray(observationScores.observationId, [OBS_A_ID, OBS_B_ID])).catch(() => {});
+      .where(inArray(observationScores.observationId, [OBS_A_ID, OBS_B_ID, OBS_TRANSFER_ID, OBS_LEGACY_ID])).catch(() => {});
     await db.delete(observations)
-      .where(inArray(observations.id, [OBS_A_ID, OBS_B_ID])).catch(() => {});
+      .where(inArray(observations.id, [OBS_A_ID, OBS_B_ID, OBS_TRANSFER_ID, OBS_LEGACY_ID])).catch(() => {});
     await db.delete(rubricDomains)
       .where(eq(rubricDomains.id, createdDomainId)).catch(() => {});
     await db.delete(rubricCategories)
@@ -194,7 +246,7 @@ describe("Email send-observation — school-scope authorization", () => {
     await db.delete(rubricSets)
       .where(eq(rubricSets.id, createdRubricSetId)).catch(() => {});
     await db.delete(people)
-      .where(inArray(people.employeeId, [SL_EID, TEACHER_A_EID, TEACHER_B_EID])).catch(() => {});
+      .where(inArray(people.employeeId, [SL_EID, TEACHER_A_EID, TEACHER_B_EID, TEACHER_T_EID])).catch(() => {});
   });
 
   /* 1 ── SCHOOL_LEADER may email a teacher in their own school ─────────────── */
@@ -238,6 +290,49 @@ describe("Email send-observation — school-scope authorization", () => {
       res.status,
       403,
       `Expected 403 for cross-school teacher, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+  });
+
+  /* 3 ── Transferred teacher: prior school's observation stays with that school ── */
+
+  test("3 — SCHOOL_LEADER in School A is rejected (403) for a School-B observation of a teacher who transferred into School A", async () => {
+    const res = await request(
+      "POST",
+      "/email/send-observation",
+      {
+        observationId: OBS_TRANSFER_ID,
+        intro:         "Great lesson today.",
+        subject:       "Observation Feedback",
+      },
+      slJar,
+    );
+
+    assert.equal(
+      res.status,
+      403,
+      "A transferred teacher's previous-school observation must not be sendable by their new school's leader. " +
+      `Got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+  });
+
+  /* 4 ── Legacy null-school observation is unattributable → fail closed ───────── */
+
+  test("4 — SCHOOL_LEADER is rejected (403) for an observation with schoolId = null", async () => {
+    const res = await request(
+      "POST",
+      "/email/send-observation",
+      {
+        observationId: OBS_LEGACY_ID,
+        intro:         "Great lesson today.",
+        subject:       "Observation Feedback",
+      },
+      slJar,
+    );
+
+    assert.equal(
+      res.status,
+      403,
+      `Expected 403 for an unattributable (null-school) observation, got ${res.status}: ${JSON.stringify(res.body)}`,
     );
   });
 });

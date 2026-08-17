@@ -103,6 +103,33 @@ export function effectiveSchoolId(
   return requestedSchoolId ?? null;
 }
 
+/* ── canAccessSchoolScopedRecord ──────────────────────────────────
+   Fail-closed school check for a single record (observation, person,
+   action step) that carries its own schoolId.
+
+   School-scoped roles (COACH, SCHOOL_LEADER) may only reach a record
+   whose schoolId equals their own. Both of the "unknown" cases are
+   DENIED rather than allowed:
+     • the caller has no schoolId assigned
+     • the record has no schoolId (legacy row, unattributable)
+
+   This matters because `record.schoolId !== user.schoolId` alone is
+   fail-OPEN: when both sides are null the comparison is false and
+   access is granted. Always route the comparison through here.
+
+   Network-scoped roles are unrestricted by this check — use
+   assertNetworkSchoolAccess for those.                              */
+export function canAccessSchoolScopedRecord(
+  user: Express.User,
+  recordSchoolId: number | null | undefined,
+): boolean {
+  const role = user.role as UserRole;
+  if (role !== "COACH" && role !== "SCHOOL_LEADER") return true;
+  if (!user.schoolId) return false;
+  if (recordSchoolId == null) return false;
+  return recordSchoolId === user.schoolId;
+}
+
 /* ── assertNetworkSchoolAccess ────────────────────────────────────
    For NETWORK_LEADER and NETWORK_ADMIN: verifies the requested
    schoolId is an active, non-archived school that belongs to the

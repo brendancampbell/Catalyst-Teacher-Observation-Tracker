@@ -56,12 +56,6 @@ async function apiPatch(path: string, body: unknown, jar: Jar) {
   return { status: res.status, body: responseBody };
 }
 
-async function apiDelete(path: string, jar: Jar) {
-  await fetch(`${BASE}${path}`, {
-    method: "DELETE",
-    headers: { "Cookie": jar.cookieHeader },
-  });
-}
 
 function extractCookie(setCookie: string): string {
   return setCookie.split(";")[0] ?? "";

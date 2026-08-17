@@ -91,7 +91,6 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
   let adminJar: Jar;
   let schoolAId: number;
   let schoolBId: number;
-  let homeOfficeId: number;
   let activeSchoolYearId: number;
 
   before(async () => {
@@ -120,7 +119,6 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
 
     schoolAId    = realSchools[0]!.id;
     schoolBId    = realSchools[1]!.id;
-    homeOfficeId = hoSchools[0]!.id;
 
     /* Resolve the active school year */
     const [activeYear] = await db

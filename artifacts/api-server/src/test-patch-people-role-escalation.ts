@@ -16,7 +16,7 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { eq, inArray} from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { people, schools } from "@workspace/db/schema";
 

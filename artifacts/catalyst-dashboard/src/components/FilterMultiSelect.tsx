@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
 const NAVY   = "#1034B4";
-const YELLOW = "#FFB500";
 
 export function FilterMultiSelect({ label, values, onChange, options }: {
   label:    string;

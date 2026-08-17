@@ -12,6 +12,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
+import { canAccessSchoolScopedRecord } from "../middleware/auth";
 
 const router = Router();
 
@@ -346,22 +347,16 @@ router.get("/:id", async (req, res) => {
       return;
     }
 
-    if (currentUser.role === "SCHOOL_LEADER" || currentUser.role === "COACH") {
-      if (existing.target === "SCHOOL") {
-        if (existing.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot access observations for schools outside your school" });
-          return;
-        }
-      } else {
-        /* Strict school check using the observation's immutable schoolId.
-           Rows with schoolId = null (legacy data) are denied to school-scoped
-           users (fail-closed) — they cannot be attributed to any particular
-           school and may originate from a prior placement.                  */
-        if (existing.schoolId !== currentUser.schoolId) {
-          res.status(403).json({ error: "Cannot access observations for people outside your school" });
-          return;
-        }
-      }
+    /* Strict school check using the observation's immutable schoolId.
+       Rows with schoolId = null (legacy data), and callers with no school
+       assigned, are both denied — see canAccessSchoolScopedRecord.        */
+    if (!canAccessSchoolScopedRecord(currentUser, existing.schoolId)) {
+      res.status(403).json({
+        error: existing.target === "SCHOOL"
+          ? "Cannot access observations for schools outside your school"
+          : "Cannot access observations for people outside your school",
+      });
+      return;
     }
 
     const savedScores = await db.select().from(observationScores)
@@ -424,6 +419,22 @@ router.post("/", async (req, res) => {
     if (time !== undefined && time !== null && time !== "") {
       if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(String(time))) {
         res.status(400).json({ error: "Invalid time format. Use HH:MM or HH:MM:SS (24-hour)." });
+        return;
+      }
+    }
+
+    /* Validate `date` the same way — shape first, then reject impossible
+       calendar dates (e.g. 2026-02-31) which Postgres would otherwise turn
+       into a 500. Absence is handled by the per-target required checks below. */
+    if (date !== undefined && date !== null && date !== "") {
+      const dateStr = String(date);
+      const parsed  = new Date(`${dateStr}T00:00:00Z`);
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ||
+        Number.isNaN(parsed.getTime()) ||
+        parsed.toISOString().slice(0, 10) !== dateStr
+      ) {
+        res.status(400).json({ error: "Invalid date. Use a real calendar date in YYYY-MM-DD format." });
         return;
       }
     }
@@ -770,29 +781,20 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         return;
       }
 
-      if (currentUser.role === "SCHOOL_LEADER") {
-        if (existing.observedEmployeeId) {
-          /* Strict school check using the observation's immutable schoolId.
-             Rows with schoolId = null (legacy data) are denied to school-
-             scoped users (fail-closed) — cannot be attributed to a school. */
-          if (existing.schoolId !== currentUser.schoolId) {
-            req.log.warn(
-              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
-              "cross-school observation access rejected",
-            );
-            res.status(403).json({ error: "Cannot edit observations for people outside your school" });
-            return;
-          }
-        } else {
-          if (existing.schoolId !== currentUser.schoolId) {
-            req.log.warn(
-              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
-              "cross-school observation access rejected",
-            );
-            res.status(403).json({ error: "Cannot edit observations for schools outside your school" });
-            return;
-          }
-        }
+      /* Strict school check using the observation's immutable schoolId.
+         Rows with schoolId = null (legacy data), and callers with no school
+         assigned, are both denied — see canAccessSchoolScopedRecord.        */
+      if (!canAccessSchoolScopedRecord(currentUser, existing.schoolId)) {
+        req.log.warn(
+          { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+          "cross-school observation access rejected",
+        );
+        res.status(403).json({
+          error: existing.observedEmployeeId
+            ? "Cannot edit observations for people outside your school"
+            : "Cannot edit observations for schools outside your school",
+        });
+        return;
       }
     }
 
@@ -872,6 +874,16 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     });
     const activeYearIdPut = activeYearRowPut?.id ?? null;
 
+    /* A new action step needs a school year to belong to. Without an active
+       year the insert below would violate NOT NULL and surface as a 500, so
+       reject up front with the same 400 that POST /observations returns.    */
+    const willCreateActionStep =
+      !!newActionStep && existing.target === "TEACHER" && !!existing.observedEmployeeId;
+    if (willCreateActionStep && activeYearIdPut === null) {
+      res.status(400).json({ error: "No active school year configured" });
+      return;
+    }
+
     let snapshotGradeSpanPut: string | null = null;
     let snapshotRolePut: string | null = null;
     if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
@@ -940,6 +952,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             text:                        newActionStep.text,
             dueDate:                     newActionStep.dueDate,
             status:                      "open",
+            /* Non-null guaranteed by the willCreateActionStep guard above */
             schoolYearId:                activeYearIdPut!,
             snapshotSchoolId:            existing.schoolId,
             snapshotGradeSpan:           snapshotGradeSpanPut,
@@ -1052,29 +1065,20 @@ router.delete("/:id", observationMutationLimiter, async (req, res) => {
         return;
       }
 
-      if (currentUser.role === "SCHOOL_LEADER") {
-        if (existing.observedEmployeeId) {
-          /* Strict school check using the observation's immutable schoolId.
-             Rows with schoolId = null (legacy data) are denied to school-
-             scoped users (fail-closed) — cannot be attributed to a school. */
-          if (existing.schoolId !== currentUser.schoolId) {
-            req.log.warn(
-              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
-              "cross-school observation access rejected",
-            );
-            res.status(403).json({ error: "Cannot delete observations for people outside your school" });
-            return;
-          }
-        } else {
-          if (existing.schoolId !== currentUser.schoolId) {
-            req.log.warn(
-              { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
-              "cross-school observation access rejected",
-            );
-            res.status(403).json({ error: "Cannot delete observations for schools outside your school" });
-            return;
-          }
-        }
+      /* Strict school check using the observation's immutable schoolId.
+         Rows with schoolId = null (legacy data), and callers with no school
+         assigned, are both denied — see canAccessSchoolScopedRecord.        */
+      if (!canAccessSchoolScopedRecord(currentUser, existing.schoolId)) {
+        req.log.warn(
+          { event: "observation_403_school_mismatch", actingEmployeeId: currentUser.employeeId, targetObsId: obsId, role: currentUser.role, method: req.method },
+          "cross-school observation access rejected",
+        );
+        res.status(403).json({
+          error: existing.observedEmployeeId
+            ? "Cannot delete observations for people outside your school"
+            : "Cannot delete observations for schools outside your school",
+        });
+        return;
       }
     }
 

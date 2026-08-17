@@ -24,7 +24,7 @@ import {
   rubricSets,
   actionSteps,
 } from "@workspace/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray} from "drizzle-orm";
 import { asc } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;

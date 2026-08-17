@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { people, schools } from "@workspace/db/schema";
+import { people} from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { isProduction } from "../config/env";
 import { checkActiveThisYear } from "../lib/passport";

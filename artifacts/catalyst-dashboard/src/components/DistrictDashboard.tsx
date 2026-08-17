@@ -158,7 +158,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
 
   /* ── Header height measurement for sticky rows ── */
   const headerRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const [, setHeaderHeight] = useState(0);
   useLayoutEffect(() => {
     const el = headerRef.current;
     if (!el) return;

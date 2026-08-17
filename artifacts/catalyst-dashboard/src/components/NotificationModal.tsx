@@ -7,7 +7,7 @@ import {
   type PlatformNotification,
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
-import { X } from "lucide-react";
+import { } from "lucide-react";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
