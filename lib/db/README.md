@@ -50,6 +50,26 @@ boot.**
 | `0005_schema_hardening.sql` | `DELETE FROM observation_scores` | one-time dedup before uniqueness index; app enforces ON CONFLICT DO UPDATE going forward — no startup mirror needed |
 | `0006_school_number_not_null.sql` | `UPDATE schools SET school_number` | none — see "Schools are not seeded by code" below |
 
+### ⚠️ Never edit an applied migration file
+
+`drizzle-kit` identifies a migration by the SHA256 of its **file contents** and
+records that hash in `drizzle.__drizzle_migrations`. Editing an applied
+migration — including a comment — changes the hash, so Drizzle no longer
+recognises it as applied and will try to re-run it.
+
+This happened to `0006_school_number_not_null.sql`: its header comment was
+rewritten to remove a reference to `ensureSchools()`, which orphaned its
+tracking row and left the migration looking unapplied. Re-applying it would
+have re-stamped `school_number` on all 52 schools, reverting any admin edit —
+the exact class of bug that removing `ensureSchools()` was meant to stop.
+
+The file has been restored byte-for-byte. **Its header comment is therefore
+out of date**: it references `ensureSchools()` (removed) and states a rule
+about mirroring backfills at startup (retired). Read it as history, and do not
+"fix" it — the accurate description is the section below.
+
+If a migration's documentation needs correcting, correct it here.
+
 ### Schools are not seeded by code
 
 Schools — including the Home Office pseudo-school — are created and edited
