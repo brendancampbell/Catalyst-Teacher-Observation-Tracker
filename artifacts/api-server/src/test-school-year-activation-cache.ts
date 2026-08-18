@@ -22,7 +22,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, rubricSets, schoolYears, schools, assignments } from "@workspace/db/schema";
-import { eq, ne, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -68,6 +68,7 @@ let rubricSetSlug: string;
 /* Rows this test creates purely to satisfy the activation gate */
 const seededAssignmentIds: number[] = [];
 let seededRubricSetId: number | null = null;
+let createdYear = false;
 
 describe("School-year activation clears dashboard / district / network-avgs caches", () => {
   before(async () => {
@@ -88,15 +89,20 @@ describe("School-year activation clears dashboard / district / network-avgs cach
     assert.ok(activeYear, "Need an active school year in the DB");
     originalActiveYearId = activeYear.id;
 
-    /* Find any other year to switch to */
-    const [altYear] = await db
-      .select()
-      .from(schoolYears)
-      .where(ne(schoolYears.id, originalActiveYearId))
-      .orderBy(asc(schoolYears.id))
-      .limit(1);
-    assert.ok(altYear, "Need at least two school years in the DB for this test");
-    alternateYearId = altYear.id;
+    /* ── Switch to a year this test OWNS, never a real one ───────────────
+       This used to grab whichever other year had the lowest id. That is a
+       real year with real data in it — and activating away from it runs the
+       departure pass with THAT year as outgoing, deactivating anyone who
+       exists in it but not in the active year. On this database that was a
+       partially-staged 2026-2027, and the round trip deactivated a live
+       seeded SCHOOL_LEADER. A test must not be able to do that. */
+    const [scratch] = await db.insert(schoolYears).values({
+      name:         `TST SY Cache ${Date.now()}`,
+      status:       "inactive",
+      displayOrder: 9998,
+    }).returning({ id: schoolYears.id });
+    alternateYearId = scratch!.id;
+    createdYear = true;
 
     /* Find a rubric set slug that belongs to the active year */
     const [rubricSet] = await db
@@ -154,26 +160,15 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       seededAssignmentIds.push(...inserted.rows.map((r) => r.id));
     }
 
-    const [altRubric] = await db
-      .select({ id: rubricSets.id })
-      .from(rubricSets)
-      .where(eq(rubricSets.schoolYearId, alternateYearId))
-      .limit(1);
-    if (!altRubric) {
-      const [created] = await db.insert(rubricSets).values({
-        slug:         `tst-sy-cache-${Date.now()}`,
-        name:         "Test SY Cache Rubric",
-        schoolYearId: alternateYearId,
-        isActive:     true,
-        isArchived:   false,
-        target:       "TEACHER",
-      }).returning({ id: rubricSets.id });
-      seededRubricSetId = created!.id;
-    } else {
-      await db.update(rubricSets)
-        .set({ isActive: true, isArchived: false })
-        .where(eq(rubricSets.id, altRubric.id));
-    }
+    const [createdRubric] = await db.insert(rubricSets).values({
+      slug:         `tst-sy-cache-${Date.now()}`,
+      name:         "Test SY Cache Rubric",
+      schoolYearId: alternateYearId,
+      isActive:     true,
+      isArchived:   false,
+      target:       "TEACHER",
+    }).returning({ id: rubricSets.id });
+    seededRubricSetId = createdRubric!.id;
 
     jar = await loginAs(ADM_EID);
   });
@@ -199,6 +194,11 @@ describe("School-year activation clears dashboard / district / network-avgs cach
     }
     await db.delete(assignments).where(eq(assignments.userId, ADM_EID)).catch(() => {});
     await db.delete(people).where(eq(people.employeeId, ADM_EID)).catch(() => {});
+    if (createdYear) {
+      await db.delete(assignments).where(eq(assignments.schoolYearId, alternateYearId)).catch(() => {});
+      await db.delete(rubricSets).where(eq(rubricSets.schoolYearId, alternateYearId)).catch(() => {});
+      await db.delete(schoolYears).where(eq(schoolYears.id, alternateYearId)).catch(() => {});
+    }
   });
 
   /* ── Prime caches ─────────────────────────────────────────────────────── */

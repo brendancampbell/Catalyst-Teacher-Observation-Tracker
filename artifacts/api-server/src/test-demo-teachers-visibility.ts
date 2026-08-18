@@ -32,8 +32,8 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { people, schools } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { people, schools, schoolYears, assignments } from "@workspace/db/schema";
+import { eq, and, isNull } from "drizzle-orm";
 
 const BASE             = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const SCHOOL_LEADER_ID = "U13";   /* Marcus Wilson — SCHOOL_LEADER */
@@ -129,8 +129,48 @@ describe("Demo teacher visibility — /api/people and /api/dashboard", () => {
     /* 4. Idempotently link Marcus Wilson (SCHOOL_LEADER) to RXP_DC */
     await db
       .update(people)
-      .set({ schoolId: rxpDcId })
+      .set({ schoolId: rxpDcId, isActive: true })
       .where(eq(people.employeeId, SCHOOL_LEADER_ID));
+
+    /* 4b. …and give him an open assignment in the ACTIVE year.
+       Without one, checkActiveThisYear() sees assignment history but nothing
+       current and every request 403s with NOT_ACTIVE_THIS_YEAR — the same
+       school-year rot fixed for six other suites in 098de27. This fixture
+       relied on seeded assignments that no longer point at the active year. */
+    const [activeYear] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+    assert.ok(activeYear, "Need an active school year");
+
+    for (const eid of [SCHOOL_LEADER_ID, NETWORK_ADMIN_ID]) {
+      const [openRow] = await db
+        .select({ id: assignments.id })
+        .from(assignments)
+        .where(and(
+          eq(assignments.userId, eid),
+          eq(assignments.schoolYearId, activeYear.id),
+          isNull(assignments.endDate),
+        ))
+        .limit(1);
+      if (!openRow) {
+        const [person] = await db
+          .select({ role: people.role, schoolId: people.schoolId })
+          .from(people)
+          .where(eq(people.employeeId, eid))
+          .limit(1);
+        assert.ok(person, `Seeded person ${eid} is missing`);
+        await db.insert(assignments).values({
+          userId:       eid,
+          role:         person.role,
+          schoolId:     person.schoolId,
+          schoolYearId: activeYear.id,
+          startDate:    new Date().toISOString().slice(0, 10),
+          endDate:      null,
+        }).onConflictDoNothing();
+      }
+    }
 
     /* 5. Login both users */
     slJar    = await loginAs(SCHOOL_LEADER_ID);
