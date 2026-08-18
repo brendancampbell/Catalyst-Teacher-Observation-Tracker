@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import { bootstrapAdmin } from "./lib/bootstrap-admin";
 import { cleanupExpiredQuotaGrants } from "./lib/quota-grant-cleanup.js";
 import { markReady } from "./lib/readiness";
+import { assertMigrationsApplied } from "./lib/pending-migrations";
 
 const rawPort = process.env["PORT"];
 
@@ -295,7 +296,11 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 });
 
-ensureSessionTable()
+/* Verify the database has every migration this build carries, before any
+   startup task assumes the current schema. Throws on a mismatch; the
+   .catch() below logs and exits. */
+assertMigrationsApplied(logger)
+  .then(() => ensureSessionTable())
   .then(() => ensureSchoolYears())
   .then(() => ensureSchoolYearBackfill())
   .then(() => ensureChatTables())

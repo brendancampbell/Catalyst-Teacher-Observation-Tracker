@@ -749,7 +749,11 @@ integrations = ["resend:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 35000
+# Measured at ~28s on a warm cache; a pull that changes dependencies makes the
+# install substantially heavier. Overrunning silently skips drizzle-kit migrate,
+# so this is sized with real headroom. The startup guard in
+# api-server/src/lib/pending-migrations.ts catches it if it happens anyway.
+timeoutMs = 180000
 
 [nix]
 channel = "stable-25_05"
