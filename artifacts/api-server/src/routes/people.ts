@@ -1,9 +1,18 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { people, schools, assignments } from "@workspace/db/schema";
+import { people, schools, assignments, schoolYears } from "@workspace/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
 import { requireRole, assertNetworkSchoolAccess, canAccessSchoolScopedRecord, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
+import {
+  loadSchoolLookup,
+  parseRosterRow,
+  buildRosterPlan,
+  applyRosterPlan,
+  type RosterRowInput,
+  type ParsedRosterRow,
+  type RosterRowError,
+} from "../lib/roster";
 import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
 import { networkAvgsCache } from "./action-center";
@@ -302,394 +311,116 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
 });
 
 /* ── POST /api/people/bulk ────────────────────────────────────────
-   Bulk create people from a JSON array.
-   SCHOOL_LEADER: can import people for own school (role limited).
-   NETWORK_ADMIN: any school.                                       */
+   Roster upload.
+
+   Two body shapes are accepted:
+     [ {...}, {...} ]                       legacy — writes into the active year
+     { rows: [...], schoolYearId?, dryRun? } roster upload
+
+   `schoolYearId` targets a year other than the active one — the staging path
+   for a rollover. Staged uploads write assignment rows only; no person-level
+   field changes until that year is activated, so preparing next year cannot
+   disturb the year currently running. NETWORK_ADMIN only.
+
+   `dryRun: true` computes the whole plan and writes nothing, returning the
+   diff the admin confirms before the real upload. The preview and the write
+   share one implementation — see lib/roster.ts.
+
+   SCHOOL_LEADER: own school, active year, no staging.
+   NETWORK_ADMIN: any school, any year.                              */
 router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const isNetworkAdmin = currentUser.role === "NETWORK_ADMIN";
 
-    const rows = req.body as Array<{
-      firstName?:               unknown;
-      lastName?:                unknown;
-      name?:                    unknown;
-      employeeId?:              unknown;
-      email?:                   unknown;
-      role?:                    unknown;
-      school?:                  unknown;
-      includeInFeedbackTracker?: unknown;
-      department?:              unknown;
-      gradeLevel?:              unknown;
-    }>;
+    const body: unknown = req.body;
+    const isEnvelope = !Array.isArray(body) && typeof body === "object" && body !== null;
+    const envelope = (isEnvelope ? body : {}) as {
+      rows?: unknown; schoolYearId?: unknown; dryRun?: unknown;
+    };
+    const rows = (isEnvelope ? envelope.rows : body) as RosterRowInput[];
+    const dryRun = envelope.dryRun === true;
 
     if (!Array.isArray(rows) || rows.length === 0) {
-      res.status(400).json({ error: "Body must be a non-empty array of person objects" });
+      res.status(400).json({ error: "Body must be a non-empty array of person objects, or { rows: [...] }" });
       return;
     }
 
-    /* Resolve the active school year once for the whole batch */
     const activeSchoolYearId = await getActiveSchoolYearId();
     if (!activeSchoolYearId) {
       res.status(503).json({ error: "No active school year found — contact your administrator" });
       return;
     }
 
-    const allSchools = await db.select({
-      id: schools.id,
-      displayName: schools.displayName,
-      fullName: schools.fullName,
-      isHomeOffice: schools.isHomeOffice,
-    }).from(schools);
-    const schoolIdSet = new Set<number>(allSchools.map((s) => s.id));
-    const schoolHomeOfficeMap = new Map<number, boolean>(allSchools.map((s) => [s.id, s.isHomeOffice]));
-    /* Build lookup: fullName takes priority, fall back to displayName */
-    const schoolNameMap = new Map<string, number>();
-    for (const s of allSchools) {
-      const dn = s.displayName.toLowerCase().trim();
-      if (!schoolNameMap.has(dn)) schoolNameMap.set(dn, s.id);
-    }
-    for (const s of allSchools) {
-      if (s.fullName) {
-        const fn = s.fullName.toLowerCase().trim();
-        schoolNameMap.set(fn, s.id);
+    /* ── Resolve the target year ── */
+    let targetYearId = activeSchoolYearId;
+    if (envelope.schoolYearId !== undefined && envelope.schoolYearId !== null) {
+      const requested = Number(envelope.schoolYearId);
+      if (!Number.isInteger(requested)) {
+        res.status(400).json({ error: "schoolYearId must be an integer" });
+        return;
       }
+      if (requested !== activeSchoolYearId && !isNetworkAdmin) {
+        res.status(403).json({ error: "Only Network Admins can stage a roster for another school year" });
+        return;
+      }
+      const [year] = await db.select({ id: schoolYears.id })
+        .from(schoolYears).where(eq(schoolYears.id, requested)).limit(1);
+      if (!year) {
+        res.status(404).json({ error: "School year not found" });
+        return;
+      }
+      targetYearId = requested;
     }
 
-    type RowResult = {
-      row: number;
-      status: "created" | "assigned" | "skipped" | "error";
-      name?: string;
-      email?: string;
-      reason?: string;
+    /* ── Parse every row before touching the database ── */
+    const lookup = await loadSchoolLookup();
+    const parseCtx = {
+      lookup,
+      isNetworkAdmin,
+      callerSchoolId: currentUser.schoolId ?? null,
     };
 
-    const results: RowResult[] = [];
-
+    const parsed: ParsedRosterRow[] = [];
+    const parseErrors: RosterRowError[] = [];
     for (let i = 0; i < rows.length; i++) {
-      const raw = rows[i];
-      const rowNum = i + 1;
-
-      let firstName: string | null = null;
-      let lastName: string | null = null;
-
-      if (typeof raw.firstName === "string" && raw.firstName.trim()) {
-        firstName = raw.firstName.trim();
-        lastName = typeof raw.lastName === "string" ? raw.lastName.trim() : "";
-      } else if (typeof raw.name === "string" && raw.name.trim()) {
-        const parts = raw.name.trim().split(/\s+/);
-        firstName = parts[0] ?? "";
-        lastName = parts.slice(1).join(" ");
-      }
-
-      const email = typeof raw.email === "string" && raw.email.trim()
-        ? raw.email.trim().toLowerCase()
-        : null;
-      const employeeIdRaw = typeof raw.employeeId === "string" && raw.employeeId.trim()
-        ? raw.employeeId.trim()
-        : null;
-      const roleRaw = typeof raw.role === "string" ? raw.role.trim().toUpperCase() : null;
-      const school = typeof raw.school === "string" ? raw.school.trim() : null;
-      const includeInFB = typeof raw.includeInFeedbackTracker === "string"
-        ? raw.includeInFeedbackTracker.toLowerCase() === "true"
-        : typeof raw.includeInFeedbackTracker === "boolean"
-          ? raw.includeInFeedbackTracker
-          : false;
-      const deptRaw = typeof raw.department === "string" && raw.department.trim() ? raw.department.trim() : null;
-      let gradeLevel: string[] = [];
-      if (Array.isArray(raw.gradeLevel)) {
-        gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
-      } else if (typeof raw.gradeLevel === "string" && raw.gradeLevel.trim()) {
-        gradeLevel = raw.gradeLevel.split(",").map((g) => g.trim()).filter(Boolean);
-      }
-
-      const displayName = firstName ? `${firstName} ${lastName ?? ""}`.trim() : null;
-
-      if (!firstName) {
-        results.push({ row: rowNum, status: "error", reason: "Missing firstName (or name)" });
-        continue;
-      }
-      if (!email) {
-        results.push({ row: rowNum, status: "error", name: displayName!, reason: "Missing email" });
-        continue;
-      }
-      if (!email.includes("@")) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Invalid email address" });
-        continue;
-      }
-
-      const role = (roleRaw ?? "NO_ACCESS") as UserRole;
-      if (!ALL_ROLES.includes(role)) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: `Invalid role "${raw.role}"` });
-        continue;
-      }
-
-      if (deptRaw && !DEPARTMENT_VALUES.includes(deptRaw as typeof DEPARTMENT_VALUES[number])) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: `Invalid department "${deptRaw}"` });
-        continue;
-      }
-
-      let schoolId: number | null = null;
-      if (isNetworkAdmin) {
-        if (school) {
-          const byName = schoolNameMap.get(school.toLowerCase().trim());
-          if (byName !== undefined) {
-            schoolId = byName;
-          } else {
-            const asNum = Number(school);
-            if (!isNaN(asNum) && schoolIdSet.has(asNum)) {
-              schoolId = asNum;
-            } else {
-              results.push({ row: rowNum, status: "error", name: displayName!, email, reason: `School "${school}" not found` });
-              continue;
-            }
-          }
-        }
-      } else {
-        schoolId = currentUser.schoolId ?? null;
-      }
-
-      if (!isNetworkAdmin && !SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && role !== "NO_ACCESS") {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "School Leaders cannot import Network-level roles" });
-        continue;
-      }
-
-      /* ── Universal: school is required for every user ── */
-      if (!schoolId) {
-        results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "School is required for all users" });
-        continue;
-      }
-
-      /* ── Role/school Home Office validation ── */
-      const isSchoolRole   = SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole);
-      const isNetworkRole  = NETWORK_ROLES.includes(role as UserRole);
-
-      if (isSchoolRole) {
-        if (!schoolId) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a school" });
-          continue;
-        }
-        const isHO = schoolHomeOfficeMap.get(schoolId);
-        if (isHO) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Coaches and School Leaders must be assigned to a real school, not Home Office" });
-          continue;
-        }
-      }
-
-      if (isNetworkRole) {
-        if (!schoolId) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Network Leaders and Network Admins must be assigned to the Home Office school" });
-          continue;
-        }
-        const isHO = schoolHomeOfficeMap.get(schoolId);
-        if (!isHO) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Network Leaders and Network Admins must be assigned to the Home Office school" });
-          continue;
-        }
-      }
-
-      if (includeInFB) {
-        if (!schoolId) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a school" });
-          continue;
-        }
-        const isHO = schoolHomeOfficeMap.get(schoolId);
-        if (isHO) {
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: "Feedback tracker participants must be assigned to a real school, not Home Office" });
-          continue;
-        }
-      }
-
-      if (!employeeIdRaw) {
-        results.push({ row: rowNum, status: "error", name: displayName ?? undefined, email: email ?? undefined, reason: "Missing employeeId" });
-        continue;
-      }
-      const empId = employeeIdRaw;
-
-      const bulkToday = new Date().toISOString().slice(0, 10);
-
-      /* Walk the error / cause chain to find the PG error code */
-      const pgCode = (e: unknown): string | null => {
-        if (typeof e !== "object" || e === null) return null;
-        const obj = e as Record<string, unknown>;
-        if (typeof obj["code"] === "string") return obj["code"];
-        return obj["cause"] ? pgCode(obj["cause"]) : null;
-      };
-      const pgMessage = (e: unknown): string | null => {
-        if (typeof e !== "object" || e === null) return null;
-        const obj = e as Record<string, unknown>;
-        if (typeof obj["detail"] === "string") return obj["detail"];
-        if (typeof obj["message"] === "string") return obj["message"];
-        return obj["cause"] ? pgMessage(obj["cause"]) : null;
-      };
-
-      try {
-        /* ── Step 1: Resolve existing person with conflict detection ── */
-        /*
-         * Query employeeId and email separately so that when both fields appear
-         * in the database but on DIFFERENT records (dirty/migrated data), we
-         * detect the conflict and reject the row rather than silently modifying
-         * the wrong account.
-         */
-        const [byEmpId] = await db.select({
-          employeeId: people.employeeId,
-          role:       people.role,
-          schoolId:   people.schoolId,
-        }).from(people).where(eq(people.employeeId, empId)).limit(1);
-
-        const [byEmail] = await db.select({
-          employeeId: people.employeeId,
-          role:       people.role,
-          schoolId:   people.schoolId,
-        }).from(people).where(eq(people.email, email!)).limit(1);
-
-        if (byEmpId && byEmail && byEmpId.employeeId !== byEmail.employeeId) {
-          /* Ambiguous: employeeId and email resolve to two different records */
-          results.push({
-            row:    rowNum,
-            status: "error",
-            name:   displayName!,
-            email,
-            reason: "employeeId and email match different existing records — check for data errors",
-          });
-        } else {
-          const existingPerson = byEmpId ?? byEmail;
-
-          if (existingPerson) {
-            /* ── Scope guard: SCHOOL_LEADER can only manage their own school ── */
-            /*
-             * For NETWORK_ADMIN callers this is unrestricted. For SCHOOL_LEADER
-             * callers, the matched existing person must currently belong to the
-             * caller's school (or be unassigned / NO_ACCESS) — mirroring the
-             * PATCH /:employeeId scope check. Without this guard a SCHOOL_LEADER
-             * could "steal" someone from another school by submitting their
-             * employeeId in the bulk CSV.
-             */
-            if (
-              !isNetworkAdmin &&
-              existingPerson.schoolId !== null &&
-              existingPerson.schoolId !== currentUser.schoolId
-            ) {
-              results.push({
-                row:    rowNum,
-                status: "error",
-                name:   displayName!,
-                email,
-                reason: "School Leaders can only manage users within their own school",
-              });
-            } else {
-            /* ── Existing person: upsert assignment + sync denormalized fields ── */
-            let resultStatus: "assigned" | "skipped" = "skipped";
-            let skipReason: string | undefined;
-
-            await db.transaction(async (tx) => {
-              /*
-               * Check for an active assignment for the CURRENT school year only.
-               * A user re-uploaded in a new school year gets a fresh assignment
-               * (not treated as a no-op just because an old-year assignment exists).
-               */
-              const [existingActive] = await tx.select({
-                id:       assignments.id,
-                role:     assignments.role,
-                schoolId: assignments.schoolId,
-              }).from(assignments).where(
-                and(
-                  eq(assignments.userId, existingPerson.employeeId),
-                  eq(assignments.schoolYearId, activeSchoolYearId),
-                  isNull(assignments.endDate),
-                )
-              ).limit(1);
-
-              if (
-                existingActive &&
-                existingActive.role === role &&
-                existingActive.schoolId === schoolId
-              ) {
-                /* Identical active assignment in this year — no assignment write needed */
-                skipReason = "Active assignment already exists with the same role and school";
-                resultStatus = "skipped";
-              } else {
-                /* Close the existing active assignment for this year if it differs */
-                if (existingActive) {
-                  await tx.update(assignments)
-                    .set({ endDate: bulkToday })
-                    .where(eq(assignments.id, existingActive.id));
-                }
-
-                /* ── Step 2: Create assignment for existing person in active year ── */
-                await tx.insert(assignments).values({
-                  userId:       existingPerson.employeeId,
-                  role,
-                  schoolId,
-                  schoolYearId: activeSchoolYearId,
-                  startDate:    bulkToday,
-                  endDate:      null,
-                });
-
-                resultStatus = "assigned";
-              }
-
-              /* ── Step 3: ALWAYS sync denormalized role/schoolId ── */
-              /*
-               * Run even when the assignment is skipped (identical) — the people
-               * record may have stale denormalized values from a previous partial
-               * write, and session lookups depend on these fields being accurate.
-               */
-              if (existingPerson.role !== role || existingPerson.schoolId !== schoolId) {
-                await tx.update(people)
-                  .set({ role, schoolId })
-                  .where(eq(people.employeeId, existingPerson.employeeId));
-              }
-            });
-
-            /* ── Step 4: Return "assigned" or "skipped" ── */
-            if (resultStatus === "skipped") {
-              results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: skipReason });
-            } else {
-              results.push({ row: rowNum, status: "assigned", name: displayName!, email });
-            }
-            } // end scope-guard else (SCHOOL_LEADER in own school)
-          } else {
-            /* ── New person: create person + assignment ── */
-            await db.transaction(async (tx) => {
-              await tx.insert(people).values({
-                employeeId: empId,
-                firstName:  firstName,
-                lastName:   lastName ?? "",
-                email,
-                role,
-                schoolId,
-                includeInFeedbackTracker: includeInFB,
-                department: deptRaw as typeof DEPARTMENT_VALUES[number] ?? null,
-                gradeLevel: gradeLevel.length > 0 ? gradeLevel : null,
-              });
-              await tx.insert(assignments).values({
-                userId:       empId,
-                role,
-                schoolId,
-                schoolYearId: activeSchoolYearId,
-                startDate:    bulkToday,
-                endDate:      null,
-              });
-            });
-            results.push({ row: rowNum, status: "created", name: displayName!, email });
-          }
-        }
-      } catch (err: unknown) {
-        const code    = pgCode(err);
-        const message = pgMessage(err);
-        console.error(`POST /people/bulk row ${rowNum} DB error [${code}]:`, message, err);
-        if (code === "23505") {
-          results.push({ row: rowNum, status: "skipped", name: displayName!, email, reason: "Duplicate email or employee ID" });
-        } else {
-          const hint = code ? `${code}: ${message ?? "unknown"}` : (message ?? "unknown database error");
-          results.push({ row: rowNum, status: "error", name: displayName!, email, reason: `Database error — ${hint}` });
-        }
-      }
+      const outcome = parseRosterRow(rows[i]!, i + 1, parseCtx);
+      if ("status" in outcome) parseErrors.push(outcome);
+      else parsed.push(outcome);
     }
 
+    const plan = await buildRosterPlan(parsed, parseErrors, {
+      targetYearId,
+      outgoingYearId: activeSchoolYearId,
+      lookup,
+      isNetworkAdmin,
+      callerSchoolId: currentUser.schoolId ?? null,
+    });
+
+    /* ── Dry run: return the diff, write nothing ── */
+    if (dryRun) {
+      res.json({
+        dryRun:         true,
+        targetYearId:   plan.targetYearId,
+        outgoingYearId: plan.outgoingYearId,
+        staged:         plan.staged,
+        counts:         plan.counts,
+        bySchool:       plan.bySchool,
+        departures:     plan.departures.map(({ assignmentId: _ignored, ...d }) => d),
+        errors:         plan.errors,
+      });
+      return;
+    }
+
+    const results = await applyRosterPlan(plan);
+
     invalidateAllCaches();
-    res.json({ results });
+    res.json({
+      results,
+      targetYearId: plan.targetYearId,
+      staged:       plan.staged,
+      counts:       plan.counts,
+    });
   } catch (err) {
     console.error("POST /people/bulk error:", err);
     res.status(500).json({ error: "Internal server error" });
