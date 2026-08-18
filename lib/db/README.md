@@ -2,6 +2,21 @@
 
 Drizzle ORM schema, migrations, and database utilities.
 
+## One-time setup per clone
+
+```sh
+git config core.hooksPath scripts/githooks
+```
+
+Without this, **migrations are never applied automatically on a shell pull.**
+`.replit` declares a `[postMerge]` hook, but that is Replit-managed and does not
+fire for `git pull` run in a terminal — there is no `.git/hooks/post-merge`, so
+git has nothing to run. Migration `0009` reached the database unapplied this
+way; the startup guard caught it, but only after the fact.
+
+Setting `core.hooksPath` makes `scripts/githooks/post-merge` a real git hook, so
+shell pulls run the same script Replit would.
+
 ## Standard workflow
 
 All schema changes must go through the tracked migration flow:

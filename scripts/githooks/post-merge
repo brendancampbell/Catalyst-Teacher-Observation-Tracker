@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Real git post-merge hook — runs after `git pull` / `git merge` in a shell.
+#
+# .replit declares a [postMerge] hook pointing at scripts/post-merge.sh, but
+# that is Replit-managed and does NOT fire for shell-initiated pulls. On a
+# workspace where pulls happen in the terminal it never runs at all, so
+# migrations were only ever applied by hand — which is how 0009 reached the
+# database unapplied while the app was expected to serve against it.
+#
+# Enable once per clone:
+#   git config core.hooksPath scripts/githooks
+#
+# Failure here does not roll back the merge (post-merge is advisory), but the
+# startup guard in api-server/src/lib/pending-migrations.ts refuses to boot
+# while migrations are outstanding, so a silent skip cannot go unnoticed.
+set -e
+repo_root="$(git rev-parse --show-toplevel)"
+exec bash "$repo_root/scripts/post-merge.sh"
