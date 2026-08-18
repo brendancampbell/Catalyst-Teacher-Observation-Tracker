@@ -11,7 +11,20 @@ pnpm --filter @workspace/db run generate   # emit a new SQL migration file
 pnpm --filter @workspace/db run migrate    # apply it via drizzle-kit migrate
 ```
 
-`post-merge.sh` runs both steps automatically on every deploy.
+`scripts/post-merge.sh` runs both steps automatically, wired up by the
+`[postMerge]` hook in `.replit`. It fires **on merge** — i.e. when changes are
+pulled into the Repl — not on deploy. That script is the only thing that
+applies migrations; nothing in the deploy or boot path does.
+
+It also runs `drizzle-kit generate` first, so a schema change that arrived
+without a migration file gets one generated at merge time.
+
+> **Note:** the hook has `timeoutMs = 35000`. That budget covers
+> `pnpm install --frozen-lockfile`, two package builds, three backfill scripts,
+> `generate`, the DML guards, `migrate`, a `tsc` build and `check:schema-sync`.
+> If it overruns, the hook is cut short and migrations may not have been
+> applied — with no obvious signal. Check the post-merge output after pulling
+> a change that adds a migration, rather than assuming it ran.
 
 ## ⚠️ Do NOT use push or push-force on a tracked environment
 

@@ -9,5 +9,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/seed.ts", "src/migrate.ts"]
+  "exclude": ["src/seed.ts"]
 }
