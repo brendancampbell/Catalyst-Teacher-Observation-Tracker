@@ -180,5 +180,12 @@ export async function assertMigrationsApplied(
     );
   }
 
-  log.info({ event: "migrations_verified", checked }, `All ${checked} migrations applied`);
+  /* Do not claim "all applied" when one diverged — the preceding error line
+     would contradict it. */
+  log.info(
+    { event: "migrations_verified", checked, divergent: divergent.length },
+    divergent.length === 0
+      ? `All ${checked} migrations applied`
+      : `${checked - divergent.length} of ${checked} migrations applied; ${divergent.length} divergent (see above)`,
+  );
 }
