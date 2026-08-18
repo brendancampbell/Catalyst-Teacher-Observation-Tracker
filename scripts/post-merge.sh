@@ -27,6 +27,36 @@ _pm_finish() {
 }
 trap _pm_finish EXIT
 
+# ── Preflight: make sure the tools exist before doing anything ────────────
+# A git hook inherits the environment of whichever shell ran `git pull`. On
+# Replit that is not always a shell with pnpm on PATH, and when it isn't, the
+# script died on its first command and logged a bare "rc=127" — technically
+# accurate and completely unhelpful, since nothing named the missing command.
+#
+# Try the usual locations and corepack before giving up, and if pnpm still
+# cannot be found, say so in the log as well as on stderr.
+if ! command -v pnpm >/dev/null 2>&1; then
+  for candidate in "$HOME/.local/share/pnpm" "$HOME/.nix-profile/bin" \
+                   "$HOME/Library/pnpm" /usr/local/bin /nix/var/nix/profiles/default/bin; do
+    if [ -x "$candidate/pnpm" ]; then
+      export PATH="$candidate:$PATH"
+      break
+    fi
+  done
+fi
+if ! command -v pnpm >/dev/null 2>&1 && command -v corepack >/dev/null 2>&1; then
+  corepack enable pnpm >/dev/null 2>&1 || true
+fi
+if ! command -v pnpm >/dev/null 2>&1; then
+  msg="pnpm not found on PATH — post-merge did NOT run. Migrations, builds and
+schema-sync were all skipped. Run 'bash scripts/post-merge.sh' from a shell
+where pnpm works, or enable it with 'corepack enable pnpm'."
+  printf '%s\n' "$msg" >&2
+  printf '%s  NOTE  %s  via=%s pnpm-not-found\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_pm_head" "$_pm_src" >> "$_pm_log"
+  exit 127
+fi
+
 pnpm install --frozen-lockfile
 pnpm --filter @workspace/db build
 pnpm --filter @workspace/integrations-anthropic-ai build
