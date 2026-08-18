@@ -1,13 +1,16 @@
 /**
  * Unit tests for the startup migration guard.
  *
- * Runs against fixture directories rather than the real migrations folder, so
- * it needs no database and no DATABASE_URL — the pool is only touched when a
- * query is actually issued, which these tests avoid by stubbing the applied-set
- * lookup through the exported pure helper.
+ * These exercise the real exported functions — classifyMigrations for the
+ * decision logic and readJournal for the file hashing — rather than a
+ * reimplementation of them. An earlier version of this file mirrored the logic
+ * locally, which meant the tests could pass while the shipped code was wrong.
+ *
+ * No database required: classifyMigrations is pure, and readJournal reads a
+ * fixture directory.
  *
  * Run with:
- *   pnpm --filter @workspace/api-server exec tsx --test src/test-pending-migrations.ts
+ *   pnpm --filter @workspace/api-server run test:pending-migrations
  */
 
 import { test, describe, before, after } from "node:test";
@@ -16,78 +19,97 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { classifyMigrations, readJournal, type JournalMigration } from "./lib/pending-migrations.js";
 
-/* ── Fixture builder ──────────────────────────────────────────────────────── */
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+const entry = (tag: string, when: number, hash = `hash-${tag}`): JournalMigration => ({ tag, when, hash });
 
 let dir: string;
 
-function makeMigrations(tags: string[]): Record<string, string> {
+function writeFixture(specs: { tag: string; when: number; body?: string }[]): void {
   mkdirSync(path.join(dir, "meta"), { recursive: true });
   writeFileSync(
     path.join(dir, "meta", "_journal.json"),
-    JSON.stringify({ version: "7", dialect: "postgresql", entries: tags.map((tag, idx) => ({ idx, tag })) }),
+    JSON.stringify({ version: "7", dialect: "postgresql",
+      entries: specs.map((s, idx) => ({ idx, tag: s.tag, when: s.when })) }),
   );
-  const hashes: Record<string, string> = {};
-  for (const tag of tags) {
-    const body = `-- ${tag}\nSELECT 1;\n`;
-    writeFileSync(path.join(dir, `${tag}.sql`), body);
-    hashes[tag] = createHash("sha256").update(Buffer.from(body)).digest("hex");
-  }
-  return hashes;
+  for (const s of specs) writeFileSync(path.join(dir, `${s.tag}.sql`), s.body ?? `-- ${s.tag}\nSELECT 1;\n`);
 }
 
-/* Mirrors findPendingMigrations' comparison against an injected applied-set,
-   so the logic under test runs without a database. */
-async function pendingAgainst(applied: Set<string>): Promise<string[]> {
-  const { readFile } = await import("node:fs/promises");
-  const journal = JSON.parse(await readFile(path.join(dir, "meta", "_journal.json"), "utf8")) as
-    { entries: { tag: string }[] };
-  const pending: string[] = [];
-  for (const { tag } of journal.entries) {
-    const sql = await readFile(path.join(dir, `${tag}.sql`));
-    if (!applied.has(createHash("sha256").update(sql).digest("hex"))) pending.push(tag);
-  }
-  return pending;
-}
+/* ── Decision logic ───────────────────────────────────────────────────────── */
 
-describe("startup migration guard", () => {
+describe("startup migration guard — classification", () => {
+  test("1 — every hash tracked → nothing pending, nothing divergent", () => {
+    const entries = [entry("0000_a", 100), entry("0001_b", 200)];
+    const r = classifyMigrations(entries, new Set(["hash-0000_a", "hash-0001_b"]), 200);
+    assert.deepEqual(r.pending, []);
+    assert.deepEqual(r.divergent, []);
+    assert.equal(r.checked, 2);
+  });
+
+  test("2 — untracked and NEWER than the last applied → pending (migrate will apply)", () => {
+    /* The real 0009 case: post-merge never ran, migrate would fix it. */
+    const entries = [entry("0000_a", 100), entry("0009_new", 900)];
+    const r = classifyMigrations(entries, new Set(["hash-0000_a"]), 100);
+    assert.deepEqual(r.pending, ["0009_new"], "must block startup — there is a working remedy");
+    assert.deepEqual(r.divergent, []);
+  });
+
+  test("3 — untracked but OLDER than the last applied → divergent, NOT pending", () => {
+    /* The 0006 case: an applied migration file was edited, so its hash no
+       longer matches. drizzle-kit migrate skips it on timestamp, so blocking
+       startup would deadlock — the guard would demand something the documented
+       remedy cannot deliver. */
+    const entries = [entry("0006_edited", 150), entry("0008_c", 800)];
+    const r = classifyMigrations(entries, new Set(["hash-0008_c"]), 800);
+    assert.deepEqual(r.pending, [], "must NOT block — migrate cannot resolve this");
+    assert.deepEqual(r.divergent, ["0006_edited"], "must still be reported");
+  });
+
+  test("4 — empty tracking table → everything pending, nothing divergent", () => {
+    const entries = [entry("0000_a", 100), entry("0001_b", 200)];
+    const r = classifyMigrations(entries, new Set(), null);
+    assert.deepEqual(r.pending, ["0000_a", "0001_b"], "a fresh DB applies all of them");
+    assert.deepEqual(r.divergent, []);
+  });
+
+  test("5 — mixed: one genuinely pending and one edited old file", () => {
+    const entries = [entry("0006_edited", 150), entry("0008_c", 800), entry("0009_new", 900)];
+    const r = classifyMigrations(entries, new Set(["hash-0008_c"]), 800);
+    assert.deepEqual(r.pending, ["0009_new"]);
+    assert.deepEqual(r.divergent, ["0006_edited"]);
+  });
+
+  test("6 — pending order follows the journal, so the operator sees what applies first", () => {
+    const entries = [entry("0000_a", 100), entry("0001_b", 200), entry("0002_c", 300)];
+    assert.deepEqual(classifyMigrations(entries, new Set(), null).pending, ["0000_a", "0001_b", "0002_c"]);
+  });
+});
+
+/* ── File hashing ─────────────────────────────────────────────────────────── */
+
+describe("startup migration guard — journal reading", () => {
   before(() => { dir = mkdtempSync(path.join(tmpdir(), "catalyst-mig-")); });
   after(()  => { rmSync(dir, { recursive: true, force: true }); });
 
-  test("1 — all migrations tracked → nothing pending", async () => {
-    const h = makeMigrations(["0000_a", "0001_b", "0002_c"]);
-    const pending = await pendingAgainst(new Set(Object.values(h)));
-    assert.deepEqual(pending, [], "a fully-migrated database must report no pending work");
-  });
-
-  test("2 — a migration the DB has never seen → reported pending", async () => {
-    const h = makeMigrations(["0000_a", "0001_b", "0002_c"]);
-    /* Simulates post-merge.sh being cut short before drizzle-kit migrate ran:
-       the newest migration is in the repo but absent from the tracking table. */
-    const applied = new Set([h["0000_a"], h["0001_b"]]);
-    assert.deepEqual(await pendingAgainst(applied), ["0002_c"]);
-  });
-
-  test("3 — empty tracking table (fresh database) → every migration pending", async () => {
-    makeMigrations(["0000_a", "0001_b"]);
-    assert.deepEqual(await pendingAgainst(new Set()), ["0000_a", "0001_b"]);
-  });
-
-  test("4 — an EDITED applied migration reads as pending (hash is content-addressed)", async () => {
-    const h = makeMigrations(["0000_a", "0001_b"]);
-    const applied = new Set(Object.values(h));
-    /* Exactly what happened to 0006 in Batch A: a comment change altered the
-       file hash, orphaning its tracking row. The guard must catch this. */
-    writeFileSync(path.join(dir, "0001_b.sql"), "-- 0001_b\n-- an added comment\nSELECT 1;\n");
-    assert.deepEqual(
-      await pendingAgainst(applied),
-      ["0001_b"],
-      "editing an applied migration must surface as pending, not pass silently",
+  test("7 — hashes are the SHA256 of file contents, and `when` is carried through", async () => {
+    writeFixture([{ tag: "0000_a", when: 111 }, { tag: "0001_b", when: 222 }]);
+    const entries = await readJournal(dir);
+    assert.equal(entries.length, 2);
+    assert.equal(entries[0]!.when, 111);
+    assert.equal(
+      entries[0]!.hash,
+      createHash("sha256").update(Buffer.from("-- 0000_a\nSELECT 1;\n")).digest("hex"),
+      "must match drizzle's content hash exactly, or tracked migrations look unapplied",
     );
   });
 
-  test("5 — ordering is preserved so the operator sees what to apply first", async () => {
-    makeMigrations(["0000_a", "0001_b", "0002_c"]);
-    assert.deepEqual(await pendingAgainst(new Set()), ["0000_a", "0001_b", "0002_c"]);
+  test("8 — editing a file changes its hash (why applied migrations are immutable)", async () => {
+    writeFixture([{ tag: "0000_a", when: 111 }]);
+    const before = (await readJournal(dir))[0]!.hash;
+    writeFixture([{ tag: "0000_a", when: 111, body: "-- 0000_a\n-- an added comment\nSELECT 1;\n" }]);
+    const after = (await readJournal(dir))[0]!.hash;
+    assert.notEqual(before, after, "a comment-only edit must still change the hash");
   });
 });

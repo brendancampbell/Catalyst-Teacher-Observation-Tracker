@@ -83,6 +83,24 @@ about mirroring backfills at startup (retired). Read it as history, and do not
 
 If a migration's documentation needs correcting, correct it here.
 
+**How the startup guard treats this.** `drizzle-kit` decides what to apply by
+timestamp, not by hash — it takes the newest applied row and runs anything with
+a larger `folderMillis`. So an edited *old* migration can never be repaired by
+running `migrate`. The guard in
+`artifacts/api-server/src/lib/pending-migrations.ts` therefore separates:
+
+| Case | Guard behaviour |
+|---|---|
+| Untracked, timestamp **newer** than the last applied row | **Blocks startup** — `migrate` will fix it |
+| Untracked, timestamp **older** (an edited file) | **Logs and starts** — `migrate` cannot fix it, so blocking would deadlock |
+
+A related trap: this journal's timestamps are **not monotonic** — `0005` and
+`0006` carry `1753…` while `0000`–`0004` carry `1784…`. If either had never been
+applied, `drizzle-kit migrate` would never apply it, because its timestamp is
+below the newest applied row. Both are tracked today, so this is latent rather
+than live, but keep it in mind before assuming `migrate` will pick up an old
+migration.
+
 ### Schools are not seeded by code
 
 Schools — including the Home Office pseudo-school — are created and edited
