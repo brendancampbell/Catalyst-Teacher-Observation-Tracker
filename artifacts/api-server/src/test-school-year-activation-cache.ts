@@ -21,8 +21,8 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { people, rubricSets, schoolYears, schools } from "@workspace/db/schema";
-import { eq, ne, asc } from "drizzle-orm";
+import { people, rubricSets, schoolYears, schools, assignments } from "@workspace/db/schema";
+import { eq, ne, asc, inArray } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -64,6 +64,10 @@ let jar: Jar;
 let originalActiveYearId: number;
 let alternateYearId: number;
 let rubricSetSlug: string;
+
+/* Rows this test creates purely to satisfy the activation gate */
+const seededAssignmentIds: number[] = [];
+let seededRubricSetId: number | null = null;
 
 describe("School-year activation clears dashboard / district / network-avgs caches", () => {
   before(async () => {
@@ -116,6 +120,61 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       includeInFeedbackTracker: false,
     }).onConflictDoNothing();
 
+    /* ── Satisfy the activation gate ──────────────────────────────────────
+       Activation now refuses a year that has no roster, no active rubric
+       set, or no assignment for the admin performing the flip.
+
+       Mirror the active year's roster into the alternate year so the flip
+       is a no-op for people: everybody present in the outgoing year is also
+       present in the incoming one, so nothing is treated as a departure.
+       This test is about cache invalidation — rollover side-effects are
+       covered by test-school-year-rollover.ts.                           */
+    const copied = await pool.query<{ id: number }>(
+      `INSERT INTO assignments (user_id, role, school_id, school_year_id, start_date, end_date)
+       SELECT user_id, role, school_id, $1, start_date, NULL
+         FROM assignments
+        WHERE school_year_id = $2 AND end_date IS NULL
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [alternateYearId, originalActiveYearId],
+    );
+    seededAssignmentIds.push(...copied.rows.map((r) => r.id));
+
+    /* The admin needs an open assignment in BOTH years — the gate is checked
+       on the way out as well as the way in, so without one in the original
+       year the after() hook could not restore it. */
+    for (const yearId of [originalActiveYearId, alternateYearId]) {
+      const inserted = await pool.query<{ id: number }>(
+        `INSERT INTO assignments (user_id, role, school_id, school_year_id, start_date, end_date)
+         VALUES ($1, 'NETWORK_ADMIN', $2, $3, CURRENT_DATE, NULL)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [ADM_EID, hoSchool.id, yearId],
+      );
+      seededAssignmentIds.push(...inserted.rows.map((r) => r.id));
+    }
+
+    const [altRubric] = await db
+      .select({ id: rubricSets.id })
+      .from(rubricSets)
+      .where(eq(rubricSets.schoolYearId, alternateYearId))
+      .limit(1);
+    if (!altRubric) {
+      const [created] = await db.insert(rubricSets).values({
+        slug:         `tst-sy-cache-${Date.now()}`,
+        name:         "Test SY Cache Rubric",
+        schoolYearId: alternateYearId,
+        isActive:     true,
+        isArchived:   false,
+        target:       "TEACHER",
+      }).returning({ id: rubricSets.id });
+      seededRubricSetId = created!.id;
+    } else {
+      await db.update(rubricSets)
+        .set({ isActive: true, isArchived: false })
+        .where(eq(rubricSets.id, altRubric.id));
+    }
+
     jar = await loginAs(ADM_EID);
   });
 
@@ -130,6 +189,15 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       body: JSON.stringify({}),
     }).catch(() => {});
 
+    /* Order matters: the year is restored above while the admin still has an
+       assignment in it, then the scaffolding comes down. */
+    if (seededAssignmentIds.length > 0) {
+      await db.delete(assignments).where(inArray(assignments.id, seededAssignmentIds)).catch(() => {});
+    }
+    if (seededRubricSetId !== null) {
+      await db.delete(rubricSets).where(eq(rubricSets.id, seededRubricSetId)).catch(() => {});
+    }
+    await db.delete(assignments).where(eq(assignments.userId, ADM_EID)).catch(() => {});
     await db.delete(people).where(eq(people.employeeId, ADM_EID)).catch(() => {});
   });
 

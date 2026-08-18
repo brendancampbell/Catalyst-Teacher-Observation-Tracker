@@ -295,7 +295,7 @@ router.post("/:id/activate", async (req, res) => {
          Mid-year terminations are also safe: toggle-active flips
          people.is_active and never end-dates assignments, so a terminated
          person's row is still open and is skipped here.                */
-      const reopened = await client.query(
+      const reopened = await client.query<{ user_id: string }>(
         `UPDATE assignments a
             SET end_date = NULL, updated_at = now()
           WHERE a.school_year_id = $1
@@ -310,10 +310,11 @@ router.post("/:id/activate", async (req, res) => {
                    WHERE b.user_id = a.user_id
                      AND b.school_year_id = $1
                    ORDER BY b.start_date DESC, b.id DESC
-                   LIMIT 1)`,
+                   LIMIT 1)
+        RETURNING a.user_id`,
         [targetId],
       );
-      reactivated = reopened.rowCount ?? 0;
+      const reopenedUserIds = reopened.rows.map((r) => r.user_id);
 
       /* ── 2. Flip the active year ── */
       await client.query(`UPDATE school_years SET status = 'inactive', updated_at = now()`);
@@ -349,26 +350,54 @@ router.post("/:id/activate", async (req, res) => {
         deactivated = departed.rowCount ?? 0;
       }
 
-      /* ── 4. Apply the new year's roster to the person records ────
-         Activates staged new hires (created inert with is_active false)
-         and re-syncs the denormalised role/school_id that school scoping
-         reads. Deferred to here so staging a roster never disturbs the
-         year that is still running.                                    */
+      /* ── 4a. Re-sync the denormalised fields school scoping reads ──
+         Deferred to here so staging a roster never disturbs the year that
+         is still running. Deliberately does NOT touch is_active — see 4b. */
       await client.query(
         `UPDATE people p
-            SET is_active = true,
-                role      = a.role,
+            SET role      = a.role,
                 school_id = a.school_id,
                 updated_at = now()
            FROM assignments a
           WHERE a.user_id = p.employee_id
             AND a.school_year_id = $1
             AND a.end_date IS NULL
-            AND (p.is_active = false
-                 OR p.role <> a.role
+            AND (p.role <> a.role
                  OR p.school_id IS DISTINCT FROM a.school_id)`,
         [targetId],
       );
+
+      /* ── 4b. Reactivate, narrowly ────────────────────────────────
+         Only two groups get is_active flipped back on, because "has an
+         open assignment in the new year" is too broad a rule: someone
+         terminated mid-year still holds an open assignment (toggle-active
+         never end-dates one), and a blanket rule would resurrect them
+         every time a year was activated.
+
+           • users whose assignment this activation just reopened — by
+             construction, exactly the people a previous flip deactivated
+           • staged new hires: created inert by a roster upload, holding an
+             open assignment in the incoming year and none at all in the
+             outgoing one                                               */
+      const reactivatedRes = await client.query(
+        `UPDATE people p
+            SET is_active = true, updated_at = now()
+          WHERE p.is_active = false
+            AND EXISTS (
+                  SELECT 1 FROM assignments a
+                   WHERE a.user_id = p.employee_id
+                     AND a.school_year_id = $1
+                     AND a.end_date IS NULL)
+            AND (
+                  p.employee_id = ANY($2::text[])
+                  OR ($3::int IS NOT NULL AND NOT EXISTS (
+                        SELECT 1 FROM assignments o
+                         WHERE o.user_id = p.employee_id
+                           AND o.school_year_id = $3))
+                )`,
+        [targetId, reopenedUserIds, outgoingId],
+      );
+      reactivated = reactivatedRes.rowCount ?? 0;
 
       await client.query("COMMIT");
     } catch (err) {
