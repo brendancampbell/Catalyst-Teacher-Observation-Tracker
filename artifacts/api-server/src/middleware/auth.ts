@@ -5,11 +5,41 @@ import { eq } from "drizzle-orm";
 
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS";
 
+/* ── schoolYearBlocked ───────────────────────────────────────────
+   The activeThisYear gate, with one deliberate carve-out.
+
+   checkActiveThisYear() requires an open assignment in the ACTIVE
+   school year for anyone who has assignment history. Nothing copies
+   assignments forward, so activating a year that has no roster makes
+   that false for essentially everyone at once — and because this
+   check runs BEFORE the role check in requireRole, it took
+   NETWORK_ADMIN down with everyone else. The only route back was
+   editing school_years directly in the database.
+
+   NETWORK_ADMIN is therefore exempt: an admin must always be able to
+   reach the admin UI to fix the state that caused the lockout. This
+   is a backstop, not the primary defence — the activation gate in
+   routes/admin-school-years.ts refuses to flip into a year the
+   admin has no assignment in, so this path should never be needed.
+
+   The exemption is narrow. isActive and NO_ACCESS still hard-block
+   admins, so offboarding an admin still works.                    */
+function schoolYearBlocked(user: Express.User): boolean {
+  if (user.role === "NETWORK_ADMIN") return false;
+  return !user.activeThisYear;
+}
+
+const NOT_ACTIVE_THIS_YEAR = {
+  error: "Your account is not active for the current school year — please contact your administrator",
+  code:  "NOT_ACTIVE_THIS_YEAR",
+} as const;
+
 /* ── requireAuth ─────────────────────────────────────────────────
    Rejects unauthenticated requests with 401.
    Defence-in-depth: also explicitly blocks deactivated accounts,
-   NO_ACCESS users, and users with no assignment in the current
-   school year so stale sessions cannot reach protected routes.    */
+   NO_ACCESS users, and — except for NETWORK_ADMIN, see
+   schoolYearBlocked — users with no assignment in the current
+   school year, so stale sessions cannot reach protected routes.  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.isAuthenticated() && req.user) {
     const user = req.user as Express.User;
@@ -18,11 +48,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       res.status(403).json({ error: "Access denied" });
       return;
     }
-    if (!user.activeThisYear) {
-      res.status(403).json({
-        error: "Your account is not active for the current school year — please contact your administrator",
-        code:  "NOT_ACTIVE_THIS_YEAR",
-      });
+    if (schoolYearBlocked(user)) {
+      res.status(403).json(NOT_ACTIVE_THIS_YEAR);
       return;
     }
     next();
@@ -40,11 +67,8 @@ export function requireRole(...roles: UserRole[]) {
       return;
     }
     const user = req.user as Express.User;
-    if (!user.activeThisYear) {
-      res.status(403).json({
-        error: "Your account is not active for the current school year — please contact your administrator",
-        code:  "NOT_ACTIVE_THIS_YEAR",
-      });
+    if (schoolYearBlocked(user)) {
+      res.status(403).json(NOT_ACTIVE_THIS_YEAR);
       return;
     }
     if (!roles.includes(user.role as UserRole)) {
