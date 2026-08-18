@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { bootstrapAdmin } from "./lib/bootstrap-admin";
 import { cleanupExpiredQuotaGrants } from "./lib/quota-grant-cleanup.js";
+import { markReady } from "./lib/readiness";
 
 const rawPort = process.env["PORT"];
 
@@ -280,7 +281,12 @@ async function ensureSchoolYearBackfill(): Promise<void> {
 /* ── Start listening immediately so the deployment healthcheck passes
    during the startup window. Startup tasks (migrations, seeding) run
    in the background and complete within a few seconds in production.
-   If any startup task fails we log and exit so the platform retries. */
+   If any startup task fails we log and exit so the platform retries.
+
+   Binding early does NOT mean serving early: a readiness gate in app.ts
+   returns 503 for everything except /api/healthz until markReady() is
+   called below, so no request is handled while the startup tasks are
+   still altering the schema underneath it.                            */
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -296,6 +302,10 @@ ensureSessionTable()
   .then(() => ensureSchoolYearIds())
   .then(() => bootstrapAdmin())
   .then(() => {
+    /* Startup complete — begin serving normal traffic. */
+    markReady();
+    logger.info("Startup tasks complete — now accepting requests");
+
     /* Kick off first cleanup immediately, then repeat every hour */
     cleanupExpiredQuotaGrants().catch((err) =>
       logger.warn({ err, event: "quota_grant_cleanup_failed" }, "Quota grant cleanup failed"),

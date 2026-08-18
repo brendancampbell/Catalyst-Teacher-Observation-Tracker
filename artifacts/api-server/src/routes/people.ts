@@ -824,7 +824,61 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
       res.status(400).json({ error: "Nothing to update" }); return;
     }
 
-    await db.update(people).set(updates as Partial<typeof people.$inferInsert>).where(eq(people.employeeId, empId));
+    /* ── Keep the assignment ledger in step with a role change ──────────
+       people.role is a denormalised copy; `assignments` is the historical
+       record of who held which role, at which school, in which year.
+       Writing only the copy left the ledger silently wrong, so a role
+       change made here was invisible to any audit of it. /reassign has
+       always done this correctly; this mirrors it.
+
+       Deliberately conservative: the ledger is only rewritten when an OPEN
+       assignment already exists for the active year. If the person has no
+       open assignment for this year, none is fabricated — editing someone's
+       role should not quietly scope them into a year they were not part of,
+       which is what checkActiveThisYear keys off.                        */
+    const roleChanged = role !== undefined && role !== target.role;
+    const activeYearIdForLedger = roleChanged ? await getActiveSchoolYearId() : null;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(people)
+        .set(updates as Partial<typeof people.$inferInsert>)
+        .where(eq(people.employeeId, empId));
+
+      if (!roleChanged || activeYearIdForLedger === null) return;
+
+      const [openAssignment] = await tx
+        .select({ id: assignments.id, schoolId: assignments.schoolId })
+        .from(assignments)
+        .where(and(
+          eq(assignments.userId, empId),
+          eq(assignments.schoolYearId, activeYearIdForLedger),
+          isNull(assignments.endDate),
+        ))
+        .limit(1);
+
+      if (!openAssignment) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      /* Close then reopen, rather than updating in place, so the ledger keeps
+         the previous role as history. The partial unique index on
+         (user_id, school_year_id) WHERE end_date IS NULL requires these to be
+         in one transaction — there must never be two open rows. */
+      await tx
+        .update(assignments)
+        .set({ endDate: today })
+        .where(eq(assignments.id, openAssignment.id));
+
+      await tx.insert(assignments).values({
+        userId:       empId,
+        role:         role as UserRole,
+        schoolId:     openAssignment.schoolId,
+        schoolYearId: activeYearIdForLedger,
+        startDate:    today,
+        endDate:      null,
+      });
+    });
 
     const [withSchool] = await db
       .select(PEOPLE_SELECT)

@@ -11,6 +11,7 @@ import { pool } from "@workspace/db";
 import { applyImpersonation } from "./middleware/impersonation";
 import { buildCsrfMiddleware } from "./middleware/csrf";
 import { isProduction } from "./config/env";
+import { isReady } from "./lib/readiness";
 
 const PgStore = connectPgSimple(session);
 
@@ -39,6 +40,30 @@ app.use(
     },
   }),
 );
+
+/* ── Readiness gate ──────────────────────────────────────────────────
+   The port is bound before startup tasks finish so the deployment
+   healthcheck succeeds immediately (see index.ts). Until those tasks
+   complete they are running ALTER TABLE / CREATE INDEX / backfill UPDATE
+   statements, so real requests must not be served against a database
+   mid-migration. Health checks are exempt — answering them is the whole
+   reason the port is bound early.
+
+   Mounted before session/passport so a gated request never touches the
+   database at all.                                                     */
+const READINESS_EXEMPT_PATHS = new Set(["/api/healthz"]);
+
+app.use((req, res, next) => {
+  if (isReady() || READINESS_EXEMPT_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+  res.setHeader("Retry-After", "5");
+  res.status(503).json({
+    error: "Server is still starting up. Please retry in a moment.",
+    code:  "NOT_READY",
+  });
+});
 
 /* ── CORS ────────────────────────────────────────────────────────────
    Exact-origin allowlist: REPLIT_DEV_DOMAIN + localhost only.
