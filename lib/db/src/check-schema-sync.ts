@@ -87,8 +87,10 @@ async function main() {
   console.error(`\nSchema drift detected — ${drift.length} issue(s):\n`);
   for (const line of drift) console.error("  " + line);
   console.error(
-    "\nFix: update the relevant schema file in lib/db/src/schema/ OR apply" +
-    " the missing migration with:  pnpm --filter @workspace/db run push-force",
+    "\nFix: update the relevant schema file in lib/db/src/schema/, then:" +
+    "\n  pnpm --filter @workspace/db run generate   # write a migration for the change" +
+    "\n  pnpm --filter @workspace/db run migrate    # apply it" +
+    "\nDo NOT use drizzle-kit push/push-force here — see lib/db/README.md.",
   );
   process.exit(1);
 }

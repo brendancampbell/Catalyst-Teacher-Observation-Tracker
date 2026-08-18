@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { people } from "./people";
 
 export const chatSessions = pgTable("chat_sessions", {
@@ -7,7 +7,10 @@ export const chatSessions = pgTable("chat_sessions", {
   title:      text("title").notNull().default("New Chat"),
   createdAt:  timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:  timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("chat_sessions_employee_id_idx").on(t.employeeId),
+  index("chat_sessions_updated_at_idx").on(t.updatedAt.desc().nullsFirst()),
+]);
 
 export const chatMessages = pgTable("chat_messages", {
   id:              serial("id").primaryKey(),
@@ -17,7 +20,9 @@ export const chatMessages = pgTable("chat_messages", {
   rubricSetSlug:   text("rubric_set_slug"),
   instantAnalysis: jsonb("instant_analysis_structured"),
   createdAt:       timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("chat_messages_session_id_idx").on(t.sessionId),
+]);
 
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
