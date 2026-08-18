@@ -23,7 +23,7 @@ import {
   rubricDomains,
   schoolYears,
 } from "@workspace/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -339,12 +339,20 @@ describe("Frozen school snapshots — observation and action step remain pinned 
   /* ── Test 5: A NEW observation created after transfer captures School B ── */
   test("5 — A NEW observation created AFTER the transfer captures School B (HS) into its snapshot", async () => {
     /* Log in as a network admin (no school restriction) since leader is still at A */
+    /*
+     * Must be an ACTIVE admin, and deterministically chosen. The unfiltered
+     * version picked whichever NETWORK_ADMIN the planner returned first,
+     * which could be a deactivated one — dev-login then rejects with
+     * "Account deactivated" and this test fails for a reason that has
+     * nothing to do with snapshot freezing.
+     */
     const [networkAdmin] = await db
       .select({ employeeId: people.employeeId })
       .from(people)
-      .where(eq(people.role, "NETWORK_ADMIN"))
+      .where(and(eq(people.role, "NETWORK_ADMIN"), eq(people.isActive, true)))
+      .orderBy(asc(people.employeeId))
       .limit(1);
-    assert.ok(networkAdmin, "No NETWORK_ADMIN found — needed to create obs for teacher now at School B");
+    assert.ok(networkAdmin, "No active NETWORK_ADMIN found — needed to create obs for teacher now at School B");
 
     const adminJar = await loginAs(networkAdmin.employeeId);
     const today = new Date().toISOString().split("T")[0]!;

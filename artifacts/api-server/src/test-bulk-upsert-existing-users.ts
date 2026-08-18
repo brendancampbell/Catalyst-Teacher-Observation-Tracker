@@ -273,28 +273,45 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     assert.equal(res.status, 200, `HTTP status: ${JSON.stringify(res.body)}`);
     const body = res.body as { results: Array<{ status: string; reason?: string }> };
     assert.ok(Array.isArray(body.results) && body.results.length === 1);
+
+    /*
+     * This used to silently re-key the existing person onto the CSV's
+     * employeeId and report "assigned". It is now an error row.
+     *
+     * A known email arriving under an unknown employeeId has two plausible
+     * causes — a mistyped ID, and HR reissuing someone's ID — and they call
+     * for opposite fixes. Guessing rewrites the wrong person's record, which
+     * during a rollover would move or deactivate the wrong human. employeeId
+     * is the identity; ambiguity is a question for an operator, not a
+     * decision for the importer.
+     */
     assert.equal(
       body.results[0]!.status,
-      "assigned",
-      `Expected "assigned" for email-matched person, got "${body.results[0]!.status}"`,
+      "error",
+      `Expected "error" for an email that already exists under another employeeId, got "${body.results[0]!.status}"`,
+    );
+    assert.match(
+      body.results[0]!.reason ?? "",
+      /already exists under employeeId/,
+      `Error should name the conflicting employeeId: ${body.results[0]!.reason}`,
     );
 
-    /* The assignment was written using the EXISTING person's employeeId */
+    /* The existing person is untouched — still a COACH at school A */
     const [active] = await db
       .select({ role: assignments.role, schoolId: assignments.schoolId })
       .from(assignments)
       .where(and(eq(assignments.userId, empId), isNull(assignments.endDate)));
 
-    assert.ok(active, "Active assignment must use the existing person's employeeId");
-    assert.equal(active.role, "SCHOOL_LEADER");
-    assert.equal(active.schoolId, schoolBId);
+    assert.ok(active, "The existing person keeps their assignment");
+    assert.equal(active.role, "COACH", "role must not change on a rejected row");
+    assert.equal(active.schoolId, schoolAId, "school must not change on a rejected row");
 
-    /* No person was accidentally created for the CSV's fake employeeId */
+    /* And no person was created for the CSV's unknown employeeId */
     const phantom = await db
       .select({ employeeId: people.employeeId })
       .from(people)
       .where(eq(people.employeeId, csvEmpId));
-    assert.equal(phantom.length, 0, "No new person should be created when email matches existing");
+    assert.equal(phantom.length, 0, "A rejected row must not create a person");
   });
 
   /* ── 3. Identical active assignment → idempotent "skipped" ───────────── */
