@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   Plus, X, Check, CheckCircle2, AlertTriangle, Zap,
-  BookOpen, Users, ArrowRight, CalendarDays, ChevronRight, GripVertical,
+  BookOpen, Users, ArrowRight, CalendarDays, ChevronRight, GripVertical, Upload,
 } from "lucide-react";
 import {
   fetchSchoolYears,
@@ -14,10 +14,17 @@ import {
   reorderSchoolYears,
   copyRubricSetForward,
   fetchRubricSets,
+  fetchActivationReadiness,
+  previewRoster,
+  stageRoster,
   type SchoolYearRow,
   type SchoolYearActivationPreview,
   type RubricSetRow,
+  type ActivationReadiness,
+  type RosterApplyResult,
 } from "@/lib/api";
+import type { BulkImportPersonPayload } from "@workspace/api-types";
+import { parsePeopleCSV } from "@/lib/peopleCsv";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -58,6 +65,16 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
     queryKey: QUERY_KEYS.rubricSetsForCopy,
     queryFn:  () => fetchRubricSets(false),
     enabled:  selectedYr?.status === "inactive",
+  });
+
+  /* Activation readiness — the three preconditions the gate enforces.
+     Fetched with the confirmation dialog so the button can refuse up front
+     rather than letting the server 409 after the admin has typed the name. */
+  const readinessQ = useQuery<ActivationReadiness>({
+    queryKey: [...QUERY_KEYS.activationReadiness, selectedId],
+    queryFn:  () => fetchActivationReadiness(selectedId!),
+    enabled:  showActivate && selectedId != null,
+    staleTime: 0,
   });
 
   /* Activation preview — fetched lazily when confirmation dialog opens */
@@ -112,6 +129,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
 
   function handleMakeActive() {
     setConfirmText("");
+    activateMut.reset();
     setShowActivate(true);
     previewQ.refetch();
   }
@@ -120,6 +138,8 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
   const sourceSets  = activeYrSetsQ.data ?? [];
   const copiedSlugs = new Set(targetSets.map((s) => s.slug));
   const preview     = previewQ.data;
+  const readiness   = readinessQ.data;
+  const blocked     = readiness != null && !readiness.ready;
 
   const confirmMatches =
     selectedYr != null && confirmText.trim() === selectedYr.name.trim();
@@ -409,37 +429,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
               </div>
             </div>
 
-            {/* ── Step 2: User Assignments ── */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div
-                className="px-5 py-4 border-b border-slate-100"
-                style={{ borderLeft: `4px solid ${YELLOW}` }}
-              >
-                <div className="flex items-center gap-2">
-                  <Users size={15} style={{ color: NAVY }} />
-                  <span className="font-bold text-slate-700">Step 2 — User Assignments</span>
-                </div>
-                <p className="text-sm text-slate-500 mt-1">
-                  Review who will have access when this year becomes active.
-                </p>
-              </div>
-              <div className="px-5 py-4 flex items-start justify-between gap-4">
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  All currently active users retain their role and school assignment automatically.
-                  To deactivate a user or change their school before switching, use the Users tab.
-                  Users you mark inactive there won't appear in the app once this year is live.
-                </p>
-                <button
-                  onClick={onGoToUsers}
-                  className="shrink-0 flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors whitespace-nowrap"
-                  style={{ color: NAVY }}
-                >
-                  <Users size={13} />
-                  Edit Users
-                  <ChevronRight size={13} />
-                </button>
-              </div>
-            </div>
+            <RosterStep year={selectedYr} onGoToUsers={onGoToUsers} />
 
             {/* ── Make Active CTA ── */}
             <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-200">
@@ -612,6 +602,25 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
                 )
               ) : null}
 
+              {/* Preconditions — activation is refused until all three hold */}
+              {blocked && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-4 flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-red-800 flex items-center gap-1.5">
+                    <AlertTriangle size={14} />
+                    {selectedYr.name} is not ready to activate
+                  </p>
+                  <ul className="text-sm text-red-700 ml-5 list-disc flex flex-col gap-1">
+                    {readiness!.blockers.map((b) => <li key={b}>{b}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {activateMut.isError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                  {(activateMut.error as Error).message}
+                </div>
+              )}
+
               {/* Confirm by typing */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-slate-700">
@@ -623,7 +632,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && confirmMatches && !activateMut.isPending) {
+                    if (e.key === "Enter" && confirmMatches && !blocked && !activateMut.isPending) {
                       activateMut.mutate();
                     }
                   }}
@@ -642,7 +651,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
               </button>
               <button
                 onClick={() => activateMut.mutate()}
-                disabled={!confirmMatches || activateMut.isPending}
+                disabled={!confirmMatches || blocked || activateMut.isPending}
                 className="px-5 py-2 rounded-xl font-bold text-sm text-white disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center gap-2"
                 style={{
                   backgroundColor: NAVY,
@@ -670,6 +679,287 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Step 2: Staff Roster ──────────────────────────────────────────────
+   The roster is the authoritative statement of who works where next year.
+   Anyone absent from it is deactivated when the year flips, which is why
+   the upload is always previewed before it is written.                  */
+function RosterStep({ year, onGoToUsers }: { year: SchoolYearRow; onGoToUsers: () => void }) {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [rows, setRows]               = useState<BulkImportPersonPayload[] | null>(null);
+  const [fileName, setFileName]       = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [applied, setApplied]         = useState<RosterApplyResult | null>(null);
+  const [parseError, setParseError]   = useState<string | null>(null);
+
+  const readinessQ = useQuery<ActivationReadiness>({
+    queryKey: [...QUERY_KEYS.activationReadiness, year.id],
+    queryFn:  () => fetchActivationReadiness(year.id),
+  });
+
+  const previewMut = useMutation({
+    mutationFn: (r: BulkImportPersonPayload[]) => previewRoster(year.id, r),
+  });
+
+  const applyMut = useMutation({
+    mutationFn: () => stageRoster(year.id, rows!),
+    onSuccess: (res) => {
+      setApplied(res);
+      setRows(null);
+      setFileName("");
+      setConfirmText("");
+      previewMut.reset();
+      qc.invalidateQueries({ queryKey: [...QUERY_KEYS.activationReadiness, year.id] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.people });
+    },
+  });
+
+  const diff = previewMut.data ?? null;
+  const confirmMatches = confirmText.trim() === year.name.trim();
+
+  function handleFile(file: File) {
+    setApplied(null);
+    setParseError(null);
+    previewMut.reset();
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = parsePeopleCSV(String(reader.result ?? ""));
+      if (parsed.length === 0) {
+        setParseError("No rows found. The file needs a header row with at least firstName, lastName, employeeId, email, role and school.");
+        setRows(null);
+        return;
+      }
+      setFileName(file.name);
+      setRows(parsed);
+      previewMut.mutate(parsed);
+    };
+    reader.readAsText(file);
+  }
+
+  const emptySchools = (diff?.bySchool ?? []).filter((s) => s.remaining === 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100" style={{ borderLeft: `4px solid ${YELLOW}` }}>
+        <div className="flex items-center gap-2">
+          <Users size={15} style={{ color: NAVY }} />
+          <span className="font-bold text-slate-700">Step 2 — Staff Roster</span>
+          {readinessQ.data?.hasRoster && (
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ backgroundColor: "#dcfce7", color: "#15803d" }}>
+              Roster loaded
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-slate-500 mt-1">
+          Upload the complete staff list for {year.name} — everyone, at the school they will be at.
+        </p>
+      </div>
+
+      <div className="px-5 py-4 flex flex-col gap-4">
+        <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+          <p className="text-sm text-slate-600 leading-relaxed">
+            This file is the source of truth. Someone listed at a different school is
+            <strong> moved</strong>; someone who is not in <em>people</em> yet is <strong>created</strong>;
+            and <strong>anyone missing from it is treated as having left</strong> and is deactivated
+            when {year.name} goes live. Nothing changes until then — staging cannot disturb the year
+            currently running.
+          </p>
+        </div>
+
+        {/* ── File picker ── */}
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+            style={{ color: NAVY }}
+          >
+            <Upload size={13} />
+            Choose roster CSV
+          </button>
+          {fileName && <span className="text-xs text-slate-500">{fileName} — {rows?.length ?? 0} rows</span>}
+          <button
+            onClick={onGoToUsers}
+            className="ml-auto shrink-0 flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors whitespace-nowrap"
+            style={{ color: NAVY }}
+          >
+            <Users size={13} />
+            Edit Users
+            <ChevronRight size={13} />
+          </button>
+        </div>
+
+        {parseError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {parseError}
+          </div>
+        )}
+
+        {previewMut.isPending && (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="w-4 h-4 rounded-full border-2 border-blue-200 animate-spin" style={{ borderTopColor: NAVY }} />
+            Comparing against {year.name}…
+          </div>
+        )}
+
+        {previewMut.isError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            Could not preview this roster: {(previewMut.error as Error).message}
+          </div>
+        )}
+
+        {/* ── The diff ── */}
+        {diff && (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-5 gap-2">
+              {([
+                ["New hires",    diff.counts.newHires,    "#dcfce7", "#15803d"],
+                ["Moving",       diff.counts.schoolMoves, "#dbeafe", "#1d4ed8"],
+                ["Role changes", diff.counts.roleChanges, "#dbeafe", "#1d4ed8"],
+                ["Unchanged",    diff.counts.unchanged,   "#f1f5f9", "#475569"],
+                ["Departing",    diff.counts.departures,  "#fee2e2", "#b91c1c"],
+              ] as const).map(([label, n, bg, fg]) => (
+                <div key={label} className="rounded-lg px-3 py-2 text-center" style={{ backgroundColor: bg }}>
+                  <div className="font-bold text-lg" style={{ color: fg }}>{n}</div>
+                  <div className="text-xs" style={{ color: fg }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {emptySchools.length > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  {emptySchools.length} school{emptySchools.length !== 1 ? "s" : ""} would have nobody left
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {emptySchools.map((s) => s.schoolName).join(", ")} — this almost always means the
+                  school is missing from the file rather than that everyone there left.
+                </p>
+              </div>
+            )}
+
+            {diff.errors.length > 0 && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                <p className="text-sm font-semibold text-red-800">
+                  {diff.errors.length} row{diff.errors.length !== 1 ? "s" : ""} will be skipped
+                </p>
+                <ul className="text-xs text-red-700 mt-1 flex flex-col gap-0.5 max-h-32 overflow-y-auto">
+                  {diff.errors.slice(0, 25).map((e) => (
+                    <li key={e.row}>Row {e.row}{e.name ? ` (${e.name})` : ""} — {e.reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <details className="rounded-lg border border-slate-200">
+              <summary className="px-4 py-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                Per-school breakdown
+              </summary>
+              <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="text-left px-3 py-1.5">School</th>
+                      <th className="text-right px-3 py-1.5">New</th>
+                      <th className="text-right px-3 py-1.5">Moved in</th>
+                      <th className="text-right px-3 py-1.5">Departing</th>
+                      <th className="text-right px-3 py-1.5">Headcount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diff.bySchool.map((s) => (
+                      <tr key={s.schoolId} className="border-t border-slate-100">
+                        <td className="px-3 py-1.5 text-slate-700">{s.schoolName}</td>
+                        <td className="px-3 py-1.5 text-right">{s.newHires}</td>
+                        <td className="px-3 py-1.5 text-right">{s.schoolMoves}</td>
+                        <td className="px-3 py-1.5 text-right">{s.departures}</td>
+                        <td className="px-3 py-1.5 text-right font-semibold"
+                            style={{ color: s.remaining === 0 ? "#b91c1c" : "#15803d" }}>
+                          {s.remaining}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+
+            {diff.departures.length > 0 && (
+              <details className="rounded-lg border border-slate-200">
+                <summary className="px-4 py-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                  {diff.departures.length} people who will be deactivated
+                </summary>
+                <ul className="max-h-60 overflow-y-auto px-4 py-2 text-xs text-slate-600 flex flex-col gap-0.5">
+                  {diff.departures.map((d) => (
+                    <li key={d.employeeId}>{d.name} — {d.schoolName ?? "no school"} ({d.email})</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            {/* ── Confirm ── */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Read the departure list above, then type <strong>{year.name}</strong> to stage this roster:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder={year.name}
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                />
+                <button
+                  onClick={() => applyMut.mutate()}
+                  disabled={!confirmMatches || applyMut.isPending}
+                  className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
+                >
+                  {applyMut.isPending ? "Staging…" : "Stage roster"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {applyMut.isError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            Could not stage this roster: {(applyMut.error as Error).message}
+          </div>
+        )}
+
+        {applied && (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3">
+            <p className="text-sm font-semibold text-green-800 flex items-center gap-1.5">
+              <CheckCircle2 size={14} />
+              Roster staged for {year.name}
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              {applied.counts.newHires} created, {applied.counts.schoolMoves} moving school.
+              {applied.counts.departures > 0
+                ? ` ${applied.counts.departures} will be deactivated when this year is activated.`
+                : " Nobody will be deactivated."}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

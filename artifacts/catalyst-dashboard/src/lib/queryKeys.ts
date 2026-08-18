@@ -16,6 +16,7 @@ export const QUERY_KEYS = {
   schoolYearRubricSets: ["school-year-rubric-sets"] as const,
   rubricSetsForCopy:    ["rubric-sets-for-copy"]   as const,
   activationPreview:    ["activation-preview"]     as const,
+  activationReadiness:  ["activation-readiness"]   as const,
 
   // ── Rubric sets (camelCase key — NOT hyphenated) ─────────────────
   rubricSets:           ["rubricSets"]             as const,

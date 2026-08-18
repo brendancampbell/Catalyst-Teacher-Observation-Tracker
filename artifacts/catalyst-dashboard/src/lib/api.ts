@@ -666,6 +666,101 @@ export async function activateSchoolYear(yearId: number): Promise<SchoolYearRow>
   return apiFetch<SchoolYearRow>(`/admin/school-years/${yearId}/activate`, { method: "POST" });
 }
 
+/* ── Admin: school-year rollover ─────────────────────────────────── */
+
+import type { BulkImportPersonRowResult } from "@workspace/api-types";
+
+/** The three preconditions the activation gate enforces. */
+export interface ActivationReadiness {
+  ready:         boolean;
+  adminAssigned: boolean;
+  hasRoster:     boolean;
+  hasRubricSet:  boolean;
+  blockers:      string[];
+}
+
+export async function fetchActivationReadiness(yearId: number): Promise<ActivationReadiness> {
+  return apiFetch<ActivationReadiness>(`/admin/school-years/${yearId}/readiness`);
+}
+
+export interface RosterSchoolBreakdown {
+  schoolId:    number;
+  schoolName:  string;
+  newHires:    number;
+  schoolMoves: number;
+  roleChanges: number;
+  unchanged:   number;
+  departures:  number;
+  /** Headcount this school will have in the target year. Zero is the signal
+      that the school is missing from the file, not that everyone resigned. */
+  remaining:   number;
+}
+
+export interface RosterDeparture {
+  employeeId: string;
+  name:       string;
+  email:      string;
+  schoolId:   number | null;
+  schoolName: string | null;
+}
+
+export interface RosterRowError {
+  row:    number;
+  status: "error";
+  name?:  string;
+  email?: string;
+  reason: string;
+}
+
+export interface RosterCounts {
+  newHires:    number;
+  schoolMoves: number;
+  roleChanges: number;
+  unchanged:   number;
+  departures:  number;
+  errors:      number;
+}
+
+export interface RosterDiff {
+  dryRun:         true;
+  targetYearId:   number;
+  outgoingYearId: number | null;
+  staged:         boolean;
+  counts:         RosterCounts;
+  bySchool:       RosterSchoolBreakdown[];
+  departures:     RosterDeparture[];
+  errors:         RosterRowError[];
+}
+
+export interface RosterApplyResult {
+  results:      BulkImportPersonRowResult[];
+  targetYearId: number;
+  staged:       boolean;
+  counts:       RosterCounts;
+}
+
+/** Compute the roster diff without writing anything. */
+export async function previewRoster(
+  yearId: number,
+  rows: BulkImportPersonPayload[],
+): Promise<RosterDiff> {
+  return apiFetch<RosterDiff>("/people/bulk", {
+    method: "POST",
+    body: JSON.stringify({ rows, schoolYearId: yearId, dryRun: true }),
+  });
+}
+
+/** Write the roster. Staged when yearId is not the active year. */
+export async function stageRoster(
+  yearId: number,
+  rows: BulkImportPersonPayload[],
+): Promise<RosterApplyResult> {
+  return apiFetch<RosterApplyResult>("/people/bulk", {
+    method: "POST",
+    body: JSON.stringify({ rows, schoolYearId: yearId }),
+  });
+}
+
 export async function reorderSchoolYears(items: { id: number; displayOrder: number }[]): Promise<SchoolYearRow[]> {
   return apiFetch<SchoolYearRow[]>("/admin/school-years/reorder", {
     method: "PUT",
