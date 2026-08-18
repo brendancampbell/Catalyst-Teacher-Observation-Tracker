@@ -26,7 +26,7 @@
 
 import { db } from "@workspace/db";
 import { people, schools, assignments } from "@workspace/db/schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import type { UserRole } from "../middleware/auth";
 
@@ -539,6 +539,11 @@ export async function computeDepartures(opts: {
     .where(and(
       eq(assignments.schoolYearId, outgoingYearId),
       isNull(assignments.endDate),
+      /* Admins are active in every year and are not rostered, so absence
+         from a roster says nothing about them. This must stay in step with
+         the same exclusion in the activation flip — a preview that reports
+         a departure the flip will not perform is a preview of nothing. */
+      ne(people.role, "NETWORK_ADMIN"),
     ));
 
   if (outgoing.length === 0) return [];
@@ -575,18 +580,6 @@ export async function yearHasRoster(schoolYearId: number): Promise<boolean> {
   return !!row;
 }
 
-/** Whether a specific person holds an open assignment in a year. */
-export async function hasOpenAssignment(employeeId: string, schoolYearId: number): Promise<boolean> {
-  const [row] = await db.select({ id: assignments.id })
-    .from(assignments)
-    .where(and(
-      eq(assignments.userId, employeeId),
-      eq(assignments.schoolYearId, schoolYearId),
-      isNull(assignments.endDate),
-    ))
-    .limit(1);
-  return !!row;
-}
 
 
 /* ────────────────────────────────────────────────────────────────────────── */

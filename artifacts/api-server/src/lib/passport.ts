@@ -30,7 +30,23 @@ declare global {
   }
 }
 
-export async function checkActiveThisYear(employeeId: string): Promise<boolean> {
+export async function checkActiveThisYear(
+  employeeId: string,
+  role?: Person["role"],
+): Promise<boolean> {
+  /*
+   * NETWORK_ADMIN is active in every school year, unconditionally.
+   *
+   * Admins administer the years themselves, so requiring them to appear on
+   * each year's roster inverts the dependency: the person who loads the
+   * roster had to already be on it. It also made a rollover mistake
+   * unrecoverable, since the admin lost the UI they needed to fix it.
+   *
+   * Every caller already has the person row in hand, so passing the role
+   * makes this the CHEAPER path — it returns before touching the database.
+   */
+  if (role === "NETWORK_ADMIN") return true;
+
   const activeYearId = await getActiveSchoolYearId();
   /*
    * If no school year is marked active yet, do not block access — the system
@@ -141,7 +157,7 @@ export function configurePassport() {
               .where(eq(people.employeeId, person.employeeId));
           }
 
-          const activeThisYear = await checkActiveThisYear(person.employeeId);
+          const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
           return done(null, personToUser({ ...person, googleId: profile.id }, activeThisYear));
         } catch (err) {
           return done(err as Error);
@@ -165,7 +181,7 @@ export function configurePassport() {
          A deactivated account or a role downgraded to NO_ACCESS must
          lose access immediately, not at cookie expiry (up to 7 days). */
       if (!person.isActive || person.role === "NO_ACCESS") return done(null, false);
-      const activeThisYear = await checkActiveThisYear(person.employeeId);
+      const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
       done(null, personToUser(person as Person & { school?: { displayName: string } | null }, activeThisYear));
     } catch (err) {
       done(err);

@@ -670,13 +670,12 @@ export async function activateSchoolYear(yearId: number): Promise<SchoolYearRow>
 
 import type { BulkImportPersonRowResult } from "@workspace/api-types";
 
-/** The three preconditions the activation gate enforces. */
+/** The preconditions the activation gate enforces. */
 export interface ActivationReadiness {
-  ready:         boolean;
-  adminAssigned: boolean;
-  hasRoster:     boolean;
-  hasRubricSet:  boolean;
-  blockers:      string[];
+  ready:        boolean;
+  hasRoster:    boolean;
+  hasRubricSet: boolean;
+  blockers:     string[];
 }
 
 export async function fetchActivationReadiness(yearId: number): Promise<ActivationReadiness> {

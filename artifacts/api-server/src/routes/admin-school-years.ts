@@ -4,7 +4,7 @@ import { schoolYears, rubricSets } from "@workspace/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { invalidateActiveSchoolYearCache } from "../lib/active-school-year";
-import { hasOpenAssignment, yearHasRoster } from "../lib/roster";
+import { yearHasRoster } from "../lib/roster";
 import { dashboardCache } from "./dashboard";
 import { districtCache } from "./district";
 import { networkAvgsCache } from "./action-center";
@@ -161,17 +161,19 @@ router.get("/:id/activation-preview", async (req, res) => {
    checkActiveThisYear() false for every user at once, which 403'd the
    entire app including the admin who did it.
 
-     adminAssigned  the activating admin holds an open assignment in the
-                    target year. Makes self-lockout structurally impossible
-                    — you cannot flip into a year you are not part of.
      hasRoster      the year has at least one open assignment. This is the
                     empty-year state that caused the outage.
      hasRubricSet   the year has an active, non-archived rubric set.
                     Without one people can sign in but nothing can be
-                    scored, which looks like a different bug entirely.   */
+                    scored, which looks like a different bug entirely.
+
+   There was a third — that the activating admin hold an assignment in the
+   target year — to make self-lockout impossible. It is gone because
+   NETWORK_ADMIN is now active in every year unconditionally
+   (checkActiveThisYear), so there is no lockout left to prevent and the
+   precondition only forced admins onto every roster to administer it. */
 interface ActivationReadiness {
   ready:         boolean;
-  adminAssigned: boolean;
   hasRoster:     boolean;
   hasRubricSet:  boolean;
   blockers:      string[];
@@ -179,10 +181,8 @@ interface ActivationReadiness {
 
 async function checkActivationReadiness(
   targetYearId: number,
-  adminEmployeeId: string,
 ): Promise<ActivationReadiness> {
-  const [adminAssigned, hasRoster, rubricRows] = await Promise.all([
-    hasOpenAssignment(adminEmployeeId, targetYearId),
+  const [hasRoster, rubricRows] = await Promise.all([
     yearHasRoster(targetYearId),
     db.select({ id: rubricSets.id })
       .from(rubricSets)
@@ -199,16 +199,12 @@ async function checkActivationReadiness(
   if (!hasRoster) {
     blockers.push("No roster has been loaded for this year — upload the staff list before activating");
   }
-  if (!adminAssigned) {
-    blockers.push("You have no assignment in this year — you would lose access the moment it went live. Add yourself to the roster first");
-  }
   if (!hasRubricSet) {
     blockers.push("This year has no active rubric set — copy one forward before activating");
   }
 
   return {
-    ready: adminAssigned && hasRoster && hasRubricSet,
-    adminAssigned,
+    ready: hasRoster && hasRubricSet,
     hasRoster,
     hasRubricSet,
     blockers,
@@ -220,8 +216,7 @@ router.get("/:id/readiness", async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    const currentUser = req.user as Express.User;
-    res.json(await checkActivationReadiness(id, currentUser.employeeId));
+    res.json(await checkActivationReadiness(id));
   } catch (err) {
     console.error("GET /admin/school-years/:id/readiness error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -247,8 +242,6 @@ router.post("/:id/activate", async (req, res) => {
     const targetId = Number(req.params.id);
     if (Number.isNaN(targetId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-    const currentUser = req.user as Express.User;
-
     const [target] = await db
       .select()
       .from(schoolYears)
@@ -261,7 +254,7 @@ router.post("/:id/activate", async (req, res) => {
       return;
     }
 
-    const readiness = await checkActivationReadiness(targetId, currentUser.employeeId);
+    const readiness = await checkActivationReadiness(targetId);
     if (!readiness.ready) {
       res.status(409).json({
         error: "This school year is not ready to be activated",
@@ -330,8 +323,13 @@ router.post("/:id/activate", async (req, res) => {
           `WITH departed AS (
              SELECT a.id, a.user_id
                FROM assignments a
+               JOIN people p ON p.employee_id = a.user_id
               WHERE a.school_year_id = $1
                 AND a.end_date IS NULL
+                /* Admins are active in every year and are not rostered, so
+                   absence from a roster says nothing about them. Without
+                   this, the first flip would deactivate every admin. */
+                AND p.role <> 'NETWORK_ADMIN'
                 AND NOT EXISTS (
                       SELECT 1 FROM assignments t
                        WHERE t.user_id = a.user_id

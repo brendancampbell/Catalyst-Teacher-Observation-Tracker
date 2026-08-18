@@ -51,7 +51,7 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
 
     if (rows.length > 0 && rows[0].isActive) {
       const target = rows[0];
-      const activeThisYear = await checkActiveThisYear(target.employeeId);
+      const activeThisYear = await checkActiveThisYear(target.employeeId, target.role);
       (req as Request & { realUser?: Express.User }).realUser = req.user;
       req.user = {
         employeeId:               target.employeeId,

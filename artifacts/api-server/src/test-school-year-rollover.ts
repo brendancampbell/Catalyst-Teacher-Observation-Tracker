@@ -17,12 +17,13 @@
  *
  * Scenarios:
  *   1. Activation refuses a year with no roster
- *   2. Activation refuses a year the admin has no assignment in
+ *   2. An admin's absence from the roster is never a blocker
  *   3. Activation refuses a year with no active rubric set
  *   4. Dry run reports new hires, school moves and departures, and writes nothing
  *   5. Staged upload writes assignments but touches no person-level field
  *   6. A staged new hire is created inert (isActive false)
- *   7. Activation deactivates the departed, activates the new hire, applies the move
+ *   7. Activation deactivates the departed, activates the new hire, applies the
+ *      move — and leaves the admin active despite never being on the roster
  *   8. Rolling back restores the departed person and their school
  */
 
@@ -89,7 +90,6 @@ let schoolAId: number;
 let schoolBId: number;
 let schoolAName: string;
 let schoolBName: string;
-let hoSchoolName: string;
 
 describe("Staged school-year rollover", () => {
   before(async () => {
@@ -97,7 +97,6 @@ describe("Staged school-year rollover", () => {
       .from(schools).where(eq(schools.isHomeOffice, true)).limit(1);
     assert.ok(ho, "Need a Home Office school");
     hoSchoolId = ho.id;
-    hoSchoolName = ho.displayName;
 
     const realSchools = await db.select({ id: schools.id, displayName: schools.displayName })
       .from(schools)
@@ -166,10 +165,11 @@ describe("Staged school-year rollover", () => {
     );
   });
 
-  test("2 — activation refuses a year the admin has no assignment in", async () => {
+  test("2 — an admin's absence from the roster is never a blocker", async () => {
     /* Mirror the active year's roster into the scratch year, withholding
-       LEAVE (the departure under test) and MOVE (whose new school the roster
-       upload will set) — and withholding the admin, for this assertion. */
+       LEAVE (the departure under test), MOVE (whose new school the roster
+       upload will set), and ADM — who is never added back, for the rest of
+       this file. Admins administer years; they are not rostered for them. */
     await pool.query(
       `INSERT INTO assignments (user_id, role, school_id, school_year_id, start_date, end_date)
        SELECT user_id, role, school_id, $1, start_date, NULL
@@ -181,24 +181,18 @@ describe("Staged school-year rollover", () => {
     );
 
     const r = await request("POST", `/admin/school-years/${scratchYearId}/activate`, {}, jar);
-    assert.equal(r.status, 409, `Expected 409, got ${r.status}: ${JSON.stringify(r.body)}`);
+    assert.equal(r.status, 409, `Expected 409 (still no rubric set), got ${r.status}: ${JSON.stringify(r.body)}`);
     assert.equal(r.body.hasRoster, true, "the year now has a roster");
-    assert.equal(r.body.adminAssigned, false, "the admin is deliberately absent from it");
+    assert.equal(r.body.hasRubricSet, false, "…but still no rubric set");
     assert.ok(
-      r.body.blockers.some((b: string) => b.includes("no assignment in this year")),
-      `blockers should name the self-lockout risk: ${JSON.stringify(r.body.blockers)}`,
+      !r.body.blockers.some((b: string) => /assignment in this year/i.test(b)),
+      `the admin's own absence must not be a blocker: ${JSON.stringify(r.body.blockers)}`,
     );
   });
 
   test("3 — activation refuses a year with no active rubric set", async () => {
-    await db.insert(assignments).values({
-      userId: ADM_EID, role: "NETWORK_ADMIN", schoolId: hoSchoolId,
-      schoolYearId: scratchYearId, startDate: "2026-08-01", endDate: null,
-    }).onConflictDoNothing();
-
     const r = await request("POST", `/admin/school-years/${scratchYearId}/activate`, {}, jar);
     assert.equal(r.status, 409, `Expected 409, got ${r.status}: ${JSON.stringify(r.body)}`);
-    assert.equal(r.body.adminAssigned, true);
     assert.equal(r.body.hasRubricSet, false);
 
     /* Satisfy the last precondition for the tests that follow */
@@ -212,7 +206,10 @@ describe("Staged school-year rollover", () => {
     });
 
     const readiness = await request("GET", `/admin/school-years/${scratchYearId}/readiness`, undefined, jar);
-    assert.equal(readiness.body.ready, true, `year should now be ready: ${JSON.stringify(readiness.body)}`);
+    assert.equal(
+      readiness.body.ready, true,
+      `year should be ready even though the admin is not on its roster: ${JSON.stringify(readiness.body)}`,
+    );
   });
 
   /* ── Dry run ────────────────────────────────────────────────────────── */
@@ -221,7 +218,7 @@ describe("Staged school-year rollover", () => {
     { firstName: "Test", lastName: "RollStay", employeeId: STAY_EID, email: "tst.roll.stay@example.com", role: "COACH", school: schoolAName },
     { firstName: "Test", lastName: "RollMove", employeeId: MOVE_EID, email: "tst.roll.move@example.com", role: "COACH", school: schoolBName },
     { firstName: "Test", lastName: "RollNew",  employeeId: NEW_EID,  email: "tst.roll.new@example.com",  role: "COACH", school: schoolAName },
-    { firstName: "Test", lastName: "RollAdm",  employeeId: ADM_EID,  email: "tst.roll.adm@example.com",  role: "NETWORK_ADMIN", school: hoSchoolName },
+    /* Deliberately no admin row — admins are not rostered. */
   ];
 
   test("4 — dry run reports the diff and writes nothing", async () => {
@@ -237,6 +234,10 @@ describe("Staged school-year rollover", () => {
     assert.equal(
       r.body.departures[0].employeeId, LEAVE_EID,
       `departure should be ${LEAVE_EID}: ${JSON.stringify(r.body.departures)}`,
+    );
+    assert.ok(
+      !r.body.departures.some((d: { employeeId: string }) => d.employeeId === ADM_EID),
+      "an admin absent from the roster must never be reported as departing",
     );
 
     /* Nothing was written */
@@ -295,6 +296,13 @@ describe("Staged school-year rollover", () => {
     const stay = await personRow(STAY_EID);
     assert.equal(stay?.isActive, true, "someone on both rosters is untouched");
     assert.equal(stay?.schoolId, schoolAId);
+
+    /* The point of the exercise: the admin was never on this year's roster
+       and is still active, and still able to use the API. */
+    const admin = await personRow(ADM_EID);
+    assert.equal(admin?.isActive, true, "an admin must never be deactivated for being off a roster");
+    const stillWorks = await request("GET", "/admin/school-years", undefined, jar);
+    assert.equal(stillWorks.status, 200, "the admin must retain access in the year they just activated");
 
     /* The departure's outgoing assignment is closed, not deleted */
     const [closed] = await db.select({ endDate: assignments.endDate })

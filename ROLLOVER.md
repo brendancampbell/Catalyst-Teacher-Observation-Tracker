@@ -9,17 +9,22 @@ is the reason every guard described here exists.
 
 ## What a rollover actually is
 
-Three things have to be true of the new year before it can go live:
+Two things have to be true of the new year before it can go live:
 
 | Precondition | Why it exists |
 |---|---|
 | The year has a **roster** — at least one open assignment | An empty year makes `checkActiveThisYear()` false for every user at once, and every route 403s |
 | The year has an **active rubric set** | Without one, people can sign in but nothing can be scored |
-| **You** hold an open assignment in it | You cannot flip into a year that excludes you, so self-lockout is structurally impossible |
 
-`GET /api/admin/school-years/:id/readiness` reports all three. Activation
-returns `409 NOT_READY_TO_ACTIVATE` with a `blockers` array naming whichever
-one is missing.
+`GET /api/admin/school-years/:id/readiness` reports both. Activation returns
+`409 NOT_READY_TO_ACTIVATE` with a `blockers` array naming whichever is missing.
+
+**Network Admins are active in every school year and are never rostered.**
+They administer the years, so requiring them on each year's roster inverted the
+dependency — the person who loads the roster had to already be on it. It
+follows that an admin is never counted as a departure and never deactivated for
+being absent from a file, and that there is no self-lockout left to guard
+against. Everyone else is governed entirely by the roster.
 
 ## The roster is the source of truth
 
@@ -29,6 +34,7 @@ One network-wide file listing every staff member and the school they will be at.
 - Present, same school → unchanged.
 - Not in `people` at all → **new hire**, created.
 - **Absent entirely** → left, deactivated when the year flips.
+- A Network Admin → not rostered at all; leave them out of the file.
 
 That last rule is why the file must be complete. A truncated file is
 indistinguishable from a mass resignation, which is what the dry run is for.
@@ -67,8 +73,8 @@ including rollback, and touches only rows you created.
    curl -s -b cookies.txt localhost:8080/api/admin/school-years/$SCRATCH/readiness
    ```
 
-4. **Stage a roster, dry run first.** Include yourself, or the flip will be
-   blocked:
+4. **Stage a roster, dry run first.** You do not need to be in it — admins are
+   active in every year:
 
    ```bash
    curl -s -b cookies.txt -X POST localhost:8080/api/people/bulk \
@@ -130,9 +136,10 @@ you remembered to run it.
 
 ## If you are locked out anyway
 
-`NETWORK_ADMIN` is exempt from the school-year gate (`schoolYearBlocked()` in
-`middleware/auth.ts`), so an admin can always reach the admin UI regardless of
-roster state. If even that fails, the recovery is still a one-row update:
+`NETWORK_ADMIN` is active in every school year (`checkActiveThisYear()` in
+`lib/passport.ts`, with a second guard in `schoolYearBlocked()`), so an admin
+can always reach the admin UI regardless of roster state. If even that fails,
+the recovery is still a one-row update:
 
 ```sql
 UPDATE school_years SET status = 'inactive';

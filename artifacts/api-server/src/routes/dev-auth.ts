@@ -43,7 +43,7 @@ router.post("/dev-login", async (req, res, next) => {
       return;
     }
 
-    const activeThisYear = await checkActiveThisYear(person.employeeId);
+    const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
 
     const user: Express.User = {
       employeeId:               person.employeeId,

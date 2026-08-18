@@ -17,10 +17,13 @@ export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_A
    editing school_years directly in the database.
 
    NETWORK_ADMIN is therefore exempt: an admin must always be able to
-   reach the admin UI to fix the state that caused the lockout. This
-   is a backstop, not the primary defence — the activation gate in
-   routes/admin-school-years.ts refuses to flip into a year the
-   admin has no assignment in, so this path should never be needed.
+   reach the admin UI to fix the state that caused the lockout.
+
+   This is now belt-and-braces. checkActiveThisYear() itself returns
+   true for NETWORK_ADMIN, so activeThisYear is never false for one and
+   this branch never fires — deserializeUser recomputes it per request.
+   It stays because the cost is a string comparison and the failure it
+   guards against took the whole app down.
 
    The exemption is narrow. isActive and NO_ACCESS still hard-block
    admins, so offboarding an admin still works.                    */
