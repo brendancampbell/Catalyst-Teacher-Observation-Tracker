@@ -17,6 +17,16 @@ way; the startup guard caught it, but only after the fact.
 Setting `core.hooksPath` makes `scripts/githooks/post-merge` a real git hook, so
 shell pulls run the same script Replit would.
 
+Note that in a Replit workspace the GitHub remote is **not** named `origin` —
+Replit generates a name like `subrepl-12mc354d`, alongside a few hundred
+`subrepl-*` remotes pointing at the workspace itself. `git pull origin main`
+fails there with "does not appear to be a git repository". Find the real one
+with `git remote -v | grep github`, or check which remote tracks your branch:
+
+```sh
+git rev-parse --abbrev-ref --symbolic-full-name @{u}
+```
+
 ## Standard workflow
 
 All schema changes must go through the tracked migration flow:
@@ -34,12 +44,34 @@ applies migrations; nothing in the deploy or boot path does.
 It also runs `drizzle-kit generate` first, so a schema change that arrived
 without a migration file gets one generated at merge time.
 
-> **Note:** the hook has `timeoutMs = 35000`. That budget covers
-> `pnpm install --frozen-lockfile`, two package builds, three backfill scripts,
-> `generate`, the DML guards, `migrate`, a `tsc` build and `check:schema-sync`.
-> If it overruns, the hook is cut short and migrations may not have been
-> applied — with no obvious signal. Check the post-merge output after pulling
-> a change that adds a migration, rather than assuming it ran.
+> **Note:** the hook has `timeoutMs = 180000` (raised from 35000). That budget
+> covers `pnpm install --frozen-lockfile`, two package builds, three backfill
+> scripts, `generate`, the DML guards, `migrate`, a `tsc` build and
+> `check:schema-sync`. If it overruns, the hook is cut short and migrations may
+> not have been applied.
+
+### Did post-merge actually run?
+
+Every run appends to `.git/post-merge-runs.log` — untracked, and it survives
+pulls, so it outlives the output that scrolls past:
+
+```sh
+tail -20 "$(git rev-parse --absolute-git-dir)/post-merge-runs.log"
+```
+
+| What you see | Means |
+|---|---|
+| `START` then `DONE … rc=0` | ran to completion |
+| `START` then `FAIL … rc=N` | ran and failed at some step — read the rc |
+| `START` with **no** following line | killed mid-run; the EXIT trap never fired, which is what a `timeoutMs` overrun looks like |
+| no `START` at all for a merge | the script never fired for that merge |
+
+The `via=` field says which entry point ran it: `git-hook` for a shell merge,
+`replit-or-manual` otherwise.
+
+This log exists because "did it run?" was unanswerable after the fact. Migration
+`0009` reached the database unapplied and there was no way to tell whether the
+hook had failed, timed out, or never fired at all.
 
 ## ⚠️ Do NOT use push or push-force on a tracked environment
 

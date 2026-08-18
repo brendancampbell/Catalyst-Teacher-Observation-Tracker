@@ -16,4 +16,8 @@
 # while migrations are outstanding, so a silent skip cannot go unnoticed.
 set -e
 repo_root="$(git rev-parse --show-toplevel)"
+
+# Tags this run in .git/post-merge-runs.log so a shell-hook run is
+# distinguishable from a Replit-driven or manual one.
+export POST_MERGE_SOURCE=git-hook
 exec bash "$repo_root/scripts/post-merge.sh"
