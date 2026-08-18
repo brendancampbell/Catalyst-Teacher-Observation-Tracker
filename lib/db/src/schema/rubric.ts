@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, pgEnum, uniqueIndex, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, pgEnum, uniqueIndex, index, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schoolYears } from "./school-years";
@@ -31,7 +31,9 @@ export const rubricCategories = pgTable("rubric_categories", {
   displayOrder: integer("display_order").notNull().default(0),
   createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("rubric_categories_rubric_set_idx").on(t.rubricSetId),
+]);
 
 export const rubricDomains = pgTable("rubric_domains", {
   id:           serial("id").primaryKey(),
@@ -46,6 +48,8 @@ export const rubricDomains = pgTable("rubric_domains", {
   updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("rubric_domains_year_set_slug_uniq").on(t.schoolYearId, t.rubricSetId, t.slug),
+  index("rubric_domains_category_idx").on(t.categoryId),
+  index("rubric_domains_rubric_set_idx").on(t.rubricSetId),
 ]);
 
 export const insertRubricSetSchema = createInsertSchema(rubricSets).omit({ id: true, createdAt: true, updatedAt: true });

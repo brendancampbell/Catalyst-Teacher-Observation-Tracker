@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { people } from "./people";
@@ -23,7 +23,13 @@ export const actionSteps = pgTable("action_steps", {
   snapshotSchoolId:            integer("snapshot_school_id").references(() => schools.id, { onDelete: "set null" }),
   snapshotGradeSpan:           text("snapshot_grade_span"),
   snapshotRole:                text("snapshot_role"),
-});
+}, (t) => [
+  index("action_steps_teacher_idx").on(t.teacherEmployeeId),
+  index("action_steps_school_year_idx").on(t.schoolYearId),
+  index("action_steps_snapshot_school_idx").on(t.snapshotSchoolId),
+  index("action_steps_assigned_during_obs_idx").on(t.assignedDuringObservationId),
+  index("action_steps_mastered_during_obs_idx").on(t.masteredDuringObservationId),
+]);
 
 export const insertActionStepSchema = createInsertSchema(actionSteps)
   .omit({ id: true, createdAt: true, updatedAt: true })

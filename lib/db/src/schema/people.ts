@@ -1,4 +1,4 @@
-import { pgTable, text, pgEnum, integer, boolean, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, pgEnum, integer, boolean, date, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schools } from "./schools";
@@ -57,7 +57,10 @@ export const people = pgTable("people", {
   rescoreSchoolYearId:         integer("rescore_school_year_id").references(() => schoolYears.id, { onDelete: "set null" }),
   createdAt:                   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:                   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("people_school_idx").on(t.schoolId),
+  index("people_rescore_school_year_idx").on(t.rescoreSchoolYearId),
+]);
 
 export const insertPersonSchema = createInsertSchema(people).omit({ employeeId: true, createdAt: true, updatedAt: true });
 export type InsertPerson = z.infer<typeof insertPersonSchema>;

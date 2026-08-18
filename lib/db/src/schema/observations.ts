@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, date, boolean, real, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, boolean, real, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { people } from "./people";
@@ -25,7 +25,17 @@ export const observations = pgTable("observations", {
   status:              text("status").notNull().default("published"),
   target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
   snapshotGradeSpan:   text("snapshot_grade_span"),
-});
+}, (t) => [
+  /* Postgres does not index foreign keys automatically. Every read path filters
+     on school year, then narrows by school, teacher, rubric set or observer, so
+     each of those gets an index. observation_scores.observation_id is already
+     covered by the leading edge of observation_scores_obs_domain_uniq. */
+  index("observations_school_year_idx").on(t.schoolYearId),
+  index("observations_observed_employee_idx").on(t.observedEmployeeId),
+  index("observations_school_idx").on(t.schoolId),
+  index("observations_rubric_set_idx").on(t.rubricSetId),
+  index("observations_observer_idx").on(t.observerEmployeeId),
+]);
 
 export const observationScores = pgTable("observation_scores", {
   id:            serial("id").primaryKey(),

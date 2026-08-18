@@ -64,6 +64,13 @@
       "when": 1786679781052,
       "tag": "0008_workable_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787026060197,
+      "tag": "0009_loose_lilandra",
+      "breakpoints": true
     }
   ]
 }
