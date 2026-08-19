@@ -41,11 +41,31 @@ export function parseCSVLine(line: string): string[] {
   return fields;
 }
 
-export function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
+/** A row whose column count disagrees with the header. */
+export interface MalformedRow {
+  /** 1-based line number in the file, header included. */
+  line:     number;
+  got:      number;
+  expected: number;
+}
+
+export interface ParsedPeopleCSV {
+  rows:      BulkImportPersonPayload[];
+  /**
+   * Rows with MORE columns than the header — nearly always an unquoted comma
+   * inside a field. The extra field shifts every later column, so
+   * includeInFeedbackTracker silently picks up a grade. Surfacing these is the
+   * difference between "your file is wrong" and quietly importing bad data.
+   */
+  malformed: MalformedRow[];
+}
+
+export function parsePeopleCSV(text: string): ParsedPeopleCSV {
   const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalized.split("\n");
   const results: BulkImportPersonPayload[] = [];
-  if (lines.length < 2) return results;
+  const malformed: MalformedRow[] = [];
+  if (lines.length < 2) return { rows: results, malformed };
 
   const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, ""));
   const idx = (n: string) => headers.indexOf(n);
@@ -63,6 +83,10 @@ export function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
     const line = lines[i].trim();
     if (!line) continue;
     const cols = parseCSVLine(line);
+    if (cols.length > headers.length) {
+      malformed.push({ line: i + 1, got: cols.length, expected: headers.length });
+      continue;
+    }
     const gradRaw = gradeIdx >= 0 ? (cols[gradeIdx] ?? "") : "";
     results.push({
       firstName:  firstNameIdx >= 0 ? (cols[firstNameIdx] ?? "") : "",
@@ -76,5 +100,5 @@ export function parsePeopleCSV(text: string): BulkImportPersonPayload[] {
       includeInFeedbackTracker: obsIdx >= 0 ? (cols[obsIdx] ?? "true") : "true",
     });
   }
-  return results;
+  return { rows: results, malformed };
 }

@@ -735,7 +735,20 @@ function RosterStep(
     previewMut.reset();
     const reader = new FileReader();
     reader.onload = () => {
-      const parsed = parsePeopleCSV(String(reader.result ?? ""));
+      const { rows: parsed, malformed } = parsePeopleCSV(String(reader.result ?? ""));
+      if (malformed.length > 0) {
+        /* Almost always an unquoted comma inside a field: the row gains
+           columns and every later one shifts, so importing it would write
+           a grade into includeInFeedbackTracker. Refuse rather than guess. */
+        const lines = malformed.slice(0, 5).map((m) => m.line).join(", ");
+        setParseError(
+          `${malformed.length} row${malformed.length !== 1 ? "s have" : " has"} more columns than the header ` +
+          `(line${malformed.length !== 1 ? "s" : ""} ${lines}${malformed.length > 5 ? ", …" : ""}). ` +
+          `This is usually an unquoted comma — wrap multi-value fields in quotes, e.g. "4, 5, 6".`,
+        );
+        setRows(null);
+        return;
+      }
       if (parsed.length === 0) {
         setParseError("No rows found. The file needs a header row with at least firstName, lastName, employeeId, email, role and school.");
         setRows(null);

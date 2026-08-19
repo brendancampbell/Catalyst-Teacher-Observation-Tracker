@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
-import { parsePeopleCSV } from "@/lib/peopleCsv";
+import { parsePeopleCSV, type MalformedRow } from "@/lib/peopleCsv";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -2359,8 +2359,8 @@ function SchoolSettings() {
 
 const PEOPLE_CSV_TEMPLATE = [
   "firstName,lastName,employeeId,email,role,school,department,gradeLevel,includeInFeedbackTracker",
-  "Jane,Smith,EMP001,jane.smith@school.org,COACH,Lincoln Middle School,Math,6-7-8,true",
-  "Carlos,Rivera,EMP002,c.rivera@school.org,SCHOOL_LEADER,Jefferson High School,,9-10-11-12,false",
+  "Jane,Smith,EMP001,jane.smith@school.org,COACH,Lincoln Middle School,Math,\"6,7,8\",true",
+  "Carlos,Rivera,EMP002,c.rivera@school.org,SCHOOL_LEADER,Jefferson High School,,\"9,10,11,12\",false",
 ].join("\n");
 
 function downloadPeopleTemplate() {
@@ -2376,6 +2376,7 @@ function downloadPeopleTemplate() {
 function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean; onDone: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<BulkImportPersonPayload[] | null>(null);
+  const [malformedRows, setMalformedRows] = useState<MalformedRow[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [importResult, setImportResult] = useState<BulkImportPersonRowResult[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -2389,7 +2390,9 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      setPreview(parsePeopleCSV(text));
+      const { rows, malformed } = parsePeopleCSV(text);
+      setMalformedRows(malformed);
+      setPreview(rows);
     };
     reader.readAsText(file);
   }
@@ -2479,7 +2482,7 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
                   { col: "employeeId",                   req: true,  desc: "Unique ID from your HR system (e.g. EMP0042). Must match the employee's ID exactly." },
                   { col: "school",                       req: false, desc: "Exact school name as it appears in Settings → Schools." },
                   { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
-                  { col: "gradeLevel",                   req: false, desc: "Hyphen-separated grades, e.g. 6-7-8 or K-1." },
+                  { col: "gradeLevel",                   req: false, desc: "Comma-separated grades in quotes, e.g. \"4, 5, 6\" or \"K, 1\". Hyphens still work (6-7-8). Quotes are required — an unquoted comma splits the row." },
                   { col: "includeInFeedbackTracker",     req: false, desc: "true for teachers who receive observations; false for admins/coaches. Defaults to true." },
                 ].map(({ col, req, desc }) => (
                   <tr key={col}>
@@ -2501,6 +2504,21 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
       )}
 
       {/* Preview table */}
+      {malformedRows.length > 0 && (
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-3">
+          <p className="text-sm font-semibold text-red-800">
+            {malformedRows.length} row{malformedRows.length !== 1 ? "s were" : " was"} skipped — more columns than the header
+          </p>
+          <p className="text-xs text-red-700 mt-1">
+            Line{malformedRows.length !== 1 ? "s" : ""}{" "}
+            {malformedRows.slice(0, 8).map((m) => m.line).join(", ")}
+            {malformedRows.length > 8 ? ", …" : ""}. This is almost always an unquoted comma inside a
+            field — wrap multi-value fields in quotes, e.g. <code>"4, 5, 6"</code>. Importing them
+            would shift every later column and write a grade into includeInFeedbackTracker.
+          </p>
+        </div>
+      )}
+
       {preview && preview.length > 0 && !importResult && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">

@@ -29,6 +29,7 @@ import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import type { UserRole } from "../middleware/auth";
+import { parseGradeLevels } from "./grade-levels";
 
 const SCHOOL_ASSIGNABLE_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER"];
 const NETWORK_ROLES: UserRole[] = ["NETWORK_LEADER", "NETWORK_ADMIN"];
@@ -167,12 +168,7 @@ export function parseRosterRow(
         ? raw.includeInFeedbackTracker
         : false;
 
-  let gradeLevel: string[] = [];
-  if (Array.isArray(raw.gradeLevel)) {
-    gradeLevel = (raw.gradeLevel as unknown[]).map((g) => String(g).trim()).filter(Boolean);
-  } else if (typeof raw.gradeLevel === "string" && raw.gradeLevel.trim()) {
-    gradeLevel = raw.gradeLevel.split(",").map((g) => g.trim()).filter(Boolean);
-  }
+  const gradeLevel = parseGradeLevels(raw.gradeLevel);
 
   /* ── School resolution ── */
   let schoolId: number | null = null;
