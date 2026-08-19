@@ -54,7 +54,15 @@ So there are now exactly two moments:
 | Where | When | What runs |
 |---|---|---|
 | Replit workspace | on merge / pull | `scripts/post-merge.sh` |
-| Deployed service | on publish, in the build step | `pnpm --filter @workspace/db run migrate` |
+| Deployed service | on publish, in the build step | `backfill-drizzle-migrations-table.ts`, then `migrate` |
+
+The backfill is not optional in either place. Both databases had their early
+schema created by `drizzle-kit push`, which never writes to
+`drizzle.__drizzle_migrations`. Without it `drizzle-kit migrate` believes
+nothing has ever been applied, starts at `0000`, and dies on
+`type "department_enum" already exists` (PG 42710). That is precisely how the
+2026-08-19 deploy failed. The script marks an explicit allowlist of 0000-0007
+and excludes anything newer, so later migrations are still applied normally.
 
 Both invoke the **same** `drizzle-kit migrate`. That is deliberate: two code
 paths applying migrations differently is how environments drift apart. The

@@ -16,15 +16,28 @@ run = "pnpm --filter @workspace/api-server run dev"
 # Migrations are applied here because production has no other path to them.
 # scripts/post-merge.sh applies them in the Replit WORKSPACE, against the dev
 # database; the deployed service has its own, and nothing was migrating it.
-# The startup guard in lib/pending-migrations.ts then refused to boot, /api/healthz
-# 500'd, and Cloud Run never promoted the revision — which is how this surfaced.
+# The startup guard in lib/pending-migrations.ts then refused to boot,
+# /api/healthz 500'd, and Cloud Run never promoted — which is how this surfaced.
 #
-# `pnpm --filter @workspace/db run migrate` is the SAME drizzle-kit command
-# post-merge runs, deliberately: one implementation, one behaviour. drizzle-kit
-# is a regular dependency of lib/db so it is present in production, and
-# drizzle.config.ts throws if DATABASE_URL is missing rather than silently
-# skipping. Re-running is safe — drizzle tracks applied migrations by hash.
-build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db run migrate"]
+# Three steps, in the same order post-merge runs them, for the same reasons:
+#
+#   build      compile first, so a broken build never reaches the database.
+#
+#   backfill   production's schema was created by `drizzle-kit push`, which
+#              never writes the tracking table. Without this, `migrate` starts
+#              at 0000 and dies on `type "department_enum" already exists`
+#              (PG 42710) — exactly what the first attempt did. The script
+#              marks an explicit allowlist of 0000-0007 as applied and
+#              deliberately excludes anything newer, so 0008 and 0009 are
+#              still applied normally rather than skipped.
+#
+#   migrate    the SAME drizzle-kit command post-merge uses. One
+#              implementation, so the two environments cannot drift.
+#              drizzle-kit is a regular dependency of lib/db so it ships to
+#              production, and drizzle.config.ts throws when DATABASE_URL is
+#              missing rather than skipping quietly. Re-running is safe:
+#              drizzle records each migration by content hash.
+build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts && pnpm --filter @workspace/db run migrate"]
 run = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.env]
