@@ -330,6 +330,17 @@ router.post("/:id/activate", async (req, res) => {
                    absence from a roster says nothing about them. Without
                    this, the first flip would deactivate every admin. */
                 AND p.role <> 'NETWORK_ADMIN'
+                /* An empty incoming year is not a statement that everyone
+                   resigned — against one, the NOT EXISTS below is true for
+                   every person alive. Only read absence as departure when the
+                   year actually says who works here. The activation gate also
+                   refuses empty years, but this must not depend on it: the
+                   gate is a policy and policies get relaxed, while this is
+                   the difference between a rollover and an outage. */
+                AND EXISTS (
+                      SELECT 1 FROM assignments r
+                       WHERE r.school_year_id = $2
+                         AND r.end_date IS NULL)
                 AND NOT EXISTS (
                       SELECT 1 FROM assignments t
                        WHERE t.user_id = a.user_id

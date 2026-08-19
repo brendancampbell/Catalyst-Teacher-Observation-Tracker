@@ -39,6 +39,13 @@ One network-wide file listing every staff member and the school they will be at.
 That last rule is why the file must be complete. A truncated file is
 indistinguishable from a mass resignation, which is what the dry run is for.
 
+An **absent file** is different from a truncated one, though, and the code
+treats it differently: when the incoming year has no roster at all and no
+upload is pending, nobody is counted as departing. "The year is empty" is not a
+claim that everyone resigned. A first roster into an empty year still identifies
+departures normally — the distinction is between *no roster* and *a roster that
+omits you*, not between empty and non-empty.
+
 Identity is `employeeId`. A row whose `employeeId` already belongs to a
 different email is rejected rather than merged — a mistyped ID and a genuine
 email change need opposite fixes, and guessing rewrites the wrong person.

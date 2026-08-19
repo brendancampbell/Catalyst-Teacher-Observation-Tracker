@@ -25,6 +25,8 @@
  *   7. Activation deactivates the departed, activates the new hire, applies the
  *      move — and leaves the admin active despite never being on the roster
  *   8. Rolling back restores the departed person and their school
+ *   9. An empty incoming year yields no departures — but a pending roster
+ *      into an empty year still does
  */
 
 import { test, describe, before, after } from "node:test";
@@ -32,6 +34,7 @@ import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, rubricSets, schoolYears, schools, assignments } from "@workspace/db/schema";
 import { eq, and, ne, asc, inArray, isNull } from "drizzle-orm";
+import { computeDepartures, loadSchoolLookup } from "./lib/roster";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
@@ -342,6 +345,61 @@ describe("Staged school-year rollover", () => {
       .from(schoolYears)
       .where(and(eq(schoolYears.status, "active"), ne(schoolYears.id, originalYearId)));
     assert.equal(others.length, 0, "exactly one year is ever active");
+  });
+
+  /* ── The empty-year rule ────────────────────────────────────────────── */
+
+  test("9 — an empty incoming year yields no departures, a pending roster does", async () => {
+    /*
+     * Exercised directly rather than through the API because the activation
+     * gate refuses an empty year, so the flip can never reach this state
+     * today. That is exactly why it is worth a test: the guard exists so the
+     * behaviour is safe if the gate is ever relaxed, and a guard nothing
+     * checks is a guard that quietly stops working.
+     */
+    const [empty] = await db.insert(schoolYears).values({
+      name:         `TST Empty ${Date.now()}`,
+      status:       "inactive",
+      displayOrder: 9997,
+    }).returning({ id: schoolYears.id });
+
+    try {
+      const lookup = await loadSchoolLookup();
+
+      const noStatement = await computeDepartures({
+        targetYearId:   empty!.id,
+        outgoingYearId: originalYearId,
+        lookup,
+        alsoAssigned:   new Set<string>(),
+      });
+      assert.equal(
+        noStatement.length, 0,
+        "a year that says nothing about anyone must not be read as everyone having left",
+      );
+
+      /* A pending upload is a statement, even into a year with nothing in it. */
+      const withUpload = await computeDepartures({
+        targetYearId:   empty!.id,
+        outgoingYearId: originalYearId,
+        lookup,
+        alsoAssigned:   new Set([STAY_EID]),
+      });
+      assert.ok(
+        withUpload.length > 0,
+        "a first roster into an empty year must still identify who is absent from it",
+      );
+      assert.ok(
+        !withUpload.some((d) => d.employeeId === STAY_EID),
+        "someone present in the pending upload is not a departure",
+      );
+      assert.ok(
+        withUpload.some((d) => d.employeeId === LEAVE_EID),
+        `${LEAVE_EID} is absent from the pending upload and should be departing`,
+      );
+    } finally {
+      await db.delete(assignments).where(eq(assignments.schoolYearId, empty!.id)).catch(() => {});
+      await db.delete(schoolYears).where(eq(schoolYears.id, empty!.id)).catch(() => {});
+    }
   });
 });
 

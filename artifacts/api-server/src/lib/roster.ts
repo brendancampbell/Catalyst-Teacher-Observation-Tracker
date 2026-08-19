@@ -515,6 +515,18 @@ export async function buildRosterPlan(
  * recorded at upload time without going stale the moment a second roster file
  * is uploaded. The activation flip runs this same function with an empty
  * `alsoAssigned` set to get the authoritative list.
+ *
+ * ── The empty-year rule ───────────────────────────────────────────────────
+ * "The incoming year is empty" and "everyone resigned" are not the same
+ * statement, but the naive NOT-EXISTS reading cannot tell them apart: against
+ * an empty year every single person qualifies as departed. So when the target
+ * year says nothing about anyone — no staged rows AND no pending upload —
+ * there are no departures.
+ *
+ * A pending upload IS a statement, even into a completely empty year. That is
+ * the ordinary first-roster case, and everyone absent from that file really
+ * has left. The distinction is between "no roster" and "a roster that omits
+ * you", not between empty and non-empty.
  */
 export async function computeDepartures(opts: {
   targetYearId:   number;
@@ -554,6 +566,11 @@ export async function computeDepartures(opts: {
       eq(assignments.schoolYearId, targetYearId),
       isNull(assignments.endDate),
     ));
+
+  /* Nothing staged and nothing pending — the target year makes no claim about
+     who works here, so it cannot be evidence that anyone left. */
+  if (staged.length === 0 && alsoAssigned.size === 0) return [];
+
   const present = new Set(staged.map((s) => s.userId));
 
   return outgoing
