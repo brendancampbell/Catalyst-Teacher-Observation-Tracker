@@ -314,6 +314,44 @@ describe("POST /api/people/bulk — upsert assignments for existing users", () =
     assert.equal(phantom.length, 0, "A rejected row must not create a person");
   });
 
+  /* ── 2b. The regular (non-rollover) import gets the same rules ───────── */
+
+  test("2b — a legacy bare-array upload still works, and can acknowledge an email change", async () => {
+    const empId    = makeEmployeeId();
+    const oldEmail = makeEmail("legacy-old");
+    const newEmail = makeEmail("legacy-new");
+
+    await db.insert(people).values({
+      employeeId: empId, firstName: "Test", lastName: "Legacy",
+      email: oldEmail, role: "COACH", schoolId: schoolAId,
+      isActive: true, includeInFeedbackTracker: false,
+    }).onConflictDoNothing();
+    testPersonEmployeeIds.push(empId);
+
+    const row = {
+      employeeId: empId, firstName: "Test", lastName: "Legacy",
+      email: newEmail, role: "COACH", school: String(schoolAId),
+    };
+
+    /* Bare array — the shape the Users tab has always sent. Without an
+       acknowledgement the sign-in address must not move. */
+    const bare = await apiBulk([row], adminJar);
+    assert.equal(bare.status, 409, `Expected 409, got ${bare.status}: ${JSON.stringify(bare.body)}`);
+    assert.equal((bare.body as { code?: string }).code, "EMAIL_CHANGES_NOT_ACKNOWLEDGED");
+
+    const [before] = await db.select({ email: people.email })
+      .from(people).where(eq(people.employeeId, empId)).limit(1);
+    assert.equal(before?.email, oldEmail, "a refused import must not change the address");
+
+    /* Envelope form with the acknowledgement — same endpoint, active year. */
+    const acked = await apiBulk({ rows: [row], acknowledgeEmailChanges: true }, adminJar);
+    assert.equal(acked.status, 200, JSON.stringify(acked.body));
+
+    const [after] = await db.select({ email: people.email })
+      .from(people).where(eq(people.employeeId, empId)).limit(1);
+    assert.equal(after?.email, newEmail);
+  });
+
   /* ── 3. Identical active assignment → idempotent "skipped" ───────────── */
 
   test("3 — uploading identical row twice → idempotent 'skipped'", async () => {

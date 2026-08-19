@@ -4,6 +4,7 @@ import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { parsePeopleCSV, type MalformedRow } from "@/lib/peopleCsv";
+import type { RosterEmailChange } from "@/lib/api";
 import { AdminSchoolYearsTab } from "./AdminSchoolYearsTab";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff, ChevronDown, ChevronLeft, ChevronRight, Copy, School, Users, Upload, Download, FileText, AlertCircle, CheckCircle2, Archive, ArchiveRestore, Search, Eye, Microscope, BookOpen, GripVertical, Settings2, ArrowLeftRight, Zap } from "lucide-react";
 import { safeReturnTo } from "@/lib/safeReturnTo";
@@ -2378,6 +2379,9 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
   const [preview, setPreview] = useState<BulkImportPersonPayload[] | null>(null);
   const [malformedRows, setMalformedRows] = useState<MalformedRow[]>([]);
   const [repairedRows, setRepairedRows] = useState(0);
+  const [missingCols, setMissingCols] = useState<string[]>([]);
+  const [pendingEmailChanges, setPendingEmailChanges] = useState<RosterEmailChange[]>([]);
+  const [emailAck, setEmailAck] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [importResult, setImportResult] = useState<BulkImportPersonRowResult[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -2391,9 +2395,12 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const { rows, malformed, repaired } = parsePeopleCSV(text);
+      const { rows, malformed, repaired, missing } = parsePeopleCSV(text);
       setMalformedRows(malformed);
       setRepairedRows(repaired);
+      setMissingCols(missing);
+      setPendingEmailChanges([]);
+      setEmailAck(false);
       setPreview(rows);
     };
     reader.readAsText(file);
@@ -2404,12 +2411,25 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const result = await bulkImportPeople(preview);
+      const result = await bulkImportPeople(preview, { acknowledgeEmailChanges: emailAck });
       setImportResult(result.results);
       setPreview(null);
       setFileName("");
+      setPendingEmailChanges([]);
+      setEmailAck(false);
     } catch (err) {
-      setSubmitError((err as Error).message ?? "Import failed");
+      /*
+       * The server refuses a roster that would change someone's sign-in
+       * address until it is acknowledged, and hands back the list. Show it
+       * and let the operator confirm rather than reporting a dead end.
+       */
+      const httpErr = err as HttpError;
+      if (httpErr.code === "EMAIL_CHANGES_NOT_ACKNOWLEDGED" && httpErr.emailChanges) {
+        setPendingEmailChanges(httpErr.emailChanges);
+        setSubmitError(null);
+      } else {
+        setSubmitError((err as Error).message ?? "Import failed");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -2506,6 +2526,48 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
       )}
 
       {/* Preview table */}
+      {missingCols.length > 0 && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-3 text-sm text-amber-800">
+          <strong>{missingCols.join(", ")}</strong> {missingCols.length === 1 ? "is" : "are"} not in
+          this file's header, so {missingCols.length === 1 ? "it" : "they"} will be left empty for
+          every row. Check the column {missingCols.length === 1 ? "name" : "names"} if that is not
+          what you intended.
+        </div>
+      )}
+
+      {pendingEmailChanges.length > 0 && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-3">
+          <p className="text-sm font-semibold text-amber-800">
+            {pendingEmailChanges.length} sign-in address
+            {pendingEmailChanges.length !== 1 ? "es" : ""} will change
+          </p>
+          <p className="text-xs text-amber-700 mt-1">
+            Matched by employee ID, so these are the same people — usually a name change. Their
+            sign-in switches to the new address immediately. Nothing has been imported yet.
+          </p>
+          <ul className="mt-2 max-h-48 overflow-y-auto text-xs text-amber-900 flex flex-col gap-1">
+            {pendingEmailChanges.map((c) => (
+              <li key={c.employeeId}>
+                <span className="font-semibold">{c.name}</span>{" "}
+                <span className="text-amber-700">({c.employeeId})</span>
+                <br />
+                <span className="line-through opacity-70">{c.from}</span>
+                {" → "}
+                <span className="font-semibold">{c.to}</span>
+              </li>
+            ))}
+          </ul>
+          <label className="mt-3 flex items-start gap-2 text-xs text-amber-900 cursor-pointer">
+            <input type="checkbox" className="mt-0.5" checked={emailAck}
+                   onChange={(e) => setEmailAck(e.target.checked)} />
+            <span>I have reviewed these and they are the same people — change their sign-in addresses.</span>
+          </label>
+          <p className="text-xs text-amber-700 mt-2">
+            Then press Import again to continue.
+          </p>
+        </div>
+      )}
+
       {repairedRows > 0 && (
         <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-3 text-sm text-blue-800">
           <strong>{repairedRows}</strong> row{repairedRows !== 1 ? "s" : ""} had unquoted commas in the

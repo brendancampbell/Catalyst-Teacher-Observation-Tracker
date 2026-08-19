@@ -57,6 +57,18 @@ The roster diff reports **undetectable** for exactly this — active staff absen
 from the file whose departure cannot be determined. Non-zero means the departure
 list is incomplete and the backfill has not been run.
 
+## The same rules apply to the ordinary Users-tab import
+
+`/api/people/bulk` serves both paths, so a mid-year import gets the same
+treatment as a rollover roster: leading-zero employee IDs match, grades parse
+from commas, decimals like `5.00` normalise, malformed CSV rows are reported,
+and a changed sign-in address must be acknowledged before it is written.
+
+The differences are only those that follow from the target year. A mid-year
+import writes into the ACTIVE year, so it is not staged — role and school
+apply at once — and it computes no departures, because absence from a
+mid-year hire list is not a statement that anyone left.
+
 ## The roster is the source of truth
 
 One network-wide file listing every staff member and the school they will be at.

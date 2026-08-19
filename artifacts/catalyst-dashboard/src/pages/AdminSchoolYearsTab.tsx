@@ -705,6 +705,7 @@ function RosterStep(
   const [parseError, setParseError]   = useState<string | null>(null);
   const [repairedCount, setRepairedCount] = useState(0);
   const [emailAck, setEmailAck] = useState(false);
+  const [missingCols, setMissingCols] = useState<string[]>([]);
 
   const readinessQ = useQuery<ActivationReadiness>({
     queryKey: [...QUERY_KEYS.activationReadiness, year.id],
@@ -737,11 +738,13 @@ function RosterStep(
     setParseError(null);
     setRepairedCount(0);
     setEmailAck(false);
+    setMissingCols([]);
     previewMut.reset();
     const reader = new FileReader();
     reader.onload = () => {
-      const { rows: parsed, malformed, repaired } = parsePeopleCSV(String(reader.result ?? ""));
+      const { rows: parsed, malformed, repaired, missing } = parsePeopleCSV(String(reader.result ?? ""));
       setRepairedCount(repaired);
+      setMissingCols(missing);
       if (malformed.length > 0) {
         /* Almost always an unquoted comma inside a field: the row gains
            columns and every later one shifts, so importing it would write
@@ -830,6 +833,14 @@ function RosterStep(
             <ChevronRight size={13} />
           </button>
         </div>
+
+        {missingCols.length > 0 && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            <strong>{missingCols.join(", ")}</strong> {missingCols.length === 1 ? "is" : "are"} not in
+            this file's header, so {missingCols.length === 1 ? "it" : "they"} will be empty for every
+            row. Check the column {missingCols.length === 1 ? "name" : "names"} if that is unexpected.
+          </div>
+        )}
 
         {repairedCount > 0 && (
           <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">

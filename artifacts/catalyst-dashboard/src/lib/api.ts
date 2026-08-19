@@ -119,8 +119,23 @@ export async function reassignPerson(
   });
 }
 
-export async function bulkImportPeople(people: BulkImportPersonPayload[]): Promise<BulkImportPersonResult> {
-  return apiFetch<BulkImportPersonResult>("/people/bulk", { method: "POST", body: JSON.stringify(people) });
+export async function bulkImportPeople(
+  people: BulkImportPersonPayload[],
+  opts: { acknowledgeEmailChanges?: boolean } = {},
+): Promise<BulkImportPersonResult> {
+  /*
+   * Envelope form rather than a bare array. Without it there is no way to
+   * acknowledge a sign-in address change, so any file containing one is
+   * refused with a 409 the operator cannot resolve. Omitting schoolYearId
+   * still targets the active year, which is what a mid-year import wants.
+   */
+  return apiFetch<BulkImportPersonResult>("/people/bulk", {
+    method: "POST",
+    body: JSON.stringify({
+      rows: people,
+      acknowledgeEmailChanges: opts.acknowledgeEmailChanges === true,
+    }),
+  });
 }
 
 /* ── Admin: Schools ─────────────────────────────────────────────── */
@@ -298,12 +313,27 @@ export class HttpError extends Error {
   status: number;
   scoreCount?: number;
   observationCount?: number;
-  constructor(status: number, message: string, extra?: { scoreCount?: number; observationCount?: number }) {
+  /** Machine-readable reason, e.g. EMAIL_CHANGES_NOT_ACKNOWLEDGED. */
+  code?: string;
+  /** Carried on a 409 from /people/bulk so the caller can show what changed. */
+  emailChanges?: { employeeId: string; name: string; from: string; to: string }[];
+  constructor(
+    status: number,
+    message: string,
+    extra?: {
+      scoreCount?: number;
+      observationCount?: number;
+      code?: string;
+      emailChanges?: { employeeId: string; name: string; from: string; to: string }[];
+    },
+  ) {
     super(message);
     this.name = "HttpError";
     this.status = status;
     if (extra?.scoreCount !== undefined) this.scoreCount = extra.scoreCount;
     if (extra?.observationCount !== undefined) this.observationCount = extra.observationCount;
+    if (extra?.code !== undefined) this.code = extra.code;
+    if (extra?.emailChanges !== undefined) this.emailChanges = extra.emailChanges;
   }
 }
 
@@ -335,14 +365,23 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let message: string;
-    let extra: { scoreCount?: number; observationCount?: number } | undefined;
+    let extra: {
+      scoreCount?: number; observationCount?: number;
+      code?: string; emailChanges?: RosterEmailChange[];
+    } | undefined;
     try {
-      const body = JSON.parse(text) as { error?: string; scoreCount?: number; observationCount?: number };
+      const body = JSON.parse(text) as {
+        error?: string; scoreCount?: number; observationCount?: number;
+        code?: string; emailChanges?: RosterEmailChange[];
+      };
       message = body.error ?? res.statusText;
-      if (body.scoreCount !== undefined || body.observationCount !== undefined) {
+      if (body.scoreCount !== undefined || body.observationCount !== undefined
+          || body.code !== undefined || body.emailChanges !== undefined) {
         extra = {};
         if (body.scoreCount !== undefined) extra.scoreCount = body.scoreCount;
         if (body.observationCount !== undefined) extra.observationCount = body.observationCount;
+        if (body.code !== undefined) extra.code = body.code;
+        if (body.emailChanges !== undefined) extra.emailChanges = body.emailChanges;
       }
     } catch { message = text || res.statusText; }
     const err = new HttpError(res.status, message, extra);
