@@ -703,6 +703,7 @@ function RosterStep(
   const [confirmText, setConfirmText] = useState("");
   const [applied, setApplied]         = useState<RosterApplyResult | null>(null);
   const [parseError, setParseError]   = useState<string | null>(null);
+  const [repairedCount, setRepairedCount] = useState(0);
 
   const readinessQ = useQuery<ActivationReadiness>({
     queryKey: [...QUERY_KEYS.activationReadiness, year.id],
@@ -732,10 +733,12 @@ function RosterStep(
   function handleFile(file: File) {
     setApplied(null);
     setParseError(null);
+    setRepairedCount(0);
     previewMut.reset();
     const reader = new FileReader();
     reader.onload = () => {
-      const { rows: parsed, malformed } = parsePeopleCSV(String(reader.result ?? ""));
+      const { rows: parsed, malformed, repaired } = parsePeopleCSV(String(reader.result ?? ""));
+      setRepairedCount(repaired);
       if (malformed.length > 0) {
         /* Almost always an unquoted comma inside a field: the row gains
            columns and every later one shifts, so importing it would write
@@ -824,6 +827,15 @@ function RosterStep(
             <ChevronRight size={13} />
           </button>
         </div>
+
+        {repairedCount > 0 && (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+            <strong>{repairedCount}</strong> row{repairedCount !== 1 ? "s" : ""} had unquoted commas in
+            the grade column and {repairedCount !== 1 ? "were" : "was"} reassembled. The grades were
+            read correctly, but quoting them (<code>"4, 5, 6"</code>) in your export would remove the
+            guesswork.
+          </div>
+        )}
 
         {parseError && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

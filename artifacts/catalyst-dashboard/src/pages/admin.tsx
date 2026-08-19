@@ -2377,6 +2377,7 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<BulkImportPersonPayload[] | null>(null);
   const [malformedRows, setMalformedRows] = useState<MalformedRow[]>([]);
+  const [repairedRows, setRepairedRows] = useState(0);
   const [fileName, setFileName] = useState<string>("");
   const [importResult, setImportResult] = useState<BulkImportPersonRowResult[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -2390,8 +2391,9 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const { rows, malformed } = parsePeopleCSV(text);
+      const { rows, malformed, repaired } = parsePeopleCSV(text);
       setMalformedRows(malformed);
+      setRepairedRows(repaired);
       setPreview(rows);
     };
     reader.readAsText(file);
@@ -2504,6 +2506,14 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
       )}
 
       {/* Preview table */}
+      {repairedRows > 0 && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-3 text-sm text-blue-800">
+          <strong>{repairedRows}</strong> row{repairedRows !== 1 ? "s" : ""} had unquoted commas in the
+          grade column and {repairedRows !== 1 ? "were" : "was"} reassembled. Grades were read
+          correctly; quoting them (<code>"4, 5, 6"</code>) in your export removes the guesswork.
+        </div>
+      )}
+
       {malformedRows.length > 0 && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-3">
           <p className="text-sm font-semibold text-red-800">
