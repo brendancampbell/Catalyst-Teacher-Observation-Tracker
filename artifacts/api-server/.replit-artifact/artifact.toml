@@ -13,7 +13,18 @@ paths = ["/api"]
 run = "pnpm --filter @workspace/api-server run dev"
 
 [services.production]
-build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && node --enable-source-maps artifacts/api-server/dist/migrate.mjs"]
+# Migrations are applied here because production has no other path to them.
+# scripts/post-merge.sh applies them in the Replit WORKSPACE, against the dev
+# database; the deployed service has its own, and nothing was migrating it.
+# The startup guard in lib/pending-migrations.ts then refused to boot, /api/healthz
+# 500'd, and Cloud Run never promoted the revision — which is how this surfaced.
+#
+# `pnpm --filter @workspace/db run migrate` is the SAME drizzle-kit command
+# post-merge runs, deliberately: one implementation, one behaviour. drizzle-kit
+# is a regular dependency of lib/db so it is present in production, and
+# drizzle.config.ts throws if DATABASE_URL is missing rather than silently
+# skipping. Re-running is safe — drizzle tracks applied migrations by hash.
+build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db run migrate"]
 run = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.env]

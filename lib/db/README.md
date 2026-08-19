@@ -38,8 +38,30 @@ pnpm --filter @workspace/db run migrate    # apply it via drizzle-kit migrate
 
 `scripts/post-merge.sh` runs both steps automatically, wired up by the
 `[postMerge]` hook in `.replit`. It fires **on merge** — i.e. when changes are
-pulled into the Repl — not on deploy. That script is the only thing that
-applies migrations; nothing in the deploy or boot path does.
+pulled into the Repl — not on deploy.
+
+### Two databases, two moments
+
+That script covers the Replit **workspace** database. The deployed service has
+its own, and for a long time nothing migrated it at all — the deploy path built
+and ran the app, and that was it. It went unnoticed because a stale schema
+merely serves errors; once `lib/pending-migrations.ts` started refusing to boot
+on unapplied migrations, the same gap became a failed deployment instead
+(`/api/healthz` 500s, Cloud Run never promotes the revision).
+
+So there are now exactly two moments:
+
+| Where | When | What runs |
+|---|---|---|
+| Replit workspace | on merge / pull | `scripts/post-merge.sh` |
+| Deployed service | on publish, in the build step | `pnpm --filter @workspace/db run migrate` |
+
+Both invoke the **same** `drizzle-kit migrate`. That is deliberate: two code
+paths applying migrations differently is how environments drift apart. The
+deploy hook lives in `artifacts/api-server/.replit-artifact/artifact.toml`.
+
+Re-running is safe — drizzle records each applied migration by content hash and
+skips it thereafter. Never edit an applied migration file; see below.
 
 It also runs `drizzle-kit generate` first, so a schema change that arrived
 without a migration file gets one generated at merge time.

@@ -70,6 +70,9 @@ pnpm --filter @workspace/db run generate
 bash scripts/check-migration-data-stmts.sh
 pnpm --filter @workspace/db run check:migration-data
 # `drizzle-kit migrate` applies every unapplied .sql migration file in order.
+# This covers the WORKSPACE database only. The deployed service has its own and
+# migrates in its build step — see artifacts/api-server/.replit-artifact/artifact.toml,
+# which runs this same command so the two cannot drift.
 # This includes any data statements (UPDATE/INSERT) inside those files.
 # ⚠️  DATA BACKFILL NOTE: data backfills that live only in .sql files are
 # invisible to environments bootstrapped with `drizzle-kit push`.  Every
