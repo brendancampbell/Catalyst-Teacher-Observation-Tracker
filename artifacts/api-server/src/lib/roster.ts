@@ -398,7 +398,8 @@ export async function buildRosterPlan(
     if (byEmpId && byEmpId.email !== p.email) {
       errors.push({
         row: p.row, status: "error", name: p.displayName, email: p.email,
-        reason: `employeeId ${p.employeeId} already belongs to ${byEmpId.email} — resolve the email change before uploading`,
+        reason: `employeeId ${p.employeeId} already belongs to ${byEmpId.email}, ` +
+                `but this file says ${p.email} — resolve the email change before uploading`,
       });
       continue;
     }
@@ -407,7 +408,11 @@ export async function buildRosterPlan(
     if (!byEmpId && byEmail) {
       errors.push({
         row: p.row, status: "error", name: p.displayName, email: p.email,
-        reason: `${p.email} already exists under employeeId ${byEmail.employeeId} — resolve the ID change before uploading`,
+        /* Show BOTH ids. The stored one alone left it impossible to tell a
+           genuine ID change from an export that dropped leading zeros, which
+           is what it actually was the first time this fired. */
+        reason: `${p.email} already exists under employeeId ${byEmail.employeeId}, ` +
+                `but this file says ${p.employeeId} — resolve the ID change before uploading`,
       });
       continue;
     }
