@@ -203,7 +203,9 @@ describe("Staged school-year rollover", () => {
       slug:         `tst-roll-${Date.now()}`,
       name:         "Test Rollover Rubric",
       schoolYearId: scratchYearId,
-      isActive:     true,
+      /* Created exactly as copy-forward creates one: is_active stays false,
+         because nothing in the app ever sets it true. A fixture that seeded
+         it true is what hid the gate being unsatisfiable through the UI. */
       isArchived:   false,
       target:       "TEACHER",
     });

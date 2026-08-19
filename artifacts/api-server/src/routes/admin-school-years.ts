@@ -163,9 +163,17 @@ router.get("/:id/activation-preview", async (req, res) => {
 
      hasRoster      the year has at least one open assignment. This is the
                     empty-year state that caused the outage.
-     hasRubricSet   the year has an active, non-archived rubric set.
-                    Without one people can sign in but nothing can be
-                    scored, which looks like a different bug entirely.
+     hasRubricSet   the year has a non-archived rubric set. Without one
+                    people can sign in but nothing can be scored, which
+                    looks like a different bug entirely.
+
+                    Deliberately does NOT check rubric_sets.is_active.
+                    That column is vestigial: both writers — POST /sets and
+                    copy-forward — hardcode it false, PATCH does not accept
+                    it, and nothing else in the codebase reads it. Keying
+                    the gate off it made the precondition unsatisfiable
+                    through the UI. Everywhere else "active rubric set"
+                    means non-archived; see MAX_ACTIVE_SETS.
 
    There was a third — that the activating admin hold an assignment in the
    target year — to make self-lockout impossible. It is gone because
@@ -188,7 +196,6 @@ async function checkActivationReadiness(
       .from(rubricSets)
       .where(and(
         eq(rubricSets.schoolYearId, targetYearId),
-        eq(rubricSets.isActive, true),
         eq(rubricSets.isArchived, false),
       ))
       .limit(1),
@@ -200,7 +207,7 @@ async function checkActivationReadiness(
     blockers.push("No roster has been loaded for this year — upload the staff list before activating");
   }
   if (!hasRubricSet) {
-    blockers.push("This year has no active rubric set — copy one forward before activating");
+    blockers.push("This year has no rubric set — copy one forward before activating");
   }
 
   return {

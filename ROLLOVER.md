@@ -14,7 +14,7 @@ Two things have to be true of the new year before it can go live:
 | Precondition | Why it exists |
 |---|---|
 | The year has a **roster** — at least one open assignment | An empty year makes `checkActiveThisYear()` false for every user at once, and every route 403s |
-| The year has an **active rubric set** | Without one, people can sign in but nothing can be scored |
+| The year has a **non-archived rubric set** | Without one, people can sign in but nothing can be scored. Copying one forward satisfies this |
 
 `GET /api/admin/school-years/:id/readiness` reports both. Activation returns
 `409 NOT_READY_TO_ACTIVATE` with a `blockers` array naming whichever is missing.
@@ -139,7 +139,8 @@ the loss is explicit rather than discovered later.
 
 Rubric sets do not copy themselves either — that is the separate
 `POST /api/rubric/sets/:id/copy-forward` step, and the activation gate checks
-you remembered to run it.
+you remembered to run it. (The gate looks for a non-archived set — it ignores
+`rubric_sets.is_active`, a vestigial column nothing in the app ever sets.)
 
 ## If you are locked out anyway
 

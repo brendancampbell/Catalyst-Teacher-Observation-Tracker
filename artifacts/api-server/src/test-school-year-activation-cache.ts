@@ -164,7 +164,9 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       slug:         `tst-sy-cache-${Date.now()}`,
       name:         "Test SY Cache Rubric",
       schoolYearId: alternateYearId,
-      isActive:     true,
+      /* Created exactly as copy-forward creates one: is_active stays false,
+         because nothing in the app ever sets it true. A fixture that seeded
+         it true is what hid the gate being unsatisfiable through the UI. */
       isArchived:   false,
       target:       "TEACHER",
     }).returning({ id: rubricSets.id });
