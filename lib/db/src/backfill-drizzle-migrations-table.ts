@@ -2,7 +2,7 @@
  * Backfill: populate drizzle.__drizzle_migrations for migrations that were
  * applied via `drizzle-kit push` (which never writes to the tracking table).
  *
- * Background: migrations 0000–0008 were applied via `drizzle-kit push-force`,
+ * Background: migrations 0000–0009 were applied via `drizzle-kit push-force`,
  * which never writes to the tracking table. As a result, `drizzle-kit migrate`
  * always tries to re-apply every migration and fails with PG error 42710
  * ("type already exists").
@@ -58,6 +58,22 @@ const APPLIED_BASELINE: Array<{ tag: string; when: number }> = [
   //   42710: type "notification_display_mode" already exists
   // which is 0008's first statement. Its tables were pushed, not migrated.
   { tag: "0008_workable_betty_ross",                         when: 1786679781052 },
+  // 0009 likewise. Evidence: the deploy got past 0008 and then failed with
+  //   42P07: relation "people_school_idx" already exists
+  // which is 0009's first index. Someone ran `push` against production after
+  // 0009 was generated, so its objects are there without tracking rows.
+  //
+  // CAVEAT worth knowing: this marks ALL of 0009 applied on the evidence of
+  // its FIRST statement. `push` syncs the whole declared schema, so the rest
+  // should be present too — but check:schema-sync compares columns only, not
+  // indexes, so nothing verifies that. The one that matters is
+  // school_years_single_active_uniq: without it a database can hold two
+  // active school years, and getActiveSchoolYearId() picks arbitrarily.
+  // Verify it directly rather than assuming:
+  //   SELECT indexname FROM pg_indexes
+  //    WHERE tablename = 'school_years'
+  //      AND indexname = 'school_years_single_active_uniq';
+  { tag: "0009_loose_lilandra",                              when: 1787026060197 },
 ];
 
 async function run(): Promise<void> {
