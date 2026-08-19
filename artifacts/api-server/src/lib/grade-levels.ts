@@ -34,6 +34,17 @@
 const BARE_GRADE = /^(?:K|PK|TK|\d{1,2})$/i;
 
 /**
+ * Spreadsheets treat a grade column as numeric and export "5.00" for grade 5.
+ * Stored as-is it never matches the "5" the Users tab writes, so the same
+ * teacher reads differently depending on how they were entered. Trailing
+ * zeros after a decimal point carry no meaning for a grade level.
+ */
+function normaliseGrade(value: string): string {
+  const asDecimal = /^(\d{1,2})\.0+$/.exec(value);
+  return asDecimal ? asDecimal[1]! : value;
+}
+
+/**
  * Normalise a gradeLevel field into a de-duplicated list of grades.
  * Accepts an array (the manual editor's shape) or a delimited string
  * (the CSV shape), and returns [] for anything empty or unparseable.
@@ -52,7 +63,8 @@ export function parseGradeLevels(raw: unknown): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
 
-  const push = (value: string): void => {
+  const push = (raw: string): void => {
+    const value = normaliseGrade(raw);
     const key = value.toLowerCase();
     if (!value || seen.has(key)) return;
     seen.add(key);

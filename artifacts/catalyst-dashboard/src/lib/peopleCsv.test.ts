@@ -1,10 +1,60 @@
 import { describe, it, expect } from "vitest";
-import { parsePeopleCSV } from "./peopleCsv";
+import { parsePeopleCSV, parseCSVLine } from "./peopleCsv";
 
 const HEADER =
   "firstName,lastName,employeeId,email,role,school,department,gradeLevel,includeInFeedbackTracker";
 
+describe("parseCSVLine", () => {
+  it("does not invent a field when the last column is quoted", () => {
+    /*
+     * The regression that rejected 132 rows of a real export. A quoted field
+     * that ends the line ends the row; the old loop ran once more and pushed
+     * an empty string, so the row came back one field too long and the
+     * column-count check threw it out.
+     */
+    expect(parseCSVLine('a,b,c')).toEqual(["a", "b", "c"]);
+    expect(parseCSVLine('a,b,"c, d"')).toEqual(["a", "b", "c, d"]);
+    expect(parseCSVLine('a,"b, c",d')).toEqual(["a", "b, c", "d"]);
+  });
+
+  it("keeps a genuine trailing empty field", () => {
+    expect(parseCSVLine("a,b,")).toEqual(["a", "b", ""]);
+  });
+
+  it("handles escaped quotes inside a quoted field", () => {
+    expect(parseCSVLine('a,"say ""hi"", please"')).toEqual(["a", 'say "hi", please']);
+  });
+});
+
 describe("parsePeopleCSV", () => {
+  it("accepts a real-world row whose last column is a quoted title", () => {
+    const header = HEADER + ",title";
+    const row = 'Jane,Smith,E1,j@x.org,COACH,Lincoln MS,Math,"4, 5, 6",true,"Dean of Students - NJ, NYC, MA"';
+    const { rows, malformed, repaired } = parsePeopleCSV([header, row].join("\n"));
+    expect(malformed).toHaveLength(0);
+    expect(repaired).toBe(0);
+    expect(rows[0]!.gradeLevel).toBe("4, 5, 6");
+    expect(rows[0]!.includeInFeedbackTracker).toBe("true");
+  });
+
+  it("reports columns the header does not contain", () => {
+    const { missing } = parsePeopleCSV(
+      ["firstname,lastname,email,role,employeeid,school", "A,B,a@x.org,COACH,E1,Lincoln MS"].join("\n"),
+    );
+    expect(missing).toContain("gradeLevel");
+    expect(missing).toContain("department");
+    expect(missing).not.toContain("firstName");
+  });
+
+  it("detects a tab-separated file", () => {
+    const { delimiter, rows } = parsePeopleCSV(
+      ["firstname\tlastname\temail\trole\temployeeid\tschool",
+       "A\tB\ta@x.org\tCOACH\tE1\tLincoln MS"].join("\n"),
+    );
+    expect(delimiter).toBe("\t");
+    expect(rows[0]!.email).toBe("a@x.org");
+  });
+
   it("reads a well-formed quoted multi-grade row", () => {
     const { rows, malformed, repaired } = parsePeopleCSV(
       [HEADER, 'Jane,Smith,E1,j@x.org,COACH,Lincoln MS,Math,"4, 5, 6",true'].join("\n"),

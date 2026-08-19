@@ -54,9 +54,19 @@ describe("parseGradeLevels", () => {
     assert.deepEqual(parseGradeLevels(42), []);
   });
 
+  test("normalises the decimals spreadsheets produce", () => {
+    /* A grade column formatted as a number exports 5 as "5.00". */
+    assert.deepEqual(parseGradeLevels("5.00"), ["5"]);
+    assert.deepEqual(parseGradeLevels("5.00, 6.00"), ["5", "6"]);
+    assert.deepEqual(parseGradeLevels("10.00"), ["10"]);
+    /* …but a genuine decimal is not a grade and is left alone. */
+    assert.deepEqual(parseGradeLevels("5.5"), ["5.5"]);
+  });
+
   test("an imported teacher now matches a hand-edited one", () => {
     /* The bug this fixes: these produced ["6-7-8"] and ["6","7","8"]. */
     assert.deepEqual(parseGradeLevels("6-7-8"), parseGradeLevels(["6", "7", "8"]));
     assert.deepEqual(parseGradeLevels("6, 7, 8"), parseGradeLevels(["6", "7", "8"]));
+    assert.deepEqual(parseGradeLevels("6.00, 7.00, 8.00"), parseGradeLevels(["6", "7", "8"]));
   });
 });

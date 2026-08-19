@@ -53,3 +53,12 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Staff data — never commit. A roster export carries names, emails and
+# employee IDs for the whole network; one was committed by accident on
+# 2026-08-18 and had to be removed by rewriting history. Keep these outside
+# the working tree entirely; this rule is the backstop, not the plan.
+*.csv
+*.xlsx
+*.xls
+!artifacts/**/fixtures/*.csv

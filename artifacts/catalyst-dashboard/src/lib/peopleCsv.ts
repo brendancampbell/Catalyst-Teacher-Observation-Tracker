@@ -8,18 +8,41 @@
 
 import type { BulkImportPersonPayload } from "@workspace/api-types";
 
-export function parseCSVLine(line: string): string[] {
+/**
+ * Work out what actually separates the fields.
+ *
+ * The importer assumed commas. Export tools disagree: Sheets and Excel will
+ * happily produce tab-separated files, and European Excel uses semicolons.
+ * A tab-separated file read as CSV yields ONE column, so every header lookup
+ * misses, every field comes back empty, and the only rows that look broken
+ * are the ones that happen to contain a comma — which reads as "unquoted
+ * comma" when the truth is "wrong delimiter entirely".
+ *
+ * Header names never contain tabs, semicolons or commas, so whichever appears
+ * most often in the header line is the delimiter.
+ */
+export function detectDelimiter(headerLine: string): string {
+  const counts = [
+    { d: "\t", n: (headerLine.match(/\t/g) ?? []).length },
+    { d: ";",   n: (headerLine.match(/;/g)  ?? []).length },
+    { d: ",",   n: (headerLine.match(/,/g)  ?? []).length },
+  ].sort((a, b) => b.n - a.n);
+  return counts[0]!.n > 0 ? counts[0]!.d : ",";
+}
+
+export function parseCSVLine(line: string, delim: string = ","): string[] {
   const fields: string[] = [];
   let i = 0;
-  while (i <= line.length) {
+
+  for (;;) {
     if (line[i] === '"') {
       let field = "";
       i++;
       while (i < line.length) {
-        if (line[i] === '"' && line[i + 1] === '"') {
+        if (line[i] === '"' && line[i + 1] === '"') {   /* escaped quote */
           field += '"';
           i += 2;
-        } else if (line[i] === '"') {
+        } else if (line[i] === '"') {                    /* closing quote */
           i++;
           break;
         } else {
@@ -27,17 +50,29 @@ export function parseCSVLine(line: string): string[] {
         }
       }
       fields.push(field.trim());
-      if (line[i] === ",") i++;
-    } else {
-      const end = line.indexOf(",", i);
-      if (end === -1) {
-        fields.push(line.slice(i).trim());
-        break;
-      }
-      fields.push(line.slice(i, end).trim());
-      i = end + 1;
+
+      /*
+       * A quoted field that ends the line ends the ROW. The previous version
+       * looped once more here and pushed an empty string, so any row whose
+       * LAST column was quoted came back with one field too many. Harmless
+       * while columns were read positionally and the phantom sat past the end
+       * — then the column-count check started rejecting those rows outright.
+       * 132 of them in a real 2080-row export, all with a quoted `title`.
+       */
+      if (i >= line.length) break;
+      if (line[i] === delim) { i++; continue; }
+      break;                                             /* junk after the quote */
     }
+
+    const end = line.indexOf(delim, i);
+    if (end === -1) {
+      fields.push(line.slice(i).trim());
+      break;
+    }
+    fields.push(line.slice(i, end).trim());
+    i = end + 1;
   }
+
   return fields;
 }
 
@@ -51,6 +86,14 @@ export interface MalformedRow {
 
 export interface ParsedPeopleCSV {
   rows:      BulkImportPersonPayload[];
+  /** What the file turned out to be separated by. */
+  delimiter: string;
+  /**
+   * Known columns absent from the header. Previously these were silently
+   * treated as empty for every row — a misnamed gradeLevel column meant no
+   * grade was ever imported and nothing said so.
+   */
+  missing:   string[];
   /** Rows that had unquoted commas in gradeLevel and were reassembled. */
   repaired:  number;
   /**
@@ -105,24 +148,32 @@ export function parsePeopleCSV(text: string): ParsedPeopleCSV {
   const results: BulkImportPersonPayload[] = [];
   const malformed: MalformedRow[] = [];
   let repaired = 0;
-  if (lines.length < 2) return { rows: results, malformed, repaired };
+  if (lines.length < 2) {
+    return { rows: results, malformed, repaired, delimiter: ",", missing: [] };
+  }
 
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, ""));
-  const idx = (n: string) => headers.indexOf(n);
-  const firstNameIdx = idx("firstname");
-  const lastNameIdx  = idx("lastname");
-  const empIdIdx     = idx("employeeid");
-  const emailIdx     = idx("email");
-  const roleIdx      = idx("role");
-  const schoolIdx    = idx("school");
-  const deptIdx      = idx("department");
-  const gradeIdx     = idx("gradelevel");
-  const obsIdx       = idx("includeinfeedbacktracker");
+  const delimiter = detectDelimiter(lines[0]!);
+  const headers = parseCSVLine(lines[0]!, delimiter).map((h) => h.toLowerCase().replace(/\s+/g, ""));
+  const missing: string[] = [];
+  const idx = (n: string, label: string) => {
+    const at = headers.indexOf(n);
+    if (at < 0) missing.push(label);
+    return at;
+  };
+  const firstNameIdx = idx("firstname", "firstName");
+  const lastNameIdx  = idx("lastname", "lastName");
+  const empIdIdx     = idx("employeeid", "employeeId");
+  const emailIdx     = idx("email", "email");
+  const roleIdx      = idx("role", "role");
+  const schoolIdx    = idx("school", "school");
+  const deptIdx      = idx("department", "department");
+  const gradeIdx     = idx("gradelevel", "gradeLevel");
+  const obsIdx       = idx("includeinfeedbacktracker", "includeInFeedbackTracker");
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    let cols = parseCSVLine(line);
+    let cols = parseCSVLine(line, delimiter);
     if (cols.length > headers.length) {
       const mended = mendUnquotedGrades(cols, headers.length, gradeIdx);
       if (mended) {
@@ -146,5 +197,5 @@ export function parsePeopleCSV(text: string): ParsedPeopleCSV {
       includeInFeedbackTracker: obsIdx >= 0 ? (cols[obsIdx] ?? "true") : "true",
     });
   }
-  return { rows: results, malformed, repaired };
+  return { rows: results, malformed, repaired, delimiter, missing };
 }
