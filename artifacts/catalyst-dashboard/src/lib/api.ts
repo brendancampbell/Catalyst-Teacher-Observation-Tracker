@@ -722,6 +722,9 @@ export interface RosterCounts {
       because they hold no assignment in the outgoing year. Non-zero means the
       departure list is incomplete. */
   undetectable: number;
+  /** Rows matched only after ignoring leading zeros in the employee ID —
+      i.e. the export dropped the padding HR applies. */
+  idNormalised: number;
 }
 
 export interface RosterDiff {

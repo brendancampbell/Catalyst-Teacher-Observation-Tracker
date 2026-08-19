@@ -874,6 +874,16 @@ function RosterStep(
               ))}
             </div>
 
+            {diff.counts.idNormalised > 0 && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+                <strong>{diff.counts.idNormalised}</strong> row
+                {diff.counts.idNormalised !== 1 ? "s were" : " was"} matched to an existing person by
+                ignoring leading zeros in the employee ID — your export writes <code>15473</code>
+                where HR stores <code>015473</code>. They were matched correctly. Formatting that
+                column as text in the export would remove the guesswork.
+              </div>
+            )}
+
             {diff.counts.undetectable > 0 && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
                 <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">

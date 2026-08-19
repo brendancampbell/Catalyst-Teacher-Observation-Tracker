@@ -30,12 +30,14 @@ import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import type { UserRole } from "../middleware/auth";
 import { parseGradeLevels } from "./grade-levels";
+import { canonicalEmployeeId } from "./employee-id";
 
 const SCHOOL_ASSIGNABLE_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER"];
 const NETWORK_ROLES: UserRole[] = ["NETWORK_LEADER", "NETWORK_ADMIN"];
 const ALL_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN", "NO_ACCESS"];
 
 export type Department = typeof DEPARTMENT_VALUES[number];
+
 
 /** One row as it arrives from the client — every field untrusted. */
 export interface RosterRowInput {
@@ -291,6 +293,9 @@ export interface RosterPlan {
         detected, because they hold no open assignment in the outgoing year.
         Non-zero means the departure list above is incomplete. */
     undetectable: number;
+    /** Rows matched to an existing person only after ignoring leading zeros
+        in the employee ID — i.e. the export dropped the padding. */
+    idNormalised: number;
   };
 }
 
@@ -317,6 +322,7 @@ export async function buildRosterPlan(
   const { targetYearId, outgoingYearId, lookup } = opts;
   const errors: RosterRowError[] = [...parseErrors];
   const actions: RosterAction[] = [];
+  let idNormalised = 0;
 
   /* Duplicate employeeIds within one file would race each other on write. */
   const seen = new Map<string, number>();
@@ -334,17 +340,50 @@ export async function buildRosterPlan(
     unique.push(p);
   }
 
-  for (const p of unique) {
-    const [byEmpId] = await db.select({
-      employeeId: people.employeeId,
-      email:      people.email,
-      role:       people.role,
-      schoolId:   people.schoolId,
-    }).from(people).where(eq(people.employeeId, p.employeeId)).limit(1);
+  /*
+   * Load everyone once instead of two queries per row. At roster scale that
+   * is 2 lookups rather than ~4400, and it is what makes canonical-id
+   * matching possible without a scan per row.
+   */
+  const allPeople = await db.select({
+    employeeId: people.employeeId,
+    email:      people.email,
+    role:       people.role,
+    schoolId:   people.schoolId,
+  }).from(people);
 
-    const [byEmail] = await db.select({
-      employeeId: people.employeeId,
-    }).from(people).where(eq(people.email, p.email)).limit(1);
+  const byExactId  = new Map(allPeople.map((r) => [r.employeeId, r]));
+  const byEmailMap = new Map(allPeople.map((r) => [r.email.toLowerCase(), r]));
+  const byCanonId  = new Map<string, typeof allPeople>();
+  for (const r of allPeople) {
+    const key = canonicalEmployeeId(r.employeeId);
+    const bucket = byCanonId.get(key);
+    if (bucket) bucket.push(r);
+    else byCanonId.set(key, [r]);
+  }
+
+  for (const p of unique) {
+    let byEmpId = byExactId.get(p.employeeId);
+
+    /* No exact hit — try ignoring leading zeros before declaring them new. */
+    if (!byEmpId) {
+      const candidates = byCanonId.get(canonicalEmployeeId(p.employeeId)) ?? [];
+      if (candidates.length === 1) {
+        byEmpId = candidates[0]!;
+        idNormalised++;
+      } else if (candidates.length > 1) {
+        /* Two stored ids differ only by padding. Refuse: picking either one
+           writes to a real person's record on a coin flip. */
+        errors.push({
+          row: p.row, status: "error", name: p.displayName, email: p.email,
+          reason: `employeeId ${p.employeeId} matches more than one record ` +
+                  `(${candidates.map((c) => c.employeeId).join(", ")}) — these differ only by leading zeros`,
+        });
+        continue;
+      }
+    }
+
+    const byEmail = byEmailMap.get(p.email);
 
     /* employeeId and email point at two different humans — refuse to guess. */
     if (byEmpId && byEmail && byEmpId.employeeId !== byEmail.employeeId) {
@@ -372,6 +411,10 @@ export async function buildRosterPlan(
       });
       continue;
     }
+
+    /* From here on the stored id is authoritative: a row matched by canonical
+       id must not create a second person under the unpadded form. */
+    if (byEmpId) p.employeeId = byEmpId.employeeId;
 
     /* SCHOOL_LEADER callers may not reach into another school's records. */
     if (!opts.isNetworkAdmin && byEmpId && byEmpId.schoolId !== null && byEmpId.schoolId !== opts.callerSchoolId) {
@@ -492,6 +535,7 @@ export async function buildRosterPlan(
     unchanged:   actions.filter((a) => a.kind === "unchanged").length,
     departures:  departures.length,
     errors:      errors.length,
+    idNormalised,
     undetectable: await countUndetectable({
       targetYearId,
       outgoingYearId,
