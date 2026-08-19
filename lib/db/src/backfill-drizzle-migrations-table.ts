@@ -2,7 +2,7 @@
  * Backfill: populate drizzle.__drizzle_migrations for migrations that were
  * applied via `drizzle-kit push` (which never writes to the tracking table).
  *
- * Background: migrations 0000–0007 were applied via `drizzle-kit push-force`,
+ * Background: migrations 0000–0008 were applied via `drizzle-kit push-force`,
  * which never writes to the tracking table. As a result, `drizzle-kit migrate`
  * always tries to re-apply every migration and fails with PG error 42710
  * ("type already exists").
@@ -12,6 +12,12 @@
  * as applied. It does NOT read all journal entries blindly.  Any migration
  * added after this script was written will NOT be pre-marked — it will be
  * applied normally by `drizzle-kit migrate`.
+ *
+ * The bar for adding a tag here is EVIDENCE, not belief: a 42710 collision
+ * from the target database proving the objects already exist. Marking a
+ * migration applied when it is not means those changes are silently skipped
+ * forever, and the app boots happily against a schema that is missing them —
+ * a far worse failure than a loud one at deploy time.
  *
  * Safe to re-run: uses WHERE NOT EXISTS so rows are only inserted once.
  *
@@ -47,6 +53,11 @@ const APPLIED_BASELINE: Array<{ tag: string; when: number }> = [
   // its two DDL statements (drop unique constraint, alter column type) were
   // already applied via push-force before this script existed.
   { tag: "0007_boring_ravenous",                             when: 1784730433963 },
+  // 0008 likewise. Evidence: the 2026-08-19 production deploy got past 0007
+  // and then failed with
+  //   42710: type "notification_display_mode" already exists
+  // which is 0008's first statement. Its tables were pushed, not migrated.
+  { tag: "0008_workable_betty_ross",                         when: 1786679781052 },
 ];
 
 async function run(): Promise<void> {
