@@ -12,6 +12,7 @@
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
+    "backfill:assignments": "tsx src/backfill-assignments.ts",
     "check:schema-sync": "tsx src/check-schema-sync.ts",
     "check:migration-data": "tsx src/check-migration-data-statements.ts"
   },

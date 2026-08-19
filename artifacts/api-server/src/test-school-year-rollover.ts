@@ -27,6 +27,7 @@
  *   8. Rolling back restores the departed person and their school
  *   9. An empty incoming year yields no departures — but a pending roster
  *      into an empty year still does
+ *  10. Staff invisible to departure detection are counted and reported
  */
 
 import { test, describe, before, after } from "node:test";
@@ -43,7 +44,10 @@ const STAY_EID  = "TST_ROLL_STAY";
 const MOVE_EID  = "TST_ROLL_MOVE";
 const LEAVE_EID = "TST_ROLL_LEAVE";
 const NEW_EID   = "TST_ROLL_NEW";
-const ALL_EIDS  = [ADM_EID, STAY_EID, MOVE_EID, LEAVE_EID, NEW_EID];
+/* Active, non-admin, and holding no assignment in any year — the population
+   that departure detection is structurally blind to. */
+const GHOST_EID = "TST_ROLL_GHOST";
+const ALL_EIDS  = [ADM_EID, STAY_EID, MOVE_EID, LEAVE_EID, NEW_EID, GHOST_EID];
 
 type Jar = { cookieHeader: string };
 
@@ -347,6 +351,49 @@ describe("Staged school-year rollover", () => {
       .from(schoolYears)
       .where(and(eq(schoolYears.status, "active"), ne(schoolYears.id, originalYearId)));
     assert.equal(others.length, 0, "exactly one year is ever active");
+  });
+
+  /* ── Blind spots ────────────────────────────────────────────────────── */
+
+  test("10 — staff with no assignment in the outgoing year are counted as undetectable", async () => {
+    const rows = rosterRows();
+
+    const before = await request("POST", "/people/bulk", {
+      rows, schoolYearId: scratchYearId, dryRun: true,
+    }, jar);
+    assert.equal(before.status, 200, JSON.stringify(before.body));
+    const baseline = before.body.counts.undetectable;
+    assert.equal(typeof baseline, "number", "the diff must report an undetectable count");
+
+    /*
+     * Someone active and non-admin with no assignment row anywhere. They are
+     * absent from the roster, so they may well have left — but nothing in the
+     * outgoing year's ledger says they were ever here, so the departure query
+     * cannot see them. The count is what makes that visible instead of silent.
+     */
+    await db.insert(people).values({
+      employeeId: GHOST_EID,
+      firstName:  "Test",
+      lastName:   "RollGhost",
+      email:      "tst.roll.ghost@example.com",
+      role:       "COACH",
+      schoolId:   schoolAId,
+      isActive:   true,
+      includeInFeedbackTracker: false,
+    }).onConflictDoNothing();
+
+    const after = await request("POST", "/people/bulk", {
+      rows, schoolYearId: scratchYearId, dryRun: true,
+    }, jar);
+    assert.equal(after.status, 200, JSON.stringify(after.body));
+    assert.equal(
+      after.body.counts.undetectable, baseline + 1,
+      "an active person with no outgoing-year assignment must raise the undetectable count",
+    );
+    assert.ok(
+      !after.body.departures.some((d: { employeeId: string }) => d.employeeId === GHOST_EID),
+      "and must NOT appear as a departure — that is precisely the blind spot",
+    );
   });
 
   /* ── The empty-year rule ────────────────────────────────────────────── */

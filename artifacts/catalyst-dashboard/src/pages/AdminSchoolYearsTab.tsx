@@ -429,7 +429,11 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
               </div>
             </div>
 
-            <RosterStep year={selectedYr} onGoToUsers={onGoToUsers} />
+            <RosterStep
+              year={selectedYr}
+              activeYearName={activeYr?.name ?? null}
+              onGoToUsers={onGoToUsers}
+            />
 
             {/* ── Make Active CTA ── */}
             <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-200">
@@ -687,7 +691,10 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
    The roster is the authoritative statement of who works where next year.
    Anyone absent from it is deactivated when the year flips, which is why
    the upload is always previewed before it is written.                  */
-function RosterStep({ year, onGoToUsers }: { year: SchoolYearRow; onGoToUsers: () => void }) {
+function RosterStep(
+  { year, activeYearName, onGoToUsers }:
+  { year: SchoolYearRow; activeYearName: string | null; onGoToUsers: () => void },
+) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -841,6 +848,21 @@ function RosterStep({ year, onGoToUsers }: { year: SchoolYearRow; onGoToUsers: (
                 </div>
               ))}
             </div>
+
+            {diff.counts.undetectable > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  The departure list below is incomplete
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  <strong>{diff.counts.undetectable}</strong> active staff are absent from this
+                  roster but hold no assignment in {activeYearName ?? "the outgoing year"}, so the
+                  system cannot tell whether they left. They will not be deactivated. Run the
+                  assignments backfill before relying on this list.
+                </p>
+              </div>
+            )}
 
             {emptySchools.length > 0 && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">

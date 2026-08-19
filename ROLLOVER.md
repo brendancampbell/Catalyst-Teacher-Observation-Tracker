@@ -26,6 +26,37 @@ follows that an admin is never counted as a departure and never deactivated for
 being absent from a file, and that there is no self-lockout left to guard
 against. Everyone else is governed entirely by the roster.
 
+## Before your first real rollover: the ledger must be complete
+
+Departure detection reads the outgoing year's **assignment ledger**, not the
+people table. Someone with no open assignment in the outgoing year is invisible
+to it: absent from the roster, never reported, never deactivated.
+
+That was the state this system shipped in. Assignment rows are only ever
+written by the roster upload, `POST /people`, the bulk upsert and reassign, so
+everyone predating those had none — measured 2026-08-18: **2115 active people,
+2 with an open assignment in the active year.** Removing a name from a roster
+file did nothing to 99.9% of staff.
+
+Fix it once, while the current year is running:
+
+```bash
+pnpm --filter @workspace/db run backfill:assignments          # dry run
+pnpm --filter @workspace/db run backfill:assignments -- --apply
+```
+
+Read the dry run first — particularly anyone listed with no school, since their
+assignment will be unattributable in the diff. Afterwards, confirm a few people
+can still sign in.
+
+Be clear about what this changes: before it, omitting someone from a roster was
+harmless; after it, omitting someone deactivates them at the next rollover.
+That is the entire point, and it is also why a typo now costs something.
+
+The roster diff reports **undetectable** for exactly this — active staff absent
+from the file whose departure cannot be determined. Non-zero means the departure
+list is incomplete and the backfill has not been run.
+
 ## The roster is the source of truth
 
 One network-wide file listing every staff member and the school they will be at.

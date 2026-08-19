@@ -718,6 +718,10 @@ export interface RosterCounts {
   unchanged:   number;
   departures:  number;
   errors:      number;
+  /** Active staff absent from this roster whose departure cannot be detected,
+      because they hold no assignment in the outgoing year. Non-zero means the
+      departure list is incomplete. */
+  undetectable: number;
 }
 
 export interface RosterDiff {

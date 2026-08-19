@@ -291,6 +291,10 @@ export interface RosterPlan {
     unchanged:   number;
     departures:  number;
     errors:      number;
+    /** Active staff absent from this roster whose departure CANNOT be
+        detected, because they hold no open assignment in the outgoing year.
+        Non-zero means the departure list above is incomplete. */
+    undetectable: number;
   };
 }
 
@@ -492,6 +496,11 @@ export async function buildRosterPlan(
     unchanged:   actions.filter((a) => a.kind === "unchanged").length,
     departures:  departures.length,
     errors:      errors.length,
+    undetectable: await countUndetectable({
+      targetYearId,
+      outgoingYearId,
+      alsoAssigned: new Set(actions.map((a) => a.parsed.employeeId)),
+    }),
   };
 
   return {
@@ -583,6 +592,48 @@ export async function computeDepartures(opts: {
       schoolName:   o.schoolId !== null ? lookup.displayName.get(o.schoolId) ?? null : null,
       assignmentId: o.assignmentId,
     }));
+}
+
+/**
+ * How many active staff this roster leaves out AND cannot speak for.
+ *
+ * Departure detection reads the outgoing year's assignment ledger, so someone
+ * with no open assignment there is invisible to it: absent from the roster,
+ * never reported, never deactivated. That is a silent under-report of the one
+ * list the whole rollover asks you to check.
+ *
+ * It is not hypothetical. The ledger only ever gets rows from the roster
+ * upload, POST /people, the bulk upsert and reassign, so every person who
+ * predates those is invisible — 2113 of 2115 when this was first measured.
+ * lib/db/src/backfill-assignments.ts is the repair; this is the alarm that
+ * says whether the repair is still needed.
+ */
+async function countUndetectable(opts: {
+  targetYearId:   number;
+  outgoingYearId: number | null;
+  alsoAssigned:   Set<string>;
+}): Promise<number> {
+  const { targetYearId, outgoingYearId, alsoAssigned } = opts;
+  if (outgoingYearId === null || outgoingYearId === targetYearId) return 0;
+
+  const rows = await db.select({ employeeId: people.employeeId })
+    .from(people)
+    .where(and(
+      eq(people.isActive, true),
+      ne(people.role, "NETWORK_ADMIN"),
+      /* No open assignment in the outgoing year → invisible to departures */
+      sql`NOT EXISTS (SELECT 1 FROM assignments o
+                       WHERE o.user_id = ${people.employeeId}
+                         AND o.school_year_id = ${outgoingYearId}
+                         AND o.end_date IS NULL)`,
+      /* Already staged into the target year → accounted for, not missing */
+      sql`NOT EXISTS (SELECT 1 FROM assignments t
+                       WHERE t.user_id = ${people.employeeId}
+                         AND t.school_year_id = ${targetYearId}
+                         AND t.end_date IS NULL)`,
+    ));
+
+  return rows.filter((r) => !alsoAssigned.has(r.employeeId)).length;
 }
 
 /**
