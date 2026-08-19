@@ -77,9 +77,19 @@ claim that everyone resigned. A first roster into an empty year still identifies
 departures normally — the distinction is between *no roster* and *a roster that
 omits you*, not between empty and non-empty.
 
-Identity is `employeeId`. A row whose `employeeId` already belongs to a
-different email is rejected rather than merged — a mistyped ID and a genuine
-email change need opposite fixes, and guessing rewrites the wrong person.
+Identity is `employeeId`, and leading zeros are ignored when matching, because
+spreadsheets export `015473` as `15473`.
+
+A row whose `employeeId` matches someone with a **different email** is a
+**sign-in address change**, not an error — people marry, change names, move
+domains. Refusing those rows left them off the roster, which at the flip makes
+them departures and deactivates them. They are listed with before and after,
+and applying them requires ticking the acknowledgement: the address someone
+signs in with should not change because a spreadsheet said so.
+
+Still refused, because neither can be resolved by guessing: an `employeeId`
+and an email that point at two *different* existing people, and an email that
+arrives under an `employeeId` nobody has.
 
 ## Staging is inert
 

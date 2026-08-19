@@ -28,6 +28,7 @@
  *   9. An empty incoming year yields no departures — but a pending roster
  *      into an empty year still does
  *  10. Staff invisible to departure detection are counted and reported
+ *  11. A changed email is a reported change, and needs acknowledgement
  */
 
 import { test, describe, before, after } from "node:test";
@@ -47,7 +48,9 @@ const NEW_EID   = "TST_ROLL_NEW";
 /* Active, non-admin, and holding no assignment in any year — the population
    that departure detection is structurally blind to. */
 const GHOST_EID = "TST_ROLL_GHOST";
-const ALL_EIDS  = [ADM_EID, STAY_EID, MOVE_EID, LEAVE_EID, NEW_EID, GHOST_EID];
+/* Same person, new address — a name change in the source system. */
+const RENAME_EID = "TST_ROLL_RENAME";
+const ALL_EIDS  = [ADM_EID, STAY_EID, MOVE_EID, LEAVE_EID, NEW_EID, GHOST_EID, RENAME_EID];
 
 type Jar = { cookieHeader: string };
 
@@ -351,6 +354,63 @@ describe("Staged school-year rollover", () => {
       .from(schoolYears)
       .where(and(eq(schoolYears.status, "active"), ne(schoolYears.id, originalYearId)));
     assert.equal(others.length, 0, "exactly one year is ever active");
+  });
+
+  test("11 — a new email under a known employeeId is a change, not an error", async () => {
+    await db.insert(people).values({
+      employeeId: RENAME_EID,
+      firstName:  "Test",
+      lastName:   "RollOldName",
+      email:      "tst.roll.oldname@example.com",
+      role:       "COACH",
+      schoolId:   schoolAId,
+      isActive:   true,
+      includeInFeedbackTracker: false,
+    }).onConflictDoNothing();
+
+    /* Same employeeId, new address — exactly the shape that used to be
+       refused, which left the person off the roster and therefore departing. */
+    const rows = [
+      ...rosterRows(),
+      { firstName: "Test", lastName: "RollNewName", employeeId: RENAME_EID,
+        email: "tst.roll.newname@example.com", role: "COACH", school: schoolAName },
+    ];
+
+    const preview = await request("POST", "/people/bulk", {
+      rows, schoolYearId: scratchYearId, dryRun: true,
+    }, jar);
+    assert.equal(preview.status, 200, JSON.stringify(preview.body));
+    assert.equal(preview.body.counts.emailChanges, 1, "the change should be reported");
+    assert.ok(
+      !preview.body.errors.some((e: { reason: string }) => /email change/i.test(e.reason)),
+      `it must no longer be an error: ${JSON.stringify(preview.body.errors)}`,
+    );
+    const change = preview.body.emailChanges[0];
+    assert.equal(change.employeeId, RENAME_EID);
+    assert.equal(change.from, "tst.roll.oldname@example.com");
+    assert.equal(change.to, "tst.roll.newname@example.com");
+
+    /* Writing it without saying so is refused… */
+    const unacked = await request("POST", "/people/bulk", {
+      rows, schoolYearId: scratchYearId,
+    }, jar);
+    assert.equal(unacked.status, 409, `Expected 409, got ${unacked.status}`);
+    assert.equal(unacked.body.code, "EMAIL_CHANGES_NOT_ACKNOWLEDGED");
+
+    const untouched = await db.select({ email: people.email })
+      .from(people).where(eq(people.employeeId, RENAME_EID)).limit(1);
+    assert.equal(untouched[0]?.email, "tst.roll.oldname@example.com",
+      "a refused upload must not have changed the address");
+
+    /* …and applied once it is. */
+    const acked = await request("POST", "/people/bulk", {
+      rows, schoolYearId: scratchYearId, acknowledgeEmailChanges: true,
+    }, jar);
+    assert.equal(acked.status, 200, JSON.stringify(acked.body));
+
+    const [after] = await db.select({ email: people.email })
+      .from(people).where(eq(people.employeeId, RENAME_EID)).limit(1);
+    assert.equal(after?.email, "tst.roll.newname@example.com");
   });
 
   /* ── Blind spots ────────────────────────────────────────────────────── */

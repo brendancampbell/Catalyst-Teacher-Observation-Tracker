@@ -9,6 +9,7 @@ import {
   parseRosterRow,
   buildRosterPlan,
   applyRosterPlan,
+  UnacknowledgedEmailChanges,
   type RosterRowInput,
   type ParsedRosterRow,
   type RosterRowError,
@@ -337,6 +338,7 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
     const isEnvelope = !Array.isArray(body) && typeof body === "object" && body !== null;
     const envelope = (isEnvelope ? body : {}) as {
       rows?: unknown; schoolYearId?: unknown; dryRun?: unknown;
+      acknowledgeEmailChanges?: unknown;
     };
     const rows = (isEnvelope ? envelope.rows : body) as RosterRowInput[];
     const dryRun = envelope.dryRun === true;
@@ -407,12 +409,28 @@ router.post("/bulk", requireRole("SCHOOL_LEADER", "NETWORK_ADMIN"), async (req, 
         counts:         plan.counts,
         bySchool:       plan.bySchool,
         departures:     plan.departures.map(({ assignmentId: _ignored, ...d }) => d),
+        emailChanges:   plan.emailChanges,
         errors:         plan.errors,
       });
       return;
     }
 
-    const results = await applyRosterPlan(plan);
+    let results;
+    try {
+      results = await applyRosterPlan(plan, {
+        acknowledgeEmailChanges: envelope.acknowledgeEmailChanges === true,
+      });
+    } catch (err) {
+      if (err instanceof UnacknowledgedEmailChanges) {
+        res.status(409).json({
+          error: "This roster changes the sign-in address of existing people",
+          code:  "EMAIL_CHANGES_NOT_ACKNOWLEDGED",
+          emailChanges: err.changes,
+        });
+        return;
+      }
+      throw err;
+    }
 
     invalidateAllCaches();
     res.json({

@@ -251,6 +251,13 @@ export interface RosterAction {
   isRoleChange: boolean;
 }
 
+export interface EmailChange {
+  employeeId: string;
+  name:       string;
+  from:       string;
+  to:         string;
+}
+
 export interface Departure {
   employeeId: string;
   name:       string;
@@ -281,6 +288,8 @@ export interface RosterPlan {
   actions:        RosterAction[];
   errors:         RosterRowError[];
   departures:     Departure[];
+  /** Same person, new address. Requires acknowledgement before it is written. */
+  emailChanges:   EmailChange[];
   bySchool:       SchoolBreakdown[];
   counts: {
     newHires:    number;
@@ -296,6 +305,8 @@ export interface RosterPlan {
     /** Rows matched to an existing person only after ignoring leading zeros
         in the employee ID — i.e. the export dropped the padding. */
     idNormalised: number;
+    /** People whose sign-in address this roster would change. */
+    emailChanges: number;
   };
 }
 
@@ -322,6 +333,7 @@ export async function buildRosterPlan(
   const { targetYearId, outgoingYearId, lookup } = opts;
   const errors: RosterRowError[] = [...parseErrors];
   const actions: RosterAction[] = [];
+  const emailChanges: EmailChange[] = [];
   let idNormalised = 0;
 
   /* Duplicate employeeIds within one file would race each other on write. */
@@ -393,15 +405,28 @@ export async function buildRosterPlan(
       });
       continue;
     }
-    /* employeeId is known but carries a different email. Could be a mistyped
-       ID or a genuine rename; the fixes are opposite, so a human decides. */
+    /*
+     * Same employeeId, different email. This used to be an error, on the
+     * reasoning that a mistyped ID and a genuine rename need opposite fixes.
+     * Against real data that was the wrong trade: renames are routine — people
+     * marry, change names, move domains — and refusing the row left them off
+     * the roster, which at the flip makes them a DEPARTURE and deactivates
+     * them. Thirteen current staff, for changing their email address.
+     *
+     * employeeId is the identity, so email is an attribute of it, not a rival
+     * key. Treat it as a change and report it — but never apply it silently:
+     * this is the address someone signs in with, so the operator acknowledges
+     * the list first. A typo would still have to land exactly on another real
+     * employee's ID to do harm, and the "two different records" check above
+     * catches the case where the new address already belongs to someone else.
+     */
     if (byEmpId && byEmpId.email !== p.email) {
-      errors.push({
-        row: p.row, status: "error", name: p.displayName, email: p.email,
-        reason: `employeeId ${p.employeeId} already belongs to ${byEmpId.email}, ` +
-                `but this file says ${p.email} — resolve the email change before uploading`,
+      emailChanges.push({
+        employeeId: byEmpId.employeeId,
+        name:       p.displayName,
+        from:       byEmpId.email,
+        to:         p.email,
       });
-      continue;
     }
     /* Email is known but under a different employeeId, and that ID is not in
        the roster. Same reasoning — do not silently re-key a person. */
@@ -541,6 +566,7 @@ export async function buildRosterPlan(
     departures:  departures.length,
     errors:      errors.length,
     idNormalised,
+    emailChanges: emailChanges.length,
     undetectable: await countUndetectable({
       targetYearId,
       outgoingYearId,
@@ -555,6 +581,7 @@ export async function buildRosterPlan(
     actions,
     errors: errors.sort((a, b) => a.row - b.row),
     departures,
+    emailChanges,
     bySchool: [...bySchool.values()].sort((a, b) => a.schoolName.localeCompare(b.schoolName)),
     counts,
   };
@@ -733,12 +760,45 @@ function pgMessage(e: unknown): string | null {
  * left alone — a mid-year hire import is not a statement that everyone missing
  * from it has resigned.
  */
-export async function applyRosterPlan(plan: RosterPlan): Promise<RosterRowResult[]> {
+export class UnacknowledgedEmailChanges extends Error {
+  constructor(public readonly changes: EmailChange[]) {
+    super("This roster changes sign-in addresses and has not been acknowledged");
+    this.name = "UnacknowledgedEmailChanges";
+  }
+}
+
+export async function applyRosterPlan(
+  plan: RosterPlan,
+  opts: { acknowledgeEmailChanges?: boolean } = {},
+): Promise<RosterRowResult[]> {
+  /*
+   * Refuse rather than silently rename. Checked here and not only in the
+   * route so that every caller — including a future one — has to say yes.
+   */
+  if (plan.emailChanges.length > 0 && !opts.acknowledgeEmailChanges) {
+    throw new UnacknowledgedEmailChanges(plan.emailChanges);
+  }
+
   const results: RosterRowResult[] = plan.errors.map((e) => ({
     row: e.row, status: "error" as const, name: e.name, email: e.email, reason: e.reason,
   }));
 
   const today = new Date().toISOString().slice(0, 10);
+
+  /*
+   * Applied at upload time even for a staged roster, unlike isActive and the
+   * denormalised role/school. Those describe a person's standing IN A YEAR and
+   * must not move before the flip. An email is not year-scoped — there is no
+   * 2025-26 address and 2026-27 address — and leaving it stale means next
+   * year's roster fails to match the same person all over again.
+   *
+   * The operator has acknowledged that sign-in changes to the new address.
+   */
+  for (const change of plan.emailChanges) {
+    await db.update(people)
+      .set({ email: change.to })
+      .where(eq(people.employeeId, change.employeeId));
+  }
 
   for (const action of plan.actions) {
     const p = action.parsed;

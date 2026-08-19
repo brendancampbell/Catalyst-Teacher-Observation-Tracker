@@ -704,6 +704,7 @@ function RosterStep(
   const [applied, setApplied]         = useState<RosterApplyResult | null>(null);
   const [parseError, setParseError]   = useState<string | null>(null);
   const [repairedCount, setRepairedCount] = useState(0);
+  const [emailAck, setEmailAck] = useState(false);
 
   const readinessQ = useQuery<ActivationReadiness>({
     queryKey: [...QUERY_KEYS.activationReadiness, year.id],
@@ -715,12 +716,13 @@ function RosterStep(
   });
 
   const applyMut = useMutation({
-    mutationFn: () => stageRoster(year.id, rows!),
+    mutationFn: () => stageRoster(year.id, rows!, { acknowledgeEmailChanges: emailAck }),
     onSuccess: (res) => {
       setApplied(res);
       setRows(null);
       setFileName("");
       setConfirmText("");
+      setEmailAck(false);
       previewMut.reset();
       qc.invalidateQueries({ queryKey: [...QUERY_KEYS.activationReadiness, year.id] });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.people });
@@ -734,6 +736,7 @@ function RosterStep(
     setApplied(null);
     setParseError(null);
     setRepairedCount(0);
+    setEmailAck(false);
     previewMut.reset();
     const reader = new FileReader();
     reader.onload = () => {
@@ -971,10 +974,51 @@ function RosterStep(
               </details>
             )}
 
+            {diff.emailChanges.length > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  {diff.emailChanges.length} sign-in address
+                  {diff.emailChanges.length !== 1 ? "es" : ""} will change
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  These are matched by employee ID, so the system is confident they are the same
+                  people — usually a name change. Their sign-in switches to the new address as soon
+                  as you stage this roster, so check each one is a person you expect.
+                </p>
+                <ul className="mt-2 max-h-48 overflow-y-auto text-xs text-amber-900 flex flex-col gap-1">
+                  {diff.emailChanges.map((c) => (
+                    <li key={c.employeeId}>
+                      <span className="font-semibold">{c.name}</span>{" "}
+                      <span className="text-amber-700">({c.employeeId})</span>
+                      <br />
+                      <span className="line-through opacity-70">{c.from}</span>
+                      {" → "}
+                      <span className="font-semibold">{c.to}</span>
+                    </li>
+                  ))}
+                </ul>
+                <label className="mt-3 flex items-start gap-2 text-xs text-amber-900 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={emailAck}
+                    onChange={(e) => setEmailAck(e.target.checked)}
+                  />
+                  <span>
+                    I have reviewed these and they are the same people — change their sign-in
+                    addresses.
+                  </span>
+                </label>
+              </div>
+            )}
+
             {/* ── Confirm ── */}
             <div className="flex flex-col gap-1.5 pt-1">
               <label className="text-sm font-semibold text-slate-700">
-                Read the departure list above, then type <strong>{year.name}</strong> to stage this roster:
+                {diff.emailChanges.length > 0 && !emailAck
+                  ? <>Confirm the sign-in address changes above, then type <strong>{year.name}</strong>:</>
+                  : <>Read the departure list above, then type <strong>{year.name}</strong> to stage this roster:</>}
               </label>
               <div className="flex gap-2">
                 <input
@@ -985,7 +1029,11 @@ function RosterStep(
                 />
                 <button
                   onClick={() => applyMut.mutate()}
-                  disabled={!confirmMatches || applyMut.isPending}
+                  disabled={
+                    !confirmMatches
+                    || applyMut.isPending
+                    || (diff.emailChanges.length > 0 && !emailAck)
+                  }
                   className="px-5 py-2 rounded-lg font-bold text-sm text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
                 >

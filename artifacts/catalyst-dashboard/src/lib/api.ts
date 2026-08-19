@@ -703,6 +703,13 @@ export interface RosterDeparture {
   schoolName: string | null;
 }
 
+export interface RosterEmailChange {
+  employeeId: string;
+  name:       string;
+  from:       string;
+  to:         string;
+}
+
 export interface RosterRowError {
   row:    number;
   status: "error";
@@ -725,6 +732,8 @@ export interface RosterCounts {
   /** Rows matched only after ignoring leading zeros in the employee ID —
       i.e. the export dropped the padding HR applies. */
   idNormalised: number;
+  /** People whose sign-in address this roster would change. */
+  emailChanges: number;
 }
 
 export interface RosterDiff {
@@ -735,6 +744,7 @@ export interface RosterDiff {
   counts:         RosterCounts;
   bySchool:       RosterSchoolBreakdown[];
   departures:     RosterDeparture[];
+  emailChanges:   RosterEmailChange[];
   errors:         RosterRowError[];
 }
 
@@ -760,10 +770,15 @@ export async function previewRoster(
 export async function stageRoster(
   yearId: number,
   rows: BulkImportPersonPayload[],
+  opts: { acknowledgeEmailChanges?: boolean } = {},
 ): Promise<RosterApplyResult> {
   return apiFetch<RosterApplyResult>("/people/bulk", {
     method: "POST",
-    body: JSON.stringify({ rows, schoolYearId: yearId }),
+    body: JSON.stringify({
+      rows,
+      schoolYearId: yearId,
+      acknowledgeEmailChanges: opts.acknowledgeEmailChanges === true,
+    }),
   });
 }
 
