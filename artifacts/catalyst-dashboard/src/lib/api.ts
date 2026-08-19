@@ -794,15 +794,44 @@ export interface RosterApplyResult {
   counts:       RosterCounts;
 }
 
-/** Compute the roster diff without writing anything. */
+/**
+ * Compute the roster diff without writing anything.
+ *
+ * The response is normalised before it is returned. The browser reloads on a
+ * pull while the API server keeps running whatever it started with, so the UI
+ * routinely sees a response from an older server than itself. Reading .length
+ * off a field that version did not send takes down the whole panel — with a
+ * runtime error that says nothing about the actual cause.
+ */
 export async function previewRoster(
   yearId: number,
   rows: BulkImportPersonPayload[],
 ): Promise<RosterDiff> {
-  return apiFetch<RosterDiff>("/people/bulk", {
+  const raw = await apiFetch<Partial<RosterDiff>>("/people/bulk", {
     method: "POST",
     body: JSON.stringify({ rows, schoolYearId: yearId, dryRun: true }),
   });
+  return {
+    dryRun:         true,
+    targetYearId:   raw.targetYearId ?? yearId,
+    outgoingYearId: raw.outgoingYearId ?? null,
+    staged:         raw.staged ?? false,
+    bySchool:       raw.bySchool ?? [],
+    departures:     raw.departures ?? [],
+    emailChanges:   raw.emailChanges ?? [],
+    errors:         raw.errors ?? [],
+    counts: {
+      newHires:     raw.counts?.newHires     ?? 0,
+      schoolMoves:  raw.counts?.schoolMoves  ?? 0,
+      roleChanges:  raw.counts?.roleChanges  ?? 0,
+      unchanged:    raw.counts?.unchanged    ?? 0,
+      departures:   raw.counts?.departures   ?? 0,
+      errors:       raw.counts?.errors       ?? 0,
+      undetectable: raw.counts?.undetectable ?? 0,
+      idNormalised: raw.counts?.idNormalised ?? 0,
+      emailChanges: raw.counts?.emailChanges ?? 0,
+    },
+  };
 }
 
 /** Write the roster. Staged when yearId is not the active year. */
