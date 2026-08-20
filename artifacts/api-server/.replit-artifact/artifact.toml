@@ -37,7 +37,17 @@ run = "pnpm --filter @workspace/api-server run dev"
 #              production, and drizzle.config.ts throws when DATABASE_URL is
 #              missing rather than skipping quietly. Re-running is safe:
 #              drizzle records each migration by content hash.
-build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts && pnpm --filter @workspace/db run migrate"]
+#
+#   verify     the reason the baseline above is trustworthy at all. It marks
+#              migrations applied on the evidence of a collision, which asserts
+#              more than it proves — 0009 was baselined from ONE of its
+#              eighteen CREATE INDEX statements. check:schema-sync compares
+#              every declared table, column, type, nullability and index
+#              against the live database, so a baseline that was wrong fails
+#              the deploy here instead of shipping a schema quietly missing
+#              constraints. It reports nothing it cannot map with certainty:
+#              a gate that cries wolf gets deleted.
+build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts && pnpm --filter @workspace/db run migrate && pnpm --filter @workspace/db run check:schema-sync"]
 run = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.env]

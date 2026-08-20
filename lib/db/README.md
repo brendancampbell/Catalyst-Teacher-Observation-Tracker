@@ -54,7 +54,19 @@ So there are now exactly two moments:
 | Where | When | What runs |
 |---|---|---|
 | Replit workspace | on merge / pull | `scripts/post-merge.sh` |
-| Deployed service | on publish, in the build step | `backfill-drizzle-migrations-table.ts`, then `migrate` |
+| Deployed service | on publish, in the build step | `backfill-drizzle-migrations-table.ts`, `migrate`, then `check:schema-sync` |
+
+`check:schema-sync` runs last for a reason: the backfill marks migrations
+applied on the evidence of a *collision*, which asserts more than it proves.
+Migration `0009` was baselined from one of its eighteen `CREATE INDEX`
+statements. The check compares every declared table, column, type, nullability
+and index against the live database, so a baseline that was wrong fails the
+deploy rather than shipping a schema quietly missing constraints.
+
+It reports only what it can establish with certainty — a column type it cannot
+map is listed as unchecked, never as drift, and database indexes that are not
+declared are ignored, because Postgres creates its own for primary keys and
+unique constraints. A gate that cries wolf gets deleted.
 
 The backfill is not optional in either place. Both databases had their early
 schema created by `drizzle-kit push`, which never writes to

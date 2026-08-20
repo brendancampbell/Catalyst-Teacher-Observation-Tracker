@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./schema-compare": "./src/schema-compare.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
