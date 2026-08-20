@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./schema-compare": "./src/schema-compare.ts"
+    "./schema-compare": "./src/schema-compare.ts",
+    "./test-year-patterns": "./src/test-year-patterns.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -14,6 +15,7 @@
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "backfill:assignments": "tsx src/backfill-assignments.ts",
+    "cleanup:test-school-years": "tsx src/cleanup-test-school-years.ts",
     "check:schema-sync": "tsx src/check-schema-sync.ts",
     "check:migration-data": "tsx src/check-migration-data-statements.ts"
   },
