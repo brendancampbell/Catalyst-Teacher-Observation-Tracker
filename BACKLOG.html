@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 19 August 2026 &middot; e5a3e02</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; b737266</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>16</b> open &middot; <b>4</b> deferred</span>
+      <span><b>15</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -361,38 +361,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">8</td>
-            <td>
-              <div class="task">
-                <h3>Make <code>wait-for-api.sh</code> check the running server&rsquo;s commit</h3>
-                <p class="why">
-                  It reuses whatever already listens on port 8080. A stale server silently produced
-                  two rounds of confusing test failures in one night.
-                </p>
-                <details>
-                  <summary>The failure it causes</summary>
-                  <div class="detail">
-                    <p>
-                      The script takes a fast path when something answers on 8080 &mdash; correct for
-                      speed, wrong after a pull: <code>tsx</code> loads the new test files and points
-                      them at a server running old code. Four assertions failed against a server
-                      predating the change they tested, and the same trap produced a runtime crash in
-                      the browser when the UI outran the API.
-                    </p>
-                    <p>
-                      <strong>Do:</strong> compare the running server&rsquo;s commit against
-                      <code>HEAD</code> and restart on mismatch, rather than reusing it silently.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Tooling</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">5</td>
             <td>
               <div class="task">
@@ -424,7 +392,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -466,7 +434,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -507,7 +475,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -545,7 +513,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -574,7 +542,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -605,7 +573,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -649,7 +617,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -682,7 +650,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -717,7 +685,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -744,7 +712,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -770,7 +738,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -784,7 +752,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -801,7 +769,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -815,7 +783,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -962,6 +930,54 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">8</td>
+            <td>
+              <div class="task">
+                <h3>Integration tests refuse to run against a stale API server</h3>
+                <p class="lineage"><code>b737266</code></p>
+                <p class="why">
+                  <code>wait-for-api.sh</code> reused whatever answered on port 8080. Since
+                  <code>pnpm run dev</code> is <code>build&nbsp;&amp;&amp;&nbsp;start</code>, that server is a
+                  compiled snapshot which never picks up a later edit &mdash; so new tests ran
+                  against old code and nothing said so.
+                </p>
+                <details>
+                  <summary>Why it is not the commit check the item asked for</summary>
+                  <div class="detail">
+                    <p>
+                      The build stamps a fingerprint of its sources into the bundle, the server
+                      reports it on <code>/api/healthz</code>, and the script recomputes it and
+                      compares. Both sides call one function &mdash; two implementations of a hash
+                      drift, and a silently-drifted staleness check is worse than none.
+                    </p>
+                    <p>
+                      It fingerprints the <strong>working tree, not HEAD</strong>. The original plan
+                      was to compare against <code>git rev-parse HEAD</code>, which would have missed
+                      the most common case entirely: edit a file, re-run tests, never restart.
+                      <code>HEAD</code> has not moved, so a commit check sees nothing wrong.
+                    </p>
+                    <p>Two deliberate limits:</p>
+                    <ul>
+                      <li><strong>Test files are excluded</strong> &mdash; tsx runs them directly and they are never bundled. Counting them would force a restart after every test edit, which is the fastest way to get the check switched off for good</li>
+                      <li><strong>It stops rather than restarting</strong> &mdash; the server may belong to another terminal, and <code>cleanup()</code> already refuses to kill a server it did not start. <code>WAIT_FOR_API_ALLOW_STALE=1</code> is the escape hatch</li>
+                    </ul>
+                    <p>
+                      Not covered: a dependency bump changes the bundle without changing the hash.
+                      Rare inside a test loop, and the alternative fires on every install.
+                    </p>
+                    <p>
+                      8 unit tests against throwaway file trees, no database. The no-DB tier is
+                      67/67.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-done">20 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">3</td>
