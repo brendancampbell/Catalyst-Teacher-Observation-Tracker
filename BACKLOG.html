@@ -1,0 +1,1210 @@
+<!--
+  Source for the live Catalyst backlog.
+
+  Published at:
+    https://claude.ai/code/artifact/05d31981-3477-411c-897d-530d95a5fea1
+
+  This file IS the backlog. Edit it here, commit, and republish to the URL
+  above — publishing without that URL creates a SECOND artifact under a new
+  link instead of updating the existing one.
+
+  It lived in a session temp directory until 2026-08-20, where it was deleted
+  between two edits and had to be reconstructed from memory. A rebuild is
+  exactly where an item gets silently dropped, so it lives in the repo now:
+  versioned, diffable, and survivable.
+
+  Scope: CODE CHANGES ONLY. Operating the tool — copying rubrics forward,
+  activating a school year — belongs in ROLLOVER.md.
+
+  Numbering: P is the running order and renumbers freely. The # column is
+  permanent, survives the move to Done, and is NEVER reused.
+-->
+<title>Catalyst Backlog</title>
+
+<style>
+  :root {
+    --ground:      #f4f6fb;
+    --surface:     #ffffff;
+    --surface-alt: #fafbfe;
+    --ink:         #0e1726;
+    --ink-muted:   #5c6780;
+    --ink-faint:   #8791a6;
+    --rule:        #dfe4ef;
+    --rule-strong: #c3cbdd;
+    --accent:      #1034b4;
+    --accent-soft: #e7ecfb;
+    --signal:      #8a6100;
+    --signal-soft: #fdf3dc;
+    --signal-edge: #e8c67a;
+    --good:        #15803d;
+    --good-soft:   #e6f4ea;
+    --risk:        #b91c1c;
+    --risk-soft:   #fbeaea;
+
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --s--2: 0.6875rem;
+    --s--1: 0.8125rem;
+    --s-0:  1rem;
+    --s-1:  1.1875rem;
+    --s-2:  1.5rem;
+    --s-3:  2.125rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0a0f1c;
+      --surface:     #131a2b;
+      --surface-alt: #172033;
+      --ink:         #e7ebf4;
+      --ink-muted:   #98a3ba;
+      --ink-faint:   #6d7997;
+      --rule:        #232c42;
+      --rule-strong: #35415e;
+      --accent:      #6c97ff;
+      --accent-soft: #17224a;
+      --signal:      #ffc64d;
+      --signal-soft: #2b2312;
+      --signal-edge: #6b5620;
+      --good:        #4ade80;
+      --good-soft:   #11291b;
+      --risk:        #f87171;
+      --risk-soft:   #2c1516;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0a0f1c;
+    --surface:     #131a2b;
+    --surface-alt: #172033;
+    --ink:         #e7ebf4;
+    --ink-muted:   #98a3ba;
+    --ink-faint:   #6d7997;
+    --rule:        #232c42;
+    --rule-strong: #35415e;
+    --accent:      #6c97ff;
+    --accent-soft: #17224a;
+    --signal:      #ffc64d;
+    --signal-soft: #2b2312;
+    --signal-edge: #6b5620;
+    --good:        #4ade80;
+    --good-soft:   #11291b;
+    --risk:        #f87171;
+    --risk-soft:   #2c1516;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--s-0);
+    line-height: 1.6;
+    margin: 0;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(0.75rem, 3vw, 2rem) 4rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 62rem; margin: 0 auto; display: flex; flex-direction: column; gap: 3rem; }
+
+  .masthead { display: flex; flex-direction: column; gap: 0.9rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--s--1);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: var(--s-3);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .standfirst { color: var(--ink-muted); max-width: 46rem; margin: 0; }
+
+  .state {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 2rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: var(--s--1);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+  }
+  .state b { color: var(--ink); font-weight: 600; }
+
+  section { display: flex; flex-direction: column; gap: 1.25rem; }
+  .sec-head { display: flex; flex-direction: column; gap: 0.35rem; }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: var(--s-2);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .sec-note { color: var(--ink-muted); font-size: var(--s--1); margin: 0; max-width: 46rem; }
+
+  .scroller {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: var(--s--1); }
+  th, td { text-align: left; vertical-align: top; padding: 0.85rem 0.9rem; border-top: 1px solid var(--rule); }
+
+  thead th {
+    border-top: 0;
+    background: var(--surface-alt);
+    font-family: var(--mono);
+    font-size: var(--s--2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .col-p   { width: 3.25rem; }
+  .col-id  { width: 3.25rem; }
+  .col-cat { width: 9rem; }
+  .col-urg { width: 7.5rem; }
+
+  td.p {
+    font-family: var(--mono);
+    font-size: var(--s-1);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  td.idcell {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    line-height: 1.9;
+  }
+  td.idcell::before { content: "#"; }
+
+  .task { display: flex; flex-direction: column; gap: 0.35rem; min-width: 16rem; }
+  .task h3 {
+    font-family: var(--serif);
+    font-size: var(--s-1);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+  .why { margin: 0; color: var(--ink-muted); }
+  .lineage { font-family: var(--mono); font-size: var(--s--2); color: var(--ink-faint); margin: 0; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: var(--s--2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.45rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .u-block { color: var(--signal); background: var(--signal-soft); border: 1px solid var(--signal-edge); }
+  .u-high  { color: var(--risk);   background: var(--risk-soft);   border: 1px solid transparent; }
+  .u-med   { color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; }
+  .u-low   { color: var(--ink-muted); background: transparent; border: 1px solid var(--rule-strong); }
+  .u-defer { color: var(--ink-faint); background: transparent; border: 1px dashed var(--rule-strong); }
+  .u-done  { color: var(--good); background: var(--good-soft); border: 1px solid transparent; }
+
+  .cat {
+    font-family: var(--mono);
+    font-size: var(--s--2);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    white-space: nowrap;
+    line-height: 2.1;
+  }
+
+  tr.deferred td { background: var(--surface-alt); }
+
+  details { margin-top: 0.15rem; }
+  summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: var(--s--2);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    width: max-content;
+    padding: 0.1rem 0;
+  }
+  summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+  .detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.7rem 0 0.1rem;
+    color: var(--ink-muted);
+    max-width: 40rem;
+  }
+  .detail p { margin: 0; }
+  .detail strong { color: var(--ink); font-weight: 600; }
+  .detail ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.28rem; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.875em;
+    background: var(--accent-soft);
+    color: var(--ink);
+    padding: 0.1em 0.32em;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: var(--s--1);
+    background: var(--ground);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.65rem 0.8rem;
+    margin: 0;
+    overflow-x: auto;
+    color: var(--ink);
+  }
+  pre code { background: none; padding: 0; }
+
+  .settled { display: flex; flex-direction: column; gap: 0.9rem; }
+  .settled-row { display: flex; flex-direction: column; gap: 0.2rem; }
+  .settled-row h3 { font-family: var(--sans); font-size: var(--s-0); font-weight: 600; margin: 0; }
+  .settled-row p { margin: 0; color: var(--ink-muted); font-size: var(--s--1); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    font-size: var(--s--1);
+    color: var(--ink-muted);
+  }
+  footer b { color: var(--ink); font-weight: 600; }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Live list &middot; updated 19 August 2026 &middot; e5a3e02</p>
+    <h1>Catalyst Backlog</h1>
+    <p class="standfirst">
+      <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
+      year &mdash; lives in <code>ROLLOVER.md</code>, not here.
+    </p>
+    <p class="standfirst">
+      <b>P</b> is the running order and always starts at 1 &mdash; when the top item finishes,
+      everything below moves up. <b>#</b> is permanent: an item keeps its number forever, including
+      after it moves to Done, so <code>#6</code> means the same thing next month. New work takes the
+      next free <code>#</code>, and retired numbers are never reused.
+    </p>
+    <div class="state">
+      <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
+      <span><b>16</b> open &middot; <b>4</b> deferred</span>
+      <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <h2>The list</h2>
+      <p class="sec-note">
+        Sequenced by how much failure each prevents, then by user value, then by size. Deferred
+        items keep a place in the order so they can be picked up by name.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-p">P</th>
+            <th class="col-id">ID</th>
+            <th>Task</th>
+            <th class="col-cat">Category</th>
+            <th class="col-urg">Urgency</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr>
+            <td class="p">1</td>
+            <td class="idcell">8</td>
+            <td>
+              <div class="task">
+                <h3>Make <code>wait-for-api.sh</code> check the running server&rsquo;s commit</h3>
+                <p class="why">
+                  It reuses whatever already listens on port 8080. A stale server silently produced
+                  two rounds of confusing test failures in one night.
+                </p>
+                <details>
+                  <summary>The failure it causes</summary>
+                  <div class="detail">
+                    <p>
+                      The script takes a fast path when something answers on 8080 &mdash; correct for
+                      speed, wrong after a pull: <code>tsx</code> loads the new test files and points
+                      them at a server running old code. Four assertions failed against a server
+                      predating the change they tested, and the same trap produced a runtime crash in
+                      the browser when the UI outran the API.
+                    </p>
+                    <p>
+                      <strong>Do:</strong> compare the running server&rsquo;s commit against
+                      <code>HEAD</code> and restart on mismatch, rather than reusing it silently.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">2</td>
+            <td class="idcell">5</td>
+            <td>
+              <div class="task">
+                <h3>Clear fifteen stray test school years in dev</h3>
+                <p class="lineage">Do before #4 &mdash; it may be the cause.</p>
+                <p class="why">
+                  Twelve <code>Test Year (slug cross-year)</code>, plus <code>Test</code>,
+                  <code>New Test</code> and a <code>TST-INSIGHTS-OLD-YR-…</code>. Suites create
+                  school years and never delete them.
+                </p>
+                <details>
+                  <summary>Why it is filed next to the flake</summary>
+                  <div class="detail">
+                    <p>
+                      A suite that leaves rows behind is a suite that can leave other state behind.
+                      This is the most concrete evidence available that test cleanup is incomplete,
+                      and #4 is exactly the shape that would produce.
+                    </p>
+                    <p>
+                      Worth clearing regardless &mdash; the School Years admin tab lists all
+                      seventeen, of which two are real.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">3</td>
+            <td class="idcell">4</td>
+            <td>
+              <div class="task">
+                <h3>Bisect the demo-teachers test isolation failure</h3>
+                <p class="why">
+                  Passes alone, and passed the two most recent full runs. Failed three assertions in
+                  one earlier run &mdash; intermittent, not fixed.
+                </p>
+                <details>
+                  <summary>Everything already ruled out</summary>
+                  <div class="detail">
+                    <p>
+                      At suite time
+                      <code>GET /people?includeInFeedbackTracker=true&amp;schoolId=39</code> returned
+                      31 rows without <code>DEMO-T-001</code>&ndash;<code>006</code>. At rest the same
+                      predicate matches 35, including them.
+                    </p>
+                    <p><strong>Ruled out:</strong></p>
+                    <ul>
+                      <li>All four <code>WHERE</code> conditions &mdash; verified true at rest</li>
+                      <li>A <code>LIMIT</code> &mdash; the handler has none</li>
+                      <li><code>test-action-step-transfer-authz</code> &mdash; scoped to its own employee ID</li>
+                      <li><code>test-ai-insights-rubric-year-scoping</code> &mdash; creates an <em>inactive</em> year</li>
+                    </ul>
+                    <p>
+                      The count moved 31&nbsp;&rarr;&nbsp;35 while gaining six demo teachers, so two
+                      real non-demo people also differed. Whatever this is, it moves real rows.
+                    </p>
+                    <p>
+                      <strong>Do:</strong> it sits at position 21 of 45. Bisect by running the first
+                      <em>N</em> files plus it under <code>scripts/wait-for-api.sh</code>, halving.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">4</td>
+            <td class="idcell">21</td>
+            <td>
+              <div class="task">
+                <h3>Record sign-ins</h3>
+                <p class="lineage">New. Split from #20 &mdash; different shape, different urgency.</p>
+                <p class="why">
+                  Nothing records a login today. Whenever this ships, the data starts at zero &mdash;
+                  so every day it waits is a day of history that cannot be recovered.
+                </p>
+                <details>
+                  <summary>Why it is ranked above work that matters more</summary>
+                  <div class="detail">
+                    <p>
+                      There is no <code>last_login</code> on <code>people</code>, no audit table, and
+                      the <code>session</code> table belongs to connect-pg-simple &mdash; it holds
+                      live sessions with an expiry, not a history. So unlike observation and action
+                      step counts, this cannot be backfilled.
+                    </p>
+                    <p>
+                      That is the whole argument for doing it early. The report in #20 can be built
+                      any time; the <em>data</em> only accrues once capture exists. Shipping a bare
+                      column now and the report later loses nothing, while the reverse loses months.
+                    </p>
+                    <p>
+                      <strong>To decide:</strong> a <code>last_login</code> timestamp on
+                      <code>people</code> is one migration and answers &ldquo;who has never signed
+                      in&rdquo;. A row-per-login table answers &ldquo;how often&rdquo; and
+                      &ldquo;when&rdquo;, which is what #20 actually wants &mdash; but it grows
+                      forever and needs a retention rule. Both write from the same two places: the
+                      Google callback and <code>deserializeUser</code>.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">5</td>
+            <td class="idcell">19</td>
+            <td>
+              <div class="task">
+                <h3>Show only applicable rubrics on a teacher&rsquo;s profile</h3>
+                <p class="lineage">The mechanism already exists &mdash; it is just not applied here.</p>
+                <p class="why">
+                  A STEM teacher should not see a Humanities rubric on their profile. Ranked above
+                  the other product items because it is wrong data on screen, not a missing feature.
+                </p>
+                <details>
+                  <summary>Where the filtering already works, and where it does not</summary>
+                  <div class="detail">
+                    <p>
+                      <code>teacherMatchesAudience()</code> buckets a teacher into
+                      <code>STEM</code> / <code>HUMANITIES</code> / <code>ALL</code> from their
+                      department, and rubric sets carry a matching <code>subjectAudience</code>.
+                    </p>
+                    <p>
+                      It is applied in <code>Dashboard.tsx</code> and
+                      <code>NewObservationModal.tsx</code>. <code>TeacherProfile.tsx</code> does not
+                      use it &mdash; it passes <code>activeQuarterId</code> straight through as the
+                      rubric set, unfiltered.
+                    </p>
+                    <p>
+                      One open question before building: a teacher with no department, or one that
+                      classifies as <code>ALL</code> (Art, PE, Music), currently sees everything.
+                      Decide whether that stays.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">6</td>
+            <td class="idcell">16</td>
+            <td>
+              <div class="task">
+                <h3>Repeating an action step should extend it, not create a new one</h3>
+                <p class="lineage">Details to be fleshed out. Related to #15.</p>
+                <p class="why">
+                  Re-issuing the same step to a teacher currently creates a second row, which splits
+                  the history of one piece of coaching across two records.
+                </p>
+                <details>
+                  <summary>What to work out first</summary>
+                  <div class="detail">
+                    <p>
+                      <code>PUT /observations/:id</code> already has an upsert guard that updates an
+                      open step in place rather than duplicating it, so part of the machinery exists.
+                      The question is what &ldquo;repeat&rdquo; should mean: extend the due date on
+                      the existing step, or close it and open a linked successor that keeps the
+                      lineage visible.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">7</td>
+            <td class="idcell">15</td>
+            <td>
+              <div class="task">
+                <h3>Allow un-marking an action step as mastered</h3>
+                <p class="lineage">Details to be fleshed out. Related to #16.</p>
+                <p class="why">
+                  Mastery is currently one-way. Editing a mastered step returns <code>400</code> by
+                  business rule, so a misclick cannot be undone from the UI.
+                </p>
+                <details>
+                  <summary>What to work out first</summary>
+                  <div class="detail">
+                    <p>
+                      Mastery is set by <code>PATCH /action-steps/:id/master</code> and by publishing
+                      an observation with <code>masterActionStepId</code>. There is no inverse.
+                    </p>
+                    <p>
+                      Decide who may reverse it and whether the reversal is recorded &mdash; mastery
+                      appears in the Action Center and in coaching history, so silently un-mastering
+                      would rewrite a record someone may have already acted on.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">8</td>
+            <td class="idcell">20</td>
+            <td>
+              <div class="task">
+                <h3>Usage tracker &mdash; activity by user</h3>
+                <p class="lineage">New. Supersedes #14 if you want it to &mdash; see that row.</p>
+                <p class="why">
+                  Logins, observations recorded, action steps assigned, per person. Answers who is
+                  actually using the tool, which nothing reports today.
+                </p>
+                <details>
+                  <summary>Two of the three metrics already exist</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Available retroactively, over all history:</strong> observations via
+                      <code>observations.observer_employee_id</code> (already indexed), and action
+                      steps via <code>action_steps.assigned_by_employee_id</code> and
+                      <code>mastered_by_employee_id</code>.
+                    </p>
+                    <p>
+                      <strong>Not available at all:</strong> logins &mdash; see #21. That column
+                      reads zero for everyone until capture ships, and will only ever cover the
+                      period since.
+                    </p>
+                    <p>
+                      <strong>To decide:</strong> whether counts are scoped to the active school year
+                      or all time. Observations and action steps are year-scoped, so the number
+                      changes meaning after a rollover &mdash; &ldquo;42 observations&rdquo; means
+                      something different on 1 September than it did on 31 August.
+                    </p>
+                    <p>
+                      Also worth settling early: who can see it. A report of per-person activity is a
+                      management tool, and the answer is probably NETWORK_ADMIN and NETWORK_LEADER
+                      only, rather than school leaders looking at each other.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">9</td>
+            <td class="idcell">14</td>
+            <td>
+              <div class="task">
+                <h3>Show observation counts by coach in the Intervention tab</h3>
+                <p class="lineage">Overlaps #20 &mdash; decide whether this survives separately.</p>
+                <p class="why">
+                  Answers &ldquo;who is actually observing&rdquo;. #20 covers the same number in a
+                  broader report &mdash; this one is specifically about putting it where the
+                  intervention work already happens.
+                </p>
+                <details>
+                  <summary>Where it goes</summary>
+                  <div class="detail">
+                    <p>
+                      Intervention is tab 2 of the Action Center, with four sub-tabs today:
+                      <code>rescore</code>, <code>overdue</code>, <code>calibration</code> and
+                      <code>overdueActionSteps</code>. This is likely a fifth, or a column on an
+                      existing one.
+                    </p>
+                    <p>
+                      If #20 lands first as an admin report, this may reduce to a link rather than a
+                      separate build.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">10</td>
+            <td class="idcell">6</td>
+            <td>
+              <div class="task">
+                <h3>Fix five test fixtures hardcoding <code>schoolYearId: 1</code></h3>
+                <p class="lineage">Was &ldquo;Bundle 3&rdquo;, first half. Agreed 17 Aug, not started.</p>
+                <p class="why">
+                  They pass only because they never reach year-scoped routes. Latent, not currently
+                  failing &mdash; which is why it sits below the product work.
+                </p>
+                <details>
+                  <summary>The files and their counts</summary>
+                  <div class="detail">
+                    <ul>
+                      <li><code>test-action-steps-e2e</code> &mdash; 5 occurrences</li>
+                      <li><code>test-observations-cross-school-auth</code> &mdash; 4</li>
+                      <li><code>test-observation-score-validation</code> &mdash; 3</li>
+                      <li><code>test-master-action-step-draft</code> &mdash; 2</li>
+                      <li><code>test-rubric-category-domain-validation</code> &mdash; 1</li>
+                    </ul>
+                    <p>
+                      The literal is column-aligned, so a naive
+                      <code>grep "schoolYearId: 1"</code> misses it. Several already resolve the
+                      active year correctly a few lines earlier, which makes most of the fix
+                      mechanical.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">11</td>
+            <td class="idcell">17</td>
+            <td>
+              <div class="task">
+                <h3>Tag coaches to teachers</h3>
+                <p class="lineage">Long term. Design alongside #18.</p>
+                <p class="why">
+                  There is no coach&nbsp;&rarr;&nbsp;teacher relationship today. Assignments link a
+                  person to a <em>school</em> and a year, not to each other.
+                </p>
+                <details>
+                  <summary>Why this one is larger than it looks</summary>
+                  <div class="detail">
+                    <p>
+                      A new relationship that almost certainly needs to be year-scoped, like
+                      assignments &mdash; a coach&rsquo;s caseload changes each August, and the
+                      rollover would need to carry it forward or ask for it in the roster.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">12</td>
+            <td class="idcell">18</td>
+            <td>
+              <div class="task">
+                <h3>Custom groups of teachers for filtering</h3>
+                <p class="lineage">Long term. Design alongside #17.</p>
+                <p class="why">
+                  Filtering is currently by school, department, grade and rubric audience. Ad-hoc
+                  groupings (a cohort, a PD group) have nowhere to live.
+                </p>
+                <details>
+                  <summary>Open question</summary>
+                  <div class="detail">
+                    <p>
+                      Same year-scoping question as #17: does a group persist across a rollover, and
+                      what happens to a group whose members have departed?
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">13</td>
+            <td class="idcell">10</td>
+            <td>
+              <div class="task">
+                <h3>Performance micro-optimisations</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review findings #21 and #22.</p>
+                <p class="why">Meaningless at current data size. Revisit if query times become visible.</p>
+              </div>
+            </td>
+            <td class="cat">Performance</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">14</td>
+            <td class="idcell">11</td>
+            <td>
+              <div class="task">
+                <h3>Split the two large page components</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #23.</p>
+                <p class="why">
+                  <code>admin.tsx</code> is ~3.9k lines and <code>action-center.tsx</code> ~2.5k.
+                  Real, and not urgent.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Code structure</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">15</td>
+            <td class="idcell">12</td>
+            <td>
+              <div class="task">
+                <h3>Continuous integration</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #15b.</p>
+                <p class="why">Replit workflows already cover validation on merge.</p>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">16</td>
+            <td class="idcell">13</td>
+            <td>
+              <div class="task">
+                <h3>Enforce the roster dry run server-side</h3>
+                <p class="lineage">Raised and deferred 19 Aug.</p>
+                <p class="why">
+                  The mandatory preview is enforced in the UI, not the API &mdash; a direct call can
+                  still skip it. Worth building only if something ever scripts against
+                  <code>/people/bulk</code>.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Where the old numbering went</h2>
+      <p class="sec-note">
+        Five schemes have been used across this project. All of them resolve to the
+        <strong>ID</strong> column above &mdash; this is the decoder ring.
+      </p>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Old name</th><th>What it was</th><th class="col-urg">Now</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="cat">Batches A&ndash;F</td>
+            <td>The full-codebase review, 16&ndash;17 Aug. A, B, C, E and F1 all shipped. <strong>There was never a Batch D</strong> &mdash; no commit exists.</td>
+            <td class="cat">Done</td>
+          </tr>
+          <tr>
+            <td class="cat">Bundle 1</td>
+            <td>Index every hot foreign key; enforce a single active school year (<code>c28a594</code>).</td>
+            <td class="cat">Done</td>
+          </tr>
+          <tr>
+            <td class="cat">Bundle 2</td>
+            <td>Delete dead startup code (<code>f5cc700</code>).</td>
+            <td class="cat">Done</td>
+          </tr>
+          <tr>
+            <td class="cat">Bundle 3</td>
+            <td>Two unrelated things in one bundle: test fixtures, and schema-sync improvements. Split.</td>
+            <td class="cat">#6, #7</td>
+          </tr>
+          <tr>
+            <td class="cat">Bundle 4</td>
+            <td>Three deferred items, never a single piece of work.</td>
+            <td class="cat">#10, #11, #12</td>
+          </tr>
+          <tr>
+            <td class="cat">Review #21, #22</td>
+            <td>Individual findings from the original review &mdash; perf micro-optimisations.</td>
+            <td class="cat">#10</td>
+          </tr>
+          <tr>
+            <td class="cat">Review #23</td>
+            <td>Individual finding &mdash; split the large page components.</td>
+            <td class="cat">#11</td>
+          </tr>
+          <tr>
+            <td class="cat">Review #15b</td>
+            <td>Individual finding &mdash; continuous integration.</td>
+            <td class="cat">#12</td>
+          </tr>
+          <tr>
+            <td class="cat">#1, #2</td>
+            <td>Copying a rubric set forward, and activating 2026&#8209;2027. Retired &mdash; they are operational steps, not code changes. Their numbers are <strong>not reused</strong>; the procedure is in <code>ROLLOVER.md</code>.</td>
+            <td class="cat">Retired</td>
+          </tr>
+          <tr>
+            <td class="cat">&ldquo;Task #2&rdquo;, &ldquo;Task #4&rdquo;</td>
+            <td>Replit Agent&rsquo;s numbering from the original build, visible in old commit messages (<code>9d15a8b</code>, <code>a0d538b</code>). Unrelated to anything current.</td>
+            <td class="cat">Ignore</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Settled</h2>
+      <p class="sec-note">
+        Decisions, not work items, so they carry no number. Recorded so they do not get relitigated
+        at the next awkward moment.
+      </p>
+    </div>
+    <div class="settled">
+      <div class="settled-row">
+        <h3>Activating a year without a roster &mdash; declined</h3>
+        <p>
+          Staged incremental uploads already cover a roster that arrives in pieces, and flipping to
+          an empty year produces a year nobody but an admin can log into. Departures are only ever
+          computed at a flip, so activate-then-upload would silently skip deactivation entirely.
+        </p>
+      </div>
+      <div class="settled-row">
+        <h3>Department as multi-select &mdash; declined</h3>
+        <p>
+          It stays a single value. Grade is multi-value and always was; the fix there was the parser,
+          not the schema.
+        </p>
+      </div>
+      <div class="settled-row">
+        <h3>Production&rsquo;s assignments ledger &mdash; healthy, no backfill needed</h3>
+        <p>
+          Measured through the roster dry run on the live site: 359 departing with zero undetectable.
+          An empty ledger would have inverted those numbers. Dev needed a 2,103-row backfill;
+          production did not.
+        </p>
+      </div>
+      <div class="settled-row">
+        <h3><code>school_years_single_active_uniq</code> &mdash; present in production</h3>
+        <p>
+          Confirmed directly against <code>pg_indexes</code>. Production cannot hold two active
+          school years, so <code>getActiveSchoolYearId()</code> is deterministic there.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Done</h2>
+      <p class="sec-note">
+        Numbered items move here when finished and keep their ID. Everything without one shipped
+        before this list existed &mdash; reference it by commit.
+      </p>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
+        </thead>
+        <tbody>
+
+          <tr>
+            <td class="idcell">3</td>
+            <td>
+              <div class="task">
+                <h3>Schema-sync verifies indexes, and gates the deploy</h3>
+                <p class="lineage"><code>e5a3e02</code> &mdash; shipped with #7</p>
+                <p class="why">
+                  Three new drift classes &mdash; <code>MISSING INDEX</code>,
+                  <code>TYPE MISMATCH</code>, <code>NULLABILITY</code> &mdash; and
+                  <code>check:schema-sync</code> now runs in the production build after
+                  <code>migrate</code>.
+                </p>
+                <details>
+                  <summary>The two deliberate limits, and how it was verified</summary>
+                  <div class="detail">
+                    <p>
+                      The mapping is not guesswork. Probing the live schema showed exactly sixteen
+                      distinct <code>getSQLType()</code> values and twenty-five declared indexes, all
+                      named, so the translation table covers what this codebase uses rather than what
+                      Postgres permits.
+                    </p>
+                    <p>Because it gates the deploy, two things it deliberately will not do:</p>
+                    <ul>
+                      <li>A type it cannot map with certainty is listed as <strong>unchecked</strong>, never reported as drift</li>
+                      <li>Index comparison is <strong>one-directional</strong> &mdash; Postgres creates its own for primary keys and unique constraints, and those never appear in Drizzle&rsquo;s config</li>
+                    </ul>
+                    <p>A gate that cries wolf gets deleted, and then it protects nothing.</p>
+                    <p>
+                      19 unit tests, no database required. Verified end to end by dropping
+                      <code>people_rescore_school_year_idx</code> in dev: pass, then fail naming that
+                      exact index, then pass again once restored.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">7</td>
+            <td>
+              <div class="task">
+                <h3>Schema-sync compares column types and nullability</h3>
+                <p class="lineage"><code>e5a3e02</code> &mdash; shipped with #3</p>
+                <p class="why">
+                  A column declared <code>text</code> that the database held as
+                  <code>varchar(50)</code> used to read as identical &mdash; silent until the
+                  fifty-first character.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">9</td>
+            <td>
+              <div class="task">
+                <h3>Deleted the <code>backup-before-scrub</code> branch</h3>
+                <p class="why">
+                  The last copy of 2,212 staff records is out of this repository&rsquo;s object
+                  store. Verified before and after.
+                </p>
+                <details>
+                  <summary>What was checked</summary>
+                  <div class="detail">
+                    <p><strong>Before deleting:</strong></p>
+                    <ul>
+                      <li>Three commits on that branch still carried the roster &mdash; <code>b7fff7c</code>, <code>d8f76ed</code>, <code>004d5d6</code></li>
+                      <li>Its tip tree was byte-identical to <code>16d3daa</code> on <code>main</code>, so no code change was unique to it</li>
+                      <li>The roster appeared in no commit reachable from <code>main</code></li>
+                      <li>Working tree clean, nothing unpushed &mdash; the <code>gc</code> prunes repo-wide</li>
+                    </ul>
+                    <p>
+                      <strong>After:</strong> all four commits unreachable by SHA, and
+                      <code>git rev-list --all --objects</code> finds no roster object under any ref.
+                    </p>
+                    <p>
+                      GitHub may still hold unreferenced objects for a while, reachable by direct SHA
+                      until its own collection. Private repo, no collaborators &mdash; but Support
+                      will purge them on request.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>School-year rollover, end to end</h3>
+                <p class="why">
+                  Staged rosters, the activation gate, departure detection, rollback, and the admin
+                  UI that drives all of it. Fifteen commits, 11 dedicated integration tests.
+                </p>
+                <details>
+                  <summary>What it replaced</summary>
+                  <div class="detail">
+                    <p>
+                      Activating a year took the whole app down and needed direct database surgery to
+                      recover &mdash; nothing copied assignments forward, so
+                      <code>checkActiveThisYear()</code> went false for every user at once, and
+                      <code>requireRole</code> checked it <em>before</em> the role check, locking out
+                      admins too.
+                    </p>
+                    <p>
+                      There was also no way to say that someone had left. The roster is now the
+                      source of truth: absent from the file means departed, reported before anything
+                      is written.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>Production deploys apply their own migrations</h3>
+                <p class="why">
+                  <code>post-merge.sh</code> only ever covered the workspace database. The deployed
+                  service had its own and nothing migrated it &mdash; which surfaced as three failed
+                  publishes.
+                </p>
+                <details>
+                  <summary>What was actually wrong</summary>
+                  <div class="detail">
+                    <p>
+                      Production&rsquo;s schema had been maintained with <code>drizzle-kit push</code>,
+                      which never writes the tracking table, so <code>migrate</code> started at
+                      <code>0000</code> and collided with an existing type. Each retry collided one
+                      migration later &mdash; <code>0000</code>, then <code>0008</code>, then
+                      <code>0009</code> &mdash; and each collision was the evidence for baselining
+                      the next.
+                    </p>
+                    <p>
+                      The build step now runs the same things post-merge does, in the same order:
+                      compile, baseline the tracking table, migrate, then verify with #3.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>CSV import made to match real exports</h3>
+                <p class="why">
+                  A 2,212-row export exposed four separate faults, all fixed and covered by 12 vitest
+                  cases.
+                </p>
+                <details>
+                  <summary>The four</summary>
+                  <div class="detail">
+                    <ul>
+                      <li><strong>A phantom field</strong> whenever a row&rsquo;s last column was quoted &mdash; 132 rows rejected because <code>title</code> contained commas</li>
+                      <li><strong>Employee IDs losing leading zeros</strong> &mdash; the spreadsheet wrote <code>15473</code> where HR stores <code>015473</code>, so 181 rows looked like new people</li>
+                      <li><strong>Grades as <code>5.00</code></strong> &mdash; never matched the <code>5</code> the Users tab writes</li>
+                      <li><strong>Email changes refused outright</strong> &mdash; 13 people would have been left off the roster and therefore deactivated for changing their address</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>Bundle 2 &mdash; dead startup code deleted</h3>
+                <p class="lineage"><code>f5cc700</code></p>
+                <p class="why">
+                  Three things that ran on every pull or boot and could not do anything: a migration
+                  script superseded by <code>0000</code>, <code>ensureChatTables()</code>, and an
+                  orphan <code>build:all</code> that ended in <code>node dist/seed.mjs</code>.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Code structure</td>
+            <td><span class="chip u-done">19 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>Assignments ledger backfilled in dev</h3>
+                <p class="why">
+                  2,115 active people, 2 with an assignment. Departure detection reads that ledger,
+                  so removing a name from a roster did nothing to 99.9% of staff. 2,103 rows written.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">18 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">&mdash;</td>
+            <td>
+              <div class="task">
+                <h3>Code review batches A&ndash;F, and bundle 1</h3>
+                <p class="lineage"><code>3efbf34</code> &hellip; <code>c28a594</code></p>
+                <p class="why">
+                  Fail-closed school scoping, persistent rate limiters, lazy DB clients, tiered
+                  tests, the startup readiness gate, the pending-migrations guard, hot foreign-key
+                  indexes, and the single-active-year constraint.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Mixed</td>
+            <td><span class="chip u-done">16&ndash;18 Aug</span></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p><b>ROLLOVER.md</b> &mdash; the runbook: preconditions, what the roster means, staging, rehearsal, rollback.</p>
+    <p><b>lib/db/README.md</b> &mdash; the two migration moments: workspace on merge, production in the deploy build step.</p>
+    <p><b>memory/catalyst_code_review_batches.md</b> &mdash; the running log, including everything ruled out on each open question.</p>
+  </footer>
+
+</div>
