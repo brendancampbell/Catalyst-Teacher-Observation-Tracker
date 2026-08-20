@@ -6,10 +6,14 @@
 #   bash ../../scripts/wait-for-api.sh tsx --test src/my-test.ts
 #
 # Behaviour:
-#   - If the server is already up → run tests immediately (fast-path).
+#   - If the server is already up → check it was built from the current
+#     sources, then run tests immediately (fast-path).
 #   - If the server is down      → start it in the background, wait up to
 #     MAX_WAIT seconds for it to accept requests, run tests, then kill the
 #     background process on exit (even if tests fail).
+#
+# Environment:
+#   WAIT_FOR_API_ALLOW_STALE=1  skip the staleness check entirely.
 set -euo pipefail
 
 # Exported, not just assigned: the API server reads PORT from its environment
@@ -18,6 +22,7 @@ set -euo pipefail
 # server died on boot while this script waited the full timeout for it.
 export PORT="${PORT:-8080}"
 URL="http://localhost:${PORT}/"
+HEALTH_URL="http://localhost:${PORT}/api/healthz"
 MAX_WAIT=120
 INTERVAL=2
 STARTED_SERVER=0
@@ -49,9 +54,67 @@ server_is_up() {
   curl -s -o /dev/null --max-time 2 "$URL" >/dev/null 2>&1
 }
 
+# ── Staleness: is the running server built from the code under test? ─────
+# `pnpm run dev` is `build && start`, so a running server is a compiled
+# snapshot of the sources as they were when it started. It never picks up a
+# later edit. Reusing it is right for speed and wrong after a pull or an edit:
+# tsx loads the NEW test files and points them at a server built from the OLD
+# code. That has already cost two rounds of failures against a server that
+# predated the change being tested, plus one browser crash when the UI outran
+# the API.
+#
+# The build stamps a fingerprint of its sources into the bundle and the server
+# reports it on /api/healthz; scripts/source-fingerprint.mjs recomputes it from
+# the working tree. Mismatch means the server is stale.
+#
+# On mismatch this STOPS rather than restarting. The server may belong to
+# another terminal — cleanup() already refuses to kill a server it did not
+# start, and killing someone's dev session out from under them is a worse
+# surprise than a failed command that says exactly what to run.
+check_server_freshness() {
+  [ "${WAIT_FOR_API_ALLOW_STALE:-0}" = "1" ] && return 0
+
+  local repo_root running current
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+  running="$(curl -s -o /dev/null -D - --max-time 5 "$HEALTH_URL" 2>/dev/null \
+    | tr -d '\r' \
+    | awk 'tolower($1) == "x-build-fingerprint:" { print $2 }')"
+
+  # No header at all: a server older than this check, or one built before it
+  # landed. That is itself a sign it is stale, but "cannot tell" is not proof,
+  # so warn and continue rather than blocking a test run on a guess.
+  if [ -z "$running" ]; then
+    printf 'WARNING: the running server reports no build fingerprint, so it\n' >&2
+    printf '         cannot be checked for staleness. If tests fail in ways\n' >&2
+    printf '         that make no sense, restart it:\n' >&2
+    printf '           pnpm --filter @workspace/api-server run dev\n\n' >&2
+    return 0
+  fi
+
+  current="$(node "$repo_root/scripts/source-fingerprint.mjs" 2>/dev/null || true)"
+  if [ -z "$current" ]; then
+    printf 'WARNING: could not compute the source fingerprint; skipping the\n' >&2
+    printf '         staleness check.\n\n' >&2
+    return 0
+  fi
+
+  if [ "$running" != "$current" ]; then
+    printf '\nSTALE API SERVER on port %s.\n\n' "$PORT" >&2
+    printf '  running server built from : %s\n' "$running" >&2
+    printf '  current sources           : %s\n\n' "$current" >&2
+    printf 'Tests would run against code that is not the code you changed.\n' >&2
+    printf 'Restart the server, then run this again:\n\n' >&2
+    printf '  pnpm --filter @workspace/api-server run dev\n\n' >&2
+    printf 'To run anyway: WAIT_FOR_API_ALLOW_STALE=1\n\n' >&2
+    exit 1
+  fi
+}
+
 # ── Fast-path: server already running ────────────────────────────────────
 if server_is_up; then
   printf 'API server already running on port %s.\n' "$PORT"
+  check_server_freshness
 else
   # ── Slow-path: start the dev server in the background ────────────────
   printf 'API server not detected on port %s — starting it...\n' "$PORT"

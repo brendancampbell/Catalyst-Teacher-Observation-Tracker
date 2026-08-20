@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { sourceFingerprint } from "../../scripts/source-fingerprint.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -14,6 +15,15 @@ async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  /*
+   * Stamp the bundle with a fingerprint of the sources it was built from.
+   * A running server is a compiled snapshot with no other way to say which
+   * one it is, and scripts/wait-for-api.sh reuses whichever server already
+   * holds the port — so without this it happily runs new tests against an
+   * old server. See scripts/source-fingerprint.mjs.
+   */
+  const fingerprint = sourceFingerprint(path.resolve(artifactDir, "../.."));
+
   await esbuild({
     entryPoints: [
       path.resolve(artifactDir, "src/index.ts"),
@@ -23,6 +33,7 @@ async function buildAll() {
     ],
     platform: "node",
     bundle: true,
+    define: { __BUILD_FINGERPRINT__: JSON.stringify(fingerprint) },
     format: "esm",
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
