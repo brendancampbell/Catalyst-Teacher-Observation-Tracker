@@ -23,7 +23,7 @@ set -euo pipefail
 export PORT="${PORT:-8080}"
 URL="http://localhost:${PORT}/"
 HEALTH_URL="http://localhost:${PORT}/api/healthz"
-MAX_WAIT=120
+MAX_WAIT="${MAX_WAIT:-120}"   # overridable so the failure paths can be tested
 INTERVAL=2
 STARTED_SERVER=0
 SERVER_PID=""
@@ -50,8 +50,69 @@ trap cleanup EXIT INT TERM
 # was down. The effect was that this script could never actually start a
 # server: it always took the fast path, and every test failed with
 # ECONNREFUSED unless a server happened to be running already.
-server_is_up() {
+server_is_listening() {
   curl -s -o /dev/null --max-time 2 "$URL" >/dev/null 2>&1
+}
+
+# ── Ready is not the same as listening ───────────────────────────────────
+# index.ts binds the port BEFORE running its startup tasks, so the deployment
+# healthcheck answers immediately. Until those finish, every path except
+# /api/healthz returns 503 NOT_READY. And if a startup task throws — most
+# often the pending-migrations guard refusing to serve a stale schema — the
+# process logs the reason and exits.
+#
+# So "something answered" is not evidence the server is usable. It was the
+# only check here, which produced a genuinely baffling failure: the script
+# printed "ready (6s)", the server exited a moment later, and the tests died
+# with ECONNREFUSED while the actual reason — "Database is missing 1 of 11
+# migration(s): 0010_..., apply them with pnpm --filter @workspace/db run
+# migrate" — sat unread in /tmp/api-server-bg.log.
+#
+# Any status other than 503 means the readiness gate has opened. "$URL" is
+# the root path, which is not exempt from the gate, so it is a real signal.
+#
+# Note the `|| true` rather than `|| echo "000"`: on a refused connection curl
+# writes "000" to stdout AND exits non-zero, so echoing again would produce
+# "000000" — the bug this probe carried once before.
+server_is_ready() {
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$URL" 2>/dev/null || true)"
+  [ -n "$code" ] && [ "$code" != "000" ] && [ "$code" != "503" ]
+}
+
+# Wait for readiness, reporting why if it never comes. Returns non-zero on
+# timeout or on the server process dying.
+wait_until_ready() {
+  local elapsed=0
+  printf 'Waiting for API server'
+  while [ "$elapsed" -lt "$MAX_WAIT" ]; do
+    if server_is_ready; then
+      printf ' ready (%ds)\n' "$elapsed"
+      return 0
+    fi
+    # A server we started that has already exited is not going to recover.
+    if [ "$STARTED_SERVER" -eq 1 ] && ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      printf ' FAILED\n\n' >&2
+      printf 'The API server exited during startup. Last 30 log lines:\n\n' >&2
+      tail -30 /tmp/api-server-bg.log >&2 || true
+      return 1
+    fi
+    printf '.'
+    sleep "$INTERVAL"
+    elapsed=$((elapsed + INTERVAL))
+  done
+
+  printf ' TIMED OUT after %ds\n\n' "$MAX_WAIT" >&2
+  if server_is_listening; then
+    printf 'The server is answering but still returns 503 NOT_READY, so a startup\n' >&2
+    printf 'task has not finished or has failed. The usual cause is unapplied\n' >&2
+    printf 'migrations:\n\n  pnpm --filter @workspace/db run migrate\n\n' >&2
+  fi
+  if [ "$STARTED_SERVER" -eq 1 ]; then
+    printf 'Last server log:\n\n' >&2
+    tail -30 /tmp/api-server-bg.log >&2 || true
+  fi
+  return 1
 }
 
 # ── Staleness: is the running server built from the code under test? ─────
@@ -112,8 +173,10 @@ check_server_freshness() {
 }
 
 # ── Fast-path: server already running ────────────────────────────────────
-if server_is_up; then
+# Still has to become ready — it may be another terminal's server mid-boot.
+if server_is_listening; then
   printf 'API server already running on port %s.\n' "$PORT"
+  server_is_ready || wait_until_ready || exit 1
   check_server_freshness
 else
   # ── Slow-path: start the dev server in the background ────────────────
@@ -127,33 +190,7 @@ else
   SERVER_PID=$!
   STARTED_SERVER=1
 
-  # ── Wait for the server to become reachable ───────────────────────────
-  elapsed=0
-  printf 'Waiting for API server'
-  while [ "$elapsed" -lt "$MAX_WAIT" ]; do
-    if server_is_up; then
-      printf ' ready (%ds)\n' "$elapsed"
-      break
-    fi
-    # If the server process has already exited there is nothing to wait for.
-    # Bail out now rather than burning the full timeout on a dead process.
-    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-      printf ' FAILED\n' >&2
-      printf 'The API server exited during startup. Last 30 log lines:\n\n' >&2
-      tail -30 /tmp/api-server-bg.log >&2 || true
-      exit 1
-    fi
-    printf '.'
-    sleep "$INTERVAL"
-    elapsed=$((elapsed + INTERVAL))
-  done
-
-  if [ "$elapsed" -ge "$MAX_WAIT" ]; then
-    printf ' TIMED OUT after %ds\n' "$MAX_WAIT" >&2
-    printf 'Last server log:\n' >&2
-    tail -30 /tmp/api-server-bg.log >&2 || true
-    exit 1
-  fi
+  wait_until_ready || exit 1
 fi
 
 # ── Run the test command (inherits the pnpm-enriched PATH) ───────────────
