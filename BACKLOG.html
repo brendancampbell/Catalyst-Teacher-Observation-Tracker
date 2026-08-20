@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; b737266</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; dd1d971</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>15</b> open &middot; <b>4</b> deferred</span>
+      <span><b>16</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -367,10 +367,12 @@
                 <h3>Clear fifteen stray test school years in dev</h3>
                 <p class="lineage">Do before #4 &mdash; it may be the cause.</p>
                 <p class="why">
-                  Twelve <code>Test Year (slug cross-year)</code>, plus <code>Test</code>,
+                  <strong>Tool built (<code>dd1d971</code>) &mdash; not yet run.</strong> Twelve
+                  <code>Test Year (slug cross-year)</code>, plus <code>Test</code>,
                   <code>New Test</code> and a <code>TST-INSIGHTS-OLD-YR-…</code>. Suites create
                   school years and never delete them.
                 </p>
+                <p class="lineage">Next: dry run in Replit, read it, then <code>--apply</code>.</p>
                 <details>
                   <summary>Why it is filed next to the flake</summary>
                   <div class="detail">
@@ -381,7 +383,26 @@
                     </p>
                     <p>
                       Worth clearing regardless &mdash; the School Years admin tab lists all
-                      seventeen, of which two are real.
+                      seventeen, of which two are real. Choosing a year to activate during a
+                      rollover means picking a real one out of that list, at the moment when
+                      picking wrong takes the app down.
+                    </p>
+                    <p>
+                      <strong>How the tool refuses to be dangerous.</strong> It deletes only names
+                      a test provably creates &mdash; five patterns read out of the suite, each
+                      recording the file that produces it. <code>Test</code> and
+                      <code>New Test</code> are <em>not</em> among them: no test makes those names,
+                      so a person did, and they are reported rather than removed.
+                      Referencing tables are discovered from <code>pg_constraint</code>, and only an
+                      explicit allowlist may be deleted alongside a year &mdash; a table that gains
+                      a <code>school_year_id</code> later is unknown, and unknown means stop. Any
+                      year carrying observations or action steps is skipped. Dry run by default;
+                      writes happen in one transaction that verifies its own delete count.
+                    </p>
+                    <p>
+                      The patterns began as SQL <code>LIKE</code> prefixes, which also claimed
+                      <code>TST Rollover 123 (keep)</code> &mdash; a name someone might pick
+                      precisely to keep it. A unit test caught that before it ran anywhere.
                     </p>
                   </div>
                 </details>
@@ -435,6 +456,62 @@
 
           <tr>
             <td class="p">3</td>
+            <td class="idcell">22</td>
+            <td>
+              <div class="task">
+                <h3>The Replit Run button exhausts the container</h3>
+                <p class="lineage">New, 20 Aug. Deferred by choice, not by priority &mdash; see below.</p>
+                <p class="why">
+                  Running the app in Replit dies with <code>SIGABRT</code> before any code loads.
+                  Node aborts inside <code>NodePlatform</code> because <code>uv_thread_create</code>
+                  failed &mdash; the container would not give it another thread.
+                </p>
+                <details>
+                  <summary>The cause, what is still unmeasured, and why this may belong at P1</summary>
+                  <div class="detail">
+                    <p>
+                      <code>.replit</code>&rsquo;s <code>Project</code> workflow is the Run button.
+                      It is <code>mode = "parallel"</code> with <strong>48 tasks</strong>,
+                      <strong>12 of which launch Playwright with Chromium</strong>. Every task is
+                      <code>pnpm</code>&nbsp;&rarr;&nbsp;node&nbsp;&rarr;&nbsp;tool, and each node
+                      sizes its V8 pool from the <em>host&rsquo;s</em> core count, so each wants
+                      12&ndash;20 threads before doing anything. Meanwhile the preview needs three
+                      dev services of its own.
+                    </p>
+                    <p>
+                      Whichever process starts once the ceiling is reached is the one that dies,
+                      which is why the victim moves around and why it looks intermittent.
+                    </p>
+                    <p>
+                      <strong>Measured so far:</strong> 270 pids at idle against a
+                      <code>pids.max</code> of 1024. That is the baseline, not the peak &mdash; it
+                      neither confirms nor refutes the ceiling. Still to capture: peak pids during
+                      the crash, <code>ulimit -u</code>, the cgroup memory limit, and what the 270
+                      idle processes actually are. If they are orphans from earlier Run clicks, the
+                      headroom shrinks with every click and that is a second, separate fix.
+                    </p>
+                    <p><strong>Intended fix:</strong> the Run button starts the app; validations move
+                      to a separate <code>mode = "sequential"</code> workflow. Optionally cap
+                      <code>NODE_OPTIONS=--v8-pool-size=2</code> and
+                      <code>UV_THREADPOOL_SIZE=2</code> as a backstop.</p>
+                    <p>
+                      <strong>Why it arguably outranks #5 and #4:</strong> those 48 parallel tasks
+                      include most of the integration suite, sharing one dev server and one
+                      database. Tests that create school years, flip the active year and deactivate
+                      people running concurrently is not just a resource problem &mdash; it is a
+                      plausible <em>source</em> of the stray years in #5 and the flake in #4. Fixing
+                      this first might make both disappear.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">4</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -475,7 +552,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -513,7 +590,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -542,7 +619,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -573,7 +650,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -617,7 +694,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -650,7 +727,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -685,7 +762,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">11</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -712,7 +789,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">12</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -738,7 +815,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">12</td>
+            <td class="p">13</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -752,7 +829,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">14</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -769,7 +846,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">15</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -783,7 +860,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">16</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
