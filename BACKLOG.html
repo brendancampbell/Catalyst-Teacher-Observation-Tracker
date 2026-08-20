@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>15</b> open &middot; <b>4</b> deferred</span>
+      <span><b>14</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -433,87 +433,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">22</td>
-            <td>
-              <div class="task">
-                <h3>The Replit Run button exhausts the container</h3>
-                <p class="lineage"><strong>Fixed in <code>a9e7478</code> &mdash; awaiting one Run click to confirm.</strong></p>
-                <p class="why">
-                  Running the app in Replit died with <code>SIGABRT</code> before any code loaded.
-                  Node aborted inside <code>NodePlatform</code> because <code>uv_thread_create</code>
-                  failed &mdash; the container would not give it another thread.
-                </p>
-                <details>
-                  <summary>The cause, what is still unmeasured, and why this may belong at P1</summary>
-                  <div class="detail">
-                    <p>
-                      <code>.replit</code>&rsquo;s <code>Project</code> workflow is the Run button.
-                      It is <code>mode = "parallel"</code> with <strong>48 tasks</strong>,
-                      <strong>12 of which launch Playwright with Chromium</strong>. Every task is
-                      <code>pnpm</code>&nbsp;&rarr;&nbsp;node&nbsp;&rarr;&nbsp;tool, and each node
-                      sizes its V8 pool from the <em>host&rsquo;s</em> core count, so each wants
-                      12&ndash;20 threads before doing anything. Meanwhile the preview needs three
-                      dev services of its own.
-                    </p>
-                    <p>
-                      Whichever process starts once the ceiling is reached is the one that dies,
-                      which is why the victim moves around and why it looks intermittent.
-                    </p>
-                    <p>
-                      <strong>Measured so far:</strong> 270 pids at idle against a
-                      <code>pids.max</code> of 1024. That is the baseline, not the peak &mdash; it
-                      neither confirms nor refutes the ceiling. Still to capture: peak pids during
-                      the crash, <code>ulimit -u</code>, the cgroup memory limit, and what the 270
-                      idle processes actually are. If they are orphans from earlier Run clicks, the
-                      headroom shrinks with every click and that is a second, separate fix.
-                    </p>
-                    <p>
-                      <strong>Fixed.</strong> The Run button never started the app in the first
-                      place &mdash; that is the artifact dev services in
-                      <code>artifacts/*/.replit-artifact/artifact.toml</code>. It now reports where
-                      the app is served and how to run checks, and the 48 tasks moved verbatim to a
-                      <strong>Validate All</strong> workflow. Both omit <code>mode</code>, which
-                      defaults to sequential; the literal that used to be there,
-                      <code>"parallel"</code>, was the entire bug. An 8-line diff &mdash; every
-                      individual validation workflow is untouched, so anything referencing them by
-                      name still works.
-                    </p>
-                    <p>
-                      <strong>Deliberately not added:</strong> a global
-                      <code>NODE_OPTIONS=--v8-pool-size=2</code>. It would help, but
-                      <code>.replit</code> env reaches the deployed server too, and quietly halving
-                      production&rsquo;s thread pool to fix a dev crash is the wrong trade.
-                    </p>
-                    <p>
-                      Sequential is not a workaround. These tests share one dev server and one
-                      database, so running them at once is wrong for correctness as much as for
-                      threads &mdash; which is why the integration suite already runs
-                      <code>--test-concurrency=1</code>.
-                    </p>
-                    <p>
-                      <strong>Still unmeasured:</strong> the peak pid count during a crash was never
-                      captured, so the ceiling remains inferred rather than proven. The fix stands on
-                      its own either way &mdash; nothing wants a Run button that launches twelve
-                      Chromiums &mdash; but if the crash recurs, that measurement is the next step.
-                    </p>
-                    <p>
-                      <strong>Why it arguably outranks #5 and #4:</strong> those 48 parallel tasks
-                      include most of the integration suite, sharing one dev server and one
-                      database. Tests that create school years, flip the active year and deactivate
-                      people running concurrently is not just a resource problem &mdash; it is a
-                      plausible <em>source</em> of the stray years in #5 and the flake in #4. Fixing
-                      this first might make both disappear.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Tooling</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -554,7 +473,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -592,7 +511,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -621,7 +540,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -652,7 +571,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -696,7 +615,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -729,7 +648,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -764,7 +683,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -791,7 +710,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -817,7 +736,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -831,7 +750,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -848,7 +767,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -862,7 +781,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1009,6 +928,72 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">22</td>
+            <td>
+              <div class="task">
+                <h3>The Replit Run button no longer exhausts the container</h3>
+                <p class="lineage"><code>a9e7478</code> &mdash; measured: peak 272 pids, was climbing toward 1024</p>
+                <p class="why">
+                  Running the app in Replit died with <code>SIGABRT</code> before any code loaded.
+                  Node aborted inside <code>NodePlatform</code> because
+                  <code>uv_thread_create</code> failed &mdash; the container would not give it
+                  another thread.
+                </p>
+                <details>
+                  <summary>What it was, and the two-line change that fixed it</summary>
+                  <div class="detail">
+                    <p>
+                      <code>.replit</code>&rsquo;s <code>Project</code> workflow &mdash; the Run
+                      button &mdash; was <code>mode = "parallel"</code> with <strong>48 tasks</strong>,
+                      <strong>12 of which launch Playwright with Chromium</strong>. Each is
+                      <code>pnpm</code>&nbsp;&rarr;&nbsp;node&nbsp;&rarr;&nbsp;tool, and every node
+                      sizes its V8 pool from the <em>host&rsquo;s</em> core count rather than the
+                      container&rsquo;s share, so each wanted 12&ndash;20 threads before doing any
+                      work. Several hundred started at once while the preview was separately trying
+                      to start three dev services. Whichever process started once the ceiling was
+                      reached is the one that died &mdash; which is why the victim moved around and
+                      it looked intermittent.
+                    </p>
+                    <p>
+                      Every one of those 48 is <code>isValidation = true</code>. Replit&rsquo;s agent
+                      appends one per feature it builds; they are meant to be run individually. The
+                      Run button pointing at all of them in parallel was accumulated accident, not a
+                      decision &mdash; and it <strong>never started the app at all</strong>. That is
+                      the artifact dev services, which is why the crash log showed the dashboard&rsquo;s
+                      Vite dying while the workflow was doing something else entirely.
+                    </p>
+                    <p>
+                      So the Run button now reports where the app is served and how to run checks,
+                      and the 48 tasks moved verbatim to a <strong>Validate All</strong> workflow.
+                      Both omit <code>mode</code>, which defaults to sequential. An 8-line diff, with
+                      every individual validation workflow untouched.
+                    </p>
+                    <p>
+                      <strong>Confirmed by measurement, not just by the crash stopping:</strong>
+                      peak 272 pids against a 270 baseline across a Run click &mdash; roughly two
+                      processes where it used to climb toward <code>pids.max</code> of 1024.
+                    </p>
+                    <p>
+                      <strong>Not added:</strong> a global
+                      <code>NODE_OPTIONS=--v8-pool-size=2</code>. It would help, but
+                      <code>.replit</code> env reaches the deployed server too, and quietly halving
+                      production&rsquo;s thread pool to fix a dev crash is the wrong trade.
+                    </p>
+                    <p>
+                      Sequential is not a workaround: these tests share one dev server and one
+                      database, so running them at once is wrong for correctness as much as for
+                      threads. <strong>Watch #4</strong> &mdash; concurrent execution was its leading
+                      explanation, and that mechanism is now gone.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-done">20 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">23</td>
