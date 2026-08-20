@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>16</b> open &middot; <b>4</b> deferred</span>
+      <span><b>17</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -414,6 +414,48 @@
 
           <tr>
             <td class="p">2</td>
+            <td class="idcell">23</td>
+            <td>
+              <div class="task">
+                <h3>Tests must delete the school years they create</h3>
+                <p class="lineage">New, 20 Aug. The fix that makes #5 a one-off instead of a chore.</p>
+                <p class="why">
+                  The dry run for #5 found <strong>19</strong> school years, up from 17 the day
+                  before. <strong>Fourteen of the fifteen strays came from one test</strong>, which
+                  creates <code>Test Year (slug cross-year)</code> &mdash; the same name every run,
+                  with no timestamp and no cleanup.
+                </p>
+                <details>
+                  <summary>Which tests, and why the name matters</summary>
+                  <div class="detail">
+                    <p>
+                      <code>test-rubric-set-slug-chat-cascade.ts</code> is the main offender: a
+                      fixed name means every run adds another identical row, which is exactly why
+                      dev accumulated fourteen of them. The others
+                      (<code>TST Rollover</code>, <code>TST SY Cache</code>,
+                      <code>TST Empty</code>, <code>TST-INSIGHTS-OLD-YR</code>) at least carry a
+                      timestamp, and mostly do tear down.
+                    </p>
+                    <p>
+                      <strong>Do:</strong> delete the year in an <code>after()</code> hook, along
+                      with the rubric sets and assignments it created. The rollover suite already
+                      does this and is a working model.
+                    </p>
+                    <p>
+                      Related to #22: if the Replit Run button is executing much of the suite in
+                      parallel against one database, it is manufacturing these faster than anyone
+                      is clearing them.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">3</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -455,7 +497,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">4</td>
             <td class="idcell">22</td>
             <td>
               <div class="task">
@@ -511,7 +553,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -552,7 +594,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -590,7 +632,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -619,7 +661,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -650,7 +692,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -694,7 +736,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -727,7 +769,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">11</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -762,7 +804,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">12</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -789,7 +831,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">13</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -815,7 +857,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">14</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -829,7 +871,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">15</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -846,7 +888,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">16</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -860,7 +902,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">16</td>
+            <td class="p">17</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">

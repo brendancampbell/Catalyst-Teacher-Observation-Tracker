@@ -199,6 +199,29 @@ async function run(): Promise<void> {
     }
     if (planned.length === 0) return;
 
+    /*
+     * Guard the WRITE, not the read. A dry run against any database is
+     * harmless and occasionally useful; deleting rows in production is not.
+     *
+     * Deliberately NOT the guard seed-dev.ts uses. That one refuses any
+     * non-localhost DATABASE_URL, which is correct for seeding but would
+     * refuse this script in the only place it is meant to run: the Replit
+     * workspace, whose development database is remote. NODE_ENV is the signal
+     * that actually distinguishes the two.
+     *
+     * The pattern allowlist is the real protection — production has no years
+     * named `TST Rollover <timestamp>`, so `planned` would be empty there
+     * anyway. This is the second lock on the same door.
+     */
+    if (process.env.NODE_ENV === "production" && process.env.CLEANUP_FORCE !== "true") {
+      console.error(
+        "\nERROR: refusing to delete school years with NODE_ENV=production.\n" +
+        "  Re-run without --apply to inspect, or set CLEANUP_FORCE=true if this\n" +
+        "  really is a development database with NODE_ENV set wrongly.",
+      );
+      process.exit(1);
+    }
+
     /* ── Apply, in one transaction, verified before it commits ────────── */
     await client.query("BEGIN");
     try {
