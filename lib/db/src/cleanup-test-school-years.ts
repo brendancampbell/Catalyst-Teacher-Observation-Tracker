@@ -136,18 +136,12 @@ async function run(): Promise<void> {
       }
 
       /* Count dependants in every referencing table. */
+      const counts = await countDependants(client, fks, year.id);
       const problems: string[] = [];
       let removable = 0;
-      for (const fk of fks) {
-        if (fk.onDelete === "SET NULL") continue;   // the database handles it
-        const { rows } = await client.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM ${quoteIdent(fk.table)} WHERE ${quoteIdent(fk.column)} = $1`,
-          [year.id],
-        );
-        const n = Number(rows[0]!.n);
-        if (n === 0) continue;
-        if (DELETABLE.has(fk.table)) removable += n;
-        else problems.push(`${n} row(s) in ${fk.table}`);
+      for (const [table, n] of counts) {
+        if (DELETABLE.has(table)) removable += n;
+        else problems.push(`${n} row(s) in ${table}`);
       }
 
       /* An observation in ANOTHER year can point at a rubric set belonging to
@@ -185,7 +179,21 @@ async function run(): Promise<void> {
     if (suspicious.length > 0) {
       console.log(`Left alone — ${suspicious.length} year(s) named like a test but created by no test:`);
       for (const y of suspicious) {
-        console.log(`  #${y.id}  ${JSON.stringify(y.name)}  (${y.status}, created ${y.created_at.slice(0, 10)})`);
+        /*
+         * Show what it holds. Without this the report says only that a year
+         * exists, and "it is inactive and named Test" reads as "it is empty"
+         * — which is how two years carrying ~2000 assignment rows each came
+         * to be force-deleted on the assumption they carried nothing.
+         */
+        const counts = await countDependants(client, fks, y.id);
+        const total = [...counts.values()].reduce((a, b) => a + b, 0);
+        const detail = counts.size === 0
+          ? "no dependent rows"
+          : [...counts].map(([t, n]) => `${n} ${t}`).join(", ");
+        console.log(
+          `  #${y.id}  ${JSON.stringify(y.name)}  (${y.status}, created ${y.created_at.slice(0, 10)})` +
+          `\n        holds ${total === 0 ? "nothing" : detail}`,
+        );
       }
       console.log("  A person made these. Review them, then re-run with --also=<id,...> to include one.\n");
     }
@@ -272,6 +280,29 @@ async function run(): Promise<void> {
     client.release();
     await pool.end();
   }
+}
+
+/**
+ * Rows in each referencing table that point at this year, omitting empties.
+ * SET NULL columns are skipped: the database clears those by itself, so they
+ * neither block a delete nor disappear with one.
+ */
+async function countDependants(
+  client: { query: (sql: string, params: unknown[]) => Promise<{ rows: { n: string }[] }> },
+  fks: Fk[],
+  yearId: number,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const fk of fks) {
+    if (fk.onDelete === "SET NULL") continue;
+    const { rows } = await client.query(
+      `SELECT count(*)::text AS n FROM ${quoteIdent(fk.table)} WHERE ${quoteIdent(fk.column)} = $1`,
+      [yearId],
+    );
+    const n = Number(rows[0]!.n);
+    if (n > 0) out.set(fk.table, (out.get(fk.table) ?? 0) + n);
+  }
+  return out;
 }
 
 /** Identifiers come from pg_constraint, but quote them anyway. */

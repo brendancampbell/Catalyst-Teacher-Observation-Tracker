@@ -240,9 +240,14 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
 
     /* Domain slugs are unique per school year. A slug that exists in the active year
        must be allowed in a rubric set that belongs to a *different* school year.
-       We create a temporary inactive school year for this purpose. */
+       We create a temporary inactive school year for this purpose.
+
+       The name carries a timestamp like every other scratch year in this suite.
+       It used to be a fixed string, which meant every leaked run produced an
+       identical row — fourteen of them by 2026-08-20, indistinguishable from
+       each other and impossible to trace back to a run. */
     const [tmpYear] = await db.insert(schoolYears).values({
-      name:   "Test Year (slug cross-year)",
+      name:   `TST Slug Cross-Year ${Date.now()}`,
       status: "inactive",
     }).returning();
 
@@ -268,8 +273,26 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
       }, jar);
       assert.equal(res.status, 201, `Expected 201 for same slug in different school year, got ${res.status}: ${JSON.stringify(res.body)}`);
     } finally {
-      /* Cascades to rubric2, cat2, and any inserted domains */
-      await db.delete(schoolYears).where(eq(schoolYears.id, tmpYear.id)).catch(() => {});
+      /*
+       * Order matters, and the previous comment here was wrong: it claimed
+       * deleting the school year cascades to rubric2. It does not.
+       * rubric_sets.school_year_id is ON DELETE NO ACTION, so the delete
+       * raised a foreign key violation, the .catch() swallowed it, and the
+       * year survived — every single run. Fourteen accumulated in dev.
+       *
+       * The rubric set goes first (categories and domains DO cascade from it),
+       * and only then the year. A failure is reported rather than swallowed:
+       * silent cleanup is how this went unnoticed for months.
+       */
+      try {
+        await db.delete(rubricSets).where(eq(rubricSets.id, rubric2.id));
+        await db.delete(schoolYears).where(eq(schoolYears.id, tmpYear.id));
+      } catch (err) {
+        console.warn(
+          `WARNING: leaked school year #${tmpYear.id} and/or rubric set #${rubric2.id} — ` +
+          `clean up with: pnpm --filter @workspace/db run cleanup:test-school-years\n`, err,
+        );
+      }
     }
   });
 

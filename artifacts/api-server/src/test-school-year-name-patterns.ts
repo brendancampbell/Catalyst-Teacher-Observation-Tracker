@@ -13,6 +13,9 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { TEST_YEAR_PATTERNS, matchTestYearPattern } from "@workspace/db/test-year-patterns";
 
 /* A realistic Date.now() — the tests build their names with one. */
@@ -24,6 +27,13 @@ describe("names the suite really creates", () => {
     assert.ok(matchTestYearPattern(`TST Rollover ${TS}`));
     assert.ok(matchTestYearPattern(`TST SY Cache ${TS}`));
     assert.ok(matchTestYearPattern(`TST-INSIGHTS-OLD-YR-${TS}`));
+    assert.ok(matchTestYearPattern(`TST Slug Cross-Year ${TS}`));
+  });
+
+  test("still recognises the legacy fixed name", () => {
+    /* test-rubric-category-domain-validation.ts used this before it was given
+       a timestamp. Kept so the cleanup can still find strays left behind by an
+       older checkout. */
     assert.ok(matchTestYearPattern("Test Year (slug cross-year)"));
   });
 
@@ -31,7 +41,7 @@ describe("names the suite really creates", () => {
     /* The list is only trustworthy while it can be re-verified against the
        suite. A pattern with no source is one nobody can check. */
     for (const p of TEST_YEAR_PATTERNS) {
-      assert.match(p.source, /\.ts$/, `${p.label} has no source file`);
+      assert.match(p.source, /^test-[a-z0-9-]+\.ts$/, `${p.label} has no source file`);
       assert.ok(p.label.length > 0);
     }
   });
@@ -79,5 +89,55 @@ describe("names it must never match", () => {
   test("treats the parentheses in the exact name literally", () => {
     /* Escaped, not a capture group — otherwise this claims a different name. */
     assert.equal(matchTestYearPattern("Test Year slug cross-year"), null);
+  });
+});
+
+describe("the pattern list stays in step with the suite", () => {
+  /*
+   * The list decides what cleanup-test-school-years.ts deletes, so a scratch
+   * year whose name it does not recognise is a year that accumulates forever
+   * — which is exactly what happened: fourteen copies of one name before
+   * anyone noticed, and this file originally credited the wrong test with
+   * creating it.
+   *
+   * So rather than trusting the list, read the suite. Every school year any
+   * test inserts must be a name the cleanup can find again.
+   */
+  test("every school year the tests insert is recognised", () => {
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    const files = readdirSync(dir).filter((f) => f.startsWith("test-") && f.endsWith(".ts"));
+
+    /* `name:` within the insert call that follows `insert(schoolYears)`. */
+    const INSERT = /insert\(schoolYears\)[\s\S]{0,400}?name:\s*(`[^`]*`|"[^"]*")/g;
+
+    const unrecognised: string[] = [];
+    let found = 0;
+
+    for (const file of files) {
+      const src = readFileSync(path.join(dir, file), "utf8");
+      for (const m of src.matchAll(INSERT)) {
+        const literal = m[1]!.slice(1, -1);
+
+        /* Resolve the one interpolation the suite uses. Anything else is a
+           name whose shape cannot be checked here, which is itself a problem
+           worth failing on rather than skipping quietly. */
+        const resolved = literal.replaceAll("${Date.now()}", TS);
+        if (resolved.includes("${")) {
+          unrecognised.push(`${file}: ${literal} (unresolvable interpolation)`);
+          continue;
+        }
+
+        found++;
+        if (!matchTestYearPattern(resolved)) unrecognised.push(`${file}: ${JSON.stringify(resolved)}`);
+      }
+    }
+
+    assert.ok(found > 0, "found no insert(schoolYears) calls — has the regex gone stale?");
+    assert.deepEqual(
+      unrecognised, [],
+      "These tests create school years that cleanup-test-school-years.ts cannot find.\n" +
+      "Add a pattern to lib/db/src/test-year-patterns.ts, or rename the year to match one:\n" +
+      unrecognised.map((u) => "  " + u).join("\n"),
+    );
   });
 });

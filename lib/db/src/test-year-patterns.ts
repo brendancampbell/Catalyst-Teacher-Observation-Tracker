@@ -54,10 +54,23 @@ export const TEST_YEAR_PATTERNS: TestYearPattern[] = [
     source: "test-ai-insights-rubric-year-scoping.ts",
   },
   {
-    /* No timestamp — which is why dev accumulated twelve of these. */
+    regex:  new RegExp(`^TST Slug Cross-Year ${TS}$`),
+    label:  "TST Slug Cross-Year <timestamp>",
+    source: "test-rubric-category-domain-validation.ts",
+  },
+  {
+    /*
+     * Historical. This test used a fixed name and, because its cleanup
+     * deleted the school year before the rubric set pointing at it, failed
+     * silently on a foreign key violation every run — fourteen identical rows
+     * by 2026-08-20. Fixed in test-rubric-category-domain-validation.ts, which
+     * now uses the timestamped name above.
+     *
+     * Kept so the cleanup still recognises strays left by an older checkout.
+     */
     regex:  /^Test Year \(slug cross-year\)$/,
-    label:  "Test Year (slug cross-year)",
-    source: "test-rubric-set-slug-chat-cascade.ts",
+    label:  "Test Year (slug cross-year)  [legacy]",
+    source: "test-rubric-category-domain-validation.ts",
   },
 ];
 
