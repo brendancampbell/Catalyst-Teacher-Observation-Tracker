@@ -203,14 +203,21 @@ describe("School-year activation clears dashboard / district / network-avgs cach
     }
   });
 
-  /* ── Prime caches ─────────────────────────────────────────────────────── */
+  /* ── Prime caches ───────────────────────────────────────────────────────
+     These three used to assert the FIRST request was a MISS. That is an
+     assumption about a cold cache, and this suite does not own the cache —
+     forty-odd test files run before it, several of which hit these same URLs,
+     and any of them can leave an entry warm. It failed exactly that way on
+     2026-08-19: "First district request should be MISS, got HIT".
 
-  test("1 — dashboard cache: first request is MISS, second is HIT", async () => {
+     What matters here is only that the cache ends up PRIMED, so tests 5-7 can
+     show activation clearing it. A HIT on the second request proves that no
+     matter what the first one was. */
+
+  test("1 — dashboard cache can be primed (second request is HIT)", async () => {
     const r1 = await request("GET", `/dashboard?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r1.status, 200,
       `First dashboard request should be 200 (rubric set ${rubricSetSlug} must exist in active year): got ${r1.status}`);
-    assert.equal(r1.xCache, "MISS",
-      `First dashboard request should be X-Cache: MISS, got ${r1.xCache}`);
 
     const r2 = await request("GET", `/dashboard?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r2.status, 200, `Second dashboard request should be 200`);
@@ -218,12 +225,10 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       `Second dashboard request must be X-Cache: HIT (cache was primed), got ${r2.xCache}`);
   });
 
-  test("2 — district cache: first request is MISS, second is HIT", async () => {
+  test("2 — district cache can be primed (second request is HIT)", async () => {
     const r1 = await request("GET", `/district/summary?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r1.status, 200,
       `First district request should be 200: got ${r1.status}`);
-    assert.equal(r1.xCache, "MISS",
-      `First district request should be X-Cache: MISS, got ${r1.xCache}`);
 
     const r2 = await request("GET", `/district/summary?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r2.status, 200, `Second district request should be 200`);
@@ -231,12 +236,10 @@ describe("School-year activation clears dashboard / district / network-avgs cach
       `Second district request must be X-Cache: HIT, got ${r2.xCache}`);
   });
 
-  test("3 — network-avgs cache: first request is MISS, second is HIT", async () => {
+  test("3 — network-avgs cache can be primed (second request is HIT)", async () => {
     const r1 = await request("GET", `/action-center/network-averages?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r1.status, 200,
       `First network-avgs request should be 200: got ${r1.status}`);
-    assert.equal(r1.xCache, "MISS",
-      `First network-avgs request should be X-Cache: MISS, got ${r1.xCache}`);
 
     const r2 = await request("GET", `/action-center/network-averages?rubricSet=${rubricSetSlug}`, undefined, jar);
     assert.equal(r2.status, 200, `Second network-avgs request should be 200`);
