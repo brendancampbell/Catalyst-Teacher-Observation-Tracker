@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; a9e7478</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; 995c15b</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>14</b> open &middot; <b>4</b> deferred</span>
+      <span><b>13</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -433,47 +433,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">21</td>
-            <td>
-              <div class="task">
-                <h3>Record sign-ins</h3>
-                <p class="lineage">New. Split from #20 &mdash; different shape, different urgency.</p>
-                <p class="why">
-                  Nothing records a login today. Whenever this ships, the data starts at zero &mdash;
-                  so every day it waits is a day of history that cannot be recovered.
-                </p>
-                <details>
-                  <summary>Why it is ranked above work that matters more</summary>
-                  <div class="detail">
-                    <p>
-                      There is no <code>last_login</code> on <code>people</code>, no audit table, and
-                      the <code>session</code> table belongs to connect-pg-simple &mdash; it holds
-                      live sessions with an expiry, not a history. So unlike observation and action
-                      step counts, this cannot be backfilled.
-                    </p>
-                    <p>
-                      That is the whole argument for doing it early. The report in #20 can be built
-                      any time; the <em>data</em> only accrues once capture exists. Shipping a bare
-                      column now and the report later loses nothing, while the reverse loses months.
-                    </p>
-                    <p>
-                      <strong>To decide:</strong> a <code>last_login</code> timestamp on
-                      <code>people</code> is one migration and answers &ldquo;who has never signed
-                      in&rdquo;. A row-per-login table answers &ldquo;how often&rdquo; and
-                      &ldquo;when&rdquo;, which is what #20 actually wants &mdash; but it grows
-                      forever and needs a retention rule. Both write from the same two places: the
-                      Google callback and <code>deserializeUser</code>.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -511,7 +470,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -540,7 +499,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -571,7 +530,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -615,7 +574,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -648,7 +607,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -683,7 +642,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -710,7 +669,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -736,7 +695,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -750,7 +709,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -767,7 +726,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -781,7 +740,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -928,6 +887,72 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">21</td>
+            <td>
+              <div class="task">
+                <h3>Catalyst records who uses it, and when</h3>
+                <p class="lineage"><code>44dd11e</code>, <code>995c15b</code> &mdash; migration 0010 &middot; 4/4 integration, 9 unit</p>
+                <p class="why">
+                  Nothing recorded a sign-in: no <code>last_login</code>, no audit table, and the
+                  <code>session</code> table holds live sessions with an expiry, not a history. The
+                  data could only ever start from the day this shipped, which is why it went in
+                  before the report that consumes it (#20).
+                </p>
+                <details>
+                  <summary>Why it counts days rather than sign-ins, and where the hook had to go</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The finding that set the design.</strong> The session cookie is seven
+                      days and not rolling, so somebody who opens Catalyst every single day
+                      re-authenticates about four times a month. A &ldquo;logins per user&rdquo;
+                      report built on OAuth callbacks would show the most active principal in the
+                      network as barely using the tool.
+                    </p>
+                    <p>
+                      So it records <strong>one row per person per day they used Catalyst</strong>.
+                      That answers who uses this, how often, and who has never signed in at all
+                      &mdash; and it is bounded, at most one row per person per day, so no retention
+                      policy is needed. <code>sign_in_count</code> rides along, because one integer
+                      also answers &ldquo;how often are people being made to sign in again&rdquo;.
+                    </p>
+                    <p>
+                      <strong>The hook sits in <code>deserializeUser</code>, and that is
+                      load-bearing.</strong> It runs before <code>applyImpersonation</code> swaps
+                      <code>req.user</code>, so an admin impersonating someone is recorded as the
+                      admin &mdash; otherwise a management report would credit people with activity
+                      they had no part in. Moving it later would break that silently, so an
+                      integration test pins it.
+                    </p>
+                    <p>
+                      Fire-and-forget, failures logged and swallowed: this is on the hot path for
+                      every authenticated request, and telemetry that can hang or 500 the app is
+                      worse than no telemetry.
+                    </p>
+                    <p>
+                      <strong>Dates are Eastern, not UTC.</strong> Under UTC a principal writing
+                      observations at 8pm would have it filed as the next day, and one evening would
+                      count as two days of activity. Tested on both sides of a daylight saving
+                      change &mdash; the bug that would misfile exactly one evening a year and never
+                      be noticed.
+                    </p>
+                    <p>
+                      Two failures on the way, both instructive. The first run died with
+                      <code>ECONNREFUSED</code> after <code>wait-for-api.sh</code> announced
+                      &ldquo;ready&rdquo; &mdash; the server was refusing to boot against an
+                      unapplied migration and said so in a log nothing read. Fixed separately in
+                      <code>bc46f57</code>. The second was the test racing its own fire-and-forget
+                      write: test 1 saw no row while test 2 found exactly one, which is the
+                      signature of checking too early rather than of a write that never happened.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">20 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">22</td>
