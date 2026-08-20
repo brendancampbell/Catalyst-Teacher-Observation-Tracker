@@ -5,6 +5,7 @@ import { people, assignments } from "@workspace/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import type { Person } from "@workspace/db/schema";
 import { getActiveSchoolYearId } from "./active-school-year";
+import { recordActivity } from "./activity.js";
 
 declare global {
   namespace Express {
@@ -182,6 +183,23 @@ export function configurePassport() {
          lose access immediately, not at cookie expiry (up to 7 days). */
       if (!person.isActive || person.role === "NO_ACCESS") return done(null, false);
       const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
+
+      /*
+       * Record that this person used Catalyst today (backlog #21).
+       *
+       * Here, and not in a later middleware, for two reasons. It is the one
+       * place every authenticated request passes through regardless of route.
+       * And it runs BEFORE applyImpersonation swaps req.user, so an admin
+       * impersonating someone is recorded as the admin — the impersonated
+       * person is not credited with activity they had no part in. Moving this
+       * later would silently break that.
+       *
+       * Fire-and-forget: this is on the hot path for every request, the write
+       * happens at most once per person per day, and recordActivity swallows
+       * its own failures. Telemetry must not be able to hang a request.
+       */
+      void recordActivity(person.employeeId);
+
       done(null, personToUser(person as Person & { school?: { displayName: string } | null }, activeThisYear));
     } catch (err) {
       done(err);

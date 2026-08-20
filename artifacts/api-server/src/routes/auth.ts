@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireNetworkAdmin } from "../middleware/auth";
+import { recordActivity } from "../lib/activity.js";
 
 const router = Router();
 
@@ -64,6 +65,13 @@ router.get(
       req.logIn(user, (loginErr) => {
         if (loginErr) return next(loginErr);
         delete req.session.returnTo;
+
+        /* A real authentication, as opposed to a request on an existing
+           session — this is the only place sign_in_count is incremented.
+           Fire-and-forget so a telemetry write cannot delay or fail a
+           login; recordActivity swallows its own errors. */
+        void recordActivity(user.employeeId, { signIn: true });
+
         const dest = isSafeReturnTo(returnTo) ? returnTo : "/";
         res.redirect(dest);
       });

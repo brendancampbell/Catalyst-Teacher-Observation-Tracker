@@ -10,4 +10,5 @@ export * from "./assignments";
 export * from "./rate-limit";
 export * from "./ai-quota-grants";
 export * from "./platform-notifications";
+export * from "./user-activity";
 export * from "./relations";

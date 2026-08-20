@@ -71,6 +71,13 @@
       "when": 1787026060197,
       "tag": "0009_loose_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787269604510,
+      "tag": "0010_medical_the_initiative",
+      "breakpoints": true
     }
   ]
 }
