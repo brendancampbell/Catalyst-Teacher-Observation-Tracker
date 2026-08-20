@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; dd1d971</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; 0b85557</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>17</b> open &middot; <b>4</b> deferred</span>
+      <span><b>16</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -361,59 +361,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">5</td>
-            <td>
-              <div class="task">
-                <h3>Clear fifteen stray test school years in dev</h3>
-                <p class="lineage">Do before #4 &mdash; it may be the cause.</p>
-                <p class="why">
-                  <strong>Tool built (<code>dd1d971</code>) &mdash; not yet run.</strong> Twelve
-                  <code>Test Year (slug cross-year)</code>, plus <code>Test</code>,
-                  <code>New Test</code> and a <code>TST-INSIGHTS-OLD-YR-…</code>. Suites create
-                  school years and never delete them.
-                </p>
-                <p class="lineage">Next: dry run in Replit, read it, then <code>--apply</code>.</p>
-                <details>
-                  <summary>Why it is filed next to the flake</summary>
-                  <div class="detail">
-                    <p>
-                      A suite that leaves rows behind is a suite that can leave other state behind.
-                      This is the most concrete evidence available that test cleanup is incomplete,
-                      and #4 is exactly the shape that would produce.
-                    </p>
-                    <p>
-                      Worth clearing regardless &mdash; the School Years admin tab lists all
-                      seventeen, of which two are real. Choosing a year to activate during a
-                      rollover means picking a real one out of that list, at the moment when
-                      picking wrong takes the app down.
-                    </p>
-                    <p>
-                      <strong>How the tool refuses to be dangerous.</strong> It deletes only names
-                      a test provably creates &mdash; five patterns read out of the suite, each
-                      recording the file that produces it. <code>Test</code> and
-                      <code>New Test</code> are <em>not</em> among them: no test makes those names,
-                      so a person did, and they are reported rather than removed.
-                      Referencing tables are discovered from <code>pg_constraint</code>, and only an
-                      explicit allowlist may be deleted alongside a year &mdash; a table that gains
-                      a <code>school_year_id</code> later is unknown, and unknown means stop. Any
-                      year carrying observations or action steps is skipped. Dry run by default;
-                      writes happen in one transaction that verifies its own delete count.
-                    </p>
-                    <p>
-                      The patterns began as SQL <code>LIKE</code> prefixes, which also claimed
-                      <code>TST Rollover 123 (keep)</code> &mdash; a name someone might pick
-                      precisely to keep it. A unit test caught that before it ran anywhere.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Test health</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">23</td>
             <td>
               <div class="task">
@@ -455,7 +402,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -497,7 +444,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">22</td>
             <td>
               <div class="task">
@@ -553,7 +500,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -594,7 +541,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -632,7 +579,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -661,7 +608,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -692,7 +639,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -736,7 +683,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -769,7 +716,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -804,7 +751,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -831,7 +778,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -857,7 +804,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -871,7 +818,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -888,7 +835,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -902,7 +849,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1049,6 +996,52 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">5</td>
+            <td>
+              <div class="task">
+                <h3>Cleared the school years left behind by tests</h3>
+                <p class="lineage"><code>dd1d971</code>, <code>0b85557</code> &mdash; 19 years &rarr; 4</p>
+                <p class="why">
+                  Dev had grown to 19 school years, of which 2 were real. Deleted 15; the two
+                  human-made ones were left for review.
+                </p>
+                <details>
+                  <summary>How a destructive script was made safe enough to run</summary>
+                  <div class="detail">
+                    <p>
+                      Deleting a school year is not safe in general &mdash; observations, action
+                      steps and rubric sets are all scoped by one &mdash; so
+                      <code>cleanup:test-school-years</code> fails closed at every decision.
+                    </p>
+                    <ul>
+                      <li>It deletes only names a test <strong>provably</strong> creates: five patterns read out of the suite, each recording the file that produces it</li>
+                      <li><code>Test</code> and <code>New Test</code> were <strong>not</strong> touched &mdash; no test makes those names, so a person did</li>
+                      <li>Referencing tables are discovered from <code>pg_constraint</code>, and only an allowlist may be deleted alongside a year. A table that gains a <code>school_year_id</code> later is unknown, and unknown means stop</li>
+                      <li>Any year holding observations or action steps is skipped, as is one whose rubric sets are pinned by an observation elsewhere</li>
+                      <li>Dry run by default; one transaction that verifies its own delete count before committing</li>
+                    </ul>
+                    <p>
+                      The pattern list is its own module with 8 unit tests, following
+                      <code>schema-compare.ts</code>: it decides what gets deleted, so it is the
+                      risky part. Those tests paid for themselves immediately &mdash; the patterns
+                      started as SQL <code>LIKE</code> prefixes, which also claimed
+                      <code>TST Rollover 123 (keep)</code>, a name someone might choose precisely
+                      to keep it.
+                    </p>
+                    <p>
+                      <strong>This is a broom, not a fix.</strong> 14 of the 15 came from one test
+                      that reuses a fixed name and never tears down &mdash; see #23, or this
+                      becomes a recurring chore.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-done">20 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">8</td>
