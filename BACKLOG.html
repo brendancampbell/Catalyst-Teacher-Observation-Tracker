@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; 0b85557</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; a0e6578</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -365,28 +365,37 @@
             <td>
               <div class="task">
                 <h3>Tests must delete the school years they create</h3>
-                <p class="lineage">New, 20 Aug. The fix that makes #5 a one-off instead of a chore.</p>
+                <p class="lineage"><strong>Fixed in <code>a0e6578</code> &mdash; awaiting one verifying run.</strong></p>
                 <p class="why">
-                  The dry run for #5 found <strong>19</strong> school years, up from 17 the day
-                  before. <strong>Fourteen of the fifteen strays came from one test</strong>, which
-                  creates <code>Test Year (slug cross-year)</code> &mdash; the same name every run,
-                  with no timestamp and no cleanup.
+                  Fourteen of the fifteen strays came from one test whose cleanup deleted the
+                  school year <em>before</em> the rubric set pointing at it. That raises a foreign
+                  key violation, and a <code>.catch(() =&gt; {})</code> swallowed it &mdash; so the
+                  test passed and the year survived, every run.
                 </p>
+                <p class="lineage">Verify: run the integration suite, then the cleanup dry run &mdash; it should find nothing.</p>
                 <details>
                   <summary>Which tests, and why the name matters</summary>
                   <div class="detail">
                     <p>
-                      <code>test-rubric-set-slug-chat-cascade.ts</code> is the main offender: a
-                      fixed name means every run adds another identical row, which is exactly why
-                      dev accumulated fourteen of them. The others
-                      (<code>TST Rollover</code>, <code>TST SY Cache</code>,
-                      <code>TST Empty</code>, <code>TST-INSIGHTS-OLD-YR</code>) at least carry a
-                      timestamp, and mostly do tear down.
+                      The culprit was <code>test-rubric-category-domain-validation.ts</code>
+                      &mdash; not the file first credited with it. Its cleanup read as correct and
+                      even carried a comment saying the delete cascades. It does not:
+                      <code>rubric_sets.school_year_id</code> is <code>ON DELETE NO ACTION</code>.
+                      The other two year-creating tests delete their rubric sets first and were
+                      never affected.
                     </p>
                     <p>
-                      <strong>Do:</strong> delete the year in an <code>after()</code> hook, along
-                      with the rubric sets and assignments it created. The rollover suite already
-                      does this and is a working model.
+                      Fixed three ways: correct order, a reported failure instead of a swallowed
+                      one, and a timestamped name. The fixed name is why there were fourteen
+                      <em>identical</em> rows rather than one traceable to a run; the old name is
+                      still recognised so strays from an older checkout can be cleared.
+                    </p>
+                    <p>
+                      <strong>The guard that matters more than the fix:</strong> a unit test now
+                      reads the suite instead of trusting the pattern list &mdash; every
+                      <code>insert(schoolYears)</code> name in <code>src/test-*.ts</code> must be
+                      one the cleanup can find again. A scratch year it cannot recognise is a year
+                      that accumulates forever, which is exactly what happened here.
                     </p>
                     <p>
                       Related to #22: if the Replit Run button is executing much of the suite in
