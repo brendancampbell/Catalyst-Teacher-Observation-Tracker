@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; a0e6578</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; 44b3b6b</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -365,9 +365,11 @@
             <td>
               <div class="task">
                 <h3>Bisect the demo-teachers test isolation failure</h3>
+                <p class="lineage"><strong>Instrumented in <code>44b3b6b</code> &mdash; waiting on a recurrence.</strong></p>
                 <p class="why">
-                  Passes alone, and passed the two most recent full runs. Failed three assertions in
-                  one earlier run &mdash; intermittent, not fixed.
+                  Will not reproduce: passed every run since, including a full 298/298 on 20 Aug.
+                  Bisecting needs a failure, so the suite now names its own cause when it next
+                  breaks.
                 </p>
                 <details>
                   <summary>Everything already ruled out</summary>
@@ -390,8 +392,36 @@
                       real non-demo people also differed. Whatever this is, it moves real rows.
                     </p>
                     <p>
-                      <strong>Do:</strong> it sits at position 21 of 45. Bisect by running the first
-                      <em>N</em> files plus it under <code>scripts/wait-for-api.sh</code>, halving.
+                      <strong>The narrowing that matters.</strong>
+                      <code>GET /people</code> filters on exactly four things: <code>is_active</code>,
+                      <code>school_id</code>, <code>include_in_feedback_tracker</code>, and the Home
+                      Office exclusion. <code>school_id</code> is already eliminated &mdash;
+                      <code>before()</code> asserted it and passed. So the column that moved was
+                      <code>is_active</code> or the tracker flag, the two nothing looked at.
+                    </p>
+                    <p>
+                      And the <strong>only</strong> bulk <code>is_active = false</code> anywhere in
+                      the app is the school-year activation flip; everything else writes one person
+                      or inserts. Six teachers going inactive together can only have come from an
+                      activation. In the sequential suite both year-activating tests run at
+                      positions 42&ndash;43, <em>after</em> this one at 21, and both roll back
+                      &mdash; so a sequential run cannot produce it. That points at concurrent
+                      execution, which is exactly what #22 describes.
+                    </p>
+                    <p>
+                      Not proven, and one fact argues against it: both those tests copy every open
+                      assignment forward precisely so the flip deactivates nobody.
+                    </p>
+                    <p>
+                      <strong>Now instrumented.</strong> All four conditions are checked for all six
+                      demo teachers before a single request is issued, reporting every problem at
+                      once and naming the column; the three assertions that failed attach a live
+                      snapshot of the six rows. It asserts rather than repairs on purpose &mdash;
+                      repairing would turn the suite green and destroy the only evidence.
+                    </p>
+                    <p>
+                      The next occurrence settles it: <code>isActive=false</code> means an
+                      activation did it, anything else means the theory is wrong.
                     </p>
                   </div>
                 </details>
