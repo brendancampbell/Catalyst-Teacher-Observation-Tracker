@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>16</b> open &middot; <b>4</b> deferred</span>
+      <span><b>15</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -361,57 +361,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">23</td>
-            <td>
-              <div class="task">
-                <h3>Tests must delete the school years they create</h3>
-                <p class="lineage"><strong>Fixed in <code>a0e6578</code> &mdash; awaiting one verifying run.</strong></p>
-                <p class="why">
-                  Fourteen of the fifteen strays came from one test whose cleanup deleted the
-                  school year <em>before</em> the rubric set pointing at it. That raises a foreign
-                  key violation, and a <code>.catch(() =&gt; {})</code> swallowed it &mdash; so the
-                  test passed and the year survived, every run.
-                </p>
-                <p class="lineage">Verify: run the integration suite, then the cleanup dry run &mdash; it should find nothing.</p>
-                <details>
-                  <summary>Which tests, and why the name matters</summary>
-                  <div class="detail">
-                    <p>
-                      The culprit was <code>test-rubric-category-domain-validation.ts</code>
-                      &mdash; not the file first credited with it. Its cleanup read as correct and
-                      even carried a comment saying the delete cascades. It does not:
-                      <code>rubric_sets.school_year_id</code> is <code>ON DELETE NO ACTION</code>.
-                      The other two year-creating tests delete their rubric sets first and were
-                      never affected.
-                    </p>
-                    <p>
-                      Fixed three ways: correct order, a reported failure instead of a swallowed
-                      one, and a timestamped name. The fixed name is why there were fourteen
-                      <em>identical</em> rows rather than one traceable to a run; the old name is
-                      still recognised so strays from an older checkout can be cleared.
-                    </p>
-                    <p>
-                      <strong>The guard that matters more than the fix:</strong> a unit test now
-                      reads the suite instead of trusting the pattern list &mdash; every
-                      <code>insert(schoolYears)</code> name in <code>src/test-*.ts</code> must be
-                      one the cleanup can find again. A scratch year it cannot recognise is a year
-                      that accumulates forever, which is exactly what happened here.
-                    </p>
-                    <p>
-                      Related to #22: if the Replit Run button is executing much of the suite in
-                      parallel against one database, it is manufacturing these faster than anyone
-                      is clearing them.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Test health</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -453,7 +402,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">22</td>
             <td>
               <div class="task">
@@ -509,7 +458,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">21</td>
             <td>
               <div class="task">
@@ -550,7 +499,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">19</td>
             <td>
               <div class="task">
@@ -588,7 +537,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">16</td>
             <td>
               <div class="task">
@@ -617,7 +566,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -648,7 +597,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -692,7 +641,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -725,7 +674,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -760,7 +709,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -787,7 +736,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -813,7 +762,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -827,7 +776,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -844,7 +793,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -858,7 +807,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1005,6 +954,64 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">23</td>
+            <td>
+              <div class="task">
+                <h3>The suite no longer leaks school years</h3>
+                <p class="lineage"><code>a0e6578</code> &mdash; verified: 298/298, then 2 years and nothing to clean</p>
+                <p class="why">
+                  Fourteen of #5&rsquo;s fifteen strays came from one test whose cleanup deleted the
+                  school year <em>before</em> the rubric set pointing at it. That raises a foreign
+                  key violation, and a <code>.catch(() =&gt; {})</code> swallowed it &mdash; so the
+                  test passed green and the year survived. Every run.
+                </p>
+                <details>
+                  <summary>The bug, the fix, and the guard that outlives both</summary>
+                  <div class="detail">
+                    <p>
+                      The culprit was <code>test-rubric-category-domain-validation.ts</code>, not
+                      the file first credited with it. Its cleanup even carried a comment asserting
+                      the delete cascades. It does not:
+                      <code>rubric_sets.school_year_id</code> is <code>ON DELETE NO ACTION</code>
+                      &mdash; a fact the cleanup tool prints at the top of every run. The other two
+                      year-creating tests delete their rubric sets first and never leaked.
+                    </p>
+                    <p>Fixed three ways:</p>
+                    <ul>
+                      <li>Rubric set first, then the year</li>
+                      <li>A cleanup failure is <strong>reported</strong>, not swallowed &mdash; silent teardown is how this survived for months</li>
+                      <li>A timestamped name, like every other scratch year. The fixed name is why there were fourteen <em>identical</em> rows rather than one traceable to a run; the old name is still recognised so an older checkout&rsquo;s strays can be cleared</li>
+                    </ul>
+                    <p>
+                      <strong>The guard matters more than the fix.</strong> A unit test now reads
+                      the suite rather than trusting the cleanup&rsquo;s pattern list: every
+                      <code>insert(schoolYears)</code> name in <code>src/test-*.ts</code> must be
+                      one the cleanup can find again. Verified by planting a year called
+                      <code>My Very Own Year</code> &mdash; it fails and names the file and the
+                      string. A scratch year the cleanup cannot recognise is one that accumulates
+                      forever, which is precisely what happened here.
+                    </p>
+                    <p>
+                      That guard exists because the list was <em>already</em> wrong. It credited the
+                      wrong test with the name, and reading the code did not catch it &mdash;
+                      reading the suite did.
+                    </p>
+                    <p>
+                      Also fixed a defect in the cleanup report itself: it listed years it was
+                      leaving alone without their dependent counts, so &ldquo;inactive, named
+                      Test&rdquo; read as &ldquo;empty&rdquo;. Two such years held 1,949 and 2,226
+                      assignment rows &mdash; staged rollover rehearsals &mdash; and were deleted on
+                      that mistaken assurance. The report now prints what each one holds.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-done">20 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">5</td>
