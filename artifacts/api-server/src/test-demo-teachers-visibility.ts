@@ -33,7 +33,7 @@ import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import { people, schools, schoolYears, assignments } from "@workspace/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 
 const BASE             = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const SCHOOL_LEADER_ID = "U13";   /* Marcus Wilson — SCHOOL_LEADER */
@@ -52,6 +52,43 @@ const RXP_DC_DEMO_IDS = [
   "DEMO-T-005", /* Emily Nguyen   — Math      */
   "DEMO-T-006", /* Felix Morales  — English   */
 ] as const;
+
+/* ── Diagnostics ──────────────────────────────────────────────────────────
+   This suite is an intermittent failure (backlog #4): it has failed with the
+   six demo teachers absent from a response whose predicate matches them at
+   rest, and passed on every run since. Bisecting needs a reproduction, and
+   there is none.
+
+   So instead of guessing, make the next occurrence explain itself. GET /people
+   filters on exactly four things — is_active, school_id,
+   include_in_feedback_tracker, and the Home Office exclusion — and the
+   original failure already ruled out school_id, because before() asserts it
+   and before() passed. This prints all four for all six, so the next failure
+   names the column that moved instead of leaving a count to interpret. */
+async function demoRowSnapshot(): Promise<string> {
+  const rows = await db
+    .select({
+      employeeId:   people.employeeId,
+      isActive:     people.isActive,
+      schoolId:     people.schoolId,
+      inTracker:    people.includeInFeedbackTracker,
+      isHomeOffice: schools.isHomeOffice,
+    })
+    .from(people)
+    .leftJoin(schools, eq(people.schoolId, schools.id))
+    .where(inArray(people.employeeId, [...RXP_DC_DEMO_IDS]));
+
+  const seen = new Set(rows.map((r) => r.employeeId));
+  const missing = RXP_DC_DEMO_IDS.filter((id) => !seen.has(id));
+
+  const described = rows
+    .map((r) => `${r.employeeId}{active=${r.isActive} school=${r.schoolId} ` +
+                `tracker=${r.inTracker} homeOffice=${r.isHomeOffice}}`)
+    .join("\n    ");
+
+  return `\n  demo rows AT ASSERTION TIME:\n    ${described}` +
+         (missing.length > 0 ? `\n  ABSENT FROM people ENTIRELY: ${missing.join(", ")}` : "");
+}
 
 /* ── HTTP helpers ─────────────────────────────────────────────────────────── */
 
@@ -110,21 +147,48 @@ describe("Demo teacher visibility — /api/people and /api/dashboard", () => {
     );
     rxpHsId = rxpHsSchool.id;
 
-    /* 3. Verify DEMO-T-001 exists and is linked to RXP_DC (seed:teachers guard) */
-    const demoCheck = await db.query.people.findFirst({
-      where: eq(people.employeeId, "DEMO-T-001"),
-    });
-    assert.ok(
-      demoCheck,
-      "Demo teacher DEMO-T-001 not found. " +
-      "Run `pnpm --filter @workspace/api-server run seed:teachers` before this test.",
-    );
-    assert.equal(
-      demoCheck.schoolId,
-      rxpDcId,
-      `DEMO-T-001 should be linked to school ${rxpDcId} (RXP_DC) ` +
-      `but found schoolId=${demoCheck.schoolId}.`,
-    );
+    /* 3. Verify all six demo teachers satisfy every condition GET /people
+       filters on (seed:teachers guard).
+
+       This used to check DEMO-T-001 alone, and only its schoolId. That is why
+       the recorded failure was so hard to read: the precondition passed, so
+       the breakage surfaced later as an unexplained count. Whatever moved was
+       is_active or include_in_feedback_tracker — the two columns nothing here
+       looked at.
+
+       It asserts rather than repairs deliberately. Repairing would make this
+       suite green and destroy the only evidence of what broke it. */
+    const demoRows = await db
+      .select({
+        employeeId: people.employeeId,
+        isActive:   people.isActive,
+        schoolId:   people.schoolId,
+        inTracker:  people.includeInFeedbackTracker,
+      })
+      .from(people)
+      .where(inArray(people.employeeId, [...RXP_DC_DEMO_IDS]));
+
+    const byId = new Map(demoRows.map((r) => [r.employeeId, r]));
+    const problems: string[] = [];
+
+    for (const id of RXP_DC_DEMO_IDS) {
+      const row = byId.get(id);
+      if (!row) { problems.push(`${id}: absent from the people table entirely`); continue; }
+      if (row.schoolId !== rxpDcId) problems.push(`${id}: schoolId=${row.schoolId}, expected ${rxpDcId} (RXP_DC)`);
+      if (row.isActive !== true)    problems.push(`${id}: isActive=false — GET /people filters these out`);
+      if (row.inTracker !== true)   problems.push(`${id}: includeInFeedbackTracker=false`);
+    }
+
+    if (problems.length > 0) {
+      assert.fail(
+        "Seeded demo teachers do not satisfy the conditions GET /people filters on, " +
+        "before this suite has issued a single request. An earlier test mutated seeded " +
+        "data — this is backlog #4, and these lines name the column that moved:\n  " +
+        problems.join("\n  ") +
+        "\n\nIf they are absent entirely, seed them:\n" +
+        "  pnpm --filter @workspace/api-server run seed:teachers",
+      );
+    }
 
     /* 4. Idempotently link Marcus Wilson (SCHOOL_LEADER) to RXP_DC */
     await db
@@ -193,11 +257,14 @@ describe("Demo teacher visibility — /api/people and /api/dashboard", () => {
 
     const returnedIds = new Set(body.map((p) => p.employeeId));
     for (const id of RXP_DC_DEMO_IDS) {
-      assert.ok(
-        returnedIds.has(id),
-        `Expected RXP_DC demo teacher "${id}" in /api/people response but it was missing. ` +
-        `Returned IDs: ${JSON.stringify([...returnedIds])}`,
-      );
+      /* Queried only on the failing path — the snapshot costs a round trip,
+         and this loop runs six times on every green run. */
+      if (!returnedIds.has(id)) {
+        assert.fail(
+          `Expected RXP_DC demo teacher "${id}" in /api/people response but it was missing.` +
+          `\n  returned IDs: ${JSON.stringify([...returnedIds])}` + await demoRowSnapshot(),
+        );
+      }
     }
   });
 
@@ -240,12 +307,13 @@ describe("Demo teacher visibility — /api/people and /api/dashboard", () => {
 
     /* At least one specific RXP_DC demo employee ID must be present */
     const found = RXP_DC_DEMO_IDS.filter((id) => returnedIds.has(id));
-    assert.ok(
-      found.length > 0,
-      `No RXP_DC demo teacher found in /api/dashboard response. ` +
-      `Expected at least one of: ${JSON.stringify(RXP_DC_DEMO_IDS)}. ` +
-      `Returned IDs: ${JSON.stringify([...returnedIds])}`,
-    );
+    if (found.length === 0) {
+      assert.fail(
+        `No RXP_DC demo teacher found in /api/dashboard response. ` +
+        `Expected at least one of: ${JSON.stringify(RXP_DC_DEMO_IDS)}.` +
+        `\n  returned IDs: ${JSON.stringify([...returnedIds])}` + await demoRowSnapshot(),
+      );
+    }
   });
 
   /* ── Test 4: NETWORK_ADMIN with schoolId=RXP_DC returns RXP_DC demo teachers ─ */
@@ -264,11 +332,12 @@ describe("Demo teacher visibility — /api/people and /api/dashboard", () => {
 
     const returnedIds = new Set(body.map((p) => p.employeeId));
     for (const id of RXP_DC_DEMO_IDS) {
-      assert.ok(
-        returnedIds.has(id),
-        `Expected demo teacher "${id}" when filtering by schoolId=${rxpDcId} but it was absent. ` +
-        `Returned IDs: ${JSON.stringify([...returnedIds])}`,
-      );
+      if (!returnedIds.has(id)) {
+        assert.fail(
+          `Expected demo teacher "${id}" when filtering by schoolId=${rxpDcId} but it was absent.` +
+          `\n  returned IDs: ${JSON.stringify([...returnedIds])}` + await demoRowSnapshot(),
+        );
+      }
     }
   });
 
