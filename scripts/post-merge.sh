@@ -60,7 +60,6 @@ fi
 pnpm install --frozen-lockfile
 pnpm --filter @workspace/db build
 pnpm --filter @workspace/integrations-anthropic-ai build
-pnpm --filter @workspace/db exec tsx src/migrate-rubric-domain-rubric-set-id.ts
 pnpm --filter @workspace/db exec tsx src/backfill-school-year-id.ts
 pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts
 pnpm --filter @workspace/db run generate

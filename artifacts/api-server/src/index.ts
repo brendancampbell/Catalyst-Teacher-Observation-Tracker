@@ -20,6 +20,17 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+/*
+ * The "session" table belongs to connect-pg-simple, not to Drizzle. It is not
+ * declared in lib/db/src/schema, no migration creates it, and drizzle.config
+ * excludes it via tablesFilter — so check:schema-sync cannot see it and
+ * `drizzle-kit migrate` will never create it. Creating it at startup is the
+ * only thing that does.
+ *
+ * Its sibling ensureChatTables() was removed: migration 0000 creates
+ * chat_sessions and chat_messages, including rubric_set_slug and
+ * instant_analysis_structured, so it could only ever be a no-op.
+ */
 async function ensureSessionTable(): Promise<void> {
   const client = await pool.connect();
   try {
@@ -33,42 +44,6 @@ async function ensureSessionTable(): Promise<void> {
       CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
     `);
     logger.info("Session table ready");
-  } finally {
-    client.release();
-  }
-}
-
-async function ensureChatTables(): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS chat_sessions (
-        id          SERIAL PRIMARY KEY,
-        employee_id TEXT NOT NULL REFERENCES people(employee_id) ON DELETE CASCADE,
-        title       TEXT NOT NULL DEFAULT 'New Chat',
-        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS chat_sessions_employee_id_idx ON chat_sessions(employee_id);
-      CREATE INDEX IF NOT EXISTS chat_sessions_updated_at_idx  ON chat_sessions(updated_at DESC);
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id         SERIAL PRIMARY KEY,
-        session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-        role       TEXT NOT NULL,
-        content    TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id);
-    `);
-    /* Add rubric_set_slug column if not yet present (idempotent) */
-    await client.query(`
-      ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS rubric_set_slug TEXT;
-    `);
-    /* Add instant_analysis_structured column if not yet present (idempotent) */
-    await client.query(`
-      ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS instant_analysis_structured JSONB;
-    `);
-    logger.info("Chat tables ready");
   } finally {
     client.release();
   }
@@ -303,7 +278,6 @@ assertMigrationsApplied(logger)
   .then(() => ensureSessionTable())
   .then(() => ensureSchoolYears())
   .then(() => ensureSchoolYearBackfill())
-  .then(() => ensureChatTables())
   .then(() => ensureSchoolYearIds())
   .then(() => bootstrapAdmin())
   .then(() => {
