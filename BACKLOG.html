@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; 44b3b6b</p>
+    <p class="eyebrow">Live list &middot; updated 20 August 2026 &middot; a9e7478</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -437,10 +437,10 @@
             <td>
               <div class="task">
                 <h3>The Replit Run button exhausts the container</h3>
-                <p class="lineage">New, 20 Aug. Deferred by choice, not by priority &mdash; see below.</p>
+                <p class="lineage"><strong>Fixed in <code>a9e7478</code> &mdash; awaiting one Run click to confirm.</strong></p>
                 <p class="why">
-                  Running the app in Replit dies with <code>SIGABRT</code> before any code loads.
-                  Node aborts inside <code>NodePlatform</code> because <code>uv_thread_create</code>
+                  Running the app in Replit died with <code>SIGABRT</code> before any code loaded.
+                  Node aborted inside <code>NodePlatform</code> because <code>uv_thread_create</code>
                   failed &mdash; the container would not give it another thread.
                 </p>
                 <details>
@@ -467,10 +467,35 @@
                       idle processes actually are. If they are orphans from earlier Run clicks, the
                       headroom shrinks with every click and that is a second, separate fix.
                     </p>
-                    <p><strong>Intended fix:</strong> the Run button starts the app; validations move
-                      to a separate <code>mode = "sequential"</code> workflow. Optionally cap
-                      <code>NODE_OPTIONS=--v8-pool-size=2</code> and
-                      <code>UV_THREADPOOL_SIZE=2</code> as a backstop.</p>
+                    <p>
+                      <strong>Fixed.</strong> The Run button never started the app in the first
+                      place &mdash; that is the artifact dev services in
+                      <code>artifacts/*/.replit-artifact/artifact.toml</code>. It now reports where
+                      the app is served and how to run checks, and the 48 tasks moved verbatim to a
+                      <strong>Validate All</strong> workflow. Both omit <code>mode</code>, which
+                      defaults to sequential; the literal that used to be there,
+                      <code>"parallel"</code>, was the entire bug. An 8-line diff &mdash; every
+                      individual validation workflow is untouched, so anything referencing them by
+                      name still works.
+                    </p>
+                    <p>
+                      <strong>Deliberately not added:</strong> a global
+                      <code>NODE_OPTIONS=--v8-pool-size=2</code>. It would help, but
+                      <code>.replit</code> env reaches the deployed server too, and quietly halving
+                      production&rsquo;s thread pool to fix a dev crash is the wrong trade.
+                    </p>
+                    <p>
+                      Sequential is not a workaround. These tests share one dev server and one
+                      database, so running them at once is wrong for correctness as much as for
+                      threads &mdash; which is why the integration suite already runs
+                      <code>--test-concurrency=1</code>.
+                    </p>
+                    <p>
+                      <strong>Still unmeasured:</strong> the peak pid count during a crash was never
+                      captured, so the ceiling remains inferred rather than proven. The fix stands on
+                      its own either way &mdash; nothing wants a Run button that launches twelve
+                      Chromiums &mdash; but if the crash recurs, that measurement is the next step.
+                    </p>
                     <p>
                       <strong>Why it arguably outranks #5 and #4:</strong> those 48 parallel tasks
                       include most of the integration suite, sharing one dev server and one
