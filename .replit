@@ -19,7 +19,14 @@ runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
-mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/run-button.sh"
+
+[[workflows.workflow]]
+name = "Validate All"
 author = "agent"
 
 [[workflows.workflow.tasks]]
