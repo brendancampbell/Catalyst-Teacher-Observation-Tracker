@@ -62,6 +62,30 @@ async function activityRows(employeeId: string) {
     .where(eq(userActivityDays.employeeId, employeeId));
 }
 
+/*
+ * recordActivity is fire-and-forget by design: it sits on the hot path for
+ * every authenticated request, so it must never delay or fail one. The
+ * consequence is that a request can return before its row is committed, and a
+ * test that queries immediately races the write. That is a property of the
+ * design, not a defect — so the tests wait rather than the code changing.
+ */
+
+/** Poll until the expected number of rows exists, or give up and return what is there. */
+async function waitForRowCount(employeeId: string, expected: number, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = await activityRows(employeeId);
+  while (rows.length !== expected && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+    rows = await activityRows(employeeId);
+  }
+  return rows;
+}
+
+/** Give any in-flight write time to land, before asserting one did NOT happen. */
+async function settle(ms = 500): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
 let admJar: Jar;
 
 describe("Activity recording", () => {
@@ -111,7 +135,7 @@ describe("Activity recording", () => {
     const res = await request("GET", "/auth/me", undefined, admJar);
     assert.equal(res.status, 200);
 
-    const rows = await activityRows(ADM_EID);
+    const rows = await waitForRowCount(ADM_EID, 1);
     assert.equal(rows.length, 1, "one authenticated request should record exactly one day");
   });
 
@@ -121,6 +145,10 @@ describe("Activity recording", () => {
     for (let i = 0; i < 5; i++) {
       await request("GET", "/auth/me", undefined, admJar);
     }
+    /* Settle rather than poll: polling for 1 would pass on the first check
+       whether or not the other four wrote anything. The point is that they
+       did not, so every write has to be given time to land first. */
+    await settle();
     const rows = await activityRows(ADM_EID);
     assert.equal(rows.length, 1, `expected still one row, got ${rows.length}`);
   });
@@ -149,6 +177,7 @@ describe("Activity recording", () => {
 
     await request("POST", "/auth/stop-impersonating", {}, admJar);
 
+    await settle();
     const targetAfter = await activityRows(TGT_EID);
     assert.equal(
       targetAfter.length, 0,
