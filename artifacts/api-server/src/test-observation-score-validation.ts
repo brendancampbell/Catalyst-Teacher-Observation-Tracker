@@ -27,6 +27,19 @@ import { eq, inArray, asc } from "drizzle-orm";
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 /* Resolved dynamically in before() */
+/*
+ * The active school year, resolved once rather than hardcoded.
+ *
+ * Some fixtures here pinned the year to a literal id, which is only ever
+ * right by accident. It survived because these tests do not read a year-scoped route —
+ * but the rows they insert are invisible to anything that does, and after a
+ * rollover the literal points at a year that has finished.
+ *
+ * Module-level, because before() resolved it into a local and the inserts that
+ * needed it are in the test bodies.
+ */
+let activeSchoolYearId: number;
+
 let SCHOOL_ID: number;
 let RUBRIC_SET_ID: number;
 let VALID_DOMAIN_SLUG: string;
@@ -95,7 +108,8 @@ describe("Observation score input validation — POST and PUT", () => {
     /* Create a dedicated TEACHER-target rubric set for full control */
     const slug = `tst-score-val-rs-${Date.now()}`;
     const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
-    const activeSchoolYearId = activeYear!.id;
+    assert.ok(activeYear, "Need an active school year");
+    activeSchoolYearId = activeYear.id;
 
     const [rs] = await db
       .insert(rubricSets)
@@ -229,7 +243,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -286,7 +300,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -342,7 +356,7 @@ describe("Observation score input validation — POST and PUT", () => {
     const [obs] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         observedEmployeeId: TEACHER_EID,
         schoolId:           null,
         rubricSetId:        RUBRIC_SET_ID,

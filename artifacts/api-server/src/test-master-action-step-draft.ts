@@ -25,6 +25,7 @@ import {
   schools,
   rubricSets,
   actionSteps,
+  schoolYears,
 } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
@@ -70,6 +71,17 @@ async function loginAs(employeeId: string): Promise<Jar> {
 
 /* ── Test state ────────────────────────────────────────────────────────── */
 
+/*
+ * The active school year, resolved once rather than hardcoded.
+ *
+ * These fixtures pinned the year to a literal id, which is only ever right
+ * by accident.
+ * It survived because none of these tests read a year-scoped route — but the
+ * rows they insert are invisible to anything that does, and after a rollover
+ * the literal points at a year that has finished.
+ */
+let activeSchoolYearId: number;
+
 let adminJar: Jar;
 let testSchoolId: number;
 let rubricSetId: number;
@@ -86,6 +98,14 @@ let scenarioCdObsId: number;
 
 describe("masterActionStepId — draft autosave must not trigger mastery", () => {
   before(async () => {
+    const [activeYearRow] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+    assert.ok(activeYearRow, "Need an active school year");
+    activeSchoolYearId = activeYearRow.id;
+
     const [firstSchool] = await db
       .select({ id: schools.id })
       .from(schools)
@@ -147,7 +167,7 @@ describe("masterActionStepId — draft autosave must not trigger mastery", () =>
      POST draft with masterActionStepId → step stays open.              */
   test("a — POST draft with masterActionStepId leaves the action step open", async () => {
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:         1,
+      schoolYearId:         activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "MASTERDRAFT-A: should remain open after draft POST",
@@ -266,7 +286,7 @@ describe("masterActionStepId — draft autosave must not trigger mastery", () =>
 
     /* Seed a fresh open step */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:         1,
+      schoolYearId:         activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "MASTERDRAFT-C: should remain open through multiple draft autosaves",

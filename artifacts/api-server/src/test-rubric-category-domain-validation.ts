@@ -49,6 +49,19 @@ const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 const ADMIN_EID = "TST_RUBRIC_VAL_ADMIN";
 const ALL_EIDS  = [ADMIN_EID];
 
+/*
+ * The active school year, resolved once rather than hardcoded.
+ *
+ * Some fixtures here pinned the year to a literal id, which is only ever
+ * right by accident. It survived because these tests do not read a year-scoped route —
+ * but the rows they insert are invisible to anything that does, and after a
+ * rollover the literal points at a year that has finished.
+ *
+ * Module-level, because before() resolved it into a local and the inserts that
+ * needed it are in the test bodies.
+ */
+let activeSchoolYearId: number;
+
 let SCHOOL_ID:   number;
 let RUBRIC_ID:   number;
 let CAT_ID:      number;
@@ -115,7 +128,8 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
 
     /* Rubric set — created directly in DB so we can test categories/domains */
     const [activeYear] = await db.select({ id: schoolYears.id }).from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
-    const activeSchoolYearId = activeYear!.id;
+    assert.ok(activeYear, "Need an active school year");
+    activeSchoolYearId = activeYear.id;
 
     const [rubric] = await db.insert(rubricSets).values({
       slug:         "TST-RUBRIC-VAL",
@@ -149,7 +163,7 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     /* An observation + score row that references DOMAIN_ID's slug.
        This is the row that should block the slug rename in test 12. */
     const [obs] = await db.insert(observations).values({
-      schoolYearId:                1,
+      schoolYearId:                activeSchoolYearId,
       rubricSetId:        RUBRIC_ID,
       schoolId:           SCHOOL_ID,
       observedEmployeeId: null,

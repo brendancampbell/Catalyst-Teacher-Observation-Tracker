@@ -32,6 +32,7 @@ import {
   schools,
   rubricSets,
   actionSteps,
+  schoolYears,
 } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
@@ -78,6 +79,17 @@ async function loginAs(employeeId: string): Promise<Jar> {
 
 /* ── Test state ─────────────────────────────────────────────────── */
 
+/*
+ * The active school year, resolved once rather than hardcoded.
+ *
+ * These fixtures pinned the year to a literal id, which is only ever right
+ * by accident.
+ * It survived because none of these tests read a year-scoped route — but the
+ * rows they insert are invisible to anything that does, and after a rollover
+ * the literal points at a year that has finished.
+ */
+let activeSchoolYearId: number;
+
 let adminJar: Jar;
 let leaderJar: Jar;
 let createdObsId: number;
@@ -107,6 +119,14 @@ let directPostObsId: number;           /* observation created via direct POST   
 
 describe("Action Steps — end-to-end flow", () => {
   before(async () => {
+    const [activeYearRow] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+    assert.ok(activeYearRow, "Need an active school year");
+    activeSchoolYearId = activeYearRow.id;
+
     /* Resolve an existing school and rubric set to attach test data to */
     const [firstSchool] = await db
       .select({ id: schools.id })
@@ -367,7 +387,7 @@ describe("Action Steps — end-to-end flow", () => {
     /* Seed a fresh open action step directly in the DB.
        (Mirrors how test 4 backdates via DB — fastest and cleanest.)  */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP8: Step that should be marked mastered via observation submit",
@@ -454,7 +474,7 @@ describe("Action Steps — end-to-end flow", () => {
 
     /* Seed an open action step for the same teacher */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP10: Step to be mastered when draft is published",
@@ -509,7 +529,7 @@ describe("Action Steps — end-to-end flow", () => {
   test("9 — POST /observations without masterActionStepId leaves step status unchanged", async () => {
     /* Seed another open action step */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:                1,
+      schoolYearId:                activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP9: Step that should remain open (no markMastered)",
@@ -588,7 +608,7 @@ describe("Action Steps — end-to-end flow", () => {
 
     /* Seed an open action step */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:         1,
+      schoolYearId:         activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP11: Step mastered by someone else before publish",
@@ -660,7 +680,7 @@ describe("Action Steps — end-to-end flow", () => {
   test("12 — POST /observations direct-publish with already-mastered step returns masteryWarning", async () => {
     /* Seed an open action step, then immediately mark it mastered */
     const [seededStep] = await db.insert(actionSteps).values({
-      schoolYearId:         1,
+      schoolYearId:         activeSchoolYearId,
       teacherEmployeeId:    TEACHER_EID,
       assignedByEmployeeId: ADMIN_EID,
       text:                 "E2E CP12: Step mastered before direct POST publishes",

@@ -24,12 +24,23 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
-import { observations, people, schools, rubricSets } from "@workspace/db/schema";
+import { observations, people, schools, rubricSets, schoolYears } from "@workspace/db/schema";
 import { eq, inArray, asc } from "drizzle-orm";
 
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 /* Resolved dynamically in before() */
+/*
+ * The active school year, resolved once rather than hardcoded.
+ *
+ * These fixtures pinned the year to a literal id, which is only ever right
+ * by accident.
+ * It survived because none of these tests read a year-scoped route — but the
+ * rows they insert are invisible to anything that does, and after a rollover
+ * the literal points at a year that has finished.
+ */
+let activeSchoolYearId: number;
+
 let SCHOOL_A_ID: number;
 let SCHOOL_B_ID: number;
 let RUBRIC_SET_ID: number;
@@ -84,6 +95,14 @@ const createdObsIds: number[] = [];
 
 describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () => {
   before(async () => {
+    const [activeYearRow] = await db
+      .select({ id: schoolYears.id })
+      .from(schoolYears)
+      .where(eq(schoolYears.status, "active"))
+      .limit(1);
+    assert.ok(activeYearRow, "Need an active school year");
+    activeSchoolYearId = activeYearRow.id;
+
     /* Resolve two distinct school IDs and a rubric set ID from the live DB */
     const twoSchools = await db
       .select({ id: schools.id })
@@ -130,7 +149,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [obsOther] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -148,7 +167,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [obsOwn] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -168,7 +187,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [draftOther] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_B_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
@@ -285,7 +304,7 @@ describe("SCHOOL_LEADER cross-school auth — SCHOOL-target observations", () =>
     const [reinserted] = await db
       .insert(observations)
       .values({
-        schoolYearId:                1,
+        schoolYearId:                activeSchoolYearId,
         schoolId:           SCHOOL_A_ID,
         observedEmployeeId: null,
         rubricSetId:        RUBRIC_SET_ID,
