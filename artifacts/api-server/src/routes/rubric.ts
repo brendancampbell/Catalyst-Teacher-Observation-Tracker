@@ -752,14 +752,32 @@ router.put("/domains/:id", requireNetworkAdmin, async (req, res) => {
       if (!current) { res.status(404).json({ error: "Domain not found" }); return; }
 
       if (parsed.data.slug !== current.slug) {
+        /*
+         * Scoped to THIS rubric set, the same way the delete guard below is.
+         *
+         * observation_scores stores the slug as plain text, so this used to
+         * count every row using it anywhere — across all rubric sets and all
+         * school years. Slugs are only unique within a set, and copying a
+         * rubric reproduces them by design, so renaming a domain on a brand
+         * new copy was refused because the ORIGINAL had been scored. The copy
+         * itself had no scores at all.
+         *
+         * Joining through to the observation is what makes the count mean
+         * "scores that would be orphaned by this rename" rather than "scores
+         * that happen to share a word".
+         */
         const [{ affectedScores }] = await db
           .select({ affectedScores: count() })
           .from(observationScores)
-          .where(eq(observationScores.domainSlug, current.slug));
+          .innerJoin(observations, eq(observations.id, observationScores.observationId))
+          .where(and(
+            eq(observationScores.domainSlug, current.slug),
+            eq(observations.rubricSetId, current.rubricSetId),
+          ));
 
         if (affectedScores > 0) {
           res.status(409).json({
-            error: `Cannot rename slug '${current.slug}' — ${affectedScores} observation score row${affectedScores === 1 ? "" : "s"} reference it. Migrate those rows before renaming.`,
+            error: `Cannot rename slug '${current.slug}' — ${affectedScores} observation score row${affectedScores === 1 ? "" : "s"} in this rubric set reference it. Migrate those rows before renaming.`,
           });
           return;
         }

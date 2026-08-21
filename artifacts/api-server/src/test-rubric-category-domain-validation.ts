@@ -386,6 +386,51 @@ describe("Rubric category/domain mutation validation + slug-rename guard", () =>
     assert.ok(body.error?.includes("observation score"), `Error should mention observation score rows, got: ${body.error}`);
   });
 
+  test("12b — a rename is NOT blocked by scores in a DIFFERENT rubric set", async () => {
+    /*
+     * Copying a rubric reproduces its domain slugs by design — slugs are only
+     * unique within a set. This guard used to count every score row using the
+     * slug anywhere, so renaming a domain on a brand new copy was refused
+     * because the ORIGINAL had been scored, even though the copy had no
+     * scores of its own. The delete guard twenty lines below always scoped
+     * correctly; this one did not.
+     */
+    const jar = await loginAs(ADMIN_EID);
+
+    /* A second rubric set in the same year, with a domain reusing the slug
+       that DOMAIN_ID's scores belong to. */
+    const [copySet] = await db.insert(rubricSets).values({
+      slug:         `TSTCOPY${Date.now() % 100000}`,
+      name:         "Copy Of Test Rubric",
+      schoolYearId: activeSchoolYearId,
+      isArchived:   false,
+      displayOrder: 9997,
+    }).returning();
+    const [copyCat] = await db.insert(rubricCategories).values({
+      rubricSetId: copySet!.id, name: "Copied Category", displayOrder: 0,
+    }).returning();
+    const [copyDomain] = await db.insert(rubricDomains).values({
+      rubricSetId:  copySet!.id,
+      categoryId:   copyCat!.id,
+      schoolYearId: activeSchoolYearId,
+      name:         "Copied Domain",
+      /* Same slug as the scored original — the whole point. */
+      slug:         "tst-domain-val",
+      displayOrder: 0,
+    }).returning();
+
+    try {
+      const res = await request("PUT", `/rubric/domains/${copyDomain!.id}`, { slug: "tst-domain-copy-renamed" }, jar);
+      assert.equal(
+        res.status, 200,
+        `Renaming a slug on a copy must not be blocked by the original's scores. ` +
+        `Got ${res.status}: ${JSON.stringify(res.body)}`,
+      );
+    } finally {
+      await db.delete(rubricSets).where(eq(rubricSets.id, copySet!.id)).catch(() => {});
+    }
+  });
+
   test("13 — PUT /domains/:id slug rename when no scores reference it → 200", async () => {
     const jar = await loginAs(ADMIN_EID);
     /* First POST a fresh domain with no scores attached */
