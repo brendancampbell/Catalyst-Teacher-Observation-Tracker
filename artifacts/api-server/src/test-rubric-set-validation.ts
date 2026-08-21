@@ -162,7 +162,9 @@ describe("Rubric-set mutation validation (POST /sets, PATCH /sets/:slug, POST /:
 
   test("5 — POST /sets with valid payload → 201", async () => {
     /*
-     * The route enforces a global cap of MAX_ACTIVE_SETS non-archived sets.
+     * The route caps non-archived sets at MAX_ACTIVE_SETS per school year.
+     * This counts across all years, so it frees at least as many slots as
+     * needed and sometimes more — safe, since everything is restored below.
      * Everything — selecting, archiving, logging in, POSTing, and cleanup — is
      * wrapped in a single try/finally so that any failure at any step still
      * triggers restoration of temporarily archived sets.
