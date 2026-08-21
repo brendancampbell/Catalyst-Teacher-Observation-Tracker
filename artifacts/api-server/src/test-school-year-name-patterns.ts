@@ -118,10 +118,13 @@ describe("the pattern list stays in step with the suite", () => {
       for (const m of src.matchAll(INSERT)) {
         const literal = m[1]!.slice(1, -1);
 
-        /* Resolve the one interpolation the suite uses. Anything else is a
-           name whose shape cannot be checked here, which is itself a problem
-           worth failing on rather than skipping quietly. */
-        const resolved = literal.replaceAll("${Date.now()}", TS);
+        /* Resolve the interpolations the suite uses for a timestamp: either
+           Date.now() inline, or a STAMP constant set to it once at the top of
+           a file. Anything else is a name whose shape cannot be checked here,
+           which is worth failing on rather than skipping quietly. */
+        const resolved = literal
+          .replaceAll("${Date.now()}", TS)
+          .replaceAll("${STAMP}", TS);
         if (resolved.includes("${")) {
           unrecognised.push(`${file}: ${literal} (unresolvable interpolation)`);
           continue;

@@ -107,9 +107,31 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
       return;
     }
 
-    const [{ activeCount }] = await db.select({ activeCount: count() }).from(rubricSets).where(eq(rubricSets.isArchived, false));
+    /*
+     * The cap is PER SCHOOL YEAR, matching what GET /sets lists.
+     *
+     * It used to count every non-archived set in every year, while the list
+     * only ever showed the active year. So a rubric copied forward into next
+     * year — invisible on this screen — silently consumed the allowance, and
+     * creation started failing at what looked like five of six. Two rules
+     * disagreeing about the same number, with the user only able to see one
+     * of them.
+     *
+     * Counting within the target year is also what the limit is for: it caps
+     * how many rubrics a school is scored against at once, which is a fact
+     * about a year, not about all history.
+     */
+    const [{ activeCount }] = await db
+      .select({ activeCount: count() })
+      .from(rubricSets)
+      .where(and(
+        eq(rubricSets.isArchived, false),
+        eq(rubricSets.schoolYearId, resolvedSchoolYearId),
+      ));
     if (activeCount >= MAX_ACTIVE_SETS) {
-      res.status(400).json({ error: `Maximum of ${MAX_ACTIVE_SETS} active rubric sets reached. Archive a set before creating a new one.` });
+      res.status(400).json({
+        error: `Maximum of ${MAX_ACTIVE_SETS} active rubric sets reached for this school year. Archive one before creating another.`,
+      });
       return;
     }
 

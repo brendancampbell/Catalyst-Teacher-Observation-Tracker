@@ -54,6 +54,11 @@ export const TEST_YEAR_PATTERNS: TestYearPattern[] = [
     source: "test-ai-insights-rubric-year-scoping.ts",
   },
   {
+    regex:  new RegExp(`^TST Cap (?:Full|Empty) ${TS}$`),
+    label:  "TST Cap Full/Empty <timestamp>",
+    source: "test-rubric-set-cap-per-year.ts",
+  },
+  {
     regex:  new RegExp(`^TST Slug Cross-Year ${TS}$`),
     label:  "TST Slug Cross-Year <timestamp>",
     source: "test-rubric-category-domain-validation.ts",

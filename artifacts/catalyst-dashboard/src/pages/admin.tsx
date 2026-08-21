@@ -68,6 +68,7 @@ import {
 } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
 import { GRADE_LEVELS } from "@/data/dummy";
+import { toast } from "@/hooks/use-toast";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -3458,6 +3459,19 @@ export default function AdminPage() {
       setNewQTarget("TEACHER");
       setNewQSubjectAudience("ALL");
       setCopyFromSlug("");
+    },
+    onError: (err: unknown) => {
+      /*
+       * This had no error handler at all. The server was returning a perfectly
+       * clear refusal — "Maximum of 6 active rubric sets reached" — and the
+       * screen threw it away, so clicking Create did nothing, silently, with
+       * no way to find out why short of opening browser dev tools.
+       */
+      toast({
+        title:       "Could not create rubric set",
+        description: err instanceof Error ? err.message : "Something went wrong. Please try again.",
+        variant:     "destructive",
+      });
     },
   });
 
