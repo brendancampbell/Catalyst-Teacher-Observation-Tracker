@@ -640,6 +640,11 @@ export async function masterActionStep(id: number): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/action-steps/${id}/master`, { method: "PATCH" });
 }
 
+/** Put a mastered step back to open. Mastery used to be one-way. */
+export async function unmasterActionStep(id: number): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/action-steps/${id}/unmaster`, { method: "PATCH" });
+}
+
 export async function fetchOverdueActionSteps(schoolId?: number | null): Promise<OverdueActionStep[]> {
   const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
   return apiFetch<OverdueActionStep[]>(`/action-steps/overdue${qs}`);

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
-import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { rubricSetsForTeacher } from "@/lib/subject-audience";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
@@ -143,9 +143,10 @@ interface ActionStepsDrawerProps {
   canEdit: boolean;
   masteringId: number | null;
   handleMasterStep: (id: number) => void;
+  handleUnmasterStep: (id: number) => void;
 }
 
-function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, handleMasterStep }: ActionStepsDrawerProps) {
+function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, handleMasterStep, handleUnmasterStep }: ActionStepsDrawerProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
   const openSteps = actionSteps.filter((s) => s.status === "open");
   const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
@@ -267,6 +268,20 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                       )}
                       {step.masteredByName && <span>Marked as Mastered By: <span className="font-semibold text-green-700">{step.masteredByName}</span></span>}
                     </div>
+                    {/* Mastery used to be one-way: marking it was a click, and
+                        editing a mastered step is refused, so a misclick could
+                        not be undone from the interface at all. */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        disabled={masteringId === step.id}
+                        onClick={() => handleUnmasterStep(step.id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: "#F1F5F9", color: "#475569" }}
+                      >
+                        <RotateCcw size={13} /> Undo mastered
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -444,6 +459,37 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
     } catch {
       toast({ title: "Could not mark step as mastered", variant: "destructive" });
+    } finally {
+      setMasteringId(null);
+    }
+  }
+
+  /*
+   * Undo a mastery.
+   *
+   * A quiet revert, not a recorded event: this exists to fix a misclick, so
+   * the step goes back to exactly how it was. That includes its original due
+   * date, which may put it straight back on the overdue list — correct, since
+   * undoing a mastery means the work was never finished.
+   */
+  async function handleUnmasterStep(stepId: number) {
+    setMasteringId(stepId);
+    try {
+      await unmasterActionStep(stepId);
+      queryClient.setQueryData(
+        [...QUERY_KEYS.actionSteps, teacher.employeeId],
+        (prev: ActionStep[] | undefined) =>
+          (prev ?? []).map((s) =>
+            s.id === stepId
+              ? { ...s, status: "open" as const, masteredAt: undefined, masteredByName: undefined }
+              : s,
+          ),
+      );
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
+      /* It may be overdue again, so the Action Center has to re-read. */
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+    } catch {
+      toast({ title: "Could not undo mastery", variant: "destructive" });
     } finally {
       setMasteringId(null);
     }
@@ -878,6 +924,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
         canEdit={canEdit}
         masteringId={masteringId}
         handleMasterStep={handleMasterStep}
+        handleUnmasterStep={handleUnmasterStep}
       />
 
       {/* ── Observation detail modal ──────────────────────── */}

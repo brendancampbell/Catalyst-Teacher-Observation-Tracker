@@ -363,6 +363,69 @@ router.patch("/:id/master", requireAuth, async (req, res) => {
   }
 });
 
+/* ── PATCH /api/action-steps/:id/unmaster ────────────────────────────
+   Reverse a mastery, putting the step back to open.
+
+   Mastery used to be one-way: marking it was a click, and editing a mastered
+   step is refused by business rule, so a misclick could not be undone from the
+   interface at all.
+
+   Deliberately a quiet revert rather than a recorded event. This exists to fix
+   a mistake, so the step goes back to exactly how it was — including its
+   original due date, which may well put it straight back on the overdue list.
+   That is correct: undoing a mastery means the work was never finished.
+
+   Same permissions as marking it, which is the symmetry that makes it usable:
+   whoever can say "done" can say "not done after all".                     */
+router.patch("/:id/unmaster", requireAuth, async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const stepId = Number(req.params.id);
+    if (!Number.isFinite(stepId)) {
+      res.status(400).json({ error: "Invalid action step id" }); return;
+    }
+
+    const step = await db.query.actionSteps.findFirst({ where: eq(actionSteps.id, stepId) });
+    if (!step) { res.status(404).json({ error: "Action step not found" }); return; }
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+    /* A step from a previous year is not editable at all — same rule as
+       marking, and the reason mastery cannot be reversed across a rollover. */
+    if (step.schoolYearId !== activeYearId) {
+      res.status(404).json({ error: "Action step not found" }); return;
+    }
+
+    const access = assertStepAccess(currentUser.role, currentUser.schoolId, step.snapshotSchoolId);
+    if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+
+    if (step.status !== "mastered") {
+      res.status(400).json({ error: "Action step is not mastered" }); return;
+    }
+
+    const [updated] = await db.update(actionSteps)
+      .set({
+        status:                      "open",
+        masteredAt:                  null,
+        masteredByEmployeeId:        null,
+        /* Cleared too, or the step would still claim it was mastered during
+           an observation that no longer says so. The observation itself is
+           left alone — it happened, and its record stands. */
+        masteredDuringObservationId: null,
+        updatedAt:                   new Date(),
+      })
+      .where(eq(actionSteps.id, stepId))
+      .returning();
+
+    res.json({ ok: true, actionStep: updated });
+  } catch (err) {
+    console.error("PATCH /action-steps/:id/unmaster error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /* ── PATCH /api/action-steps/:id ─────────────────────────────────── */
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
