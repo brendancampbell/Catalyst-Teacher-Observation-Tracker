@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>13</b> open &middot; <b>4</b> deferred</span>
+      <span><b>11</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -433,73 +433,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">19</td>
-            <td>
-              <div class="task">
-                <h3>Show only applicable rubrics on a teacher&rsquo;s profile</h3>
-                <p class="lineage">The mechanism already exists &mdash; it is just not applied here.</p>
-                <p class="why">
-                  A STEM teacher should not see a Humanities rubric on their profile. Ranked above
-                  the other product items because it is wrong data on screen, not a missing feature.
-                </p>
-                <details>
-                  <summary>Where the filtering already works, and where it does not</summary>
-                  <div class="detail">
-                    <p>
-                      <code>teacherMatchesAudience()</code> buckets a teacher into
-                      <code>STEM</code> / <code>HUMANITIES</code> / <code>ALL</code> from their
-                      department, and rubric sets carry a matching <code>subjectAudience</code>.
-                    </p>
-                    <p>
-                      It is applied in <code>Dashboard.tsx</code> and
-                      <code>NewObservationModal.tsx</code>. <code>TeacherProfile.tsx</code> does not
-                      use it &mdash; it passes <code>activeQuarterId</code> straight through as the
-                      rubric set, unfiltered.
-                    </p>
-                    <p>
-                      One open question before building: a teacher with no department, or one that
-                      classifies as <code>ALL</code> (Art, PE, Music), currently sees everything.
-                      Decide whether that stays.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
-            <td class="idcell">16</td>
-            <td>
-              <div class="task">
-                <h3>Repeating an action step should extend it, not create a new one</h3>
-                <p class="lineage">Details to be fleshed out. Related to #15.</p>
-                <p class="why">
-                  Re-issuing the same step to a teacher currently creates a second row, which splits
-                  the history of one piece of coaching across two records.
-                </p>
-                <details>
-                  <summary>What to work out first</summary>
-                  <div class="detail">
-                    <p>
-                      <code>PUT /observations/:id</code> already has an upsert guard that updates an
-                      open step in place rather than duplicating it, so part of the machinery exists.
-                      The question is what &ldquo;repeat&rdquo; should mean: extend the due date on
-                      the existing step, or close it and open a linked successor that keeps the
-                      lineage visible.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">4</td>
             <td class="idcell">15</td>
             <td>
               <div class="task">
@@ -530,7 +463,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">3</td>
             <td class="idcell">20</td>
             <td>
               <div class="task">
@@ -574,7 +507,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">4</td>
             <td class="idcell">14</td>
             <td>
               <div class="task">
@@ -607,7 +540,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">5</td>
             <td class="idcell">6</td>
             <td>
               <div class="task">
@@ -642,7 +575,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">6</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -669,7 +602,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">7</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -695,7 +628,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">10</td>
+            <td class="p">8</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -709,7 +642,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">11</td>
+            <td class="p">9</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -726,7 +659,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">12</td>
+            <td class="p">10</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -740,7 +673,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">13</td>
+            <td class="p">11</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -887,6 +820,102 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">16</td>
+            <td>
+              <div class="task">
+                <h3>Repeating an action step extends it instead of duplicating it</h3>
+                <p class="lineage"><code>4e80b5c</code> &mdash; migration 0011 &middot; 6/6 integration, 13 unit</p>
+                <p class="why">
+                  &ldquo;Repeat last action step&rdquo; copied the text and due date into the new
+                  action step box, so saving created a <strong>second</strong> open step saying the
+                  same thing. A teacher working on one thing for a term collected a list of
+                  identical steps.
+                </p>
+                <details>
+                  <summary>What it does now, and the guard that was easy to miss</summary>
+                  <div class="detail">
+                    <p>
+                      It extends the existing step: same step, same wording, new date. The old
+                      button also prefilled the <em>old</em> due date &mdash; by definition in the
+                      past when you are repeating &mdash; so it showed a validation error every
+                      single time. The date field now starts empty.
+                    </p>
+                    <p>
+                      <strong>Extensions are recorded, not just applied.</strong> Moving the date
+                      alone would quietly erase that a step has been extended three times and was
+                      originally due in October, which is the signal a teacher is stuck. Each push
+                      keeps both dates, who did it, an optional note, and the observation it
+                      happened during. The profile shows &ldquo;Extended 2&times; &middot;
+                      originally due 3 Oct&rdquo;; the Action Center flags extended steps in the
+                      overdue list, because overdue <em>after</em> two extensions is a different
+                      situation from overdue once.
+                    </p>
+                    <p>
+                      <strong>Extend or assign, never both.</strong> Two different answers to
+                      &ldquo;what next for this teacher&rdquo;. The new step box is hidden while
+                      extending and its contents cleared, and the server refuses a payload carrying
+                      both, so no other route can do it either.
+                    </p>
+                    <p>
+                      <strong>The guard that was easy to miss:</strong> draft autosave calls the
+                      server on every keystroke. Without a check, each save would add another
+                      extension row and push the date again &mdash; the same duplication this
+                      feature removes, one level down. An extension from the same observation is
+                      edited in place, and the original due date is kept rather than tracking the
+                      last autosave.
+                    </p>
+                    <p>
+                      Also refused: extending a mastered step (that would reopen finished work) and
+                      extending a step belonging to a different teacher.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">21 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">19</td>
+            <td>
+              <div class="task">
+                <h3>Teacher profiles only show rubrics that apply</h3>
+                <p class="lineage"><code>0a70f53</code> &mdash; 8 unit tests</p>
+                <p class="why">
+                  An elementary Classroom Culture teacher's profile listed four rubrics: two
+                  school-wide ones and a 5&#8209;12 STEM rubric. None applied to her.
+                </p>
+                <details>
+                  <summary>Mostly a one-word fix, plus the filter that was missing</summary>
+                  <div class="detail">
+                    <p>
+                      The dashboard had already worked this out &mdash; it drops school-wide rubrics
+                      and ones for the wrong grade span, and its own selector used the filtered
+                      list. The teacher profile was handed the unfiltered one.
+                    </p>
+                    <p>
+                      The genuinely missing piece was subject: a STEM rubric should only appear on a
+                      STEM teacher's profile. That filter lives with the teacher, because
+                      school-wide and grade span are facts about the SCHOOL &mdash; settled once for
+                      everybody &mdash; while subject is a fact about the TEACHER.
+                    </p>
+                    <p>
+                      Art, PE, Music, and teachers with no department set match only rubrics marked
+                      for all subjects, matching how the dashboard's teacher list already behaves.
+                      The cost was accepted knowingly and there is a test saying so: a department
+                      missing by mistake looks identical to Art, and a rubric quietly stops
+                      appearing.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">21 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">21</td>
