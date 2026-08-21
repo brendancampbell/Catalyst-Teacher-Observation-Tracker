@@ -510,37 +510,45 @@
 
           <tr>
             <td class="p">4</td>
-            <td class="idcell">6</td>
+            <td class="idcell">24</td>
             <td>
               <div class="task">
-                <h3>Fix five test fixtures hardcoding <code>schoolYearId: 1</code></h3>
-                <p class="lineage">Was &ldquo;Bundle 3&rdquo;, first half. Agreed 17 Aug, not started.</p>
+                <h3>Confirm before deactivating a user</h3>
+                <p class="lineage">New, 21 Aug.</p>
                 <p class="why">
-                  They pass only because they never reach year-scoped routes. Latent, not currently
-                  failing &mdash; which is why it sits below the product work.
+                  Deactivating someone on the Users tab is a single click with no confirmation, and
+                  it takes effect immediately &mdash; they lose access on their very next request. A
+                  misclick locks a principal out of Catalyst with nothing to say it happened.
                 </p>
                 <details>
-                  <summary>The files and their counts</summary>
+                  <summary>Why this bites harder than an ordinary misclick</summary>
                   <div class="detail">
-                    <ul>
-                      <li><code>test-action-steps-e2e</code> &mdash; 5 occurrences</li>
-                      <li><code>test-observations-cross-school-auth</code> &mdash; 4</li>
-                      <li><code>test-observation-score-validation</code> &mdash; 3</li>
-                      <li><code>test-master-action-step-draft</code> &mdash; 2</li>
-                      <li><code>test-rubric-category-domain-validation</code> &mdash; 1</li>
-                    </ul>
                     <p>
-                      The literal is column-aligned, so a naive
-                      <code>grep "schoolYearId: 1"</code> misses it. Several already resolve the
-                      active year correctly a few lines earlier, which makes most of the fix
-                      mechanical.
+                      <code>admin.tsx</code> wires the toggle straight to the mutation, with no
+                      dialog, no undo, and no record of who did it.
+                    </p>
+                    <p>
+                      The effect is instant rather than at next sign-in.
+                      <code>deserializeUser</code> re-checks <code>is_active</code> on every request
+                      specifically so a revoked account loses access straight away rather than at
+                      cookie expiry &mdash; right for offboarding, unforgiving for a slip.
+                    </p>
+                    <p>
+                      <strong>Do:</strong> a confirmation naming the person, saying plainly that they
+                      lose access immediately. Reactivating is already one click, so the dialog is
+                      the whole fix &mdash; no new endpoint needed.
+                    </p>
+                    <p>
+                      Worth settling at the same time: whether deactivations should be recorded, the
+                      way sign-ins now are, so &ldquo;why does this person have no access&rdquo; has
+                      an answer. Bigger than the dialog, and separable.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
-            <td class="cat">Test health</td>
-            <td><span class="chip u-low">Low</span></td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-med">Medium</span></td>
           </tr>
 
           <tr>
@@ -789,6 +797,46 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">6</td>
+            <td>
+              <div class="task">
+                <h3>Test fixtures no longer pin the school year to a literal</h3>
+                <p class="lineage"><code>0c0b704</code> &mdash; 15 inserts across 5 files</p>
+                <p class="why">
+                  Fifteen fixtures wrote rows with a hardcoded school year id of 1, which is only
+                  ever right by accident. It survived because none of those tests read a year-scoped
+                  route &mdash; but their rows were invisible to anything that did, and after a
+                  rollover the literal points at a year that has finished.
+                </p>
+                <details>
+                  <summary>The guard matters more than the fix</summary>
+                  <div class="detail">
+                    <p>
+                      Each file now resolves the active year once. Two already did, into a local,
+                      while the inserts needing it were in the test bodies &mdash; so those became
+                      module-level.
+                    </p>
+                    <p>
+                      The fix was mechanical; keeping it fixed is not. The next fixture someone
+                      writes will reach for a literal too, and the failure will surface somewhere
+                      else entirely, months later. So a test reads the suite as text and fails on any
+                      hardcoded school year id, naming file and line. Verified it fails when given
+                      one &mdash; and that it does not trip over its own explanation, which the first
+                      version did.
+                    </p>
+                    <p>
+                      Column alignment is why a plain search missed most of these; the guard matches
+                      any spacing.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-done">21 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">15</td>
