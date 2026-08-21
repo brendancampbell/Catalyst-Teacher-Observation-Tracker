@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
+import { rubricSetsForTeacher } from "@/lib/subject-audience";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
@@ -430,6 +431,37 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   /* ── Rubric switching ─────────────────────────────────────────── */
   const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
 
+  /*
+   * Rubrics this teacher can actually be scored on.
+   *
+   * Two filters, applied in two places, because they answer different
+   * questions. The caller has already removed school-wide rubrics and ones for
+   * the wrong grade span — both properties of the SCHOOL, so the dashboard
+   * settles them once. What is left is per-teacher: a STEM rubric belongs only
+   * on a STEM teacher's profile.
+   *
+   * Teachers with no subject, or one that is neither STEM nor Humanities (Art,
+   * PE, Music), match only rubrics marked for all subjects. That is how the
+   * dashboard's teacher list already behaves, so the two agree.
+   */
+  const applicableRubricSets = useMemo(
+    () => rubricSetsForTeacher(rubricSets, teacher.subject),
+    [rubricSets, teacher.subject],
+  );
+
+  /*
+   * Should not happen by the normal route: you reach a profile from a
+   * dashboard already filtered to a rubric, and that dashboard only lists
+   * teachers the rubric applies to. It can still happen from a direct link, so
+   * fall back to the first rubric that does apply rather than showing scores
+   * from one that does not.
+   */
+  useEffect(() => {
+    if (applicableRubricSets.length === 0) return;
+    if (applicableRubricSets.some((rs) => rs.slug === selectedRubricSlug)) return;
+    setSelectedRubricSlug(applicableRubricSets[0]!.slug);
+  }, [applicableRubricSets, selectedRubricSlug]);
+
   const isInitialRubric = selectedRubricSlug === initialRubricSet;
 
   const { data: altData, isFetching: altFetching } = useQuery({
@@ -578,9 +610,14 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                 </div>
 
                 {/* ── Rubric selector ─── */}
-                {rubricSets.length > 1 && (
+                {applicableRubricSets.length === 0 && (
+                  <p className="mt-3" style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
+                    No rubric applies to this teacher &mdash; check their department and grade level.
+                  </p>
+                )}
+                {applicableRubricSets.length > 1 && (
                   <div className="flex flex-wrap gap-2 mt-3">
-                    {rubricSets.map((rs) => {
+                    {applicableRubricSets.map((rs) => {
                       const isActive = rs.slug === selectedRubricSlug;
                       return (
                         <button

@@ -628,7 +628,11 @@ export default function Dashboard() {
         teacher={profileTeacher}
         onBack={() => setTeacherProfileId(null)}
         onNewObs={() => setNewObsOpen(true)}
-        rubricSets={rubricSets}
+        /* compatibleRubricSets, not rubricSets: school-wide rubrics and ones
+           for the wrong grade span are already filtered out of it. Passing the
+           raw list is why "Launch: Schoolwide Culture", "Launch: DOS" and a
+           5-12 rubric all appeared on an elementary teacher's profile. */
+        rubricSets={compatibleRubricSets}
         initialRubricSet={activeRubricSet}
         initialCategories={categories}
         schoolId={effectiveSchoolId}
