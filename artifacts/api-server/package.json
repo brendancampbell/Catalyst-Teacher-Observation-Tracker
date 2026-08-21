@@ -68,6 +68,7 @@
     "test:pending-migrations": "tsx --test src/test-pending-migrations.ts"
   },
   "dependencies": {
+    "@workspace/api-types": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-anthropic-ai": "workspace:*",

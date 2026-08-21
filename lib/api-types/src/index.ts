@@ -1,3 +1,18 @@
+/**
+ * Maximum non-archived rubric sets allowed IN ONE SCHOOL YEAR.
+ *
+ * Shared, because it has been duplicated twice and disagreed with itself both
+ * times. The server counted across all years while the screen listed only the
+ * active one, so creation failed at what looked like five of six. Then the
+ * server limit was raised to 15 and the admin page kept its own hardcoded 6,
+ * so the button stayed disabled.
+ *
+ * One number, imported by everything that enforces or displays it.
+ *
+ * Archived sets do not count, so archiving one always frees a slot.
+ */
+export const MAX_ACTIVE_RUBRIC_SETS = 15;
+
 /* ── Primitive types ────────────────────────────────────────────── */
 
 export type Score = 0 | 0.5 | 1;

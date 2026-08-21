@@ -69,6 +69,7 @@ import {
 import { useUser } from "@/context/UserContext";
 import { GRADE_LEVELS } from "@/data/dummy";
 import { toast } from "@/hooks/use-toast";
+import { MAX_ACTIVE_RUBRIC_SETS } from "@workspace/api-types";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -3414,7 +3415,11 @@ export default function AdminPage() {
 
   const activeSets   = rubricSets.filter((q) => !q.isArchived);
   const archivedSets = rubricSets.filter((q) => q.isArchived);
-  const atLimit      = activeSets.length >= 6;
+  /* The limit comes from @workspace/api-types, the same value the API
+     enforces. It used to be a hardcoded 6 here: when the server limit was
+     raised to 15 this stayed put, so the button remained disabled and the
+     dialog could not even be opened. */
+  const atLimit      = activeSets.length >= MAX_ACTIVE_RUBRIC_SETS;
 
   const [selectedRubricSetSlug, setSelectedRubricSetSlug] = useState<string>("Q1");
   const [showArchivedSets, setShowArchivedSets]           = useState(false);
@@ -3463,7 +3468,7 @@ export default function AdminPage() {
     onError: (err: unknown) => {
       /*
        * This had no error handler at all. The server was returning a perfectly
-       * clear refusal — "Maximum of 6 active rubric sets reached" — and the
+       * clear refusal — "Maximum active rubric sets reached" — and the
        * screen threw it away, so clicking Create did nothing, silently, with
        * no way to find out why short of opening browser dev tools.
        */
@@ -3732,7 +3737,7 @@ export default function AdminPage() {
             <div className="mt-auto p-3 border-t border-slate-100">
               {atLimit && !rubricSetsLoading && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded mb-2 text-center">
-                  6/6 max — archive a set to add more
+                  {activeSets.length}/{MAX_ACTIVE_RUBRIC_SETS} max — archive a set to add more
                 </p>
               )}
               <button
