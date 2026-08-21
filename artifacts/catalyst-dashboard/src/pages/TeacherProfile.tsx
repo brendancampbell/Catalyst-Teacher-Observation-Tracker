@@ -118,6 +118,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
     _draftId?:            string,
     newActionStep?:       { text: string; dueDate: string },
     masterActionStepId?:  number,
+    extendActionStep?:    { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     setSaving(true);
     try {
@@ -135,6 +136,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         isWalkthrough,
         newActionStep,
         masterActionStepId,
+        extendActionStep,
       });
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });

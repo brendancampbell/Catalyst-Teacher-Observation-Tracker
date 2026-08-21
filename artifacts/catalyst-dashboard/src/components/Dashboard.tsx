@@ -506,6 +506,7 @@ export default function Dashboard() {
     draftId?: string,
     newActionStep?: { text: string; dueDate: string },
     masterActionStepId?: number,
+    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     if (!rubricSetId) return "";
     setSaving(true);
@@ -520,6 +521,7 @@ export default function Dashboard() {
           status:             "published",
           newActionStep,
           masterActionStepId,
+          extendActionStep,
         });
       } else {
         obs = await createObservation({
@@ -537,6 +539,7 @@ export default function Dashboard() {
           status:             "published",
           newActionStep,
           masterActionStepId,
+          extendActionStep,
         });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });

@@ -221,6 +221,7 @@ export default function DraftsPage() {
     _draftId?:    string,
     newActionStep?: { text: string; dueDate: string },
     masterActionStepId?: number,
+    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     if (!newObsData) return "";
     setNewObsSaving(true);
@@ -240,6 +241,7 @@ export default function DraftsPage() {
         status: "published",
         newActionStep,
         masterActionStepId,
+        extendActionStep,
       });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Observation submitted!" });
@@ -282,6 +284,7 @@ export default function DraftsPage() {
     draftId?:     string,
     newActionStep?: { text: string; dueDate: string },
     masterActionStepId?: number,
+    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     if (!resumeData) return "";
     setResumeSaving(true);
@@ -295,6 +298,7 @@ export default function DraftsPage() {
           status: "published",
           newActionStep,
           masterActionStepId,
+          extendActionStep,
         });
         if (obs.masteryWarning) {
           toast({
@@ -319,6 +323,7 @@ export default function DraftsPage() {
           status: "published",
           newActionStep,
           masterActionStepId,
+          extendActionStep,
         });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });

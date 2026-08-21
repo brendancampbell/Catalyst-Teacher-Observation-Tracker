@@ -62,6 +62,8 @@ interface Props {
     draftId?: string,
     newActionStep?: { text: string; dueDate: string },
     masterActionStepId?: number,
+    /* Mutually exclusive with newActionStep — see the extend flow below. */
+    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ) => Promise<string>;
   saving?: boolean;
 }
@@ -138,6 +140,17 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const [markMastered, setMarkMastered] = useState(false);
   const [newActionStepText, setNewActionStepText] = useState("");
   const [newActionStepDueDate, setNewActionStepDueDate] = useState("");
+
+  /*
+   * Extending the existing step, rather than assigning a new one.
+   *
+   * These are two different answers to "what next for this teacher", so the
+   * form shows one or the other, never both. Non-null means we are extending:
+   * the new action step box is hidden and its contents cleared.
+   */
+  const [extendingStepId, setExtendingStepId] = useState<number | null>(null);
+  const [extendDueDate, setExtendDueDate]     = useState("");
+  const [extendNote, setExtendNote]           = useState("");
   const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
 
   /* Keep draftIdRef in sync so setTimeout callbacks always see latest value */
@@ -229,6 +242,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       setMarkMastered(false);
       setNewActionStepText("");
       setNewActionStepDueDate("");
+      setExtendingStepId(null);
+      setExtendDueDate("");
+      setExtendNote("");
       setActionStepDueDateError(null);
       if (resumeDraftId) {
         loadDraftById(resumeDraftId);
@@ -257,6 +273,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setMarkMastered(false);
     setNewActionStepText("");
     setNewActionStepDueDate("");
+    setExtendingStepId(null);
+    setExtendDueDate("");
+    setExtendNote("");
     setActionStepDueDateError(null);
     if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
     fetchActionStep(teacherId);
@@ -383,6 +402,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setMarkMastered(false);
     setNewActionStepText("");
     setNewActionStepDueDate("");
+    setExtendingStepId(null);
+    setExtendDueDate("");
+    setExtendNote("");
     setActionStepDueDateError(null);
   }
 
@@ -790,8 +812,27 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
     setActionStepDueDateError(null);
 
+    /* ── Extension validation ── */
+    if (extendingStepId !== null) {
+      if (!extendDueDate) {
+        setActionStepDueDateError("Pick a new due date for the action step you are extending.");
+        isSubmittingRef.current = false;
+        return;
+      }
+      if (extendDueDate < todayIso) {
+        setActionStepDueDateError("New due date must be today or in the future.");
+        isSubmittingRef.current = false;
+        return;
+      }
+    }
+
     const newActionStepPayload = hasNewStep && newActionStepText.trim() && newActionStepDueDate
       ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
+      : undefined;
+    /* Never both: the new action step box is hidden while extending, and the
+       server rejects a payload carrying both. */
+    const extendActionStepPayload = extendingStepId !== null && extendDueDate
+      ? { actionStepId: extendingStepId, newDueDate: extendDueDate, note: extendNote.trim() || undefined }
       : undefined;
     const masterActionStepIdPayload = markMastered && latestActionStep?.status === "open"
       ? latestActionStep.id
@@ -802,6 +843,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       draftId ?? undefined,
       newActionStepPayload,
       masterActionStepIdPayload,
+      extendActionStepPayload,
     );
     setSavedObsId(obsId ?? null);
     if (emailFeedback) {
@@ -1285,25 +1327,97 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     <button
                       type="button"
                       onClick={() => {
-                        setNewActionStepText(latestActionStep.text);
-                        setNewActionStepDueDate(latestActionStep.dueDate);
-                        setActionStepDueDateError(
-                          latestActionStep.dueDate < todayIso
-                            ? "Due date must be today or in the future. Please update it."
-                            : null
-                        );
+                        /*
+                         * This used to copy the text and due date into the new
+                         * action step box, so saving created a SECOND open step
+                         * saying the same thing. It now extends the existing
+                         * one, which is what "repeat" always meant.
+                         *
+                         * The date starts empty rather than prefilled with the
+                         * old one: the reason to extend is that the old date
+                         * has passed, so prefilling it produced an immediate
+                         * validation error every time.
+                         */
+                        setExtendingStepId(latestActionStep.id);
+                        setExtendDueDate("");
+                        setExtendNote("");
+                        setNewActionStepText("");
+                        setNewActionStepDueDate("");
+                        setActionStepDueDateError(null);
                       }}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors"
+                      disabled={markMastered || extendingStepId !== null}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors disabled:opacity-40"
                       style={{ backgroundColor: "white", borderColor: "#dc2626", color: "#dc2626" }}
                     >
-                      <RefreshCw size={11} /> Repeat last action step
+                      <RefreshCw size={11} /> Extend this action step
                     </button>
                   </div>
                 )}
               </div>
             )}
 
+            {/* ── Extending the existing step ──────────────── */}
+            {extendingStepId !== null && latestActionStep && (
+              <div
+                className="rounded-lg px-4 py-3 space-y-3"
+                style={{ backgroundColor: "#FEF2F2", border: "1px solid #FCA5A5", borderLeft: "4px solid #DC2626" }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#B91C1C" }}>
+                    → Extending Action Step
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setExtendingStepId(null); setExtendDueDate(""); setExtendNote(""); }}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* The wording is fixed. Changing it would make this a different
+                    step, which is what "Assign New Action Step" is for. */}
+                <p className="text-sm text-slate-700 italic">&ldquo;{latestActionStep.text}&rdquo;</p>
+                <p className="text-xs text-slate-500">
+                  Currently due {latestActionStep.dueDate}. The teacher keeps this same step &mdash; only the date moves.
+                </p>
+
+                <div className="flex gap-3 items-start">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">New Due Date</label>
+                    <input
+                      type="date"
+                      aria-label="New Due Date"
+                      value={extendDueDate}
+                      min={todayIso}
+                      onChange={(e) => { setExtendDueDate(e.target.value); setActionStepDueDateError(null); }}
+                      className="border rounded px-2 py-1.5 text-sm"
+                      style={{ borderColor: "#FCA5A5" }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">
+                      Note <span className="font-normal text-slate-400">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      aria-label="Extension note"
+                      value={extendNote}
+                      maxLength={500}
+                      placeholder="e.g. teacher was out two weeks"
+                      onChange={(e) => setExtendNote(e.target.value)}
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                      style={{ borderColor: "#FCA5A5" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── New Action Step ──────────────────────────── */}
+            {/* Hidden while extending: an observation either extends the
+                existing step or assigns a new one, never both. */}
+            {extendingStepId === null && (
             <div
               className="rounded-lg px-4 py-3 space-y-3 bg-blue-50"
               style={{ border: "1px solid #93C5FD", borderLeft: "4px solid #3B82F6" }}
@@ -1314,7 +1428,10 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
               <div className="flex gap-3 items-start">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs font-semibold text-slate-500 mb-1">Action Step</label>
+                  {/* aria-label because the label above is not associated with
+                      this control — screen readers had nothing to announce. */}
                   <textarea
+                    aria-label="Action Step"
                     ref={(el) => {
                       if (el && el.value) {
                         el.style.height = "auto";
@@ -1354,6 +1471,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 </div>
               )}
             </div>
+            )}
 
             {/* Notes */}
             <div className="flex flex-col gap-3">

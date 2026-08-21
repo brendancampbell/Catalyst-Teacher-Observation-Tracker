@@ -234,6 +234,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                         <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                         <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
                         {step.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
+                        <ExtensionNote count={step.extensionCount} originalDueDate={step.originalDueDate} />
                       </div>
                     </div>
                   );
@@ -374,6 +375,26 @@ interface Props {
   initialRubricSet: string;
   initialCategories: CategoryEntry[];
   schoolId?: number | null;
+}
+
+/**
+ * "Extended 2× · originally due 3 Oct" — shown under an action step whose due
+ * date has been pushed back.
+ *
+ * Without it, extending would quietly erase the fact that a teacher has been
+ * working on the same thing since October: the row would just show the newest
+ * date, looking like a step assigned last week. Repeated extensions are the
+ * signal that somebody is stuck, which is the whole reason they are recorded.
+ */
+function ExtensionNote({ count, originalDueDate }: { count?: number; originalDueDate?: string }) {
+  if (!count || count < 1 || !originalDueDate) return null;
+  const [y, m, d] = originalDueDate.split("-").map(Number);
+  const original = new Date(y!, m! - 1, d!).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <span style={{ color: "#B45309" }}>
+      Extended {count}&times; &middot; originally due <span className="font-semibold">{original}</span>
+    </span>
+  );
 }
 
 export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {

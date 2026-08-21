@@ -1,11 +1,48 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { actionSteps, people, schools } from "@workspace/db/schema";
-import { eq, and, desc, lt, sql, asc } from "drizzle-orm";
+import { actionSteps, actionStepExtensions, people, schools } from "@workspace/db/schema";
+import { eq, and, desc, lt, sql, asc, inArray } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 
 const router = Router();
+
+/**
+ * Extension history for a set of action steps, in one query.
+ *
+ * Returns how many times each step's due date has been pushed back and what it
+ * was originally due. Both matter to a coach: three extensions on one step is
+ * the signal that a teacher is stuck, and it is invisible if you only ever see
+ * the current date.
+ *
+ * originalDueDate comes from the OLDEST extension's previous_due_date, so it
+ * is the date the step was first assigned with, not the date before the most
+ * recent push.
+ */
+async function loadExtensionSummary(
+  stepIds: number[],
+): Promise<Map<number, { count: number; originalDueDate: string }>> {
+  const out = new Map<number, { count: number; originalDueDate: string }>();
+  if (stepIds.length === 0) return out;
+
+  const rows = await db
+    .select({
+      actionStepId:    actionStepExtensions.actionStepId,
+      previousDueDate: actionStepExtensions.previousDueDate,
+    })
+    .from(actionStepExtensions)
+    .where(inArray(actionStepExtensions.actionStepId, stepIds))
+    .orderBy(asc(actionStepExtensions.createdAt), asc(actionStepExtensions.id));
+
+  for (const row of rows) {
+    const seen = out.get(row.actionStepId);
+    /* Ordered oldest first, so the first one seen carries the original date. */
+    if (seen) seen.count += 1;
+    else out.set(row.actionStepId, { count: 1, originalDueDate: row.previousDueDate });
+  }
+  return out;
+}
+
 
 /* ── Helper: assert caller may access an action step by its frozen school ──
    Accepts the step's already-fetched snapshotSchoolId (set at creation time)
@@ -93,7 +130,11 @@ router.get("/", requireAuth, async (req, res) => {
       }
     }
 
+    const extensions = await loadExtensionSummary(rows.map((r) => r.id));
+
     res.json(rows.map((r) => ({
+      extensionCount:              extensions.get(r.id)?.count ?? 0,
+      originalDueDate:             extensions.get(r.id)?.originalDueDate ?? r.dueDate,
       id:                          r.id,
       teacherEmployeeId:           r.teacherEmployeeId,
       assignedByEmployeeId:        r.assignedByEmployeeId ?? undefined,
@@ -250,9 +291,17 @@ router.get("/overdue", requireAuth, async (req, res) => {
       }
     }
 
+    const overdueExtensions = await loadExtensionSummary(rows.map((r) => r.id));
+
     res.json(rows.map((r) => {
       const daysOverdue = Math.floor((Date.now() - new Date(r.dueDate).getTime()) / 86_400_000);
+      const ext = overdueExtensions.get(r.id);
       return {
+        /* A step overdue AFTER being extended twice is a different situation
+           from one overdue for the first time, and the Action Center is where
+           that difference is worth seeing. */
+        extensionCount:   ext?.count ?? 0,
+        originalDueDate:  ext?.originalDueDate ?? r.dueDate,
         id:               r.id,
         teacherEmployeeId: r.teacherEmployeeId,
         teacherName:      `${r.teacherFirst} ${r.teacherLast}`.trim(),

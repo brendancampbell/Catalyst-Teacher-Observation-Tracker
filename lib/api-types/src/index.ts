@@ -296,6 +296,9 @@ export interface CreateObservationPayload {
   status?:             "draft" | "published";
   newActionStep?:      { text: string; dueDate: string };
   masterActionStepId?: number;
+  /* Push an existing open step's due date back instead of assigning a new
+     one. The two are mutually exclusive — the server rejects both together. */
+  extendActionStep?:   { actionStepId: number; newDueDate: string; note?: string };
 }
 
 export interface UpdateObservationPayload {
@@ -308,6 +311,9 @@ export interface UpdateObservationPayload {
   isWalkthrough?:      boolean;
   newActionStep?:      { text: string; dueDate: string };
   masterActionStepId?: number;
+  /* Push an existing open step's due date back instead of assigning a new
+     one. The two are mutually exclusive — the server rejects both together. */
+  extendActionStep?:   { actionStepId: number; newDueDate: string; note?: string };
 }
 
 export interface DraftObservation {
@@ -346,6 +352,10 @@ export interface ActionStep {
   masteredByName?:             string;
   masteredDuringObservationId?: string;
   createdAt:                   string;
+  /* How many times the due date has been pushed back, and what it was
+     originally due. 0 and the current date for a step never extended. */
+  extensionCount?:             number;
+  originalDueDate?:            string;
 }
 
 export interface OverdueActionStep {
@@ -358,6 +368,10 @@ export interface OverdueActionStep {
   daysOverdue:          number;
   assignedByEmployeeId?: string;
   assignerName?:        string;
+  /* Overdue after two extensions is a different situation from overdue for
+     the first time. */
+  extensionCount?:      number;
+  originalDueDate?:     string;
 }
 
 /* ── Action Center ───────────────────────────────────────────────── */

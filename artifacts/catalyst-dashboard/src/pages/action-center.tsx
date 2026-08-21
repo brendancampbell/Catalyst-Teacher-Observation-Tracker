@@ -848,6 +848,7 @@ export default function ActionCenterPage() {
     _draftId?:           string,
     newActionStep?:      { text: string; dueDate: string },
     masterActionStepId?: number,
+    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     setSaving(true);
     try {
@@ -865,6 +866,7 @@ export default function ActionCenterPage() {
         isWalkthrough,
         newActionStep,
         masterActionStepId,
+        extendActionStep,
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rescoreQueue });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueObservations });
@@ -1818,6 +1820,18 @@ export default function ActionCenterPage() {
                                   <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
                                     {item.daysOverdue}d overdue
                                   </span>
+                                  {/* Overdue AFTER being extended twice is a
+                                      different situation from overdue for the
+                                      first time — that teacher is stuck. */}
+                                  {(item.extensionCount ?? 0) > 0 && (
+                                    <span
+                                      className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs ml-1.5"
+                                      style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}
+                                      title={item.originalDueDate ? `Originally due ${item.originalDueDate}` : undefined}
+                                    >
+                                      extended {item.extensionCount}&times;
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 text-slate-600">{item.assignerName ?? "—"}</td>
                               </tr>

@@ -3,6 +3,7 @@ export * from "./people";
 export * from "./rubric";
 export * from "./observations";
 export * from "./action-steps";
+export * from "./action-step-extensions";
 export * from "./chat";
 export * from "./qualitative-themes";
 export * from "./school-years";

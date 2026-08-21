@@ -1,20 +1,26 @@
 // @vitest-environment jsdom
 /**
- * NewObservationModal — "Repeat last action step" due-date validation
+ * NewObservationModal — extending an action step instead of duplicating it
  *
- * Covers the patched onClick handler (lines 1326–1333 of NewObservationModal.tsx):
+ * This file used to assert the opposite behaviour: that clicking "Repeat last
+ * action step" copied the old due date into the new action step box and
+ * immediately showed a stale-date error. That was the bug. Repeating created a
+ * SECOND open step saying the same thing, and prefilling a date that had
+ * already passed meant the error fired every single time.
  *
- *   1. Clicking "Repeat last action step" when the carried-over due date is in
- *      the past immediately shows a due-date error — before any submit attempt.
- *   2. Clicking "Repeat last action step" with a future due date shows no error
- *      (explicitly sets error to null, clearing any prior stale-date error).
- *   3. A prior stale-date error is cleared when the observer repeats the step
- *      after the due date has been updated to a future date (re-open cycle).
+ * Now the button extends the existing step. What matters:
+ *
+ *   1. It opens the extend panel with an EMPTY date and no error.
+ *   2. The new action step box disappears — an observation either extends the
+ *      existing step or assigns a new one, never both.
+ *   3. Cancelling brings the new action step box back.
+ *   4. Anything already typed into the new action step box is cleared, so a
+ *      half-written step cannot ride along with the extension.
  */
 
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 
 /* ── Radix Dialog: render inline so jsdom can find modal content ── */
 vi.mock("@radix-ui/react-dialog", () => ({
@@ -111,7 +117,6 @@ const ALL_DOMAINS = [{ id: "domain-1", label: "Planning" }];
 
 /* Dates that are unambiguously past / future relative to any test run */
 const PAST_DATE   = "2020-01-01";
-const FUTURE_DATE = "2099-12-31";
 
 const OPEN_STEP_PAST = {
   id:             99,
@@ -123,10 +128,6 @@ const OPEN_STEP_PAST = {
   masteredAt:     null,
 };
 
-const OPEN_STEP_FUTURE = {
-  ...OPEN_STEP_PAST,
-  dueDate: FUTURE_DATE,
-};
 
 const STALE_ERROR = "Due date must be today or in the future. Please update it.";
 
@@ -146,7 +147,7 @@ function makeProps(overrides: Record<string, unknown> = {}) {
 }
 
 /* ================================================================== */
-describe("NewObservationModal — 'Repeat last action step' due-date validation", () => {
+describe("NewObservationModal — extending an action step", () => {
   beforeEach(() => {
     mockCreateObservation.mockResolvedValue({ id: "draft-abc" });
     mockUpdateObservation.mockResolvedValue({ id: "draft-abc" });
@@ -157,60 +158,60 @@ describe("NewObservationModal — 'Repeat last action step' due-date validation"
     vi.clearAllMocks();
   });
 
-  /* ── Test 1 ─────────────────────────────────────────────────────── */
-  it("shows due-date error immediately when repeating a step with a past due date", async () => {
+  it("opens the extend panel with an empty date and no error", async () => {
+    /* The old due date is in the past — which is the normal case, since that
+       is why you are extending. It must not be prefilled, and it must not
+       produce an error before the observer has done anything. */
     mockFetchLatestActionStep.mockResolvedValue(OPEN_STEP_PAST);
 
     const { NewObservationModal } = await import("@/components/NewObservationModal");
     render(React.createElement(NewObservationModal, makeProps()));
 
-    /* Wait for fetchLatestActionStep to resolve so the Repeat button appears */
-    const repeatBtn = await screen.findByRole("button", { name: /repeat last action step/i });
-
-    /* No error before clicking */
+    const extendBtn = await screen.findByRole("button", { name: /extend this action step/i });
     expect(screen.queryByText(STALE_ERROR)).toBeNull();
 
-    /* Click — error must appear immediately, with no submit triggered */
-    fireEvent.click(repeatBtn);
+    fireEvent.click(extendBtn);
 
-    expect(screen.getByText(STALE_ERROR)).toBeDefined();
+    expect(screen.getByText(/extending action step/i)).toBeDefined();
+    expect(screen.queryByText(STALE_ERROR)).toBeNull();
+
+    const dueDate = screen.getByLabelText(/new due date/i) as HTMLInputElement;
+    expect(dueDate.value).toBe("");
   });
 
-  /* ── Test 2 ─────────────────────────────────────────────────────── */
-  it("shows no error (clears any prior error) when repeating a step with a future due date", async () => {
-    /* First render with a past step so the error state is exercised,
-       then re-open the modal with a future step to confirm the error
-       is set to null (cleared) when the onClick null-branch fires.    */
-
+  it("hides the new action step box while extending, and brings it back on cancel", async () => {
     mockFetchLatestActionStep.mockResolvedValue(OPEN_STEP_PAST);
 
     const { NewObservationModal } = await import("@/components/NewObservationModal");
-    const { rerender } = render(React.createElement(NewObservationModal, makeProps()));
+    render(React.createElement(NewObservationModal, makeProps()));
 
-    /* Establish a prior stale-date error */
-    const repeatBtnPast = await screen.findByRole("button", { name: /repeat last action step/i });
-    fireEvent.click(repeatBtnPast);
-    expect(screen.getByText(STALE_ERROR)).toBeDefined();
+    const extendBtn = await screen.findByRole("button", { name: /extend this action step/i });
+    expect(screen.getByText(/assign new action step/i)).toBeDefined();
 
-    /* Close the modal (resets all state) then reopen with the future step */
-    mockFetchLatestActionStep.mockResolvedValue(OPEN_STEP_FUTURE);
+    fireEvent.click(extendBtn);
+    expect(screen.queryByText(/assign new action step/i)).toBeNull();
 
-    await act(async () => {
-      rerender(React.createElement(NewObservationModal, makeProps({ open: false })));
-    });
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.getByText(/assign new action step/i)).toBeDefined();
+  });
 
-    await act(async () => {
-      rerender(React.createElement(NewObservationModal, makeProps({ open: true })));
-    });
+  it("clears anything already typed into the new action step box", async () => {
+    /* Otherwise a half-written new step could be submitted alongside the
+       extension, which the server rejects outright. */
+    mockFetchLatestActionStep.mockResolvedValue(OPEN_STEP_PAST);
 
-    /* Wait for the updated latestActionStep (future date) to load */
-    const repeatBtnFuture = await screen.findByRole("button", { name: /repeat last action step/i });
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+    render(React.createElement(NewObservationModal, makeProps()));
 
-    /* Click Repeat with the future-dated step — error must NOT appear */
-    fireEvent.click(repeatBtnFuture);
+    const extendBtn = await screen.findByRole("button", { name: /extend this action step/i });
+    const stepBox = screen.getByLabelText(/^action step$/i) as HTMLTextAreaElement;
+    fireEvent.change(stepBox, { target: { value: "Something else entirely" } });
+    expect(stepBox.value).toBe("Something else entirely");
 
-    await waitFor(() => {
-      expect(screen.queryByText(STALE_ERROR)).toBeNull();
-    });
+    fireEvent.click(extendBtn);
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    const stepBoxAgain = screen.getByLabelText(/^action step$/i) as HTMLTextAreaElement;
+    expect(stepBoxAgain.value).toBe("");
   });
 });

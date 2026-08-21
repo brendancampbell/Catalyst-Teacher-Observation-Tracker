@@ -8,11 +8,12 @@ import { networkAvgsCache } from "./action-center";
 import {
   observations, observationScores, people, rubricSets, schools,
   rubricCategories, rubricDomains, observationScoreValueSchema,
-  actionSteps, schoolYears,
+  actionSteps, actionStepExtensions, schoolYears,
 } from "@workspace/db/schema";
 import { eq, desc, and, ne, inArray } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { canAccessSchoolScopedRecord } from "../middleware/auth";
+import { validateExtensionRequest, checkStepIsExtendable, type ExtendActionStepInput } from "../lib/action-step-extension.js";
 
 const router = Router();
 
@@ -626,10 +627,31 @@ router.post("/", observationCreateLimiter, async (req, res) => {
     }
 
     /* ── Action step validation (TEACHER target only) ───────────── */
-    const { newActionStep, masterActionStepId } = req.body as {
+    const { newActionStep, masterActionStepId, extendActionStep } = req.body as {
       newActionStep?: { text: string; dueDate: string };
       masterActionStepId?: number;
+      extendActionStep?: ExtendActionStepInput;
     };
+
+    const extendCheck = validateExtensionRequest(
+      extendActionStep, newActionStep !== undefined, new Date().toISOString().split("T")[0]!,
+    );
+    if (!extendCheck.ok) {
+      res.status(400).json({ error: extendCheck.error });
+      return;
+    }
+
+    let stepToExtend: typeof actionSteps.$inferSelect | null = null;
+    if (extendActionStep) {
+      stepToExtend = await db.query.actionSteps.findFirst({
+        where: eq(actionSteps.id, Number(extendActionStep.actionStepId)),
+      }) ?? null;
+      const extendable = checkStepIsExtendable(stepToExtend, resolvedObservedId);
+      if (!extendable.ok) {
+        res.status(400).json({ error: extendable.error });
+        return;
+      }
+    }
 
     if (newActionStep !== undefined) {
       if (!newActionStep.text || !newActionStep.dueDate) {
@@ -713,6 +735,22 @@ router.post("/", observationCreateLimiter, async (req, res) => {
             masteredDuringObservationId: obs!.id,
           })
           .where(eq(actionSteps.id, masterStep.id));
+      }
+
+      if (stepToExtend && extendActionStep) {
+        /* Same transaction as the observation: an extension that outlived a
+           failed observation would be a date change nobody could explain. */
+        await tx.insert(actionStepExtensions).values({
+          actionStepId:                stepToExtend.id,
+          extendedByEmployeeId:        creator.employeeId,
+          extendedDuringObservationId: obs!.id,
+          previousDueDate:             stepToExtend.dueDate,
+          newDueDate:                  extendActionStep.newDueDate,
+          note:                        extendActionStep.note ?? null,
+        });
+        await tx.update(actionSteps)
+          .set({ dueDate: extendActionStep.newDueDate, updatedAt: new Date() })
+          .where(eq(actionSteps.id, stepToExtend.id));
       }
 
       if (newActionStep) {
@@ -799,13 +837,14 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { strengths, growthAreas, scores, status, newActionStep, masterActionStepId } = req.body as {
+    const { strengths, growthAreas, scores, status, newActionStep, masterActionStepId, extendActionStep } = req.body as {
       strengths?: string;
       growthAreas?: string;
       scores?: Record<string, number>;
       status?: string;
       newActionStep?: { text: string; dueDate: string };
       masterActionStepId?: number;
+      extendActionStep?: ExtendActionStepInput;
     };
 
     const existing = await db.query.observations.findFirst({
@@ -905,6 +944,39 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
 
     /* Look up any action step already created for this observation so we can
        upsert rather than insert a duplicate on repeated autosaves.           */
+    const extendCheckPut = validateExtensionRequest(
+      extendActionStep, newActionStep !== undefined, new Date().toISOString().split("T")[0]!,
+    );
+    if (!extendCheckPut.ok) {
+      res.status(400).json({ error: extendCheckPut.error });
+      return;
+    }
+
+    let stepToExtendPut: typeof actionSteps.$inferSelect | null = null;
+    let priorExtensionForObs: typeof actionStepExtensions.$inferSelect | null = null;
+    if (extendActionStep) {
+      stepToExtendPut = await db.query.actionSteps.findFirst({
+        where: eq(actionSteps.id, Number(extendActionStep.actionStepId)),
+      }) ?? null;
+      const extendablePut = checkStepIsExtendable(stepToExtendPut, existing.observedEmployeeId);
+      if (!extendablePut.ok) {
+        res.status(400).json({ error: extendablePut.error });
+        return;
+      }
+      /*
+       * Draft autosave calls PUT repeatedly. Without this, every keystroke
+       * would add another extension row and push the date again — the same
+       * duplication this feature exists to remove, one level down. An
+       * extension already made by THIS observation is edited in place.
+       */
+      priorExtensionForObs = await db.query.actionStepExtensions.findFirst({
+        where: and(
+          eq(actionStepExtensions.actionStepId, stepToExtendPut!.id),
+          eq(actionStepExtensions.extendedDuringObservationId, obsId),
+        ),
+      }) ?? null;
+    }
+
     let existingStepForObs: typeof actionSteps.$inferSelect | null = null;
     if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
       existingStepForObs = await db.query.actionSteps.findFirst({
@@ -977,6 +1049,32 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             masteredDuringObservationId: obsId,
           })
           .where(eq(actionSteps.id, masterStepForPut.id));
+      }
+
+      if (stepToExtendPut && extendActionStep) {
+        if (priorExtensionForObs) {
+          /* previousDueDate keeps its ORIGINAL value: it records what the date
+             was before this observation touched it, not before the last
+             autosave. */
+          await tx.update(actionStepExtensions)
+            .set({
+              newDueDate: extendActionStep.newDueDate,
+              note:       extendActionStep.note ?? null,
+            })
+            .where(eq(actionStepExtensions.id, priorExtensionForObs.id));
+        } else {
+          await tx.insert(actionStepExtensions).values({
+            actionStepId:                stepToExtendPut.id,
+            extendedByEmployeeId:        currentUser.employeeId,
+            extendedDuringObservationId: obsId,
+            previousDueDate:             stepToExtendPut.dueDate,
+            newDueDate:                  extendActionStep.newDueDate,
+            note:                        extendActionStep.note ?? null,
+          });
+        }
+        await tx.update(actionSteps)
+          .set({ dueDate: extendActionStep.newDueDate, updatedAt: new Date() })
+          .where(eq(actionSteps.id, stepToExtendPut.id));
       }
 
       if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
