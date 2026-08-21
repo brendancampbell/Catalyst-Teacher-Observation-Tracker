@@ -1310,8 +1310,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     <span>Mastered: <span className="font-semibold text-green-700">{new Date(latestActionStep.masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                   )}
                 </div>
-                {/* Two-button row — only for open steps */}
-                {latestActionStep.status === "open" && (
+                {/* Two-button row — only for open steps, and only while not
+                    extending. Extending means "not done yet", so offering
+                    "Mark as Mastered" beside it asks the observer to say two
+                    contradictory things about the same step. */}
+                {latestActionStep.status === "open" && extendingStepId === null && (
                   <div className="flex gap-2 mt-1">
                     <button
                       type="button"
@@ -1339,13 +1342,14 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                          * validation error every time.
                          */
                         setExtendingStepId(latestActionStep.id);
+                        setMarkMastered(false);
                         setExtendDueDate("");
                         setExtendNote("");
                         setNewActionStepText("");
                         setNewActionStepDueDate("");
                         setActionStepDueDateError(null);
                       }}
-                      disabled={markMastered || extendingStepId !== null}
+                      disabled={markMastered}
                       className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors disabled:opacity-40"
                       style={{ backgroundColor: "white", borderColor: "#dc2626", color: "#dc2626" }}
                     >
@@ -1353,64 +1357,55 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     </button>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* ── Extending the existing step ──────────────── */}
-            {extendingStepId !== null && latestActionStep && (
-              <div
-                className="rounded-lg px-4 py-3 space-y-3"
-                style={{ backgroundColor: "#FEF2F2", border: "1px solid #FCA5A5", borderLeft: "4px solid #DC2626" }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#B91C1C" }}>
-                    → Extending Action Step
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => { setExtendingStepId(null); setExtendDueDate(""); setExtendNote(""); }}
-                    className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline"
-                  >
-                    Cancel
-                  </button>
-                </div>
-
-                {/* The wording is fixed. Changing it would make this a different
-                    step, which is what "Assign New Action Step" is for. */}
-                <p className="text-sm text-slate-700 italic">&ldquo;{latestActionStep.text}&rdquo;</p>
-                <p className="text-xs text-slate-500">
-                  Currently due {latestActionStep.dueDate}. The teacher keeps this same step &mdash; only the date moves.
-                </p>
-
-                <div className="flex gap-3 items-start">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">New Due Date</label>
-                    <input
-                      type="date"
-                      aria-label="New Due Date"
-                      value={extendDueDate}
-                      min={todayIso}
-                      onChange={(e) => { setExtendDueDate(e.target.value); setActionStepDueDateError(null); }}
-                      className="border rounded px-2 py-1.5 text-sm"
-                      style={{ borderColor: "#FCA5A5" }}
-                    />
+                {/* Extending: the fields live inside this box, because they are
+                    about THIS step. A separate panel below read as a second,
+                    unrelated thing being assigned. */}
+                {extendingStepId !== null && (
+                  <div className="mt-2 pt-3 space-y-3" style={{ borderTop: "1.5px dashed #FED7AA" }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#C2410C" }}>
+                        Extending &mdash; same step, new deadline
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setExtendingStepId(null); setExtendDueDate(""); setExtendNote(""); setActionStepDueDateError(null); }}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 underline shrink-0"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div className="flex gap-3 items-start flex-wrap">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1">New Due Date</label>
+                        <input
+                          type="date"
+                          aria-label="New Due Date"
+                          value={extendDueDate}
+                          min={todayIso}
+                          onChange={(e) => { setExtendDueDate(e.target.value); setActionStepDueDateError(null); }}
+                          className="border rounded px-2 py-1.5 text-sm bg-white"
+                          style={{ borderColor: "#FED7AA" }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[12rem]">
+                        <label className="block text-xs font-semibold text-slate-500 mb-1">
+                          Note <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          aria-label="Extension note"
+                          value={extendNote}
+                          maxLength={500}
+                          placeholder="e.g. teacher was out two weeks"
+                          onChange={(e) => setExtendNote(e.target.value)}
+                          className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                          style={{ borderColor: "#FED7AA" }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">
-                      Note <span className="font-normal text-slate-400">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      aria-label="Extension note"
-                      value={extendNote}
-                      maxLength={500}
-                      placeholder="e.g. teacher was out two weeks"
-                      onChange={(e) => setExtendNote(e.target.value)}
-                      className="w-full border rounded px-2 py-1.5 text-sm"
-                      style={{ borderColor: "#FCA5A5" }}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             )}
 

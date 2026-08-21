@@ -15,7 +15,7 @@
  *   2. It records an extension, and the list endpoint reports the count and
  *      the original due date
  *   3. Draft autosave (repeated PUT) does not stack up one extension per save
- *   4. Extending and assigning in one observation is refused
+ *   4. Extending and assigning — or extending and mastering — is refused
  *   5. A mastered step cannot be extended
  *   6. Another teacher's step cannot be extended
  */
@@ -188,6 +188,18 @@ describe("Extending an action step", () => {
     }, adminJar);
     assert.equal(res.status, 400, `expected 400, got ${res.status}`);
     assert.match(String(res.body.error), /either extend .* or assign a new one/i);
+  });
+
+  test("4b — extending and marking mastered in the same observation is refused", async () => {
+    const [step] = await stepsFor(TEACHER_EID);
+    const res = await request("POST", "/observations", {
+      teacherId: TEACHER_EID, rubricSetId, date: "2026-07-23", scores: {},
+      strengths: "s", growthAreas: "g", isWalkthrough: false, status: "published",
+      masterActionStepId: step!.id,
+      extendActionStep:   { actionStepId: step!.id, newDueDate: FUTURE_B },
+    }, adminJar);
+    assert.equal(res.status, 400, `expected 400, got ${res.status}`);
+    assert.match(String(res.body.error), /extended and marked as mastered/i);
   });
 
   test("5 — a mastered step cannot be extended", async () => {

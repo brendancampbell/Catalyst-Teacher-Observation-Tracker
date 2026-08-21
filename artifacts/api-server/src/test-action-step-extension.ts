@@ -41,6 +41,18 @@ describe("validateExtensionRequest", () => {
     assert.match(v.ok === false ? v.error : "", /either extend .* or assign a new one/i);
   });
 
+  test("refuses to extend AND master in the same observation", () => {
+    /* Extending says "not done yet"; mastering says "done". Both about one
+       step is a contradiction, not a combination. */
+    const v = validateExtensionRequest(ok, false, TODAY, true);
+    assert.equal(v.ok, false);
+    assert.match(v.ok === false ? v.error : "", /extended and marked as mastered/i);
+  });
+
+  test("still allows extending when nothing is being mastered", () => {
+    assert.equal(validateExtensionRequest(ok, false, TODAY, false).ok, true);
+  });
+
   test("rejects a due date in the past", () => {
     /* Matters more here than for a new step: the reason to extend is that the
        old date has passed, so an interface prefilling the old date — which is

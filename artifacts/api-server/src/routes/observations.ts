@@ -635,6 +635,7 @@ router.post("/", observationCreateLimiter, async (req, res) => {
 
     const extendCheck = validateExtensionRequest(
       extendActionStep, newActionStep !== undefined, new Date().toISOString().split("T")[0]!,
+      masterActionStepId !== undefined,
     );
     if (!extendCheck.ok) {
       res.status(400).json({ error: extendCheck.error });
@@ -946,6 +947,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
        upsert rather than insert a duplicate on repeated autosaves.           */
     const extendCheckPut = validateExtensionRequest(
       extendActionStep, newActionStep !== undefined, new Date().toISOString().split("T")[0]!,
+      masterActionStepId !== undefined,
     );
     if (!extendCheckPut.ok) {
       res.status(400).json({ error: extendCheckPut.error });

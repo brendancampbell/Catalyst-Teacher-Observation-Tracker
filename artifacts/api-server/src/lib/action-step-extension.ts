@@ -36,6 +36,7 @@ export function validateExtensionRequest(
   extend: unknown,
   hasNewActionStep: boolean,
   today: string,
+  hasMasterActionStep = false,
 ): ExtensionCheck {
   if (extend === undefined || extend === null) return { ok: true };
 
@@ -49,6 +50,19 @@ export function validateExtensionRequest(
     return {
       ok: false,
       error: "An observation can either extend the existing action step or assign a new one, not both",
+    };
+  }
+
+  /*
+   * Extending says "not done yet". Mastering says "done". Both about the same
+   * step in one observation is a contradiction, not a combination — so the
+   * form hides the mastery button while extending, and this stops anything
+   * else from asserting both.
+   */
+  if (hasMasterActionStep) {
+    return {
+      ok: false,
+      error: "An action step cannot be extended and marked as mastered in the same observation",
     };
   }
 

@@ -172,11 +172,30 @@ describe("NewObservationModal — extending an action step", () => {
 
     fireEvent.click(extendBtn);
 
-    expect(screen.getByText(/extending action step/i)).toBeDefined();
+    expect(screen.getByText(/same step, new deadline/i)).toBeDefined();
     expect(screen.queryByText(STALE_ERROR)).toBeNull();
 
     const dueDate = screen.getByLabelText(/new due date/i) as HTMLInputElement;
     expect(dueDate.value).toBe("");
+  });
+
+  it("hides 'Mark as Mastered' while extending", async () => {
+    /* Extending means "not done yet". Offering "Mark as Mastered" beside it
+       asks the observer to say two contradictory things about one step. */
+    mockFetchLatestActionStep.mockResolvedValue(OPEN_STEP_PAST);
+
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+    render(React.createElement(NewObservationModal, makeProps()));
+
+    const extendBtn = await screen.findByRole("button", { name: /extend this action step/i });
+    expect(screen.getByRole("button", { name: /mark action step as mastered/i })).toBeDefined();
+
+    fireEvent.click(extendBtn);
+    expect(screen.queryByRole("button", { name: /mark action step as mastered/i })).toBeNull();
+
+    /* Cancelling brings it back. */
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.getByRole("button", { name: /mark action step as mastered/i })).toBeDefined();
   });
 
   it("hides the new action step box while extending, and brings it back on cancel", async () => {
