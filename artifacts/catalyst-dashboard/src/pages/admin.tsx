@@ -1188,6 +1188,20 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
   const [editSchoolId,    setEditSchoolId]    = useState<number | null>(null);
   const [editDept,        setEditDept]        = useState("");
   const [editGrades,      setEditGrades]      = useState<string[]>([]);
+  /*
+   * Stored grades the picker cannot show, because they are not real grades —
+   * "1112", "58", "24-Sep" and the like, written before anything validated
+   * them.
+   *
+   * They were invisible AND stuck: no button matched, so nothing appeared
+   * selected and there was nothing to click to remove it, while the value was
+   * still carried in state and sent back on save. Once the API started
+   * validating grades that made those people impossible to save at all.
+   *
+   * So they are held aside and shown as a warning instead. Saving writes only
+   * the real grades, which is what clears them.
+   */
+  const [editUnknownGrades, setEditUnknownGrades] = useState<string[]>([]);
   const [editObservable,  setEditObservable]  = useState(false);
 
   /* Reassign modal state */
@@ -1260,7 +1274,8 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
     setEditRole(p.role);
     setEditSchoolId(p.schoolId);
     setEditDept(p.department ?? "");
-    setEditGrades(p.gradeLevel);
+    setEditGrades(p.gradeLevel.filter((g) => (GRADE_LEVELS as readonly string[]).includes(g)));
+    setEditUnknownGrades(p.gradeLevel.filter((g) => !(GRADE_LEVELS as readonly string[]).includes(g)));
     setEditObservable(p.includeInFeedbackTracker);
     setAdding(false);
   }
@@ -1525,6 +1540,15 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
                             </button>
                           ))}
                         </div>
+                        {editUnknownGrades.length > 0 && (
+                          <p className="text-xs mt-2 px-2 py-1.5 rounded border"
+                             style={{ backgroundColor: "#FEF3C7", borderColor: "#FCD34D", color: "#92400E" }}>
+                            This person had {editUnknownGrades.map((g) => `"${g}"`).join(", ")} stored,
+                            which {editUnknownGrades.length === 1 ? "is not a grade" : "are not grades"} —
+                            a spreadsheet mangled it. Pick the correct grades above; saving will remove
+                            {editUnknownGrades.length === 1 ? " it" : " them"}.
+                          </p>
+                        )}
                       </div>
                       <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 select-none">
                         <input type="checkbox" checked={editObservable} onChange={(e) => setEditObservable(e.target.checked)} className="accent-blue-700 w-4 h-4" />
