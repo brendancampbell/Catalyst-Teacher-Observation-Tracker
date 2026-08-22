@@ -24,6 +24,13 @@
  * ── Running it ────────────────────────────────────────────────────────────
  *   pnpm --filter @workspace/db run cleanup:grade-levels
  *   pnpm --filter @workspace/db run cleanup:grade-levels -- --apply
+ *   pnpm --filter @workspace/db run cleanup:grade-levels -- --apply --drop-invalid
+ *
+ * --drop-invalid additionally removes values that cannot be read at all,
+ * keeping any valid grades beside them. Opt-in, and deliberately NOT part of
+ * the deploy: for most of the people it affects the unreadable value is
+ * everything they have, so removing it leaves them with no grades and destroys
+ * the only clue to what was meant.
  *
  * Dry run by default. Writes happen in one transaction that verifies its own
  * row count before committing.
@@ -42,6 +49,14 @@ interface Row { employee_id: string; first_name: string; last_name: string; grad
 
 async function run(): Promise<void> {
   const apply = process.argv.includes("--apply");
+  /*
+   * Strip values that cannot be read at all, keeping any valid grades beside
+   * them. Opt-in and NOT part of the deploy, because for most of the people it
+   * affects the unreadable value is everything they have — removing it leaves
+   * them with no grades, and destroys the only clue to what was meant. "1112"
+   * at least tells a person it was probably 11 and 12.
+   */
+  const dropInvalid = process.argv.includes("--drop-invalid");
   const client = await pool.connect();
 
   try {
@@ -83,35 +98,57 @@ async function run(): Promise<void> {
     console.log("");
 
     if (stuck.length > 0) {
-      console.log(`Left alone — not a grade, and not safely repairable (${stuck.length}):`);
+      const verb = dropInvalid ? "Unreadable — will be stripped" : "Left alone — cannot be read";
+      console.log(`${verb} (${stuck.length}):`);
+      let emptied = 0;
       for (const s of stuck) {
+        const kept = parseGradeLevelsDetailed(s.row.grade_level).grades;
+        if (kept.length === 0) emptied += 1;
+        const outcome = dropInvalid
+          ? `  →  ${kept.length > 0 ? JSON.stringify(kept) : "NO GRADES LEFT"}`
+          : "";
         console.log(`  ${name(s.row)} (${s.row.employee_id})  ${JSON.stringify(s.row.grade_level)}` +
-                    `  — cannot interpret ${s.bad.map((b) => JSON.stringify(b)).join(", ")}`);
+                    `  — cannot interpret ${s.bad.map((b) => JSON.stringify(b)).join(", ")}${outcome}`);
       }
-      console.log("  Fix these by hand in the Users tab; guessing would repeat the original mistake.\n");
+      if (dropInvalid) {
+        console.log(`\n  ${emptied} of these would be left with NO grades at all. The unreadable`);
+        console.log("  value is the only record of what was meant, so save this list before");
+        console.log("  applying — afterwards it is only recoverable from the source spreadsheet.\n");
+      } else {
+        console.log("  Fix these by hand in the Users tab, or re-run with --drop-invalid to");
+        console.log("  strip the unreadable values and keep any valid grades beside them.\n");
+      }
     }
+
+    /* Stripping is a second, opt-in kind of write, so it is built here rather
+       than folded into `fixable` — the report above must keep the two apart. */
+    const toStrip = dropInvalid
+      ? stuck.map((s) => ({ row: s.row, next: parseGradeLevelsDetailed(s.row.grade_level).grades }))
+      : [];
 
     if (!apply) {
       console.log("DRY RUN — nothing was changed. Re-run with --apply to write.");
       return;
     }
-    if (fixable.length === 0) return;
+    if (fixable.length === 0 && toStrip.length === 0) return;
 
     await client.query("BEGIN");
     try {
       let written = 0;
-      for (const f of fixable) {
+      for (const f of [...fixable, ...toStrip]) {
         const res = await client.query(
           `UPDATE people SET grade_level = $1, updated_at = now() WHERE employee_id = $2`,
-          [f.next, f.row.employee_id],
+          [f.next.length > 0 ? f.next : null, f.row.employee_id],
         );
         written += res.rowCount ?? 0;
       }
-      if (written !== fixable.length) {
-        throw new Error(`expected to update ${fixable.length} row(s), updated ${written} — rolling back`);
+      const expected = fixable.length + toStrip.length;
+      if (written !== expected) {
+        throw new Error(`expected to update ${expected} row(s), updated ${written} — rolling back`);
       }
       await client.query("COMMIT");
-      console.log(`Repaired ${written} person/people.`);
+      console.log(`Repaired ${fixable.length} person/people.` +
+        (toStrip.length > 0 ? ` Stripped unreadable values from ${toStrip.length}.` : ""));
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
