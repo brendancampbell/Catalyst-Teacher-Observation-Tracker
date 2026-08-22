@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>4</b> deferred</span>
+      <span><b>9</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -510,49 +510,6 @@
 
           <tr>
             <td class="p">4</td>
-            <td class="idcell">24</td>
-            <td>
-              <div class="task">
-                <h3>Confirm before deactivating a user</h3>
-                <p class="lineage">New, 21 Aug.</p>
-                <p class="why">
-                  Deactivating someone on the Users tab is a single click with no confirmation, and
-                  it takes effect immediately &mdash; they lose access on their very next request. A
-                  misclick locks a principal out of Catalyst with nothing to say it happened.
-                </p>
-                <details>
-                  <summary>Why this bites harder than an ordinary misclick</summary>
-                  <div class="detail">
-                    <p>
-                      <code>admin.tsx</code> wires the toggle straight to the mutation, with no
-                      dialog, no undo, and no record of who did it.
-                    </p>
-                    <p>
-                      The effect is instant rather than at next sign-in.
-                      <code>deserializeUser</code> re-checks <code>is_active</code> on every request
-                      specifically so a revoked account loses access straight away rather than at
-                      cookie expiry &mdash; right for offboarding, unforgiving for a slip.
-                    </p>
-                    <p>
-                      <strong>Do:</strong> a confirmation naming the person, saying plainly that they
-                      lose access immediately. Reactivating is already one click, so the dialog is
-                      the whole fix &mdash; no new endpoint needed.
-                    </p>
-                    <p>
-                      Worth settling at the same time: whether deactivations should be recorded, the
-                      way sign-ins now are, so &ldquo;why does this person have no access&rdquo; has
-                      an answer. Bigger than the dialog, and separable.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">5</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -579,7 +536,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -835,6 +792,45 @@
               </div>
             </td>
             <td class="cat">Test health</td>
+            <td><span class="chip u-done">21 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">24</td>
+            <td>
+              <div class="task">
+                <h3>Deactivating a user asks first</h3>
+                <p class="lineage"><code>945e37f</code></p>
+                <p class="why">
+                  It was a single click with no confirmation, and it takes effect on the person's
+                  very next request &mdash; not at their next sign-in. A misclick logged someone out
+                  mid-observation with nothing on screen to explain it.
+                </p>
+                <details>
+                  <summary>What the message says, and why</summary>
+                  <div class="detail">
+                    <p>
+                      <code>deserializeUser</code> re-checks <code>is_active</code> on every request,
+                      deliberately, so a revoked account loses access at once rather than at cookie
+                      expiry. Right for offboarding, unforgiving for a slip.
+                    </p>
+                    <p>
+                      The confirmation names the person and says access goes immediately. It also
+                      says what does <em>not</em> happen, because that is what someone hesitating
+                      over the button actually needs to know: observations and action steps are
+                      kept, and reactivating is the same button again.
+                    </p>
+                    <p>
+                      Only on the way out &mdash; reactivating is harmless and does not ask. Uses
+                      <code>window.confirm</code>, matching how the same page already guards
+                      deleting a rubric category or domain, rather than introducing a second style
+                      of dialog.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
             <td><span class="chip u-done">21 Aug</span></td>
           </tr>
 
