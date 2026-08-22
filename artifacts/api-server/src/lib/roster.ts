@@ -29,7 +29,7 @@ import { people, schools, assignments } from "@workspace/db/schema";
 import { eq, and, ne, isNull, sql } from "drizzle-orm";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import type { UserRole } from "../middleware/auth";
-import { parseGradeLevels } from "./grade-levels";
+import { parseGradeLevelsDetailed } from "./grade-levels";
 import { canonicalEmployeeId } from "./employee-id";
 
 const SCHOOL_ASSIGNABLE_ROLES: UserRole[] = ["COACH", "SCHOOL_LEADER"];
@@ -170,7 +170,24 @@ export function parseRosterRow(
         ? raw.includeInFeedbackTracker
         : false;
 
-  const gradeLevel = parseGradeLevels(raw.gradeLevel);
+  /*
+   * Grades were never validated: whatever the spreadsheet said went in
+   * verbatim, which is how a teacher of grades 10 and 11 ended up recorded as
+   * teaching "Oct 11" — Excel had rewritten the cell as a date.
+   *
+   * Unambiguous manglings are repaired (see repairExcelDate). Anything else
+   * fails the row rather than being stored as if it were a real grade.
+   */
+  const gradeParse = parseGradeLevelsDetailed(raw.gradeLevel);
+  if (gradeParse.invalid.length > 0) {
+    const list = gradeParse.invalid.map((g) => `"${g}"`).join(", ");
+    return err(
+      `Invalid grade level ${list}. Grades must be Pre-K, TK, K, or 1-12. ` +
+      "If a spreadsheet turned them into a date, format that column as Text and re-export.",
+      displayName, email,
+    );
+  }
+  const gradeLevel = gradeParse.grades;
 
   /* ── School resolution ── */
   let schoolId: number | null = null;

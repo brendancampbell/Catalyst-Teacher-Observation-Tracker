@@ -87,3 +87,117 @@ export function parseGradeLevels(raw: unknown): string[] {
 
   return out;
 }
+
+/**
+ * A grade this system recognises: Pre-K, TK, K, or 1 through 12.
+ *
+ * Nothing validated grades before. Whatever the spreadsheet said went into the
+ * database verbatim, which is how a teacher ended up assigned to a grade
+ * called "Oct 11".
+ */
+const VALID_GRADE = /^(?:PRE-?K|PK|TK|K|[1-9]|1[0-2])$/i;
+
+export function isValidGrade(token: string): boolean {
+  return VALID_GRADE.test(token.trim());
+}
+
+const MONTHS: Record<string, number> = {
+  JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+  JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
+};
+
+/**
+ * Undo Excel turning a pair of grades into a date.
+ *
+ * Typing "10, 11" or "10-11" into a cell Excel has decided is a date gets
+ * silently rewritten — the sheet then reads "Oct 11", and the export carries
+ * that through to us. Reported from production 2026-08-21, where a teacher of
+ * grades 10 and 11 was recorded as teaching "Oct 11".
+ *
+ * ── Why this is safe to undo automatically ──
+ * A grade is 1-12 and a month is 1-12, so when BOTH numbers fall in range the
+ * pair is the same set whichever way round it was read: "Oct 11" and "11 Oct"
+ * both mean {10, 11}, and so does "10/11/2026" under either date convention.
+ * There is no ambiguity left to guess at.
+ *
+ * When the day is outside 1-12 it cannot be a grade — "Oct 25" is a real date
+ * and not a mangled pair — so this returns null and the caller rejects the row
+ * rather than inventing something.
+ */
+export function repairExcelDate(token: string): string[] | null {
+  const raw = token.trim().toUpperCase();
+
+  const pair = (a: number, b: number): string[] | null => {
+    if (a < 1 || a > 12 || b < 1 || b > 12) return null;
+    if (a === b) return [String(a)];
+    return [a, b].sort((x, y) => x - y).map(String);
+  };
+
+  /* "OCT 11", "OCT-11", "OCTOBER 11" */
+  let m = /^([A-Z]{3,9})[\s.-]+(\d{1,2})$/.exec(raw);
+  if (m) {
+    const month = MONTHS[m[1]!.slice(0, 3)!];
+    return month ? pair(month, Number(m[2])) : null;
+  }
+
+  /* "11-OCT", "10 NOV" */
+  m = /^(\d{1,2})[\s.-]+([A-Z]{3,9})$/.exec(raw);
+  if (m) {
+    const month = MONTHS[m[2]!.slice(0, 3)!];
+    return month ? pair(Number(m[1]), month) : null;
+  }
+
+  /* "10/11/2026" — the numbers are interchangeable here, see above. */
+  m = /^(\d{1,2})\/(\d{1,2})\/\d{2,4}$/.exec(raw);
+  if (m) return pair(Number(m[1]), Number(m[2]));
+
+  /* "2026-10-11" */
+  m = /^\d{4}-(\d{1,2})-(\d{1,2})$/.exec(raw);
+  if (m) return pair(Number(m[1]), Number(m[2]));
+
+  return null;
+}
+
+export interface GradeParseResult {
+  /** Valid grades, de-duplicated, in first-seen order. */
+  grades:   string[];
+  /** Values Excel mangled into dates, and what they were turned back into. */
+  repaired: { from: string; to: string[] }[];
+  /** Values that are not grades and could not be repaired. */
+  invalid:  string[];
+}
+
+/**
+ * parseGradeLevels, plus what it had to fix and what it could not.
+ *
+ * The import uses this so an unrecognised grade fails the row with a message
+ * naming the value, instead of being written to the database as if it were a
+ * real grade.
+ */
+export function parseGradeLevelsDetailed(raw: unknown): GradeParseResult {
+  const repaired: { from: string; to: string[] }[] = [];
+  const invalid:  string[] = [];
+  const grades:   string[] = [];
+  const seen = new Set<string>();
+
+  const keep = (value: string): void => {
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) return;
+    seen.add(key);
+    grades.push(value);
+  };
+
+  for (const token of parseGradeLevels(raw)) {
+    if (isValidGrade(token)) { keep(token); continue; }
+
+    const fixed = repairExcelDate(token);
+    if (fixed) {
+      repaired.push({ from: token, to: fixed });
+      for (const g of fixed) keep(g);
+      continue;
+    }
+    invalid.push(token);
+  }
+
+  return { grades, repaired, invalid };
+}

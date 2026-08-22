@@ -18,6 +18,7 @@ import { dashboardCache } from "./dashboard";
 import { districtCache }  from "./district";
 import { networkAvgsCache } from "./action-center";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
+import { parseGradeLevelsDetailed } from "../lib/grade-levels.js";
 
 function invalidateAllCaches() {
   dashboardCache.invalidatePrefix("dashboard:");
@@ -46,6 +47,27 @@ const PEOPLE_SELECT = {
   needsRescore:             people.needsRescore,
   rescoreDueDate:           people.rescoreDueDate,
 } as const;
+
+
+/**
+ * Grades, checked against the list this system recognises.
+ *
+ * Nothing validated them before: POST and PATCH wrote whatever they were
+ * given straight into the database, so a teacher could be assigned to grade 13
+ * — or, from a spreadsheet Excel had rewritten as a date, to "Oct 11". The
+ * same rules the import uses apply here, so the two cannot disagree.
+ *
+ * Returns the cleaned list, or an error message naming what was wrong.
+ */
+function checkGradeLevels(raw: unknown): { grades: string[] } | { error: string } {
+  if (raw === undefined || raw === null) return { grades: [] };
+  const parsed = parseGradeLevelsDetailed(raw);
+  if (parsed.invalid.length > 0) {
+    const list = parsed.invalid.map((g) => `"${g}"`).join(", ");
+    return { error: `Invalid grade level ${list}. Grades must be Pre-K, TK, K, or 1-12.` };
+  }
+  return { grades: parsed.grades };
+}
 
 function withName<T extends { firstName: string; lastName: string; gradeLevel: string[] | null }>(row: T) {
   return { ...row, name: `${row.firstName} ${row.lastName}`.trim(), gradeLevel: row.gradeLevel ?? [] };
@@ -217,6 +239,9 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       res.status(400).json({ error: `Invalid role: ${role}` }); return;
     }
 
+    const gradeCheck = checkGradeLevels(gradeLevel);
+    if ("error" in gradeCheck) { res.status(400).json({ error: gradeCheck.error }); return; }
+
     if (!isNetworkScope) {
       if (!SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole)) {
         res.status(403).json({ error: "School Leaders can only create Coach or School Leader people" }); return;
@@ -278,7 +303,7 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
         schoolId:   assignedSchoolId,
         includeInFeedbackTracker: includeInFeedbackTracker ?? false,
         department:  department as typeof DEPARTMENT_VALUES[number] ?? null,
-        gradeLevel:  gradeLevel ?? null,
+        gradeLevel:  gradeCheck.grades.length > 0 ? gradeCheck.grades : null,
       }).returning();
 
       await tx.insert(assignments).values({
@@ -566,7 +591,11 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
     if (role      !== undefined) updates.role      = role;
     if (includeInFeedbackTracker !== undefined) updates.includeInFeedbackTracker = includeInFeedbackTracker;
     if (department !== undefined) updates.department = department;
-    if (gradeLevel !== undefined) updates.gradeLevel = gradeLevel;
+    if (gradeLevel !== undefined) {
+      const check = checkGradeLevels(gradeLevel);
+      if ("error" in check) { res.status(400).json({ error: check.error }); return; }
+      updates.gradeLevel = check.grades.length > 0 ? check.grades : null;
+    }
     if (isActive   !== undefined) updates.isActive   = isActive;
 
     if (Object.keys(updates).length === 0) {
