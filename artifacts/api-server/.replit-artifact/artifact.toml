@@ -47,7 +47,23 @@ run = "pnpm --filter @workspace/api-server run dev"
 #              the deploy here instead of shipping a schema quietly missing
 #              constraints. It reports nothing it cannot map with certainty:
 #              a gate that cries wolf gets deleted.
-build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts && pnpm --filter @workspace/db run migrate && pnpm --filter @workspace/db run check:schema-sync"]
+#
+#   grades     production had 158 people whose grade levels were never grades.
+#              Excel decides a cell like "2, 3, 4" is a date and rewrites it,
+#              and nothing validated grades on the way in, so the sheet's
+#              "2/3/04" was stored verbatim. The import refuses or repairs
+#              these now, but the rows already written needed fixing, and the
+#              production database is not reachable from a shell — the deploy
+#              is the only place its credentials exist.
+#
+#              Safe to leave here permanently: it repairs only what is
+#              unambiguous, and once a person's grades are valid it finds
+#              nothing to change and writes nothing. Anything it cannot read
+#              with certainty is printed in the build log and left alone.
+#
+#              It runs LAST, after the schema gate. If the schema is wrong,
+#              nothing should be touching data.
+build = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db exec tsx src/backfill-drizzle-migrations-table.ts && pnpm --filter @workspace/db run migrate && pnpm --filter @workspace/db run check:schema-sync && pnpm --filter @workspace/db run cleanup:grade-levels -- --apply"]
 run = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.env]
