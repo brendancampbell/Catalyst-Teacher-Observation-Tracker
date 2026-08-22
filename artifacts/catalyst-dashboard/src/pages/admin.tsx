@@ -1624,7 +1624,24 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
                           <Tip label={p.isActive ? "Deactivate" : "Reactivate"}>
                             <button
                               className={`p-1.5 rounded transition-colors ${p.isActive ? "text-slate-400 hover:text-red-500" : "text-slate-400 hover:text-green-600"}`}
-                              onClick={() => toggleMut.mutate(p.employeeId)}
+                              onClick={() => {
+                                /*
+                                 * Confirm on the way OUT only. Reactivating is
+                                 * harmless, but deactivating takes effect on
+                                 * the person's very next request rather than
+                                 * at their next sign-in — deserializeUser
+                                 * re-checks is_active every time, so a misclick
+                                 * logs someone out mid-observation with nothing
+                                 * on screen to explain it.
+                                 */
+                                if (p.isActive && !window.confirm(
+                                  `Deactivate ${p.name}?\n\n` +
+                                  "They lose access to Catalyst immediately — not at their next sign-in.\n\n" +
+                                  "Their observations and action steps are kept, and you can reactivate " +
+                                  "them from this same button at any time."
+                                )) return;
+                                toggleMut.mutate(p.employeeId);
+                              }}
                               disabled={toggleMut.isPending}
                             >
                               {p.isActive ? <UserX size={13} /> : <UserCheck size={13} />}
