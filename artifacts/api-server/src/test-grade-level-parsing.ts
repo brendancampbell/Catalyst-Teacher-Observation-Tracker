@@ -72,16 +72,17 @@ describe("parseGradeLevels", () => {
 });
 
 describe("isValidGrade", () => {
-  test("accepts the grades this system recognises", () => {
-    for (const g of ["Pre-K", "PreK", "PK", "TK", "K", "k", "1", "9", "12"]) {
+  test("accepts the grades this network runs", () => {
+    for (const g of ["K", "k", "1", "9", "12"]) {
       assert.equal(isValidGrade(g), true, g);
     }
   });
 
   test("rejects anything else", () => {
-    /* The point of the whole exercise: a teacher cannot be assigned to a
-       thirteenth grade, or to a month. */
-    for (const g of ["13", "0", "99", "Oct 11", "5.5", "Grade 4", ""]) {
+    /* The point of the whole exercise: nobody can be assigned a thirteenth
+       grade, or a month. Pre-K and TK are rejected too — this network does
+       not run them, confirmed 2026-08-21. */
+    for (const g of ["13", "0", "99", "Pre-K", "PK", "TK", "Oct 11", "5.5", "Grade 4", ""]) {
       assert.equal(isValidGrade(g), false, g);
     }
   });
@@ -97,25 +98,35 @@ describe("repairExcelDate", () => {
   });
 
   test("gives the same answer whichever way round the date was read", () => {
-    /* A grade is 1-12 and so is a month, so the pair is the same set either
-       way. That is what makes repairing this safe rather than a guess. */
+    /* A grade is 1-12 and so is a month, so the parts mean the same set in
+       either order. That is what makes repairing this safe rather than a
+       guess about locale. */
     assert.deepEqual(repairExcelDate("11-Oct"), ["10", "11"]);
     assert.deepEqual(repairExcelDate("10 Nov"), ["10", "11"]);
-    assert.deepEqual(repairExcelDate("10/11/2026"), ["10", "11"]);
-    assert.deepEqual(repairExcelDate("11/10/2026"), ["10", "11"]);
-    assert.deepEqual(repairExcelDate("2026-10-11"), ["10", "11"]);
+    assert.deepEqual(repairExcelDate("9/10/11"), repairExcelDate("11/10/9"));
+    assert.deepEqual(repairExcelDate("2/3/04"), repairExcelDate("4/3/02"));
+  });
+
+  test("keeps the year, which is also a grade", () => {
+    /* The bug in the first version: it read only month and day, so "2/3/04"
+       came back as grades 2 and 3 and silently dropped the 4. Found by
+       eyeballing 122 real production rows. */
+    assert.deepEqual(repairExcelDate("2/3/04"), ["2", "3", "4"]);
+    assert.deepEqual(repairExcelDate("1/2/03"), ["1", "2", "3"]);
+    assert.deepEqual(repairExcelDate("9/10/11"), ["9", "10", "11"]);
+    assert.deepEqual(repairExcelDate("5/7/08"), ["5", "7", "8"]);
   });
 
   test("collapses a pair that means one grade", () => {
     assert.deepEqual(repairExcelDate("Nov 11"), ["11"]);
   });
 
-  test("refuses when the day cannot be a grade", () => {
-    /* "Oct 25" is a real date, not a mangled pair of grades. Repairing it
-       would be inventing something. */
-    assert.equal(repairExcelDate("Oct 25"), null);
-    assert.equal(repairExcelDate("25-Dec"), null);
-    assert.equal(repairExcelDate("3/15/2026"), null);
+  test("refuses when ANY part cannot be a grade", () => {
+    /* Requiring every part to be a grade is what makes this safe rather than
+       a guess. All three are real production values. */
+    assert.equal(repairExcelDate("5/6/58"), null);      // 58 is not a grade
+    assert.equal(repairExcelDate("24-Sep"), null);      // 24 is not a grade
+    assert.equal(repairExcelDate("2026-10-11"), null);  // 2026 is not a grade
   });
 
   test("refuses anything that is not a date at all", () => {
@@ -138,6 +149,23 @@ describe("parseGradeLevelsDetailed", () => {
     assert.deepEqual(r.grades, ["10", "11"]);
     assert.deepEqual(r.repaired, [{ from: "Oct 11", to: ["10", "11"] }]);
     assert.deepEqual(r.invalid, []);
+  });
+
+  test("splits a hyphenated list rather than calling it invalid", () => {
+    /* The cleanup script had its own simplified parser that could not do this,
+       so thirty people were reported as unrepairable when the real parser
+       handles them fine. Both now use one implementation. */
+    assert.deepEqual(parseGradeLevelsDetailed("5-6-7-8").grades, ["5", "6", "7", "8"]);
+    assert.deepEqual(parseGradeLevelsDetailed("9-10-11-12").grades, ["9", "10", "11", "12"]);
+    assert.deepEqual(parseGradeLevelsDetailed("9-10-11-12").invalid, []);
+  });
+
+  test("leaves a run-together list alone", () => {
+    /* "1112" could be 11 and 12, and "58" could be 5 and 8 or 5 through 8.
+       Genuinely ambiguous, so these are reported for a person to fix. */
+    for (const v of ["1112", "1011", "910", "101112", "58"]) {
+      assert.deepEqual(parseGradeLevelsDetailed(v).invalid, [v], v);
+    }
   });
 
   test("reports what it cannot repair, and keeps the rest", () => {

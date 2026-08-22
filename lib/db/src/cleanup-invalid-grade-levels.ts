@@ -30,38 +30,13 @@
  */
 
 import { pool } from "./index.js";
-
-/** Pre-K, TK, K, or 1 through 12 — the same set the API enforces. */
-const VALID_GRADE = /^(?:PRE-?K|PK|TK|K|[1-9]|1[0-2])$/i;
-
-const MONTHS: Record<string, number> = {
-  JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
-  JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
-};
-
-/** Undo Excel turning a pair of grades into a date, or null if unsure. */
-function repairExcelDate(token: string): string[] | null {
-  const raw = token.trim().toUpperCase();
-  const pair = (a: number, b: number): string[] | null => {
-    if (a < 1 || a > 12 || b < 1 || b > 12) return null;
-    if (a === b) return [String(a)];
-    return [a, b].sort((x, y) => x - y).map(String);
-  };
-
-  let m = /^([A-Z]{3,9})[\s.-]+(\d{1,2})$/.exec(raw);
-  if (m) { const mo = MONTHS[m[1]!.slice(0, 3)]; return mo ? pair(mo, Number(m[2])) : null; }
-
-  m = /^(\d{1,2})[\s.-]+([A-Z]{3,9})$/.exec(raw);
-  if (m) { const mo = MONTHS[m[2]!.slice(0, 3)]; return mo ? pair(Number(m[1]), mo) : null; }
-
-  m = /^(\d{1,2})\/(\d{1,2})\/\d{2,4}$/.exec(raw);
-  if (m) return pair(Number(m[1]), Number(m[2]));
-
-  m = /^\d{4}-(\d{1,2})-(\d{1,2})$/.exec(raw);
-  if (m) return pair(Number(m[1]), Number(m[2]));
-
-  return null;
-}
+/*
+ * The real parser, not a copy. The first version of this script had its own
+ * simplified one and immediately disagreed with the import: it could not read
+ * "5-6-7-8", so thirty people were reported as unrepairable when the actual
+ * parser handles them fine.
+ */
+import { parseGradeLevelsDetailed } from "@workspace/api-types";
 
 interface Row { employee_id: string; first_name: string; last_name: string; grade_level: string[] }
 
@@ -81,32 +56,25 @@ async function run(): Promise<void> {
     const stuck:   { row: Row; bad: string[] }[] = [];
 
     for (const row of rows) {
-      const next: string[] = [];
-      const changed: string[] = [];
-      const bad: string[] = [];
-      const seen = new Set<string>();
+      /* Parse the stored array exactly as an import would, so hyphenated
+         lists split, dates are repaired, and anything left is genuinely
+         unreadable rather than merely unparsed by this script. */
+      const parsed = parseGradeLevelsDetailed(row.grade_level);
 
-      const keep = (g: string) => {
-        const k = g.toLowerCase();
-        if (!seen.has(k)) { seen.add(k); next.push(g); }
-      };
+      if (parsed.invalid.length > 0) { stuck.push({ row, bad: parsed.invalid }); continue; }
 
-      for (const g of row.grade_level) {
-        if (VALID_GRADE.test(g.trim())) { keep(g.trim()); continue; }
-        const fixed = repairExcelDate(g);
-        if (fixed) { changed.push(g); for (const f of fixed) keep(f); }
-        else bad.push(g);
-      }
-
-      if (bad.length > 0) { stuck.push({ row, bad }); continue; }
-      if (changed.length > 0) fixable.push({ row, next, changed });
+      const changed = parsed.repaired.map((r) => r.from);
+      const sameAsBefore =
+        parsed.grades.length === row.grade_level.length &&
+        parsed.grades.every((g, i) => g === row.grade_level[i]);
+      if (!sameAsBefore) fixable.push({ row, next: parsed.grades, changed });
     }
 
     const name = (r: Row) => `${r.first_name} ${r.last_name}`.trim();
 
     console.log(`People with grade levels: ${rows.length}\n`);
 
-    console.log(`Repairable — a spreadsheet turned these into dates (${fixable.length}):`);
+    console.log(`Repairable (${fixable.length}) — dates a spreadsheet mangled, and lists never split:`);
     if (fixable.length === 0) console.log("  none.");
     for (const f of fixable) {
       console.log(`  ${name(f.row)} (${f.row.employee_id})`);
