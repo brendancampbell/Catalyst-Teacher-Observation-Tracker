@@ -95,7 +95,16 @@ describe("POST /api/people/bulk — school name matching", () => {
   let jar: Jar;
 
   /* Real schools from the dev DB to use in tests (id=24, NSA Lincoln Park ES) */
-  const REAL_SCHOOL_ID     = 24;
+  /*
+   * Resolved by name, not hardcoded.
+   *
+   * This was `const REAL_SCHOOL_ID = 24` — the id this school happens to have in
+   * the dev database, which is the only place the suite could run. It is a
+   * different id in a database built from empty, and the same mistake as the
+   * fixtures that pinned schoolYearId to 1: right by accident, and only until
+   * something changes underneath it.
+   */
+  let REAL_SCHOOL_ID: number;
   const REAL_DISPLAY_NAME  = "NSA Lincoln Park ES";
   const REAL_FULL_NAME     = "North Star Academy Lincoln Park Elementary School";
 
@@ -104,6 +113,11 @@ describe("POST /api/people/bulk — school name matching", () => {
   const COLLISION_B_ABBR = "TST_COLL_B";
 
   before(async () => {
+    const [realSchool] = await db.select({ id: schools.id }).from(schools)
+      .where(eq(schools.displayName, REAL_DISPLAY_NAME)).limit(1);
+    assert.ok(realSchool, `Need a school named "${REAL_DISPLAY_NAME}"`);
+    REAL_SCHOOL_ID = realSchool.id;
+
     jar = await loginAs(NETWORK_ADMIN_ID);
 
     /* Create two schools to test fullName-over-displayName priority:
