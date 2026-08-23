@@ -70,14 +70,35 @@ async function run(): Promise<void> {
   };
 
   /* ── School year ──
-     The piece nothing else creates, and the reason an empty database was
-     unusable: getActiveSchoolYearId() returns nothing without it and every
-     year-scoped route answers 503. */
-  const [year] = await db.insert(schoolYears).values({
-    name: "2026-2027", status: "active", displayOrder: 1,
-    startDate: "2026-08-01", endDate: "2027-06-30",
-  }).returning({ id: schoolYears.id });
-  const yearId = year!.id;
+     Migration 0001 already seeds one active year, and a partial unique index
+     allows exactly one — so inserting a second fails with a duplicate key on
+     status. Adopt whichever year is active rather than fighting the
+     migration, and only create one if somehow none exists.
+
+     Dates are filled in because the usage report bounds "days used" by the
+     year's start, and the migration's row has none. */
+  const [existingYear] = await db
+    .select({ id: schoolYears.id, name: schoolYears.name, startDate: schoolYears.startDate })
+    .from(schoolYears).where(eq(schoolYears.status, "active")).limit(1);
+
+  let yearId: number;
+  let yearName: string;
+  if (existingYear) {
+    yearId = existingYear.id;
+    yearName = existingYear.name;
+    if (!existingYear.startDate) {
+      await db.update(schoolYears)
+        .set({ startDate: "2025-08-01", endDate: "2026-06-30" })
+        .where(eq(schoolYears.id, yearId));
+    }
+  } else {
+    const [created] = await db.insert(schoolYears).values({
+      name: "2025-2026", status: "active", displayOrder: 1,
+      startDate: "2025-08-01", endDate: "2026-06-30",
+    }).returning({ id: schoolYears.id, name: schoolYears.name });
+    yearId = created!.id;
+    yearName = created!.name;
+  }
 
   /* ── Rubric set ──
      Tests take "the first rubric set" and expect it to have somewhere to hang
@@ -158,7 +179,7 @@ async function run(): Promise<void> {
 
   console.log("Test database seeded:");
   console.log(`  4 schools (HO, RXP_DC, RXP_HS, NSA_ES)`);
-  console.log(`  1 active school year (2026-2027)`);
+  console.log(`  1 active school year (${yearName})`);
   console.log(`  1 rubric set with 2 categories and 3 domains`);
   console.log(`  4 staff (U10, U13, U14, U15) and 6 demo teachers`);
   await pool.end();
