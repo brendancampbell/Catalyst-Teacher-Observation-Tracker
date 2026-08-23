@@ -113,8 +113,7 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
       >
         <CalendarRange size={14} className="shrink-0 mt-0.5" />
         <p>
-          This tab covers the current school year{data?.schoolYear ? ` (${data.schoolYear})` : ""},
-          not only the currently selected rubric.
+          This tab covers the current school year, not only the currently selected rubric.
         </p>
       </div>
 
