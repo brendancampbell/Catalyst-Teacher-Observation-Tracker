@@ -538,3 +538,28 @@ export interface AIQuotaGrantWithPerson extends AIQuotaGrant {
   personLastName:  string | null;
   personEmail:     string | null;
 }
+
+/* ── Usage ───────────────────────────────────────────────────────── */
+
+export interface UsageRow {
+  employeeId:   string;
+  name:         string;
+  role:         string;
+  schoolId:     number | null;
+  schoolName:   string | null;
+  /** Most recent day they used Catalyst, or null if never. Date, not time. */
+  lastUsed:     string | null;
+  /** Days with any activity this school year — not sign-ins. */
+  daysUsed:     number;
+  /** Published observations they recorded this school year. Drafts excluded. */
+  observations: number;
+  /** Action steps assigned this year, including extensions to existing ones. */
+  actionSteps:  number;
+}
+
+export interface UsageReport {
+  schoolYear:     string | null;
+  /** Activity was not recorded before this date, so earlier days are absent. */
+  recordingSince: string;
+  rows:           UsageRow[];
+}

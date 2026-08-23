@@ -626,7 +626,7 @@ export async function generateQualitativeSummary(
 
 /* ── Action Steps ──────────────────────────────────────────────── */
 
-import type { ActionStep, OverdueActionStep } from "@workspace/api-types";
+import type { ActionStep, OverdueActionStep, UsageReport } from "@workspace/api-types";
 
 export async function fetchLatestActionStep(teacherEmployeeId: string): Promise<ActionStep | null> {
   return apiFetch<ActionStep | null>(`/action-steps/latest?teacherEmployeeId=${encodeURIComponent(teacherEmployeeId)}`);
@@ -643,6 +643,11 @@ export async function masterActionStep(id: number): Promise<{ ok: boolean }> {
 /** Put a mastered step back to open. Mastery used to be one-way. */
 export async function unmasterActionStep(id: number): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/action-steps/${id}/unmaster`, { method: "PATCH" });
+}
+
+export async function fetchUsage(schoolId?: number | null): Promise<UsageReport> {
+  const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
+  return apiFetch<UsageReport>(`/usage${qs}`);
 }
 
 export async function fetchOverdueActionSteps(schoolId?: number | null): Promise<OverdueActionStep[]> {

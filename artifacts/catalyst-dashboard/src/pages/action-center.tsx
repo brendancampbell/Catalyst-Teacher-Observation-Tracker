@@ -54,6 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { UsageTable } from "@/components/UsageTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter,
@@ -731,7 +732,7 @@ export default function ActionCenterPage() {
   const [activeTab, setActiveTab] = useState("summary");
 
   /* ── Intervention sub-tab ───────────────────────────── */
-  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps">("rescore");
+  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage">("rescore");
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -1590,7 +1591,11 @@ export default function ActionCenterPage() {
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
                   { key: "overdueActionSteps", label: "Overdue Action Steps", count: overdueActionSteps.length },
-                ] as { key: "rescore" | "overdue" | "calibration" | "overdueActionSteps"; label: string; count: number }[]
+                  /* No count badge: the others show how much is outstanding,
+                     and this one is not a queue. A number here would read as
+                     work to do. */
+                  { key: "usage", label: "Usage", count: 0 },
+                ] as { key: "rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage"; label: string; count: number }[]
               ).map(({ key, label, count }) => {
                 const active = interventionTab === key;
                 return (
@@ -1841,6 +1846,13 @@ export default function ActionCenterPage() {
                       </div>
                     </div>
                   )}
+                </section>
+              )}
+
+              {/* USAGE — the whole school year, unlike its neighbours */}
+              {interventionTab === "usage" && (
+                <section className="-mx-4 sm:-mx-6 -my-4 flex-1 flex flex-col">
+                  <UsageTable schoolId={schoolId} />
                 </section>
               )}
 
