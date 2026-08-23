@@ -59,8 +59,11 @@ async function run(): Promise<void> {
       region: "Boston", gradeSpan: "MS", isHomeOffice: false, schoolNumber: "101" },
     { displayName: "Roxbury Prep HS",    fullName: "Roxbury Prep High School",       abbreviation: "RXP_HS",
       region: "Boston", gradeSpan: "HS", isHomeOffice: false, schoolNumber: "102" },
-    { displayName: "North Star Academy", fullName: "North Star Academy Elementary",  abbreviation: "NSA_ES",
-      region: "Newark", gradeSpan: "ES", isHomeOffice: false, schoolNumber: "201" },
+    /* Named exactly as test-bulk-import-school-lookup.ts expects: it looks
+       this school up by full name and by display name, so both strings are
+       part of the contract rather than decoration. */
+    { displayName: "NSA Lincoln Park ES", fullName: "North Star Academy Lincoln Park Elementary School",
+      abbreviation: "NSA_LP", region: "Newark", gradeSpan: "ES", isHomeOffice: false, schoolNumber: "201" },
   ]).returning({ id: schools.id, abbreviation: schools.abbreviation });
 
   const schoolId = (abbr: string): number => {
@@ -99,6 +102,17 @@ async function run(): Promise<void> {
     yearId = created!.id;
     yearName = created!.name;
   }
+
+  /*
+   * A prior, inactive year. test-action-step-school-year-scope.ts refuses to
+   * run without one — it needs somewhere to put a "last year" action step and
+   * prove the year guard rejects it. Only one year may be ACTIVE, but there is
+   * no limit on inactive ones.
+   */
+  await db.insert(schoolYears).values({
+    name: "2024-2025", status: "inactive", displayOrder: 0,
+    startDate: "2024-08-01", endDate: "2025-06-30",
+  });
 
   /* ── Rubric set ──
      Tests take "the first rubric set" and expect it to have somewhere to hang
@@ -168,6 +182,19 @@ async function run(): Promise<void> {
     { userId: "U13", role: "SCHOOL_LEADER", schoolId: schoolId("RXP_DC"), schoolYearId: yearId, startDate: TODAY, endDate: null },
     { userId: "U14", role: "COACH",         schoolId: schoolId("RXP_DC"), schoolYearId: yearId, startDate: TODAY, endDate: null },
     { userId: "U15", role: "SCHOOL_LEADER", schoolId: schoolId("RXP_HS"), schoolYearId: yearId, startDate: TODAY, endDate: null },
+    /*
+     * The demo teachers are rostered too. Two suites mirror "the active year's
+     * roster" into a scratch year and then check the scratch year has one —
+     * with only four staff rows, anything that consumed or end-dated a couple
+     * of them left the year looking empty and those suites failed with "no
+     * roster has been loaded". A real school year is a roster of everybody, so
+     * this is the faithful shape as well as the sturdier one.
+     */
+    ...demoNames.map((_, i) => ({
+      userId: `DEMO-T-00${i + 1}`, role: "NO_ACCESS" as const,
+      schoolId: schoolId("RXP_DC"), schoolYearId: yearId,
+      startDate: TODAY, endDate: null,
+    })),
   ]);
 
   /* Verify rather than assume — a seed that half-worked would surface as
@@ -178,10 +205,13 @@ async function run(): Promise<void> {
   if (demos.length !== 6) throw new Error(`seed verification failed: expected 6 demo teachers, found ${demos.length}`);
 
   console.log("Test database seeded:");
-  console.log(`  4 schools (HO, RXP_DC, RXP_HS, NSA_ES)`);
+  console.log(`  4 schools (HO, RXP_DC, RXP_HS, NSA_LP)`);
   console.log(`  1 active school year (${yearName})`);
   console.log(`  1 rubric set with 2 categories and 3 domains`);
   console.log(`  4 staff (U10, U13, U14, U15) and 6 demo teachers`);
+  const openRoster = await db.select({ id: assignments.id })
+    .from(assignments).where(eq(assignments.schoolYearId, yearId));
+  console.log(`  ${openRoster.length} open assignments in the active year`);
   await pool.end();
 }
 
