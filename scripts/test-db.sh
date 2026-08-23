@@ -3,6 +3,7 @@
 #
 # Usage:
 #   bash scripts/test-db.sh pnpm --filter @workspace/api-server run test:integration
+#   TEST_DB_KEEP=1 bash scripts/test-db.sh ...   # leave the database running
 #
 # Starts a private Postgres inside this workspace, migrates it, seeds it, runs
 # the command with DATABASE_URL pointed at it, then stops it and deletes
@@ -50,6 +51,16 @@ DBNAME="catalyst_test"
 # how the Run button used to take the whole workspace down.
 cleanup() {
   local rc=$?
+  # TEST_DB_KEEP leaves it up so a failure can be inspected. Without this, a
+  # test that disagrees with the database takes its evidence with it — which
+  # is exactly the position the school-year suites left us in.
+  if [ "${TEST_DB_KEEP:-0}" = "1" ]; then
+    printf '\nDatabase kept for inspection. Connect with:\n'
+    printf '  psql "%s"\n' "$DATABASE_URL"
+    printf '\nStop and delete it when done:\n'
+    printf '  pg_ctl -D %s -m immediate stop && rm -rf %s\n' "$PGDATA" "$PGTMP"
+    exit "$rc"
+  fi
   if [ -d "$PGDATA" ]; then
     pg_ctl -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true
   fi
