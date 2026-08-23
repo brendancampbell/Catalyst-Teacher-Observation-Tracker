@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>4</b> deferred</span>
+      <span><b>10</b> open &middot; <b>4</b> deferred</span>
       <span><b>298&thinsp;/&thinsp;298</b> integration tests passing</span>
     </div>
   </header>
@@ -510,6 +510,54 @@
 
           <tr>
             <td class="p">4</td>
+            <td class="idcell">25</td>
+            <td>
+              <div class="task">
+                <h3>A test database that can be rebuilt from empty</h3>
+                <p class="lineage">New, 21 Aug. The real prerequisite for #12, and the root of #4.</p>
+                <p class="why">
+                  Tests run against the <strong>dev</strong> database &mdash; the same one used for
+                  clicking around. They create school years, people and rubrics in it and try to
+                  tidy up afterwards. That is where the debris came from, and why one test can
+                  break another.
+                </p>
+                <details>
+                  <summary>Why nothing can create a working database today</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Nothing seeds a school year.</strong> Every route filters on the
+                      active one and the server will not serve requests without it, so an empty
+                      database cannot even reach a usable state. <code>seed-dev.ts</code> creates
+                      schools, people and observations; no script creates a year.
+                    </p>
+                    <p>
+                      Sixteen test files also assume specific seeded people exist (U10, U13), and
+                      the demo-teacher tests assume six teachers at a particular school. None of
+                      that comes from a script &mdash; the dev database accumulated it over months
+                      of real use.
+                    </p>
+                    <p>
+                      <strong>What it unlocks.</strong> A disposable database rebuilt before each
+                      run means every run starts identical. That removes the cause of #4 (a test
+                      seeing what another left behind), of the debris behind #5 and #23, and of the
+                      guessing in #6. It is also the thing standing between here and #12: a robot
+                      cannot run the suite until it can create the database itself.
+                    </p>
+                    <p>
+                      Days, not hours: roughly 45 integration files, each with its own assumptions
+                      about what exists. Deferred as &ldquo;set up CI&rdquo; for weeks, which hid
+                      how much of it is really about the database.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">5</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -536,7 +584,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -562,7 +610,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -576,7 +624,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -593,13 +641,18 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
                 <h3>Continuous integration</h3>
                 <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #15b.</p>
-                <p class="why">Replit workflows already cover validation on merge.</p>
+                <p class="why">
+                  Deferred on the grounds that &ldquo;Replit workflows already cover validation on
+                  merge&rdquo;. <strong>That was wrong.</strong> <code>post-merge.sh</code> ran two
+                  schema checks and no tests at all. It now runs the two no-database tiers
+                  (~300 checks, under a minute). The rest needs #25 first.
+                </p>
               </div>
             </td>
             <td class="cat">Tooling</td>
@@ -607,7 +660,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">

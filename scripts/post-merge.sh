@@ -80,3 +80,24 @@ pnpm --filter @workspace/db run check:migration-data
 pnpm --filter @workspace/db run migrate
 cd lib/api-types && npx tsc -p tsconfig.json
 pnpm --filter @workspace/db run check:schema-sync
+
+# ── Fast tests ───────────────────────────────────────────────────────────
+# The tiers that need no database and no server: ~300 checks in well under a
+# minute. Everything heavier — the integration suite — needs a live server and
+# a database with real seeded state, so it cannot run here. That is its own
+# backlog item; see BACKLOG.html #25.
+#
+# Running them on every pull is the point. Until now nothing ran tests
+# automatically at all: post-merge did schema checks only, and the suite was
+# whatever someone remembered to type. Several things caught by hand today
+# would have surfaced here instead.
+#
+# set -e means a failure stops post-merge and is reported, which is what should
+# happen — a pull that breaks these has broken something real. Both tiers are
+# deterministic; the one known flake lives in the integration suite, which does
+# not run here.
+# Line 81 leaves us in lib/api-types, so come back up first.
+cd "$(git rev-parse --show-toplevel)"
+pnpm --filter @workspace/api-server run test
+pnpm --filter @workspace/catalyst-dashboard run test
+
