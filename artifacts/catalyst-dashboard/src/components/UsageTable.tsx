@@ -113,13 +113,8 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
       >
         <CalendarRange size={14} className="shrink-0 mt-0.5" />
         <p>
-          <strong>This tab covers the whole school year{data?.schoolYear ? ` (${data.schoolYear})` : ""}</strong>,
-          not what is outstanding right now. Everything else under Intervention shows work still to do;
-          these are totals since the year began.
-          {data?.recordingSince && (
-            <> Day-by-day use has only been recorded since {data.recordingSince}, so “last used” and “days used”
-            start from then. Observations and action steps cover the full year.</>
-          )}
+          This tab covers the current school year{data?.schoolYear ? ` (${data.schoolYear})` : ""},
+          not only the currently selected rubric.
         </p>
       </div>
 
@@ -169,7 +164,7 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
               <Header k="role" label="Role" />
               {showSchool && <Header k="schoolName" label="School" />}
               <Header k="lastUsed" label="Last used" help="The most recent day they opened Catalyst" />
-              <Header k="daysUsed" label="Days used" help="Days they used Catalyst — not sign-ins. A session lasts a week, so sign-ins would undercount badly." />
+              <Header k="daysUsed" label="Total Days Used" />
               <Header k="observations" label="Observations" help="Published observations, walkthroughs included. Drafts are not counted." />
               <Header k="actionSteps" label="Action steps (incl. extensions)" help="Action steps assigned this year. Extending an existing step counts as one — it is still coaching work." />
             </tr>

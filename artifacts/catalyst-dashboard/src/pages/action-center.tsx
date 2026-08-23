@@ -1585,16 +1585,16 @@ export default function ActionCenterPage() {
             <div style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }} className="px-4 sm:px-6 flex gap-6">
               {(
                 [
+                  /* First, and with no count badge: the others show how much
+                     is outstanding, and this one is not a queue. A number here
+                     would read as work to do. */
+                  { key: "usage", label: "Usage", count: 0 },
                   { key: "rescore",     label: "Rescore Queue",       count: queue.length },
                   { key: "overdue",     label: "Overdue Observations", count: overdueTeachers.length },
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
                   { key: "overdueActionSteps", label: "Overdue Action Steps", count: overdueActionSteps.length },
-                  /* No count badge: the others show how much is outstanding,
-                     and this one is not a queue. A number here would read as
-                     work to do. */
-                  { key: "usage", label: "Usage", count: 0 },
                 ] as { key: "rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage"; label: string; count: number }[]
               ).map(({ key, label, count }) => {
                 const active = interventionTab === key;
