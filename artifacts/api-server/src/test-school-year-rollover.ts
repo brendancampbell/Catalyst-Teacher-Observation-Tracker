@@ -180,14 +180,35 @@ describe("Staged school-year rollover", () => {
        LEAVE (the departure under test), MOVE (whose new school the roster
        upload will set), and ADM — who is never added back, for the rest of
        this file. Admins administer years; they are not rostered for them. */
-    await pool.query(
+    const copied = await pool.query(
       `INSERT INTO assignments (user_id, role, school_id, school_year_id, start_date, end_date)
        SELECT user_id, role, school_id, $1, start_date, NULL
          FROM assignments
         WHERE school_year_id = $2 AND end_date IS NULL
           AND user_id <> ALL($3::text[])
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
       [scratchYearId, originalYearId, [LEAVE_EID, MOVE_EID, ADM_EID]],
+    );
+
+    /*
+     * A fixture that silently copies nothing is worse than one that fails:
+     * every assertion after it then reports a symptom rather than the cause.
+     * Running against a database seeded from empty, this copy produced zero
+     * rows and the next four tests each failed with a different confusing
+     * message.
+     */
+    const { rows: outgoing } = await pool.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM assignments
+        WHERE school_year_id = $1 AND end_date IS NULL`,
+      [originalYearId],
+    );
+    assert.ok(
+      (copied.rowCount ?? 0) > 0,
+      `the roster copy wrote nothing. Outgoing year ${originalYearId} holds ` +
+      `${outgoing[0]!.n} open assignment(s); scratch year is ${scratchYearId}. ` +
+      "If the outgoing count is non-zero, the copy's WHERE clause and this " +
+      "count disagree about which rows exist.",
     );
 
     const r = await request("POST", `/admin/school-years/${scratchYearId}/activate`, {}, jar);

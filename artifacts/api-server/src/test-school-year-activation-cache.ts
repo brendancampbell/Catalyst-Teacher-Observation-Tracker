@@ -146,6 +146,21 @@ describe("School-year activation clears dashboard / district / network-avgs cach
     );
     seededAssignmentIds.push(...copied.rows.map((r) => r.id));
 
+    /* Fail here rather than four assertions later with "no roster has been
+       loaded" — the mirror not happening is the cause, and everything after
+       it is a symptom. */
+    const { rows: outgoing } = await pool.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM assignments
+        WHERE school_year_id = $1 AND end_date IS NULL`,
+      [originalActiveYearId],
+    );
+    assert.ok(
+      copied.rows.length > 0,
+      `mirroring the roster into the alternate year wrote nothing. Active year ` +
+      `${originalActiveYearId} holds ${outgoing[0]!.n} open assignment(s); ` +
+      `alternate year is ${alternateYearId}.`,
+    );
+
     /* The admin needs an open assignment in BOTH years — the gate is checked
        on the way out as well as the way in, so without one in the original
        year the after() hook could not restore it. */
