@@ -732,7 +732,7 @@ export default function ActionCenterPage() {
   const [activeTab, setActiveTab] = useState("summary");
 
   /* ── Intervention sub-tab ───────────────────────────── */
-  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage">("rescore");
+  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage">("usage");
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
