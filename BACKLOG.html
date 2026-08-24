@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 23 August 2026 &middot; 26b9ccb</p>
+    <p class="eyebrow">Live list &middot; updated 24 August 2026 &middot; 9426e8b</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -333,7 +333,7 @@
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
       <span><b>7</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
-      <span><b>326&thinsp;/&thinsp;326</b> passing on a database built from empty</span>
+      <span><b>332&thinsp;/&thinsp;332</b> passing on a database built from empty</span>
     </div>
   </header>
 
@@ -919,6 +919,21 @@
       </p>
     </div>
     <div class="settled">
+      <div class="settled-row">
+        <h3>Being active and being rostered are two gates &mdash; both are now written together</h3>
+        <p>
+          The year flip switches people off when they are absent from the incoming roster, and
+          only two things could ever switch them back on. Neither covered what actually happened.
+          A roster uploaded <em>after</em> the flip wrote the assignment and not the active flag,
+          which left 46 people &mdash; mostly Home Office network leaders &mdash; listed on the
+          current year&rsquo;s roster and unable to sign in. Reactivating somebody in the Users tab
+          wrote the flag and not the assignment, which locked out 19 more: an account that looks
+          active and 403s on every request, showing a dashboard for a few seconds and then a white
+          screen. Both halves are now written at the source, an upload says on the row when it
+          reactivates somebody, and the 403 lands on a page that explains itself. Repaired in
+          production on 24 Aug: 46 switched on, 19 rostered, none left behind.
+        </p>
+      </div>
       <div class="settled-row">
         <h3>Activating a year without a roster &mdash; declined</h3>
         <p>
