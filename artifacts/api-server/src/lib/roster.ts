@@ -860,10 +860,12 @@ export async function applyRosterPlan(
         /* Identical open assignment already present. On a live upload the
            denormalised fields are still re-synced below, because a previous
            partial write can leave them stale and session lookups read them. */
-        if (!plan.staged) await syncDenormalised(p);
+        const reactivated = plan.staged ? false : await syncDenormalised(p);
         results.push({
           row: p.row, status: "skipped", name: p.displayName, email: p.email,
-          reason: "Active assignment already exists with the same role and school",
+          reason: reactivated
+            ? "Was deactivated — switched back on; assignment already existed"
+            : "Active assignment already exists with the same role and school",
         });
         continue;
       }
@@ -884,8 +886,11 @@ export async function applyRosterPlan(
           endDate:      null,
         });
       });
-      if (!plan.staged) await syncDenormalised(p);
-      results.push({ row: p.row, status: "assigned", name: p.displayName, email: p.email });
+      const reactivated = plan.staged ? false : await syncDenormalised(p);
+      results.push({
+        row: p.row, status: "assigned", name: p.displayName, email: p.email,
+        ...(reactivated ? { reason: "Was deactivated — switched back on" } : {}),
+      });
     } catch (err: unknown) {
       const code    = pgCode(err);
       const message = pgMessage(err);
@@ -909,18 +914,47 @@ export async function applyRosterPlan(
 }
 
 /**
- * Push a roster row's role/school onto the denormalised person record.
- * Only ever called for LIVE uploads — for a staged year the flip does this,
- * because changing these fields is immediately visible to school scoping.
+ * Push a roster row's role/school onto the denormalised person record, and
+ * switch the person on. Only ever called for LIVE uploads — for a staged year
+ * the flip does this, because these fields are immediately visible to school
+ * scoping and a staged year must not take effect before it is activated.
+ *
+ * Returns true when it reactivated somebody, so the caller can say so in the
+ * upload results rather than changing an account silently.
+ *
+ * Naming somebody on an uploaded roster is a statement that they work here, so
+ * it turns is_active back on. That was the missing half: the year flip
+ * deactivates anyone absent from the incoming roster, but a roster uploaded
+ * AFTER the flip only ever wrote the assignment. In production this left 46
+ * people — mostly Home Office network leaders — listed on the current year's
+ * roster and unable to sign in, with nothing in the system able to correct it.
+ *
+ * The flip's own reactivation stays narrow on purpose (see step 4b of
+ * activateSchoolYear): "holds an open assignment" is too broad a rule to apply
+ * to everybody at once, because somebody terminated mid-year still holds one.
+ * An explicit row on an uploaded sheet is a different thing from that blanket
+ * sweep — it names the person.
  */
-async function syncDenormalised(p: ParsedRosterRow): Promise<void> {
+async function syncDenormalised(p: ParsedRosterRow): Promise<boolean> {
+  /* Read first: RETURNING would report the row as it stands after the write,
+     by which point isActive is true either way. */
+  const [before] = await db
+    .select({ isActive: people.isActive })
+    .from(people)
+    .where(eq(people.employeeId, p.employeeId))
+    .limit(1);
+
   await db.update(people)
-    .set({ role: p.role, schoolId: p.schoolId })
+    .set({ role: p.role, schoolId: p.schoolId, isActive: true })
     .where(and(
       eq(people.employeeId, p.employeeId),
       /* No-op guard: skip the write unless something would actually change.
          school_id is nullable, so it needs IS DISTINCT FROM — `<> 4` against
          NULL is NULL, not true, and a person with no school would never sync. */
-      sql`(${people.role} <> ${p.role} OR ${people.schoolId} IS DISTINCT FROM ${p.schoolId})`,
+      sql`(${people.role} <> ${p.role}
+           OR ${people.schoolId} IS DISTINCT FROM ${p.schoolId}
+           OR ${people.isActive} = false)`,
     ));
+
+  return before?.isActive === false;
 }

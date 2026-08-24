@@ -23,6 +23,7 @@
  *   3. Somebody with no assignment history has none fabricated
  *   4. An existing open assignment is left alone, not duplicated
  *   5. Deactivating does not write an assignment
+ *   6. A live roster upload switches on somebody it names
  */
 
 import { test, describe, before, after } from "node:test";
@@ -38,7 +39,8 @@ const ADMIN_EID = "U10";
 const RETURNING = `TST_REACT_RET_${STAMP}`;   // has prior-year history
 const NOHISTORY = `TST_REACT_NEW_${STAMP}`;   // never rostered
 const HOLDSOPEN = `TST_REACT_OPN_${STAMP}`;   // already on this year
-const ALL_EIDS  = [RETURNING, NOHISTORY, HOLDSOPEN];
+const UPLOADED  = `TST_REACT_UPL_${STAMP}`;   // deactivated, then named on a sheet
+const ALL_EIDS  = [RETURNING, NOHISTORY, HOLDSOPEN, UPLOADED];
 
 type Jar = { cookieHeader: string };
 
@@ -100,6 +102,8 @@ describe("Reactivating restores this year's assignment", () => {
       { employeeId: NOHISTORY, firstName: "React", lastName: "NoHistory", email: `${NOHISTORY}@example.com`,
         role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
       { employeeId: HOLDSOPEN, firstName: "React", lastName: "HoldsOpen", email: `${HOLDSOPEN}@example.com`,
+        role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
+      { employeeId: UPLOADED, firstName: "React", lastName: "Uploaded", email: `${UPLOADED}@example.com`,
         role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
     ]).onConflictDoNothing();
 
@@ -166,6 +170,36 @@ describe("Reactivating restores this year's assignment", () => {
 
     const rows = await openAssignmentsThisYear(HOLDSOPEN);
     assert.equal(rows.length, 1, "must not open a second assignment for the same year");
+  });
+
+  test("6 — a live roster upload switches on somebody it names", async () => {
+    /* The 46-person production case: deactivated by the flip, then uploaded
+       back onto the current year's roster. The assignment landed; nothing
+       turned the person on, and nothing in the app could. */
+    const res = await fetch(`${BASE}/people/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: adminJar.cookieHeader },
+      body: JSON.stringify([{
+        employeeId: UPLOADED,
+        firstName:  "React",
+        lastName:   "Uploaded",
+        email:      `${UPLOADED}@example.com`,
+        role:       "COACH",
+        school:     String(schoolId),
+      }]),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json() as { results: Array<{ status: string; reason?: string }> };
+    assert.equal(body.results.length, 1);
+
+    const [after] = await db.select({ isActive: people.isActive })
+      .from(people).where(eq(people.employeeId, UPLOADED)).limit(1);
+    assert.equal(after!.isActive, true, "being named on an uploaded roster should switch somebody on");
+
+    /* The operator must be able to see it happened — a silent reactivation is
+       the same class of problem as the silent deactivation that caused this. */
+    assert.match(String(body.results[0]!.reason ?? ""), /switched back on/i,
+      `upload should report the reactivation, got: ${JSON.stringify(body.results[0])}`);
   });
 
   test("5 — deactivating does not write an assignment", async () => {
