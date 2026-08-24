@@ -40,6 +40,11 @@ const RETURNING = `TST_REACT_RET_${STAMP}`;   // has prior-year history
 const NOHISTORY = `TST_REACT_NEW_${STAMP}`;   // never rostered
 const HOLDSOPEN = `TST_REACT_OPN_${STAMP}`;   // already on this year
 const UPLOADED  = `TST_REACT_UPL_${STAMP}`;   // deactivated, then named on a sheet
+/* Lowercase on purpose: the roster lowercases every email it parses, so a
+   fixture stored with capitals reads as a sign-in address change and the
+   upload returns 409 asking for acknowledgement. Real addresses are
+   lowercase; the mixed-case employee id must not leak into the email. */
+const UPLOADED_EMAIL = `tst_react_upl_${STAMP}@example.com`;
 const ALL_EIDS  = [RETURNING, NOHISTORY, HOLDSOPEN, UPLOADED];
 
 type Jar = { cookieHeader: string };
@@ -103,7 +108,7 @@ describe("Reactivating restores this year's assignment", () => {
         role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
       { employeeId: HOLDSOPEN, firstName: "React", lastName: "HoldsOpen", email: `${HOLDSOPEN}@example.com`,
         role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
-      { employeeId: UPLOADED, firstName: "React", lastName: "Uploaded", email: `${UPLOADED}@example.com`,
+      { employeeId: UPLOADED, firstName: "React", lastName: "Uploaded", email: UPLOADED_EMAIL,
         role: "COACH", schoolId, isActive: false, includeInFeedbackTracker: false },
     ]).onConflictDoNothing();
 
@@ -183,13 +188,14 @@ describe("Reactivating restores this year's assignment", () => {
         employeeId: UPLOADED,
         firstName:  "React",
         lastName:   "Uploaded",
-        email:      `${UPLOADED}@example.com`,
+        email:      UPLOADED_EMAIL,
         role:       "COACH",
         school:     String(schoolId),
       }]),
     });
-    assert.equal(res.status, 200);
-    const body = await res.json() as { results: Array<{ status: string; reason?: string }> };
+    const raw = await res.json();
+    assert.equal(res.status, 200, `upload rejected: ${JSON.stringify(raw)}`);
+    const body = raw as { results: Array<{ status: string; reason?: string }> };
     assert.equal(body.results.length, 1);
 
     const [after] = await db.select({ isActive: people.isActive })
