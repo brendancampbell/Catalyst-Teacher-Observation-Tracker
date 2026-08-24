@@ -41,26 +41,30 @@ export function FilterMultiSelect({ label, values, onChange, options }: {
 
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg z-50 py-1 min-w-[160px]"
+          className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg z-50 py-1 w-max min-w-[200px] max-w-[22rem]"
           style={{ border: "1px solid #dde3f0" }}
         >
+          {/* Scrolls once the list outgrows the panel — the school filter runs to
+              two dozen entries and used to fall off the bottom of the page. */}
+          <div className="max-h-72 overflow-y-auto overscroll-contain">
           {options.map((opt) => {
             const checked = values.includes(opt);
             return (
               <label
                 key={opt}
-                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 text-sm font-medium text-slate-700"
+                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 text-sm font-medium text-slate-700 whitespace-nowrap"
               >
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => onChange(checked ? values.filter((v) => v !== opt) : [...values, opt])}
-                  className="w-4 h-4 rounded accent-blue-700"
+                  className="w-4 h-4 shrink-0 rounded accent-blue-700"
                 />
                 {opt}
               </label>
             );
           })}
+          </div>
           {values.length > 0 && (
             <div className="border-t border-slate-100 mt-1 pt-1 px-3 pb-1">
               <button
