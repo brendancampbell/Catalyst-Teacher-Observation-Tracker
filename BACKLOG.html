@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>7</b> open &middot; <b>4</b> deferred</span>
+      <span><b>7</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>326&thinsp;/&thinsp;326</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -556,6 +556,290 @@
       </table>
     </div>
   </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Not yet ranked</h2>
+      <p class="sec-note">
+        Added 23 August, to be captured rather than started. They hold permanent
+        <strong>#</strong> numbers but no <strong>P</strong> &mdash; they join the running order
+        above only when you place them. <strong>Size</strong> is a rough shape, not an estimate.
+      </p>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th class="col-p">ID</th><th>Task</th><th class="col-cat">Category</th><th class="col-urg">Size</th></tr>
+        </thead>
+        <tbody>
+
+          <tr>
+            <td class="idcell">26</td>
+            <td>
+              <div class="task">
+                <h3>Check the formatting of emailed observations</h3>
+                <p class="why">
+                  Catalyst does not send email. The preview builds an HTML string in the browser and
+                  the <strong>Copy Email</strong> button puts it on the clipboard; Outlook does the
+                  rest. So this is about how that pasted HTML survives a real mail client, not about
+                  a sending bug.
+                </p>
+                <details>
+                  <summary>Where it lives and what to look at</summary>
+                  <div class="detail">
+                    <p>
+                      <code>buildHtmlEmail()</code> in
+                      <code>NewObservationModal.tsx</code> assembles the whole thing client-side.
+                      Nothing on the server is involved &mdash; the old send route, the Resend
+                      client and its dependencies were all removed.
+                    </p>
+                    <p>
+                      Outlook renders HTML with its own quirks, so the things worth checking are
+                      spacing, table borders, and how a long strengths or growth-areas paragraph
+                      wraps. Worth doing on a real observation with real text in it, in Outlook
+                      rather than a browser preview.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">27</td>
+            <td>
+              <div class="task">
+                <h3>A teacher-facing view of their own observations</h3>
+                <p class="why">
+                  Every role in Catalyst today is an <em>observer</em>. The only state a teacher can
+                  hold is <code>NO_ACCESS</code>, which is blocked at login outright &mdash; so
+                  there is no such thing as a person who can sign in and see only themselves.
+                </p>
+                <details>
+                  <summary>The decisions this needs before any code</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>It is a new role, not a filter.</strong> Every authorization path
+                      assumes the signed-in person is looking <em>at</em> somebody. A teacher role
+                      needs its own scoping rule &mdash; your own records, nobody else&rsquo;s
+                      &mdash; applied to observations, action steps and anything that aggregates.
+                    </p>
+                    <p>
+                      <strong>What may a teacher see?</strong> Scores as numbers, or only the
+                      written feedback? Drafts, or published only? Their action steps, including
+                      overdue ones? An observation a coach has written but not shared? These are
+                      policy questions, and each one changes the shape of the work.
+                    </p>
+                    <p>
+                      This is the largest item on the list. Worth splitting once those answers
+                      exist.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Access</td>
+            <td><span class="chip u-med">Large</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">28</td>
+            <td>
+              <div class="task">
+                <h3>More action step analytics</h3>
+                <p class="why">
+                  Action steps are counted but never analysed. The Usage tab (#20 / #14) reports how
+                  many a coach assigned; nothing says whether they land.
+                </p>
+                <details>
+                  <summary>What the data can now answer</summary>
+                  <div class="detail">
+                    <p>
+                      <code>action_step_extensions</code> is new as of #16, so
+                      <em>how often steps get pushed back, and by how long</em> is answerable for the
+                      first time &mdash; it was invisible before, because extending used to create a
+                      duplicate step.
+                    </p>
+                    <p>
+                      Also reachable without new tables: time from assigned to mastered, how many
+                      are never mastered at all, whether particular rubric domains produce steps
+                      that stall. Needs a conversation about which questions actually change what a
+                      coach does.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">29</td>
+            <td>
+              <div class="task">
+                <h3>A network-wide Action Center</h3>
+                <p class="why">
+                  Every Action Center endpoint scopes to a single school. A network user picks one
+                  school at a time and sees that school&rsquo;s queue &mdash; there is no view of
+                  the whole network at once.
+                </p>
+                <details>
+                  <summary>Why it is more than removing a filter</summary>
+                  <div class="detail">
+                    <p>
+                      The scoping is deliberate and load-bearing: a school leader must never see
+                      another school, and a regional admin only their region. A network-wide view
+                      needs its own aggregation that respects those same limits rather than
+                      bypassing them, and needs to stay fast across every school at once.
+                    </p>
+                    <p>
+                      Also a design question: a rescore queue for one school is a list of names. For
+                      forty schools it is a list nobody reads, so it probably wants to be
+                      school-level totals that open into the existing per-school view.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">30</td>
+            <td>
+              <div class="task">
+                <h3>Allow uploads into the AI chat</h3>
+                <p class="why">
+                  The chat takes typed text only. Nothing in the AI routes accepts a file.
+                </p>
+                <details>
+                  <summary>What it drags in</summary>
+                  <div class="detail">
+                    <p>
+                      Somewhere to put the file, a size and type limit, and a decision about how long
+                      it is kept. An uploaded file is also sent to the model, so it needs the same
+                      school-scoping care as everything else &mdash; a coach must not be able to
+                      widen what the model sees by attaching a spreadsheet of another school.
+                    </p>
+                    <p>
+                      Worth pinning down what people actually want to attach before building it. A
+                      roster spreadsheet and a lesson plan are different features.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">AI</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">31</td>
+            <td>
+              <div class="task">
+                <h3>Build out the AI chat &mdash; perfecting it</h3>
+                <p class="lineage">Too broad to rank as written.</p>
+                <p class="why">
+                  This needs breaking into named pieces before it can be sized or scheduled, because
+                  &ldquo;better&rdquo; could mean any of several unrelated jobs.
+                </p>
+                <details>
+                  <summary>The pieces this probably splits into</summary>
+                  <div class="detail">
+                    <p>
+                      What it knows (how much observation context is fed in, and how far back), how
+                      it answers (length, tone, whether it cites the observations it drew on),
+                      what it can do (read-only, or acting on your behalf), and what it costs
+                      &mdash; there is already a quota and a rate limiter, so usage has a ceiling
+                      that any expansion runs into.
+                    </p>
+                    <p>
+                      Best approached by naming the two or three things that annoy you most in
+                      practice, rather than as one project.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">AI</td>
+            <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">32</td>
+            <td>
+              <div class="task">
+                <h3>Build the Walkthrough Report Generator</h3>
+                <p class="why">
+                  The tab already exists for network admins and says
+                  &ldquo;This feature is coming soon.&rdquo; It is a placeholder with an icon and
+                  nothing behind it.
+                </p>
+                <details>
+                  <summary>The clearest-shaped item here</summary>
+                  <div class="detail">
+                    <p>
+                      The placeholder states the intent: school-wide walkthrough summaries to share
+                      with principals and leadership teams. The data is all present &mdash;
+                      <code>observations.isWalkthrough</code> marks them, and the rescore
+                      threshold logic already knows what a weak walkthrough looks like.
+                    </p>
+                    <p>
+                      What is missing is the output: what a report contains, and how it leaves the
+                      system. Given #26, a copy-and-paste block into an email is more likely to fit
+                      how these actually get shared than a PDF.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Reporting</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">33</td>
+            <td>
+              <div class="task">
+                <h3>A dropdown of GBF action steps</h3>
+                <p class="lineage">Flagged as uncertain when raised &mdash; recorded, not endorsed.</p>
+                <p class="why">
+                  I do not know what a GBF action step is. The only trace of GBF in the codebase is
+                  the app&rsquo;s former name: a legacy redirect sends
+                  <code>/gbf-mobile/*</code> to <code>/catalyst-mobile/*</code>. Nothing in the data
+                  model relates to it.
+                </p>
+                <details>
+                  <summary>What would make this rankable</summary>
+                  <div class="detail">
+                    <p>
+                      A source. If GBF action steps are a fixed published list, this is a
+                      pick-from-a-menu change with a decision about whether coaches may still write
+                      their own. If it is a set of examples, it may be closer to suggested text than
+                      a dropdown.
+                    </p>
+                    <p>
+                      Worth noting the tension you already sensed: a fixed menu makes steps
+                      comparable across coaches, which is what makes #28 meaningful &mdash; and it
+                      also constrains a coach who sees something the list does not cover.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </section>
+
 
   <section>
     <div class="sec-head">
