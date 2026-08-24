@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, assignments, schoolYears } from "@workspace/db/schema";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { eq, and, or, isNull, desc } from "drizzle-orm";
 import { requireRole, assertNetworkSchoolAccess, canAccessSchoolScopedRecord, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import {
@@ -717,11 +717,76 @@ router.patch("/:employeeId/toggle-active", requireRole("SCHOOL_LEADER", "NETWORK
       }
     }
 
-    const [updated] = await db
-      .update(people)
-      .set({ isActive: !target.isActive })
-      .where(eq(people.employeeId, empId))
-      .returning();
+    const reactivating = target.isActive === false;
+
+    /* ── Reactivation must also put them back on this year's roster ──────
+       isActive and the assignments ledger are two different gates, and
+       flipping only the first produced an account that looks active in the
+       Users tab and cannot sign in. checkActiveThisYear() requires an OPEN
+       assignment in the active year for anyone with assignment history; with
+       none, requireAuth 403s every API call, so the dashboard loads its shell
+       and then dies on the first fetch.
+
+       Reported from production: a person reactivated after the rollover got a
+       blank dashboard for a few seconds and then a white screen. The only
+       thing that fixed it was reassigning them to the school they were
+       already in — because /reassign writes the assignment row that this
+       route never did.
+
+       Mirrors checkActiveThisYear() deliberately, including its carve-outs:
+       somebody with no assignment history at all is not blocked, so no row is
+       fabricated for them. Nothing happens on deactivation — closing the
+       assignment there is the rollover's job, and it holds the history the
+       departure calculation reads. */
+    const activeYearId = reactivating ? await getActiveSchoolYearId() : null;
+
+    const [updated] = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(people)
+        .set({ isActive: !target.isActive })
+        .where(eq(people.employeeId, empId))
+        .returning();
+
+      if (!reactivating || activeYearId === null) return [row];
+
+      const [anyHistory] = await tx
+        .select({ id: assignments.id, schoolId: assignments.schoolId })
+        .from(assignments)
+        .where(eq(assignments.userId, empId))
+        .orderBy(desc(assignments.startDate), desc(assignments.id))
+        .limit(1);
+
+      /* No history — checkActiveThisYear lets them through already. */
+      if (!anyHistory) return [row];
+
+      const [alreadyOpen] = await tx
+        .select({ id: assignments.id })
+        .from(assignments)
+        .where(and(
+          eq(assignments.userId, empId),
+          eq(assignments.schoolYearId, activeYearId),
+          isNull(assignments.endDate),
+        ))
+        .limit(1);
+
+      if (alreadyOpen) return [row];
+
+      /* people.schoolId is the current truth and what the admin UI shows;
+         fall back to the last assignment's school when it is null, so a
+         person with a blank school still comes back able to sign in. */
+      const schoolIdForRow = target.schoolId ?? anyHistory.schoolId;
+
+      await tx.insert(assignments).values({
+        userId:       empId,
+        role:         target.role as UserRole,
+        schoolId:     schoolIdForRow,
+        schoolYearId: activeYearId,
+        startDate:    new Date().toISOString().slice(0, 10),
+        endDate:      null,
+      });
+
+      return [row];
+    });
 
     const [withSchool] = await db
       .select(PEOPLE_SELECT)

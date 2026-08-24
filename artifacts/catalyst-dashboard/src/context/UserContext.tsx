@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { setUnauthorizedHandler } from "@/lib/api";
+import { setUnauthorizedHandler, setNotActiveThisYearHandler } from "@/lib/api";
 
 export type UserRole = "COACH" | "SCHOOL_LEADER" | "NETWORK_LEADER" | "NETWORK_ADMIN";
 
@@ -89,6 +89,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
       window.location.replace(loginUrl);
     });
     return () => setUnauthorizedHandler(null);
+  }, [isLoading, currentUser]);
+
+  /* Same shape as the 401 handler above, for the school-year gate. The session
+     is valid, so signing out and back in lands in exactly the same place —
+     this explains the problem instead of bouncing to login. */
+  useEffect(() => {
+    if (isLoading || !currentUser) {
+      setNotActiveThisYearHandler(null);
+      return;
+    }
+    const deniedUrl = `${BASE}/access-denied?reason=not-active-this-year`;
+    let didRedirect = false;
+    setNotActiveThisYearHandler(() => {
+      if (didRedirect) return;
+      didRedirect = true;
+      window.location.replace(deniedUrl);
+    });
+    return () => setNotActiveThisYearHandler(null);
   }, [isLoading, currentUser]);
 
   return (

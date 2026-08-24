@@ -347,6 +347,21 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   _unauthorizedHandler = fn;
 }
 
+/* ── Centralized "not active this year" handler ────────────────────────────
+   requireAuth returns 403 NOT_ACTIVE_THIS_YEAR when somebody is marked active
+   but holds no open assignment in the current school year. GET /auth/me does
+   NOT apply that gate, so such a person gets a valid session and a rendered
+   dashboard, and then every data call 403s at once — which showed up in
+   production as a few seconds of empty dashboard followed by a white screen.
+
+   Handled centrally, like 401, so it lands on a page that says what happened
+   instead of dying in whichever query returned first.                       */
+let _notActiveThisYearHandler: (() => void) | null = null;
+
+export function setNotActiveThisYearHandler(fn: (() => void) | null): void {
+  _notActiveThisYearHandler = fn;
+}
+
 /* ── Centralized 429 / quota-exhaustion handler ────────────────────────────
    Registered by ActionCenterPage to surface the exhaustion modal whenever
    any AI endpoint returns 429 — including the streaming chat endpoint.     */
@@ -385,6 +400,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       }
     } catch { message = text || res.statusText; }
     const err = new HttpError(res.status, message, extra);
+    if (res.status === 403 && extra?.code === "NOT_ACTIVE_THIS_YEAR" && _notActiveThisYearHandler) {
+      _notActiveThisYearHandler();
+    }
     if (res.status === 401 && _unauthorizedHandler) {
       _unauthorizedHandler();
     }
@@ -502,6 +520,11 @@ export async function streamAIChat(
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const msg = (err as { error?: string }).error ?? res.statusText;
     const httpErr = new HttpError(res.status, msg);
+    if (res.status === 403
+        && (err as { code?: string }).code === "NOT_ACTIVE_THIS_YEAR"
+        && _notActiveThisYearHandler) {
+      _notActiveThisYearHandler();
+    }
     if (res.status === 429 && _quotaExhaustedHandler) {
       _quotaExhaustedHandler();
     }
