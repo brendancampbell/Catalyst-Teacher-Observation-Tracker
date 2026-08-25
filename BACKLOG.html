@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 24 August 2026 &middot; 9426e8b</p>
+    <p class="eyebrow">Live list &middot; updated 25 August 2026 &middot; aeec8d8</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,8 +332,8 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>7</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
-      <span><b>332&thinsp;/&thinsp;332</b> passing on a database built from empty</span>
+      <span><b>8</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>337&thinsp;/&thinsp;337</b> passing on a database built from empty</span>
     </div>
   </header>
 
@@ -361,6 +361,56 @@
 
           <tr>
             <td class="p">1</td>
+            <td class="idcell">34</td>
+            <td>
+              <div class="task">
+                <h3>A walkthrough toggle on school-wide rubrics</h3>
+                <p class="lineage">New, 25 Aug. Follows the rescore fix that opened walkthroughs to every role.</p>
+                <p class="why">
+                  School-wide observations go through a different form
+                  (<code>SchoolObservationModal</code>) which has no walkthrough toggle at all
+                  &mdash; the word does not appear in it. So a school-wide observation can never
+                  be a walkthrough, whoever does it.
+                </p>
+                <details>
+                  <summary>The question to settle before building it</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Adding the toggle is the easy half.</strong> The hard half is what a
+                      walkthrough should then <em>do</em>. On a teacher rubric it drives the rescore
+                      queue: score below 0.7 and that teacher is flagged for a rescore within 14
+                      days. The flag lives on the person &mdash;
+                      <code>people.needs_rescore</code>.
+                    </p>
+                    <p>
+                      A school-wide observation has no observed teacher. The rescore code reads
+                      <code>obs.observedEmployeeId</code> and a SCHOOL-target row does not have one,
+                      so as written the queue cannot flag anything. Schools have no equivalent
+                      field.
+                    </p>
+                    <p>
+                      So it needs a decision first: does a school-wide walkthrough flag the
+                      <em>school</em> for a rescore &mdash; which means a new flag, a school-level
+                      queue, and somewhere to show it &mdash; or is the toggle only a label, marking
+                      the observation as a walkthrough for reporting and filtering without driving
+                      any follow-up?
+                    </p>
+                    <p>
+                      The label-only version is small and could ship on its own. The school-level
+                      rescore queue is a feature in its own right and would be worth its own
+                      number.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Walkthroughs</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+
+          <tr>
+            <td class="p">2</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -432,7 +482,7 @@
           </tr>
 
           <tr>
-            <td class="p">2</td>
+            <td class="p">3</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -459,7 +509,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">4</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -485,7 +535,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -499,7 +549,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -516,7 +566,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -535,7 +585,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
