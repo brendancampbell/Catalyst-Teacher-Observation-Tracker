@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>337&thinsp;/&thinsp;337</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -648,6 +648,64 @@
             </td>
             <td class="cat">Access</td>
             <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+
+          <tr>
+            <td class="p">10</td>
+            <td class="idcell">36</td>
+            <td>
+              <div class="task">
+                <h3>Resumed drafts show empty glows and grows &mdash; and can silently overwrite them</h3>
+                <p class="lineage">New, 25 Aug. Root cause found; the visible symptom is the milder half.</p>
+                <p class="why">
+                  Reopening a draft shows the glows and grows boxes empty even though the text was
+                  saved. Everything else &mdash; scores, date, course, walkthrough &mdash; comes back
+                  correctly.
+                </p>
+                <details>
+                  <summary>Where it breaks, and why it is worse than it looks</summary>
+                  <div class="detail">
+                    <p>
+                      Neither the save nor the load is at fault.
+                      <code>GET /observations/drafts</code> returns both fields, and both
+                      draft-restore paths in <code>NewObservationModal</code> set them. The failure
+                      is one layer down, in <code>RichTextEditor</code>.
+                    </p>
+                    <p>
+                      The editor is created with <code>content: value</code>, which TipTap applies
+                      <strong>once, at creation</strong>. The modal mounts with empty text and the
+                      draft arrives a moment later, so by the time the real text exists the editor
+                      has already been built empty. The one effect watching <code>value</code>
+                      handles only the reverse case &mdash; it clears the editor when the incoming
+                      value is empty. There is no branch that puts a non-empty value <em>in</em>.
+                    </p>
+                    <p>
+                      <strong>The part nobody has noticed yet.</strong> The text is still held in
+                      React state, which is why it survives an untouched draft. But if somebody
+                      sees the empty box and types into it, the editor reports only what they just
+                      typed, that replaces the state, and autosave writes it over the saved text.
+                      The original glows and grows are then gone, with no indication anything was
+                      lost. So this is a quiet data-loss path, not only a display bug.
+                    </p>
+                    <p>
+                      <strong>The fix needs care.</strong> Pushing <code>value</code> into the
+                      editor on every change makes it fight the person typing: each keystroke
+                      raises <code>onChange</code>, which updates <code>value</code>, which would
+                      write back and move the cursor. It has to compare against the editor's own
+                      HTML and only write when they genuinely differ &mdash; and leave a focused
+                      editor alone.
+                    </p>
+                    <p>
+                      Worth a test that resumes a draft with real text in both fields and asserts
+                      the editor shows it, since nothing currently covers the restore path.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Drafts</td>
+            <td><span class="chip u-high">Data loss</span></td>
           </tr>
 
         </tbody>
