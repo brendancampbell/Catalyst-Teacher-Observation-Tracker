@@ -243,8 +243,18 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
     if ("error" in gradeCheck) { res.status(400).json({ error: gradeCheck.error }); return; }
 
     if (!isNetworkScope) {
-      if (!SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole)) {
-        res.status(403).json({ error: "School Leaders can only create Coach or School Leader people" }); return;
+      /* NO_ACCESS is how a teacher is represented, and a school leader adding a
+         teacher to their own school is ordinary work. This route was the only
+         one that refused it: editing somebody, activating or deactivating them,
+         and the bulk roster upload all carry the same `role !== "NO_ACCESS"`
+         exception, so a school leader could upload a spreadsheet full of
+         teachers but not add a single one by hand.
+
+         The school guard below is the one that matters here and is unchanged —
+         a school leader still cannot create anybody outside their own school,
+         and network-level roles are still refused. */
+      if (!SCHOOL_ASSIGNABLE_ROLES.includes(role as UserRole) && role !== "NO_ACCESS") {
+        res.status(403).json({ error: "School Leaders can only create Coach, School Leader or No Access people" }); return;
       }
       if ((schoolId ?? currentUser.schoolId) !== currentUser.schoolId) {
         res.status(403).json({ error: "School Leaders can only create people in their own school" }); return;
