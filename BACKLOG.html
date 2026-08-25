@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>337&thinsp;/&thinsp;337</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -603,56 +603,10 @@
           </tr>
 
 
+
+
           <tr>
             <td class="p">9</td>
-            <td class="idcell">35</td>
-            <td>
-              <div class="task">
-                <h3>School leaders cannot create a teacher</h3>
-                <p class="lineage">New, 25 Aug. Looks like an oversight rather than a policy &mdash; see below.</p>
-                <p class="why">
-                  Adding one person as a school leader refuses any role but Coach or School Leader:
-                  <em>&ldquo;School Leaders can only create Coach or School Leader people.&rdquo;</em>
-                  A teacher is a person with the <code>NO_ACCESS</code> role and the observable flag
-                  set, so a school leader cannot add one at all.
-                </p>
-                <details>
-                  <summary>Why this reads as an oversight</summary>
-                  <div class="detail">
-                    <p>
-                      Three of the four paths already permit it. Editing somebody, activating or
-                      deactivating them, and the bulk roster upload all allow
-                      <code>NO_ACCESS</code> for a school leader &mdash; each carries an explicit
-                      <code>role !== "NO_ACCESS"</code> exception. Only
-                      <code>POST /api/people</code> lacks that exception.
-                    </p>
-                    <p>
-                      The practical effect is odd: a school leader can upload a spreadsheet full of
-                      teachers, and can edit any teacher already in the system, but cannot add a
-                      single one by hand &mdash; so a mid-year arrival means either a spreadsheet or
-                      a request to an administrator.
-                    </p>
-                    <p>
-                      <strong>Likely a one-line change</strong>, matching the exception the other
-                      three paths already have. Worth confirming it is intended to be open before
-                      making it so: creating people is the one thing on that list that adds a record
-                      rather than changing one, which may be why it was drawn tighter.
-                    </p>
-                    <p>
-                      The school guard is separate and should stay &mdash; a school leader can only
-                      create people in their own school, and that is not in question here.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Access</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-
-
-          <tr>
-            <td class="p">10</td>
             <td class="idcell">36</td>
             <td>
               <div class="task">
@@ -1137,6 +1091,49 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">35</td>
+            <td>
+              <div class="task">
+                <h3>School leaders can add a teacher</h3>
+                <p class="lineage"><code>6c58273</code> &mdash; one condition, six tests</p>
+                <p class="why">
+                  A teacher is a person with the <code>NO_ACCESS</code> role and the observable flag
+                  set, and <code>POST /api/people</code> was the only path that refused that role
+                  for a school leader. A mid-year arrival meant a spreadsheet or an email to an
+                  administrator.
+                </p>
+                <details>
+                  <summary>An oversight, confirmed by its three siblings</summary>
+                  <div class="detail">
+                    <p>
+                      Editing somebody, activating or deactivating them, and the bulk roster upload
+                      all carried the same <code>role !== "NO_ACCESS"</code> exception. Only the
+                      create path lacked it &mdash; so a school leader could upload a spreadsheet
+                      full of teachers but not add one by hand.
+                    </p>
+                    <p>
+                      The admin screen already listed &ldquo;No Access&rdquo; in the role dropdown
+                      for school leaders, so the form offered something the server then refused with
+                      a 403.
+                    </p>
+                    <p>
+                      <strong>Most of the tests are about what did not change.</strong> A school
+                      leader still cannot create anybody outside their own school, still cannot mint
+                      a Network Leader or Network Admin, and a coach still cannot create anybody at
+                      all. Widening one condition in an authorization check is exactly the kind of
+                      change that quietly widens its neighbours, so those four rules are now pinned
+                      down rather than assumed.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Access</td>
+            <td><span class="chip u-done">25 Aug</span></td>
+          </tr>
+
 
           <tr>
             <td class="idcell">25</td>
