@@ -664,7 +664,7 @@ export default function DraftsPage() {
           open={newObsOpen}
           onOpenChange={(o) => { setNewObsOpen(o); if (!o) setNewObsData(null); }}
           observerName={currentUser.name}
-          canMarkWalkthrough={currentUser.role !== "COACH"}
+          canMarkWalkthrough={true}
           onSubmit={handleSubmitNew}
           saving={newObsSaving}
           freshStart
@@ -683,7 +683,7 @@ export default function DraftsPage() {
           resumeDraftId={resumeData.draft.id}
           rubricSetId={resumeData.draft.rubricSetId}
           observerName={currentUser.name}
-          canMarkWalkthrough={currentUser.role !== "COACH"}
+          canMarkWalkthrough={true}
           onSubmit={handleSubmitResumed}
           saving={resumeSaving}
         />
