@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { decideEditorSync } from "@/lib/rich-text-sync";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, List, ListOrdered, IndentDecrease, IndentIncrease, Maximize2, Minimize2 } from "lucide-react";
@@ -52,12 +53,24 @@ export function RichTextEditor({
     );
   }, [effectiveMinHeight, editor]);
 
+  /* Keep the editor in step with `value` after creation.
+     TipTap applies `content` only when the editor is built, so a value that
+     arrives later — a resumed draft, most importantly — never reached it. See
+     decideEditorSync for why this cannot simply write on every change. */
   useEffect(() => {
     if (!editor) return;
-    const isEmpty = !value || value === "<p></p>";
-    const currentEmpty = editor.isEmpty;
-    if (isEmpty && !currentEmpty) {
+    const action = decideEditorSync({
+      incoming:        value,
+      currentHtml:     editor.getHTML(),
+      editorIsEmpty:   editor.isEmpty,
+      editorIsFocused: editor.isFocused,
+    });
+    if (action === "clear") {
       editor.commands.clearContent(false);
+    } else if (action === "replace") {
+      /* emitUpdate false: this is the parent's own value coming back in, and
+         announcing it as an edit would loop straight back here. */
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
