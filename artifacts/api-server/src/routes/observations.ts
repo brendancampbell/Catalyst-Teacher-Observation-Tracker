@@ -774,12 +774,13 @@ router.post("/", observationCreateLimiter, async (req, res) => {
 
     /* ── Walkthrough / Rescore queue logic ───────────────────────── */
     if (obs.isWalkthrough && obs.status === "published" && obs.observedEmployeeId) {
-      const canTriggerRescore =
-        creator.role === "NETWORK_ADMIN" ||
-        creator.role === "NETWORK_LEADER" ||
-        creator.role === "SCHOOL_LEADER";
-
-      if (canTriggerRescore && scoreRows.length > 0) {
+      /* Every role's walkthrough counts. This used to exclude COACH, which
+         made the rescore queue depend on who happened to do the walkthrough
+         rather than on how the teacher scored — and coaches can mark a
+         walkthrough from the dashboard and the teacher profile, so their
+         below-proficiency walkthroughs simply vanished from the queue.
+         Whether a teacher needs rescoring is a fact about the scores. */
+      if (scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
         if (avg < 0.7) {
           const due = new Date(date);
@@ -1110,27 +1111,22 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
 
     /* ── Rescore on publish ──────────────────────────────────────── */
     if (isPublishing && updated.isWalkthrough && updated.observedEmployeeId) {
-      const canTriggerRescore =
-        currentUser.role === "NETWORK_ADMIN" ||
-        currentUser.role === "NETWORK_LEADER" ||
-        currentUser.role === "SCHOOL_LEADER";
-
-      if (canTriggerRescore) {
-        const savedScoresForRescore = await db.select().from(observationScores)
-          .where(eq(observationScores.observationId, obsId));
-        if (savedScoresForRescore.length > 0) {
-          const avg = savedScoresForRescore.reduce((s, r) => s + r.score, 0) / savedScoresForRescore.length;
-          if (avg < 0.7) {
-            const due = new Date(updated.date);
-            due.setDate(due.getDate() + 14);
-            await db.update(people)
-              .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearIdPut })
-              .where(eq(people.employeeId, updated.observedEmployeeId));
-          } else {
-            await db.update(people)
-              .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
-              .where(eq(people.employeeId, updated.observedEmployeeId));
-          }
+      /* Same rule as the create path above: the observer's role does not
+         decide whether a teacher needs rescoring — the scores do. */
+      const savedScoresForRescore = await db.select().from(observationScores)
+        .where(eq(observationScores.observationId, obsId));
+      if (savedScoresForRescore.length > 0) {
+        const avg = savedScoresForRescore.reduce((s, r) => s + r.score, 0) / savedScoresForRescore.length;
+        if (avg < 0.7) {
+          const due = new Date(updated.date);
+          due.setDate(due.getDate() + 14);
+          await db.update(people)
+            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearIdPut })
+            .where(eq(people.employeeId, updated.observedEmployeeId));
+        } else {
+          await db.update(people)
+            .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
+            .where(eq(people.employeeId, updated.observedEmployeeId));
         }
       }
     }
