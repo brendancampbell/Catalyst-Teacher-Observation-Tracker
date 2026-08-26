@@ -332,8 +332,8 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>8</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
-      <span><b>343&thinsp;/&thinsp;343</b> passing on a database built from empty</span>
+      <span><b>7</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>360&thinsp;/&thinsp;360</b> passing on a database built from empty</span>
     </div>
   </header>
 
@@ -359,59 +359,12 @@
         </thead>
         <tbody>
 
+
+
+
+
           <tr>
             <td class="p">1</td>
-            <td class="idcell">37</td>
-            <td>
-              <div class="task">
-                <h3>Deleting an observation leaves its action step behind</h3>
-                <p class="lineage">New, 25 Aug. More reachable than it sounds &mdash; see below.</p>
-                <p class="why">
-                  An action step assigned during an observation survives that observation being
-                  deleted. The link is <code>ON DELETE SET NULL</code>, so the step stays open,
-                  stays assigned to the teacher, and loses every trace of where it came from.
-                </p>
-                <details>
-                  <summary>Why this happens more often than deleting an observation</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Drafts create real action steps.</strong> The insert is not gated on
-                      status, so autosaving a draft with an action step writes a live one straight
-                      away. Discarding that draft deletes the observation and leaves the step
-                      behind &mdash; and discarding is a normal thing to do, made easier by the
-                      draft work on 25 Aug.
-                    </p>
-                    <p>
-                      An orphaned step is not inert. It shows on the teacher&rsquo;s profile, it can
-                      go overdue and appear in the Action Center, and it counts towards that
-                      coach&rsquo;s total in the Usage tab &mdash; so the numbers are inflated by
-                      work that was retracted.
-                    </p>
-                    <p>
-                      <strong>The decision to make first.</strong> Deleting the step outright is
-                      right for a step nobody has touched. It is wrong for one that has since been
-                      extended or marked mastered, because that is real coaching history and the
-                      teacher may have already done the work. The likely rule is: delete it if it
-                      is still untouched, otherwise keep it and cut the link. That needs settling
-                      before any code.
-                    </p>
-                    <p>
-                      Worth checking production for steps already orphaned this way before changing
-                      anything &mdash; the fix stops new ones, it does not tidy old ones.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Action steps</td>
-            <td><span class="chip u-high">Data integrity</span></td>
-          </tr>
-
-
-
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">4</td>
             <td>
               <div class="task">
@@ -483,7 +436,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -510,7 +463,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -536,7 +489,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -550,7 +503,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -567,7 +520,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -586,7 +539,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1036,6 +989,66 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">37</td>
+            <td>
+              <div class="task">
+                <h3>An action step no longer outlives the observation that created it</h3>
+                <p class="lineage"><code>c160201</code> and <code>5bb3970</code> &mdash; two halves, the first bigger than the second</p>
+                <p class="why">
+                  The link was <code>ON DELETE SET NULL</code>, so deleting an observation left its
+                  action step behind: still open, still assigned, able to go overdue, still counted
+                  towards that coach&rsquo;s total in the Usage tab, with nothing pointing at where
+                  it came from.
+                </p>
+                <details>
+                  <summary>Why the fix started somewhere else entirely</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Drafts were the bigger half.</strong> A draft created a real action
+                      step on its first autosave, so discarding a draft &mdash; an ordinary thing to
+                      do, made easier that same week &mdash; orphaned one. Rather than clean up
+                      afterwards, a draft now <em>holds</em> its intended step in
+                      <code>pending_action_step_text</code> and assigns nothing until it is
+                      published. Nothing exists to orphan.
+                    </p>
+                    <p>
+                      Two things fell out of that. Resuming a draft now restores its action step,
+                      which it never did &mdash; the box came back empty while a real step sat
+                      behind it. And the deletion rules below only ever concern published
+                      observations, which made all three of them simpler.
+                    </p>
+                    <p>
+                      <strong>The rules.</strong> A step no other observation has touched goes with
+                      the observation. A step another observation HAS touched survives and moves
+                      there, because that is a coaching conversation that really happened. Touched
+                      means extended or mastered elsewhere; where both apply the most recent
+                      extension wins. Deleting the observation that merely recorded a mastery
+                      changes nothing &mdash; the teacher did the work whether or not that meeting
+                      is on record.
+                    </p>
+                    <p>
+                      <strong>Never quiet.</strong> The delete is refused with a 409 listing the
+                      steps that would go, in the same <code>?force=true</code> shape as the
+                      rubric-set and category deletes. The warning names each step rather than
+                      counting them, and says MASTERED plainly when completed work would disappear
+                      &mdash; retracting something a coach assigned and erasing work a teacher was
+                      credited for are different things to agree to.
+                    </p>
+                    <p>
+                      Migration 0013 pulled back steps already created by unpublished drafts,
+                      narrowly: only where the step was open, never extended, never mastered, and
+                      the only one on that draft. Anything else kept its row.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Action steps</td>
+            <td><span class="chip u-done">25 Aug</span></td>
+          </tr>
+
 
           <tr>
             <td class="idcell">34</td>
