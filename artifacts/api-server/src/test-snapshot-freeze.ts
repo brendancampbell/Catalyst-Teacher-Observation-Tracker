@@ -234,7 +234,10 @@ describe("Frozen school snapshots — observation and action step remain pinned 
       date:               today,
       strengths:          "TST_SNAP_STRENGTH",
       growthAreas:        "TST_SNAP_GROWTH",
-      status:             "draft",
+      /* Published, not draft: a draft holds its action step and assigns
+         nothing until publish. This test is about the snapshot fields on
+         a real step, so it needs one to exist. */
+      status:             "published",
       newActionStep:      { text: "TST_SNAP_STEP", dueDate: futureDate },
     }, leaderJar);
 

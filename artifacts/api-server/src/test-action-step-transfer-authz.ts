@@ -255,7 +255,10 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
       date:               today,
       strengths:          "TST_TRF_STRENGTH_A",
       growthAreas:        "TST_TRF_GROWTH_A",
-      status:             "draft",
+      /* Published, not draft: a draft holds its action step and assigns
+         nothing until publish. This test is about the snapshot fields on
+         a real step, so it needs one to exist. */
+      status:             "published",
       newActionStep:      { text: "TST_TRF_STEP_A", dueDate: futureDate },
     }, leaderAJar);
 
@@ -379,7 +382,10 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
       rubricSetId:        createdRubricSetId,
       date:               today,
       strengths:          "TST_TRF_STRENGTH_B",
-      status:             "draft",
+      /* Published, not draft: a draft holds its action step and assigns
+         nothing until publish. This test is about the snapshot fields on
+         a real step, so it needs one to exist. */
+      status:             "published",
       newActionStep:      { text: "TST_TRF_STEP_B", dueDate: futureDate },
     }, adminJar);
 
