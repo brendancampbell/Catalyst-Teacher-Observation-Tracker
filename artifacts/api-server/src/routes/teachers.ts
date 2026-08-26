@@ -84,7 +84,8 @@ router.get("/:id", async (req, res) => {
       employeeId: person.employeeId,
       email:      person.email,
       subject:    person.department,
-      gradeLevel: person.gradeLevel,
+      /* Nullable in the database, string[] in the published type. */
+      gradeLevel: person.gradeLevel ?? [],
       observations: obsRows
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((o) => ({

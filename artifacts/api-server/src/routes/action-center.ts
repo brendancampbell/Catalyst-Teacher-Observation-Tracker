@@ -197,6 +197,12 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
 
     res.json(rows.map((r) => ({
       ...r,
+      /* people.grade_level is a nullable text[], and every teacher was
+         uploaded without one. The published type says string[], so a null
+         here is a lie the client cannot defend against — it crashed the
+         rescore queue on `.length`. Coalesced at the edge so the type is
+         true. */
+      gradeLevel:  r.gradeLevel ?? [],
       teacherName: `${r.personFirst} ${r.personLast}`.trim(),
     })));
   } catch (err) {
@@ -259,7 +265,7 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
       employeeId:   r.employeeId,
       teacherName:  `${r.personFirst} ${r.personLast}`.trim(),
       subject:      r.department,
-      gradeLevel:   r.gradeLevel,
+      gradeLevel:   r.gradeLevel ?? [],
       schoolName:   r.schoolName,
       lastObserved: r.lastObserved ?? null,
       daysSince:    r.lastObserved
