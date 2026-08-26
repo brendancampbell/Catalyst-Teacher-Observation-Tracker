@@ -163,6 +163,48 @@ describe("Discarding a draft", () => {
 });
 
 /* ================================================================== */
+/* Autosave depends on a rubric set                                   */
+/* ================================================================== */
+describe("Autosave needs a rubric set", () => {
+  /* Two call sites shipped without passing rubricSetId — the Drafts page and
+     the Action Center — and observations started there silently never wrote a
+     draft. Nothing failed and nothing was logged; the work was simply gone.
+     The dependency is invisible at the call site, so it is pinned here. */
+
+  it("writes a draft when a rubric set is supplied", async () => {
+    vi.useFakeTimers();
+    try {
+      const { NewObservationModal } = await import("@/components/NewObservationModal");
+      render(React.createElement(NewObservationModal, makeProps({ rubricSetId: 7 })));
+
+      fireEvent.click(screen.getByTitle("Proficient"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+
+      expect(mockCreateObservation).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("writes nothing at all when the rubric set is missing", async () => {
+    vi.useFakeTimers();
+    try {
+      const { NewObservationModal } = await import("@/components/NewObservationModal");
+      render(React.createElement(NewObservationModal, makeProps({ rubricSetId: undefined })));
+
+      fireEvent.click(screen.getByTitle("Proficient"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+
+      /* This is the behaviour that bit us. Documented, not endorsed: a caller
+         that forgets the prop gets silence. */
+      expect(mockCreateObservation).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/* ================================================================== */
 /* Closing the observation                                            */
 /* ================================================================== */
 describe("Closing an observation", () => {

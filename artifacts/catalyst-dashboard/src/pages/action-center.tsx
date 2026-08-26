@@ -2477,6 +2477,10 @@ export default function ActionCenterPage() {
           observerName={currentUser?.name}
           onSubmit={handleSubmitObs}
           saving={saving}
+          /* Autosave refuses to run without a rubric set, so an observation
+             started here never wrote a draft. handleSubmitObs has always used
+             this same id; it just never reached the modal. */
+          rubricSetId={activeQuarterId || undefined}
           rubricSetAudience={activeQuarterAudience}
           freshStart
         />

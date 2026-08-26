@@ -672,6 +672,12 @@ export default function DraftsPage() {
           allDomains={newObsData.allDomains}
           open={newObsOpen}
           onOpenChange={(o) => { setNewObsOpen(o); if (!o) setNewObsData(null); }}
+          /* Autosave refuses to run without a rubric set, so an observation
+             started from this page never wrote a draft — the one page where
+             somebody is plainly thinking about drafts. handleSubmitNew has
+             always read the same id off newObsData; it just never reached the
+             modal. */
+          rubricSetId={newObsData.rubricSetId}
           observerName={currentUser.name}
           canMarkWalkthrough={true}
           onSubmit={handleSubmitNew}
