@@ -162,6 +162,15 @@ export default function DraftsPage() {
 
   /* ── Handlers ───────────────────────────────────────────────────── */
   async function handleDelete(draft: DraftObservation) {
+    /* Deleting one draft was the only path here that did not ask. Bulk delete
+       has always confirmed, and a single draft is just as unrecoverable — it
+       is somebody's written feedback, and the row sits next to Resume. */
+    const who = draft.teacherName ? ` for ${draft.teacherName}` : "";
+    const ok = window.confirm(
+      `Delete this draft${who}?\n\nEverything entered in it will be deleted. This cannot be undone.`,
+    );
+    if (!ok) return;
+
     setDeleting(draft.id);
     try {
       await deleteObservation(draft.id);

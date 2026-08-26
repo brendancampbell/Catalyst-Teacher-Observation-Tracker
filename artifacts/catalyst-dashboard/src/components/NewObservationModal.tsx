@@ -17,6 +17,8 @@ import type { SubjectAudience } from "@/lib/subject-audience";
    rich text (TipTap output) sanitised, exactly as the server-side builder
    used to do before it was removed. The preview iframe is sandboxed
    without allow-scripts, but that is a backstop, not a substitute.        */
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
 const EMAIL_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "b", "i", "u", "s", "blockquote"];
 
 function escapeEmailHtml(value: unknown): string {
@@ -866,6 +868,55 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
   }
 
+  /* ── Closing the observation ──────────────────────────────────────
+     Autosave runs on a 2-second debounce, so "saving" means the person has
+     changed something the server has not acknowledged yet, and "error" means
+     a write already failed. Closing in either state can lose what they typed,
+     so it asks first.
+
+     Otherwise, when a draft was written, say so on the way out — the
+     observation vanishing with no explanation is what makes people retype it,
+     and the Drafts page is not somewhere they would think to look unless
+     told. */
+  function attemptClose() {
+    if (autoSaveStatus === "saving" || autoSaveStatus === "error") {
+      const message = autoSaveStatus === "error"
+        ? "This observation could not be saved.\n\nIf you close now, what you have entered will be lost. Close anyway?"
+        : "This observation has not finished saving.\n\nIf you close now, your most recent changes may be lost. Close anyway?";
+      if (!window.confirm(message)) return;
+    } else if (draftId && autoSaveStatus === "saved") {
+      toast({
+        title: "Draft saved",
+        description: (
+          <a href={`${BASE}/drafts`} className="underline font-semibold">
+            Find it on the Drafts page
+          </a>
+        ),
+      });
+    }
+    reset();
+    onOpenChange(false);
+  }
+
+  /* Deleting somebody's written feedback is not undoable, so it asks first —
+     and then closes, because leaving an empty form open where the draft was
+     reads as though nothing happened. */
+  async function discardDraft() {
+    if (!draftId) return;
+    const ok = window.confirm(
+      "Discard this draft?\n\nEverything entered here will be deleted. This cannot be undone.",
+    );
+    if (!ok) return;
+    try {
+      await deleteObservation(draftId);
+      reset();
+      toast({ title: "Draft discarded" });
+      onOpenChange(false);
+    } catch {
+      toast({ title: "Could not discard draft", variant: "destructive" });
+    }
+  }
+
   async function writeRichHtmlToClipboard(html: string): Promise<void> {
     const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
 
@@ -930,7 +981,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+    <DialogPrimitive.Root open={open} onOpenChange={(o) => { if (!o) { attemptClose(); return; } onOpenChange(o); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content className="fixed z-50 flex flex-col bg-white shadow-2xl overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 inset-x-2 inset-y-3 rounded-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-2xl sm:max-h-[74vh]">
@@ -1106,30 +1157,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 </span>
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!draftId) return;
-                    try {
-                      await deleteObservation(draftId);
-                      setDraftId(null);
-                      setDraftResumedFrom(null);
-                      setDate(todayIso);
-                      setTime(nowTime());
-                      setCourse("");
-                      setScores({});
-                      setStrengths("");
-                      setGrowthAreas("");
-                      setIsWalkthrough(false);
-                      setAutoSaveStatus("idle");
-                      setLastSavedTime(null);
-                      setNewActionStepText("");
-                      setNewActionStepDueDate("");
-                      setMarkMastered(false);
-                      setLatestActionStep(null);
-                      toast({ title: "Draft discarded" });
-                    } catch {
-                      toast({ title: "Could not discard draft", variant: "destructive" });
-                    }
-                  }}
+                  onClick={discardDraft}
                   className="ml-4 text-xs text-red-600 hover:underline shrink-0"
                 >
                   Discard
