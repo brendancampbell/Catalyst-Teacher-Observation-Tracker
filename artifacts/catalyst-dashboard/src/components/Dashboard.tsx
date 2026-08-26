@@ -13,7 +13,8 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { deleteObservationSafely } from "@/lib/delete-observation-safely";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
@@ -577,7 +578,8 @@ export default function Dashboard() {
 
   async function handleDeleteObs(teacherId: string, observationId: string) {
     try {
-      await deleteObservation(observationId);
+      const deleted = await deleteObservationSafely(observationId);
+      if (!deleted) return;
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
       await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });

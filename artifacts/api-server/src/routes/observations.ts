@@ -10,7 +10,7 @@ import {
   rubricCategories, rubricDomains, observationScoreValueSchema,
   actionSteps, actionStepExtensions, schoolYears,
 } from "@workspace/db/schema";
-import { eq, desc, and, ne, inArray } from "drizzle-orm";
+import { eq, desc, and, ne, inArray, isNotNull } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { canAccessSchoolScopedRecord } from "../middleware/auth";
 import { validateExtensionRequest, checkStepIsExtendable, type ExtendActionStepInput } from "../lib/action-step-extension.js";
@@ -1219,6 +1219,79 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
 /* ── DELETE /api/observations/:id ───────────────────────────────────
    Draft creators (any role) may delete their own drafts.
    School Leaders: restricted to their own school's people.           */
+/* ── What deleting an observation does to its action steps ────────
+   An action step used to survive the observation that created it: the link is
+   ON DELETE SET NULL, so the step stayed open, stayed assigned, could go
+   overdue, and still counted towards a coach's total in the Usage tab, with
+   nothing left pointing at where it came from.
+
+   The rule, decided 25 Aug:
+
+     * a step no other observation has touched goes with the observation
+     * a step another observation HAS touched survives and moves there, since
+       that is a coaching conversation that really happened
+
+   "Touched" means extended or mastered elsewhere. Where both apply the most
+   recent extension wins — a step extended in November and mastered in October
+   belongs with November, which is where the conversation got to.
+
+   Deleting a step that was mastered is allowed but never quiet: the caller has
+   to pass force, and gets told which ones first.                            */
+interface StepImpact {
+  id:       number;
+  text:     string;
+  mastered: boolean;
+}
+
+async function planActionStepImpact(obsId: number): Promise<{
+  toDelete: StepImpact[];
+  toMove:   Array<StepImpact & { movingToObservationId: number }>;
+}> {
+  const steps = await db
+    .select({
+      id:        actionSteps.id,
+      text:      actionSteps.text,
+      status:    actionSteps.status,
+      masteredDuringObservationId: actionSteps.masteredDuringObservationId,
+    })
+    .from(actionSteps)
+    .where(eq(actionSteps.assignedDuringObservationId, obsId));
+
+  const toDelete: StepImpact[] = [];
+  const toMove: Array<StepImpact & { movingToObservationId: number }> = [];
+
+  for (const step of steps) {
+    const [latestExtension] = await db
+      .select({ observationId: actionStepExtensions.extendedDuringObservationId })
+      .from(actionStepExtensions)
+      .where(and(
+        eq(actionStepExtensions.actionStepId, step.id),
+        isNotNull(actionStepExtensions.extendedDuringObservationId),
+        ne(actionStepExtensions.extendedDuringObservationId, obsId),
+      ))
+      .orderBy(desc(actionStepExtensions.createdAt), desc(actionStepExtensions.id))
+      .limit(1);
+
+    const masteredElsewhere =
+      step.masteredDuringObservationId !== null && step.masteredDuringObservationId !== obsId
+        ? step.masteredDuringObservationId
+        : null;
+
+    const newHome = latestExtension?.observationId ?? masteredElsewhere;
+    const summary: StepImpact = {
+      id: step.id, text: step.text, mastered: step.status === "mastered",
+    };
+
+    if (newHome !== null && newHome !== undefined) {
+      toMove.push({ ...summary, movingToObservationId: newHome });
+    } else {
+      toDelete.push(summary);
+    }
+  }
+
+  return { toDelete, toMove };
+}
+
 router.delete("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
@@ -1263,13 +1336,45 @@ router.delete("/:id", observationMutationLimiter, async (req, res) => {
       }
     }
 
-    await db.delete(observations).where(eq(observations.id, obsId));
+    /* Same shape as the rubric-set, category and domain deletes: refuse with
+       409 and say what would be lost, unless the caller passes ?force=true. */
+    const impact = await planActionStepImpact(obsId);
+    const force  = req.query.force === "true";
+
+    if (impact.toDelete.length > 0 && !force) {
+      res.status(409).json({
+        error: "This observation has action steps that would be deleted with it",
+        code:  "ACTION_STEPS_WOULD_BE_DELETED",
+        stepsToDelete: impact.toDelete,
+        stepsToMove:   impact.toMove,
+      });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      for (const step of impact.toMove) {
+        /* Survives, and moves to the observation that last touched it. */
+        await tx.update(actionSteps)
+          .set({ assignedDuringObservationId: step.movingToObservationId })
+          .where(eq(actionSteps.id, step.id));
+      }
+      if (impact.toDelete.length > 0) {
+        await tx.delete(actionSteps)
+          .where(inArray(actionSteps.id, impact.toDelete.map((x) => x.id)));
+      }
+      await tx.delete(observations).where(eq(observations.id, obsId));
+    });
 
     dashboardCache.invalidatePrefix("dashboard:");
     districtCache.invalidatePrefix("district:");
     networkAvgsCache.invalidatePrefix("network-avgs:");
 
-    res.json({ ok: true, id: String(obsId) });
+    res.json({
+      ok: true,
+      id: String(obsId),
+      deletedActionSteps: impact.toDelete.length,
+      movedActionSteps:   impact.toMove.length,
+    });
   } catch (err) {
     console.error("DELETE /observations/:id error:", err);
     res.status(500).json({ error: "Internal server error" });

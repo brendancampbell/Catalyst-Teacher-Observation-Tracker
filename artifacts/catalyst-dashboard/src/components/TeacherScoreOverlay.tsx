@@ -5,7 +5,8 @@ import { toast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Teacher, type Observation, type Score } from "@/data/dummy";
-import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
+import { deleteObservationSafely } from "@/lib/delete-observation-safely";
+import { fetchDashboard, updateObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { rubricSetsForTeacher } from "@/lib/subject-audience";
 import { getScoreColor, getScoreColorExact } from "@/components/ScoreCell";
@@ -949,7 +950,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           }}
           onDelete={canEdit ? async (observationId) => {
-            await deleteObservation(observationId);
+            const deleted = await deleteObservationSafely(observationId);
+            if (!deleted) return;
             setLocalObsOverrides((prev) => {
               const next = { ...prev };
               delete next[observationId];

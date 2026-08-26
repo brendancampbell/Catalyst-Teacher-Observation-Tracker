@@ -317,6 +317,10 @@ export class HttpError extends Error {
   code?: string;
   /** Carried on a 409 from /people/bulk so the caller can show what changed. */
   emailChanges?: { employeeId: string; name: string; from: string; to: string }[];
+  /** Carried on a 409 from DELETE /observations so the caller can name what
+      would be lost before asking. */
+  stepsToDelete?: ObservationStepImpact[];
+  stepsToMove?:   ObservationStepImpact[];
   constructor(
     status: number,
     message: string,
@@ -325,6 +329,8 @@ export class HttpError extends Error {
       observationCount?: number;
       code?: string;
       emailChanges?: { employeeId: string; name: string; from: string; to: string }[];
+      stepsToDelete?: ObservationStepImpact[];
+      stepsToMove?:   ObservationStepImpact[];
     },
   ) {
     super(message);
@@ -334,6 +340,8 @@ export class HttpError extends Error {
     if (extra?.observationCount !== undefined) this.observationCount = extra.observationCount;
     if (extra?.code !== undefined) this.code = extra.code;
     if (extra?.emailChanges !== undefined) this.emailChanges = extra.emailChanges;
+    if (extra?.stepsToDelete !== undefined) this.stepsToDelete = extra.stepsToDelete;
+    if (extra?.stepsToMove !== undefined) this.stepsToMove = extra.stepsToMove;
   }
 }
 
@@ -383,20 +391,25 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     let extra: {
       scoreCount?: number; observationCount?: number;
       code?: string; emailChanges?: RosterEmailChange[];
+      stepsToDelete?: ObservationStepImpact[]; stepsToMove?: ObservationStepImpact[];
     } | undefined;
     try {
       const body = JSON.parse(text) as {
         error?: string; scoreCount?: number; observationCount?: number;
         code?: string; emailChanges?: RosterEmailChange[];
+        stepsToDelete?: ObservationStepImpact[]; stepsToMove?: ObservationStepImpact[];
       };
       message = body.error ?? res.statusText;
       if (body.scoreCount !== undefined || body.observationCount !== undefined
-          || body.code !== undefined || body.emailChanges !== undefined) {
+          || body.code !== undefined || body.emailChanges !== undefined
+          || body.stepsToDelete !== undefined) {
         extra = {};
         if (body.scoreCount !== undefined) extra.scoreCount = body.scoreCount;
         if (body.observationCount !== undefined) extra.observationCount = body.observationCount;
         if (body.code !== undefined) extra.code = body.code;
         if (body.emailChanges !== undefined) extra.emailChanges = body.emailChanges;
+        if (body.stepsToDelete !== undefined) extra.stepsToDelete = body.stepsToDelete;
+        if (body.stepsToMove !== undefined) extra.stepsToMove = body.stepsToMove;
       }
     } catch { message = text || res.statusText; }
     const err = new HttpError(res.status, message, extra);
@@ -460,8 +473,25 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
   });
 }
 
-export async function deleteObservation(id: string): Promise<{ ok: boolean; id: string }> {
-  return apiFetch<{ ok: boolean; id: string }>(`/observations/${id}`, {
+export interface ObservationStepImpact {
+  id:       number;
+  text:     string;
+  mastered: boolean;
+}
+
+/* Thrown as HttpError 409 with code ACTION_STEPS_WOULD_BE_DELETED when the
+   observation has action steps that would go with it. Call again with
+   force = true once the person has been told. */
+export interface DeleteObservationBlocked {
+  stepsToDelete: ObservationStepImpact[];
+  stepsToMove:   ObservationStepImpact[];
+}
+
+export async function deleteObservation(
+  id: string,
+  force = false,
+): Promise<{ ok: boolean; id: string; deletedActionSteps?: number; movedActionSteps?: number }> {
+  return apiFetch(`/observations/${id}${force ? "?force=true" : ""}`, {
     method: "DELETE",
   });
 }

@@ -12,7 +12,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { type Teacher, type Observation } from "@/data/dummy";
-import { updateObservation, deleteObservation, type CategoryEntry } from "@/lib/api";
+import { updateObservation, type CategoryEntry } from "@/lib/api";
+import { deleteObservationSafely } from "@/lib/delete-observation-safely";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 
 const NAVY = "#1034B4";
@@ -210,7 +211,10 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
   }
 
   async function handleDelete(observationId: string) {
-    await deleteObservation(observationId);
+    /* Asks first when action steps would go with it, and returns false if the
+       person backs out — leave the modal exactly as it was in that case. */
+    const deleted = await deleteObservationSafely(observationId);
+    if (!deleted) return;
     onDeleteObs(teacher!.id, observationId);
     setDetailObsId(null);
   }
