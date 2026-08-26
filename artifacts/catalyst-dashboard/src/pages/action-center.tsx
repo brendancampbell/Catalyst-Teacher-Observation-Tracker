@@ -1685,7 +1685,7 @@ export default function ActionCenterPage() {
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
                                   <td className="px-4 py-3 text-slate-600">
-                                    {item.department}<span className="text-slate-400 ml-1.5">{item.gradeLevel.length > 0 ? `· Gr. ${item.gradeLevel.join(", ")}` : ""}</span>
+                                    {item.department}<span className="text-slate-400 ml-1.5">{(item.gradeLevel ?? []).length > 0 ? `· Gr. ${(item.gradeLevel ?? []).join(", ")}` : ""}</span>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">
                                     {item.rescoreDueDate ? new Date(item.rescoreDueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
