@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>7</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>8</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>360&thinsp;/&thinsp;360</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -559,6 +559,102 @@
 
 
 
+
+
+          <tr>
+            <td class="p">8</td>
+            <td class="idcell">38</td>
+            <td>
+              <div class="task">
+                <h3>The rollover switched off 378 people and told nobody</h3>
+                <p class="lineage">New, 25 Aug. Repaired by hand; the cause of one group is still unexplained. <strong>Recurs next August.</strong></p>
+                <p class="why">
+                  Activating 2026&#8209;2027 on 21 Aug left <strong>46 staff</strong> and
+                  <strong>313 teachers</strong> switched off while still on the current roster, and
+                  a further <strong>19</strong> switched on but absent from it. All were repaired by
+                  hand between 24 and 25 Aug. Two of the three causes are now fixed in code. The
+                  third is not understood.
+                </p>
+                <details>
+                  <summary>The whole investigation, so none of it has to be redone</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>How the flip works.</strong> Activating a year deactivates anyone
+                      holding an open assignment in the outgoing year with none in the incoming one
+                      &mdash; absence from the roster is read as departure. Only
+                      <code>NETWORK_ADMIN</code> is exempt, so teachers go the same way as everyone
+                      else.
+                    </p>
+                    <p><strong>Cause 1 &mdash; a later upload could not switch anyone on.</strong>
+                      The flip switched people off; a roster uploaded afterwards wrote their
+                      assignment and never touched <code>is_active</code>, because
+                      <code>syncDenormalised</code> only ever wrote role and school. 46 staff, mostly
+                      Home Office network leaders, and 250 teachers. <strong>Fixed:</strong> a live
+                      upload now switches on anyone it names and says so per row.
+                    </p>
+                    <p><strong>Cause 2 &mdash; reactivating wrote the flag and not the roster
+                      row.</strong> <code>toggle-active</code> flipped <code>is_active</code> only,
+                      so the account looked active and 403&rsquo;d on every request &mdash; a
+                      dashboard for a few seconds, then a white screen. 19 people, found because one
+                      of them reported it. <strong>Fixed:</strong> reactivation writes the assignment,
+                      and that 403 now lands on a page that explains itself instead of dying.
+                    </p>
+                    <p><strong>Cause 3 &mdash; still unexplained.</strong> 63 teachers were
+                      <em>new hires</em>: no 2025&#8209;2026 assignment at all, so the flip never
+                      considered them. A staged upload creates a new hire inert on purpose, so
+                      nothing takes effect before activation, and step 4b of
+                      <code>activateSchoolYear</code> is meant to switch them on &mdash; its
+                      condition covers exactly this case (open assignment in the incoming year, none
+                      in the outgoing one). It did not.
+                    </p>
+                    <p>
+                      <strong>The lead, unconfirmed.</strong> The two school-year rows both carry
+                      <code>updated_at = 20:06:18.329</code>, so the flip transaction began then.
+                      Roster rows were still being written at <code>20:05:53</code> and
+                      <code>20:06:33</code> &mdash; the upload and the activation overlapped. Somebody
+                      created while the flip was running would be made inert, because the upload
+                      still saw the old year as active, and would be invisible to 4b, because they
+                      did not exist in its snapshot. That fits, but it was not proven, and two
+                      earlier theories this same evening (duplicate records, never-set-up records)
+                      looked just as good and were both wrong. <strong>Confirm against creation
+                      timestamps before changing anything.</strong>
+                    </p>
+                    <p>
+                      <strong>The guard that would have made all of this a five-minute
+                      review.</strong> The flip already counts what it is about to deactivate and
+                      reports the number afterwards. It should show <em>who</em>, and require
+                      confirmation, before doing it. None of the three causes would have reached
+                      production unnoticed.
+                    </p>
+                    <p>
+                      <strong>Why it took four rounds to find.</strong> Every diagnostic and repair
+                      written on 24 Aug carried <code>role &lt;&gt; 'NO_ACCESS'</code>, because the
+                      investigation began with people locked out of signing in. A teacher IS a
+                      NO_ACCESS person, so that silently excluded all 2,061 of them. The staff
+                      repair fixed 46; the 313 teachers in the identical state were left, and
+                      surfaced only as Brendan found them school by school. The scope error was
+                      spotted and corrected in the diagnostics but the repair was never re-run with
+                      the correction.
+                    </p>
+                    <p>
+                      <strong>What was NOT a fault.</strong> Of 14 teachers checked against the
+                      source spreadsheet, 11 were simply absent from it &mdash; Catalyst did what it
+                      was told. 89 teachers with no roster row were reviewed and are correctly
+                      inactive. Duplicate records were ruled out: one in the whole network, and it
+                      reads as a real school move.
+                    </p>
+                    <p>
+                      Scripts from the investigation are in <code>scripts/</code> &mdash;
+                      <code>diagnose-inert-teachers.sql</code> is the one that found the real shape,
+                      and <code>repair-inert-teachers.sql</code> is what fixed it.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
+            <td><span class="chip u-high">Annual deadline</span></td>
+          </tr>
 
         </tbody>
       </table>
