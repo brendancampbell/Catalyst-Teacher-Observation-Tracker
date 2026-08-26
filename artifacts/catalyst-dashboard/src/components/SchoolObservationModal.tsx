@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import {
   fetchAdminSchools,
   createSchoolObservation,
@@ -48,6 +49,9 @@ export default function SchoolObservationModal({
   const [schoolId,    setSchoolId]    = useState<number | "">("");
   const [date,        setDate]        = useState(() => new Date().toISOString().split("T")[0]);
   const [scores,      setScores]      = useState<Record<string, number | undefined>>({});
+  const [strengths,   setStrengths]   = useState("");
+  const [growthAreas, setGrowthAreas] = useState("");
+  const [isWalkthrough, setIsWalkthrough] = useState(false);
   const [error,       setError]       = useState("");
 
   const scoredCount = useMemo(
@@ -74,6 +78,9 @@ export default function SchoolObservationModal({
         rubricSetId,
         date,
         scores:      scores as Record<string, number>,
+        strengths:   strengths   || undefined,
+        growthAreas: growthAreas || undefined,
+        isWalkthrough,
         target:      "SCHOOL",
       });
     },
@@ -89,6 +96,9 @@ export default function SchoolObservationModal({
     setSchoolId("");
     setDate(new Date().toISOString().split("T")[0]);
     setScores({});
+    setStrengths("");
+    setGrowthAreas("");
+    setIsWalkthrough(false);
     setError("");
   }
 
@@ -222,6 +232,37 @@ export default function SchoolObservationModal({
               </div>
             ))}
 
+            {/* ── Notes ──────────────────────────────────────
+                Same two fields as a classroom observation, and the same
+                editor. The server has always stored strengths and
+                growthAreas on a SCHOOL-target row; nothing collected them. */}
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
+                  ✦ School Strengths (Glows)
+                </label>
+                <RichTextEditor
+                  value={strengths}
+                  onChange={setStrengths}
+                  placeholder="What is this school doing well?"
+                  focusBorderColor="#86efac"
+                  minHeight={90}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
+                  ↑ Growth Areas (Grows)
+                </label>
+                <RichTextEditor
+                  value={growthAreas}
+                  onChange={setGrowthAreas}
+                  placeholder="Where should this school focus next?"
+                  focusBorderColor="#fdba74"
+                  minHeight={90}
+                />
+              </div>
+            </div>
+
           </div>
 
           {/* ── Footer ───────────────────────────────────── */}
@@ -236,7 +277,34 @@ export default function SchoolObservationModal({
                   </p>
               }
             </div>
-            <div className="flex gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2 shrink-0">
+              {/* Same control as a classroom observation. Here it is a label
+                  only — it marks the observation and drives nothing. */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isWalkthrough}
+                onClick={() => setIsWalkthrough((v) => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-colors"
+                style={{
+                  borderColor:     isWalkthrough ? NAVY : "#cbd5e1",
+                  backgroundColor: isWalkthrough ? "#EEF1FB" : "white",
+                }}
+              >
+                <span className="text-xs font-semibold" style={{ color: isWalkthrough ? NAVY : "#64748b" }}>
+                  Walkthrough
+                </span>
+                <span
+                  className="relative inline-flex w-9 h-5 rounded-full transition-colors shrink-0"
+                  style={{ backgroundColor: isWalkthrough ? NAVY : "#cbd5e1" }}
+                >
+                  <span
+                    className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: isWalkthrough ? "translateX(16px)" : "translateX(0)" }}
+                  />
+                </span>
+              </button>
+
               <DialogPrimitive.Close
                 className="px-4 sm:px-5 py-2 rounded text-sm font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-100 transition-colors text-center"
               >

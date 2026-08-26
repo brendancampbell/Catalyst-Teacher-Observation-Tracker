@@ -539,7 +539,11 @@ router.post("/", observationCreateLimiter, async (req, res) => {
         strengths:           strengths || null,
         growthAreas:         growthAreas || null,
         observerEmployeeId:  creator.employeeId,
-        isWalkthrough:       false,
+        /* Honoured now, where it used to be hardcoded false. It is a label
+           and nothing more: the rescore queue below keys off
+           observedEmployeeId, which is null on every SCHOOL-target row, so a
+           school-wide walkthrough cannot flag anybody — deliberately. */
+        isWalkthrough:       !!isWalkthrough,
         status:              resolvedStatus,
         target:              "SCHOOL",
         snapshotGradeSpan:   school.gradeSpan,

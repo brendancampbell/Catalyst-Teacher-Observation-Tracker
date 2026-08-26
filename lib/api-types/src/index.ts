@@ -296,6 +296,11 @@ export interface SchoolObservationPayload {
   growthAreas?: string;
   scores:       Record<string, number>;
   target:       "SCHOOL";
+  /* A label on the observation, and only that. Walkthroughs on a TEACHER
+     rubric drive the rescore queue, but that queue flags a person and a
+     school-wide observation has none — see the SCHOOL insert in
+     routes/observations.ts. Nothing here flags a school for rescoring. */
+  isWalkthrough?: boolean;
 }
 
 export interface CreateObservationPayload {
