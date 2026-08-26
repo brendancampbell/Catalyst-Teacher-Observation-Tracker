@@ -361,52 +361,53 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">34</td>
+            <td class="idcell">37</td>
             <td>
               <div class="task">
-                <h3>A walkthrough toggle on school-wide rubrics</h3>
-                <p class="lineage">New, 25 Aug. Follows the rescore fix that opened walkthroughs to every role.</p>
+                <h3>Deleting an observation leaves its action step behind</h3>
+                <p class="lineage">New, 25 Aug. More reachable than it sounds &mdash; see below.</p>
                 <p class="why">
-                  School-wide observations go through a different form
-                  (<code>SchoolObservationModal</code>) which has no walkthrough toggle at all
-                  &mdash; the word does not appear in it. So a school-wide observation can never
-                  be a walkthrough, whoever does it.
+                  An action step assigned during an observation survives that observation being
+                  deleted. The link is <code>ON DELETE SET NULL</code>, so the step stays open,
+                  stays assigned to the teacher, and loses every trace of where it came from.
                 </p>
                 <details>
-                  <summary>The question to settle before building it</summary>
+                  <summary>Why this happens more often than deleting an observation</summary>
                   <div class="detail">
                     <p>
-                      <strong>Adding the toggle is the easy half.</strong> The hard half is what a
-                      walkthrough should then <em>do</em>. On a teacher rubric it drives the rescore
-                      queue: score below 0.7 and that teacher is flagged for a rescore within 14
-                      days. The flag lives on the person &mdash;
-                      <code>people.needs_rescore</code>.
+                      <strong>Drafts create real action steps.</strong> The insert is not gated on
+                      status, so autosaving a draft with an action step writes a live one straight
+                      away. Discarding that draft deletes the observation and leaves the step
+                      behind &mdash; and discarding is a normal thing to do, made easier by the
+                      draft work on 25 Aug.
                     </p>
                     <p>
-                      A school-wide observation has no observed teacher. The rescore code reads
-                      <code>obs.observedEmployeeId</code> and a SCHOOL-target row does not have one,
-                      so as written the queue cannot flag anything. Schools have no equivalent
-                      field.
+                      An orphaned step is not inert. It shows on the teacher&rsquo;s profile, it can
+                      go overdue and appear in the Action Center, and it counts towards that
+                      coach&rsquo;s total in the Usage tab &mdash; so the numbers are inflated by
+                      work that was retracted.
                     </p>
                     <p>
-                      So it needs a decision first: does a school-wide walkthrough flag the
-                      <em>school</em> for a rescore &mdash; which means a new flag, a school-level
-                      queue, and somewhere to show it &mdash; or is the toggle only a label, marking
-                      the observation as a walkthrough for reporting and filtering without driving
-                      any follow-up?
+                      <strong>The decision to make first.</strong> Deleting the step outright is
+                      right for a step nobody has touched. It is wrong for one that has since been
+                      extended or marked mastered, because that is real coaching history and the
+                      teacher may have already done the work. The likely rule is: delete it if it
+                      is still untouched, otherwise keep it and cut the link. That needs settling
+                      before any code.
                     </p>
                     <p>
-                      The label-only version is small and could ship on its own. The school-level
-                      rescore queue is a feature in its own right and would be worth its own
-                      number.
+                      Worth checking production for steps already orphaned this way before changing
+                      anything &mdash; the fix stops new ones, it does not tidy old ones.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
-            <td class="cat">Walkthroughs</td>
-            <td><span class="chip u-med">Medium</span></td>
+            <td class="cat">Action steps</td>
+            <td><span class="chip u-high">Data integrity</span></td>
           </tr>
+
+
 
 
           <tr>
@@ -1035,6 +1036,50 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">34</td>
+            <td>
+              <div class="task">
+                <h3>School-wide observations have a walkthrough toggle, glows and grows</h3>
+                <p class="lineage"><code>2a0c4bd</code> &mdash; the toggle was hardcoded off; the notes were half-built</p>
+                <p class="why">
+                  The SCHOOL-target insert set <code>isWalkthrough</code> to <code>false</code>
+                  outright, so a school-wide observation could never be marked as a walkthrough
+                  whoever made it. It is now honoured, exactly as on the teacher path.
+                </p>
+                <details>
+                  <summary>What was already there, and the decision that was taken</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Glows and grows needed no server work at all.</strong>
+                      <code>strengths</code> and <code>growthAreas</code> have always been stored on
+                      a SCHOOL-target row and the payload type already carried them &mdash; nothing
+                      ever collected them. The form now does, with the same editor as a classroom
+                      observation.
+                    </p>
+                    <p>
+                      <strong>The walkthrough is a label and nothing more</strong>, decided
+                      explicitly on 25 Aug. It does not flag a school for rescoring, and no
+                      school-level queue exists. It could not fire today in any case, because the
+                      rescore queue keys off an observed teacher and a school-wide observation has
+                      none &mdash; but that is an accident of the code rather than a recorded
+                      choice, so a test pins it. If a school rescore queue is ever built that test
+                      fails, and the decision gets revisited deliberately instead of a test quietly
+                      passing for a new reason.
+                    </p>
+                    <p>
+                      One wording difference from the classroom version: the field reads
+                      &ldquo;School Strengths&rdquo;, not &ldquo;Teacher Strengths&rdquo;.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Walkthroughs</td>
+            <td><span class="chip u-done">25 Aug</span></td>
+          </tr>
+
 
           <tr>
             <td class="idcell">36</td>
