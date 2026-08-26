@@ -220,6 +220,11 @@ router.get("/drafts", async (req, res) => {
         status:              observations.status,
         actionStepText:      actionSteps.text,
         actionStepDueDate:   actionSteps.dueDate,
+        /* Where a draft's intended step lives now. The join above still fires
+           for drafts created before that change, so both are read and the
+           pending value wins. */
+        pendingActionStepText:    observations.pendingActionStepText,
+        pendingActionStepDueDate: observations.pendingActionStepDueDate,
       })
       .from(observations)
       .leftJoin(people,     eq(people.employeeId, observations.observedEmployeeId))
@@ -275,8 +280,10 @@ router.get("/drafts", async (req, res) => {
         isWalkthrough:    d.isWalkthrough,
         strengths:        d.strengths ?? undefined,
         growthAreas:      d.growthAreas ?? undefined,
-        actionStepText:   d.actionStepText ?? undefined,
-        actionStepDueDate: d.actionStepDueDate ?? undefined,
+        /* One field either way, so the client does not have to know which
+           era a draft comes from. */
+        actionStepText:    d.pendingActionStepText    ?? d.actionStepText    ?? undefined,
+        actionStepDueDate: d.pendingActionStepDueDate ?? d.actionStepDueDate ?? undefined,
         observer:         observerInfo?.name ?? currentUser.name ?? "",
         status:           d.status,
         scores:           scoresByObs.get(d.id) ?? {},
@@ -717,6 +724,10 @@ router.post("/", observationCreateLimiter, async (req, res) => {
         status:              resolvedStatus,
         target:              "TEACHER",
         snapshotGradeSpan:   snapshotGradeSpanTeacher,
+        /* A draft holds its intended action step here rather than creating a
+           real one. See the insert below. */
+        pendingActionStepText:    resolvedStatus === "draft" ? (newActionStep?.text    ?? null) : null,
+        pendingActionStepDueDate: resolvedStatus === "draft" ? (newActionStep?.dueDate ?? null) : null,
       }).returning();
 
       const scoreRows = scores
@@ -758,7 +769,13 @@ router.post("/", observationCreateLimiter, async (req, res) => {
           .where(eq(actionSteps.id, stepToExtend.id));
       }
 
-      if (newActionStep) {
+      /* Only a published observation assigns an action step.
+         A draft used to create one on its first autosave, which put a live
+         step on the teacher's list before anybody had decided to give it to
+         them — and discarding the draft left the step behind with nothing
+         pointing at it. The draft carries it in pendingActionStep* until it is
+         published, so there is nothing to orphan. */
+      if (newActionStep && resolvedStatus === "published") {
         await tx.insert(actionSteps).values({
           teacherEmployeeId:           resolvedObservedId,
           assignedByEmployeeId:        creator.employeeId,
@@ -1001,7 +1018,8 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
        year the insert below would violate NOT NULL and surface as a 500, so
        reject up front with the same 400 that POST /observations returns.    */
     const willCreateActionStep =
-      !!newActionStep && existing.target === "TEACHER" && !!existing.observedEmployeeId;
+      !!newActionStep && resolvedStatus === "published"
+      && existing.target === "TEACHER" && !!existing.observedEmployeeId;
     if (willCreateActionStep && activeYearIdPut === null) {
       res.status(400).json({ error: "No active school year configured" });
       return;
@@ -1032,6 +1050,19 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
           strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
           growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
           status:      resolvedStatus,
+          /* While it is a draft, keep the intended step here so resuming can
+             show it. Publishing creates the real step below and clears these,
+             so nothing is left claiming a step that now exists for real.
+             newActionStep undefined means the caller said nothing about it, so
+             whatever is stored stands. */
+          ...(resolvedStatus === "draft"
+            ? (newActionStep !== undefined
+                ? {
+                    pendingActionStepText:    newActionStep?.text    ?? null,
+                    pendingActionStepDueDate: newActionStep?.dueDate ?? null,
+                  }
+                : {})
+            : { pendingActionStepText: null, pendingActionStepDueDate: null }),
           ...auditFields,
         })
         .where(eq(observations.id, obsId))
@@ -1084,7 +1115,13 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
           .where(eq(actionSteps.id, stepToExtendPut.id));
       }
 
-      if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
+      /* Same rule as the create path: a draft keeps its intended action step
+         on the observation, and only a published one assigns it for real.
+         resolvedStatus, not existing.status — this is the request that
+         publishes, so the step has to be created in the same write. */
+      if (newActionStep && resolvedStatus === "draft") {
+        /* Still a draft: hold it, create nothing. */
+      } else if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
         if (existingStepForObs) {
           /* Upsert: update text/dueDate only if the step is still open.
              If it was already mastered, leave it untouched.              */

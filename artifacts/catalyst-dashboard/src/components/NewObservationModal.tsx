@@ -191,6 +191,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         setScores(match.scores as Partial<Record<string, Score>>);
         setStrengths(match.strengths ?? "");
         setGrowthAreas(match.growthAreas ?? "");
+        /* Restored for the first time. A draft's action step was never put
+           back into the form, so resuming showed an empty box while a step
+           existed behind it — the same shape of problem as the glows and
+           grows. */
+        setNewActionStepText(match.actionStepText ?? "");
+        setNewActionStepDueDate(match.actionStepDueDate ?? "");
         setIsWalkthrough(match.isWalkthrough);
         setDraftId(match.id);
         setDraftResumedFrom(match.date);
@@ -215,6 +221,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         setScores(match.scores as Partial<Record<string, Score>>);
         setStrengths(match.strengths ?? "");
         setGrowthAreas(match.growthAreas ?? "");
+        /* Restored for the first time. A draft's action step was never put
+           back into the form, so resuming showed an empty box while a step
+           existed behind it — the same shape of problem as the glows and
+           grows. */
+        setNewActionStepText(match.actionStepText ?? "");
+        setNewActionStepDueDate(match.actionStepDueDate ?? "");
         setIsWalkthrough(match.isWalkthrough);
         setDraftId(match.id);
         setDraftResumedFrom(match.date);

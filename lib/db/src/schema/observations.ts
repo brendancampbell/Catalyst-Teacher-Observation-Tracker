@@ -25,6 +25,15 @@ export const observations = pgTable("observations", {
   status:              text("status").notNull().default("published"),
   target:              evaluationTargetEnum("target").notNull().default("TEACHER"),
   snapshotGradeSpan:   text("snapshot_grade_span"),
+  /* An action step a draft intends to assign, held here until the observation
+     is published.
+     A draft used to write a real action_steps row straight away, which put a
+     live step on the teacher's list before anybody had decided to give it to
+     them — and discarding the draft left that step behind with nothing
+     pointing at it. Held on the draft instead, so nothing exists until publish
+     and there is nothing to orphan. Cleared when the real step is created. */
+  pendingActionStepText:    text("pending_action_step_text"),
+  pendingActionStepDueDate: date("pending_action_step_due_date"),
 }, (t) => [
   /* Postgres does not index foreign keys automatically. Every read path filters
      on school year, then narrows by school, teacher, rubric set or observer, so
