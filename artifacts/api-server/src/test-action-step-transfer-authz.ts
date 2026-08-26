@@ -257,7 +257,9 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
       growthAreas:        "TST_TRF_GROWTH_A",
       /* Published, not draft: a draft holds its action step and assigns
          nothing until publish. This test is about the snapshot fields on
-         a real step, so it needs one to exist. */
+         a real step, so it needs one to exist — and a published
+         observation must carry scores, empty object included. */
+      scores:             {},
       status:             "published",
       newActionStep:      { text: "TST_TRF_STEP_A", dueDate: futureDate },
     }, leaderAJar);
@@ -384,7 +386,9 @@ describe("Action-step transfer authorization — snapshotSchoolId governs access
       strengths:          "TST_TRF_STRENGTH_B",
       /* Published, not draft: a draft holds its action step and assigns
          nothing until publish. This test is about the snapshot fields on
-         a real step, so it needs one to exist. */
+         a real step, so it needs one to exist — and a published
+         observation must carry scores, empty object included. */
+      scores:             {},
       status:             "published",
       newActionStep:      { text: "TST_TRF_STEP_B", dueDate: futureDate },
     }, adminJar);

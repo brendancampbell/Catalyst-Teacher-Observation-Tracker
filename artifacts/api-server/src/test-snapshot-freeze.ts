@@ -236,7 +236,9 @@ describe("Frozen school snapshots — observation and action step remain pinned 
       growthAreas:        "TST_SNAP_GROWTH",
       /* Published, not draft: a draft holds its action step and assigns
          nothing until publish. This test is about the snapshot fields on
-         a real step, so it needs one to exist. */
+         a real step, so it needs one to exist — and a published
+         observation must carry scores, empty object included. */
+      scores:             {},
       status:             "published",
       newActionStep:      { text: "TST_SNAP_STEP", dueDate: futureDate },
     }, leaderJar);
