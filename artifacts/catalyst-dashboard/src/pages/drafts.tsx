@@ -161,6 +161,18 @@ export default function DraftsPage() {
   }
 
   /* ── Handlers ───────────────────────────────────────────────────── */
+  /* Drop rows from the cached list straight away.
+     invalidateQueries alone leaves the row on screen for a whole round trip,
+     which reads as the delete having failed — people click again, or reload to
+     check. The refetch still follows; this only removes the wait. */
+  function removeFromList(ids: string[]) {
+    const gone = new Set(ids);
+    queryClient.setQueryData<DraftObservation[]>(
+      QUERY_KEYS.myDrafts,
+      (prev) => prev?.filter((d) => !gone.has(d.id)),
+    );
+  }
+
   async function handleDelete(draft: DraftObservation) {
     /* Deleting one draft was the only path here that did not ask. Bulk delete
        has always confirmed, and a single draft is just as unrecoverable — it
@@ -175,7 +187,8 @@ export default function DraftsPage() {
     try {
       await deleteObservation(draft.id);
       setSelected((prev) => { const next = new Set(prev); next.delete(draft.id); return next; });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
+      removeFromList([draft.id]);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Draft deleted" });
     } catch {
       toast({ title: "Could not delete draft", variant: "destructive" });
@@ -193,7 +206,8 @@ export default function DraftsPage() {
     try {
       await Promise.all(ids.map((id) => deleteObservation(id)));
       setSelected(new Set());
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
+      removeFromList(ids);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: `Deleted ${count} draft${count !== 1 ? "s" : ""}` });
     } catch {
       toast({ title: "Some drafts could not be deleted", variant: "destructive" });
@@ -697,6 +711,12 @@ export default function DraftsPage() {
           defaultTeacherId={resumeData.draft.observedEmployeeId}
           resumeDraftId={resumeData.draft.id}
           rubricSetId={resumeData.draft.rubricSetId}
+          /* Discarding from inside the modal closes it onto this list, so the
+             row has to be gone by the time it is visible again. */
+          onDraftDiscarded={(id) => {
+            removeFromList([id]);
+            void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
+          }}
           observerName={currentUser.name}
           canMarkWalkthrough={true}
           onSubmit={handleSubmitResumed}

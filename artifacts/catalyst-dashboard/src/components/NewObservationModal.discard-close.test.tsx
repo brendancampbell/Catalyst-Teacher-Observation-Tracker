@@ -121,9 +121,9 @@ afterEach(() => {
 /* Discarding a resumed draft                                         */
 /* ================================================================== */
 describe("Discarding a draft", () => {
-  async function renderResumedDraft() {
+  async function renderResumedDraft(extra: Record<string, unknown> = {}) {
     mockFetchMyDrafts.mockResolvedValue([STUB_DRAFT]);
-    const props = makeProps({ resumeDraftId: "draft-abc", freshStart: false });
+    const props = makeProps({ resumeDraftId: "draft-abc", freshStart: false, ...extra });
     const { NewObservationModal } = await import("@/components/NewObservationModal");
     render(React.createElement(NewObservationModal, props));
     const discard = await screen.findByText("Discard");
@@ -148,6 +148,19 @@ describe("Discarding a draft", () => {
     await act(async () => { fireEvent.click(discard); });
 
     expect(String(confirmSpy.mock.calls[0]![0])).toMatch(/cannot be undone/i);
+  });
+
+  it("reports the discard, so a list showing that draft can drop the row", async () => {
+    /* The Drafts page is often the page underneath. Without this it would keep
+       showing a draft that no longer exists until the next refresh, which
+       reads as the discard having failed. */
+    confirmSpy.mockReturnValue(true);
+    const onDraftDiscarded = vi.fn();
+    const { discard } = await renderResumedDraft({ onDraftDiscarded });
+
+    await act(async () => { fireEvent.click(discard); });
+
+    await waitFor(() => expect(onDraftDiscarded).toHaveBeenCalledWith("draft-abc"));
   });
 
   it("discards and closes the modal once confirmed", async () => {

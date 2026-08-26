@@ -49,6 +49,8 @@ interface Props {
   defaultIsWalkthrough?: boolean;
   observerName?: string;
   rubricSetId?: number;
+  /** Called after a draft is discarded, so a page showing a list can drop it. */
+  onDraftDiscarded?: (draftId: string) => void;
   rubricSetAudience?: SubjectAudience;
   freshStart?: boolean;
   resumeDraftId?: string;
@@ -90,7 +92,7 @@ function formatDateLong(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function NewObservationModal({ teachers: allTeachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, rubricSetAudience, onSubmit, saving, freshStart, resumeDraftId }: Props) {
+export function NewObservationModal({ teachers: allTeachers, categories, allDomains, open, onOpenChange, canMarkWalkthrough, defaultTeacherId, defaultIsWalkthrough, observerName, rubricSetId, rubricSetAudience, onSubmit, saving, freshStart, resumeDraftId, onDraftDiscarded }: Props) {
   const todayIso = new Date().toISOString().split("T")[0];
 
   const nowTime = () => {
@@ -908,7 +910,16 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     );
     if (!ok) return;
     try {
-      await deleteObservation(draftId);
+      const discardedId = draftId;
+      await deleteObservation(discardedId);
+
+      /* The Drafts page may be the page underneath this modal and caches its
+         list, so the draft would be gone from the server and still on screen —
+         which reads as the discard having failed. Told through a callback
+         rather than reaching for the query cache here: this modal is opened by
+         four different pages and only one of them shows a list of drafts. */
+      onDraftDiscarded?.(discardedId);
+
       reset();
       toast({ title: "Draft discarded" });
       onOpenChange(false);
