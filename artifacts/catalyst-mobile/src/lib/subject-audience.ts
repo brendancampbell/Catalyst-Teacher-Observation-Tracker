@@ -10,6 +10,7 @@ type Department =
   | "Comp Sci/Engineering"
   | "Visual Arts"
   | "College"
+  | "SpEd"
   | "Other";
 
 const DEPARTMENT_AUDIENCE: Record<Department, SubjectAudience> = {
@@ -22,6 +23,9 @@ const DEPARTMENT_AUDIENCE: Record<Department, SubjectAudience> = {
   "Physical Education":   "ALL",
   "Visual Arts":          "ALL",
   "College":              "ALL",
+  /* A SpEd teacher may teach any subject, so they belong to every audience
+     rather than to STEM or Humanities. */
+  "SpEd":                 "ALL",
   "Other":                "ALL",
 };
 

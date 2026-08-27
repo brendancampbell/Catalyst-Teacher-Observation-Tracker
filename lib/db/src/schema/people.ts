@@ -22,6 +22,7 @@ export const departmentEnum = pgEnum("department_enum", [
   "Comp Sci/Engineering",
   "Visual Arts",
   "College",
+  "SpEd",
   "Other",
 ]);
 
@@ -35,6 +36,7 @@ export const DEPARTMENT_VALUES = [
   "Comp Sci/Engineering",
   "Visual Arts",
   "College",
+  "SpEd",
   "Other",
 ] as const;
 

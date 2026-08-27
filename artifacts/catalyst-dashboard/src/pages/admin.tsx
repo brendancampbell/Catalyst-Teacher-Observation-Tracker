@@ -76,7 +76,7 @@ const YELLOW = "#FFB500";
 
 const DEPARTMENTS = [
   "English", "Math", "Science", "History", "Spanish",
-  "Physical Education", "Comp Sci/Engineering", "Visual Arts", "College", "Other",
+  "Physical Education", "Comp Sci/Engineering", "Visual Arts", "College", "SpEd", "Other",
 ] as const;
 
 /* ════════════════════════════════════════════════════════════════
@@ -2546,7 +2546,7 @@ function PeopleBulkImport({ isNetworkAdmin, onDone }: { isNetworkAdmin: boolean;
                   { col: "role",                         req: true,  desc: "COACH · SCHOOL_LEADER · NETWORK_LEADER · NETWORK_ADMIN · NO_ACCESS" },
                   { col: "employeeId",                   req: true,  desc: "Unique ID from your HR system (e.g. EMP0042). Must match the employee's ID exactly." },
                   { col: "school",                       req: false, desc: "Exact school name as it appears in Settings → Schools." },
-                  { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · Other" },
+                  { col: "department",                   req: false, desc: "English · Math · Science · History · Spanish · Phys Ed · Comp Sci · Visual Arts · College · SpEd · Other" },
                   { col: "gradeLevel",                   req: false, desc: "Comma-separated grades, e.g. 4, 5, 6 or K, 1. Hyphens also work (6-7-8). Quoting is optional — unquoted commas are reassembled automatically." },
                   { col: "includeInFeedbackTracker",     req: false, desc: "true for teachers who receive observations; false for admins/coaches. Defaults to true." },
                 ].map(({ col, req, desc }) => (
