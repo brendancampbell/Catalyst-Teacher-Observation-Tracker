@@ -62,3 +62,9 @@ Thumbs.db
 *.xlsx
 *.xls
 !artifacts/**/fixtures/*.csv
+
+# Guide screenshots, before anonymising. The copies embedded in the training
+# guides are blurred; these originals are not — "Chapter 4" names a teacher and
+# their school, and "Chapter 5" names two teachers flagged below proficiency.
+# Kept locally so a shot can be re-cropped, never committed.
+attached_assets/Chapter *.png
