@@ -220,7 +220,18 @@ describe("Correcting the facts of an observation", () => {
 
   test("6 — reassigning settles both teachers' queue entries", async () => {
     /* The case a per-observation rule cannot handle: one person leaves the
-       queue and another joins, from a single edit. */
+       queue and another joins, from a single edit.
+
+       Cleared first, because earlier tests leave Teacher A with a
+       below-threshold walkthrough of their own. The recompute re-derives from
+       everything on record — correctly — so without this the assertion below
+       would be measuring that leftover rather than the reassignment. */
+    await db.delete(observations)
+      .where(inArray(observations.observedEmployeeId, [TEACHER_A, TEACHER_B]));
+    await db.update(people)
+      .set({ needsRescore: false, rescoreDueDate: null, rescoreFromDate: null, rescoreSchoolYearId: null })
+      .where(inArray(people.employeeId, [TEACHER_A, TEACHER_B]));
+
     const obsId = await makeObservation(TEACHER_A, "2026-12-01", BELOW, true);
     assert.equal((await rescoreOf(TEACHER_A)).needsRescore, true);
     assert.equal((await rescoreOf(TEACHER_B)).needsRescore, false);
