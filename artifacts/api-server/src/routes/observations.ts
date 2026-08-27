@@ -1401,6 +1401,48 @@ async function planActionStepImpact(obsId: number): Promise<{
   return { toDelete, toMove };
 }
 
+/* ── GET /api/observations/:id/delete-impact ──────────────────────
+   What deleting this observation would do to its action steps, asked before
+   anything is shown to the person.
+
+   The 409 on DELETE says the same thing, but only after a round trip that
+   looks to the caller like a failed delete — an older cached bundle reports
+   it as one. Asking first means the confirmation can state the consequence in
+   one dialog instead of a second one appearing after the first is accepted. */
+router.get("/:id/delete-impact", async (req, res) => {
+  try {
+    const currentUser = req.user as Express.User;
+    const obsId = Number(req.params.id);
+    if (!Number.isFinite(obsId)) {
+      res.status(400).json({ error: "Invalid observation id" }); return;
+    }
+
+    const existing = await db.query.observations.findFirst({
+      where: eq(observations.id, obsId),
+    });
+    if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
+
+    /* Same access rule as the delete itself: asking what would happen must not
+       reveal anything about an observation you could not delete. */
+    const isDraftOwner = existing.status === "draft"
+      && existing.observerEmployeeId === currentUser.employeeId;
+    if (!isDraftOwner) {
+      const mayDelete = currentUser.role === "SCHOOL_LEADER"
+        || currentUser.role === "NETWORK_LEADER"
+        || currentUser.role === "NETWORK_ADMIN";
+      if (!mayDelete || !canAccessSchoolScopedRecord(currentUser, existing.schoolId)) {
+        res.status(403).json({ error: "Not permitted to delete this observation" }); return;
+      }
+    }
+
+    const impact = await planActionStepImpact(obsId);
+    res.json({ stepsToDelete: impact.toDelete, stepsToMove: impact.toMove });
+  } catch (err) {
+    console.error("GET /observations/:id/delete-impact error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.delete("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;

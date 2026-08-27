@@ -4,8 +4,10 @@ import { X, Pencil, Check, ChevronLeft, Trash2 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Observation, type Score } from "@/data/dummy";
-import { type CategoryEntry, type ActionStep, fetchActionSteps } from "@/lib/api";
+import { type CategoryEntry, type ActionStep, type ObservationStepImpact,
+         fetchActionSteps, fetchDeleteImpact, HttpError } from "@/lib/api";
 import { getScoreColorExact } from "@/components/ScoreCell";
+import { buildObservationDeleteHeading } from "@/lib/observation-delete-warning";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,6 +99,11 @@ export function ObservationDetailModal({
   const [deleting, setDeleting]         = useState(false);
   const [deleteError, setDeleteError]   = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen]   = useState(false);
+  /* What deleting would take with it, fetched when the dialog opens so the
+     consequence is stated in the SAME dialog rather than a second one after
+     this is accepted. */
+  const [deleteImpact, setDeleteImpact] = useState<ObservationStepImpact[] | null>(null);
+  const [impactLoading, setImpactLoading] = useState(false);
   const [draftScores, setDraftScores]   = useState<Record<string, Score>>(observation.scores);
   const [draftStrengths, setDraftStrengths] = useState(observation.strengths ?? "");
   const [draftGrowth, setDraftGrowth]   = useState(observation.growthAreas ?? "");
@@ -134,8 +141,12 @@ export function ObservationDetailModal({
     try {
       await onDelete(observation.id);
       setConfirmOpen(false);
-    } catch {
-      setDeleteError("Failed to delete — please try again.");
+    } catch (err) {
+      /* The reason used to be discarded, so "failed to delete" was all anybody
+         ever saw — including a principal who reported it and could tell us
+         nothing more. Whatever the server said is more use than that. */
+      const reason = err instanceof HttpError ? err.message : (err as Error)?.message;
+      setDeleteError(reason ? `Could not delete: ${reason}` : "Failed to delete — please try again.");
       setDeleting(false);
     }
   }
@@ -549,7 +560,19 @@ export function ObservationDetailModal({
                     {onDelete && (
                       <button
                         type="button"
-                        onClick={() => { setDeleteError(null); setConfirmOpen(true); }}
+                        onClick={() => {
+                          setDeleteError(null);
+                          setConfirmOpen(true);
+                          /* Ask what would go with it, so the dialog can say so
+                             itself. A failure here is not fatal: the delete
+                             still refuses and reports it. */
+                          setImpactLoading(true);
+                          setDeleteImpact(null);
+                          fetchDeleteImpact(observation.id)
+                            .then((r) => setDeleteImpact(r.stepsToDelete))
+                            .catch(() => setDeleteImpact(null))
+                            .finally(() => setImpactLoading(false));
+                        }}
                         disabled={deleting}
                         className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold transition-colors hover:bg-red-50 border border-red-200 text-red-700 disabled:opacity-50"
                       >
@@ -586,6 +609,41 @@ export function ObservationDetailModal({
             This will permanently remove the observation from {formatDate(observation.date)} for {teacher.name},
             along with all of its scores. This action cannot be undone.
           </AlertDialogDescription>
+
+          {/* The action steps that would go with it, in this dialog rather than
+              a second one after this is accepted. Steps another observation has
+              touched survive and move, so they are not mentioned — nothing is
+              lost there. */}
+          {impactLoading && (
+            <p className="text-xs text-slate-400 mt-2">Checking for action steps…</p>
+          )}
+          {deleteImpact && deleteImpact.length > 0 && (
+            <div
+              className="mt-3 rounded-lg p-3"
+              style={{ backgroundColor: "#FEF2F2", border: "1px solid #FECACA" }}
+            >
+              <p className="text-sm font-semibold" style={{ color: "#B91C1C" }}>
+                {buildObservationDeleteHeading(deleteImpact)}
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {deleteImpact.map((step) => (
+                  <li key={step.id} className="text-sm text-slate-700 leading-snug">
+                    • {step.text}
+                    {step.mastered && (
+                      <span className="ml-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: "#B91C1C" }}>
+                        already mastered
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {deleteImpact.some((x) => x.mastered) && (
+                <p className="text-xs mt-2" style={{ color: "#B91C1C" }}>
+                  That completed work will disappear from their record.
+                </p>
+              )}
+            </div>
+          )}
         </AlertDialogHeader>
         {deleteError && (
           <p className="text-xs text-red-600">{deleteError}</p>

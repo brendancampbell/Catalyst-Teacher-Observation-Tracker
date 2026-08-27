@@ -473,6 +473,14 @@ export async function updateObservation(id: string, payload: UpdateObservationPa
   });
 }
 
+/** What deleting an observation would do, asked before anybody is told. */
+export async function fetchDeleteImpact(id: string): Promise<{
+  stepsToDelete: ObservationStepImpact[];
+  stepsToMove:   ObservationStepImpact[];
+}> {
+  return apiFetch(`/observations/${id}/delete-impact`);
+}
+
 export interface ObservationStepImpact {
   id:       number;
   text:     string;
