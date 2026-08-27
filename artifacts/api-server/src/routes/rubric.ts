@@ -167,6 +167,11 @@ router.post("/sets", requireNetworkAdmin, async (req, res) => {
                 name:         d.name,
                 slug:         d.slug,
                 displayOrder: d.displayOrder,
+                /* The hover text. Dropped here while copy-forward below has
+                   always carried it, so starting a rubric from an existing one
+                   silently lost every domain description — the guidance that
+                   tells an observer what the domain actually means. */
+                description:  d.description,
               })),
             );
           }
