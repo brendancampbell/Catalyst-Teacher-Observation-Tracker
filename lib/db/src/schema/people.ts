@@ -36,6 +36,13 @@ export const people = pgTable("people", {
   gradeLevel:                  text("grade_level").array(),
   needsRescore:                boolean("needs_rescore").notNull().default(false),
   rescoreDueDate:              date("rescore_due_date"),
+  /* The walkthrough date that put them in the rescore queue.
+     The due date alone is not enough: changing the rescore window
+     recalculates every existing entry, and that has to be measured from the
+     observation, not from a deadline already derived under the old window.
+     Null on rows flagged before this column existed — those are backfilled
+     from rescore_due_date minus the previous 14-day window. */
+  rescoreFromDate:             date("rescore_from_date"),
   rescoreSchoolYearId:         integer("rescore_school_year_id").references(() => schoolYears.id, { onDelete: "set null" }),
   createdAt:                   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:                   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

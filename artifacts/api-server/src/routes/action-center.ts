@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
 import { eq, and, sql, inArray, isNotNull } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
+import { getWindows } from "../lib/system-settings";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { TtlCache } from "../lib/ttl-cache";
 
@@ -218,6 +219,7 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
 router.get("/overdue-observations", requireAuth, async (req, res) => {
   try {
     const user = req.user as Express.User;
+    const { overdueWindowDays } = await getWindows();
     const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
     if (requested !== null && isNaN(requested)) {
       res.status(400).json({ error: "Invalid schoolId" }); return;
@@ -257,7 +259,10 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
       ))
       .groupBy(people.employeeId, people.firstName, people.lastName, people.department, people.gradeLevel, schools.displayName)
       .having(
-        sql`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) < CURRENT_DATE - INTERVAL '14 days' OR MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) IS NULL`,
+        /* The overdue window, set in System Settings. Nothing is stored per
+           teacher for this list — it is derived here — so changing the window
+           takes effect at once and moves no saved deadline. */
+        sql`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) < CURRENT_DATE - make_interval(days => ${overdueWindowDays}) OR MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) IS NULL`,
       )
       .orderBy(sql`MAX(CASE WHEN ${observations.schoolYearId} = ${activeYearId} THEN ${observations.date} END) ASC NULLS FIRST`);
 

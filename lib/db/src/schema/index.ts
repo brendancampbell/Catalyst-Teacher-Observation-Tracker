@@ -12,4 +12,5 @@ export * from "./rate-limit";
 export * from "./ai-quota-grants";
 export * from "./platform-notifications";
 export * from "./user-activity";
+export * from "./system-settings";
 export * from "./relations";

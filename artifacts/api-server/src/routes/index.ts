@@ -8,6 +8,7 @@ import observationsRouter from "./observations";
 import rubricRouter from "./rubric";
 import adminSchoolsRouter from "./admin-schools";
 import usageRouter from "./usage";
+import systemSettingsRouter from "./system-settings";
 import actionCenterRouter from "./action-center";
 import actionStepsRouter from "./action-steps";
 import aiRouter from "./ai";
@@ -50,6 +51,7 @@ router.use("/ai",                     requireAuth, aiRouter);
 router.use("/admin/notifications",    requireAuth, adminNotificationsRouter);
 router.use("/notifications",          requireAuth, notificationsRouter);
 router.use("/usage",               requireAuth, usageRouter);
+router.use("/system-settings",     requireAuth, systemSettingsRouter);
 router.use("/qualitative-themes",  requireAuth, qualitativeThemesRouter);
 
 export default router;

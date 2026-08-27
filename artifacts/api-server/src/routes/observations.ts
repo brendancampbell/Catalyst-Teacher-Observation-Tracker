@@ -14,6 +14,7 @@ import { eq, desc, and, ne, inArray, isNotNull } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { canAccessSchoolScopedRecord } from "../middleware/auth";
 import { validateExtensionRequest, checkStepIsExtendable, type ExtendActionStepInput } from "../lib/action-step-extension.js";
+import { rescoreDueDateFor } from "../lib/system-settings";
 
 const router = Router();
 
@@ -804,14 +805,20 @@ router.post("/", observationCreateLimiter, async (req, res) => {
       if (scoreRows.length > 0) {
         const avg = scoreRows.reduce((s, r) => s + r.score, 0) / scoreRows.length;
         if (avg < 0.7) {
-          const due = new Date(date);
-          due.setDate(due.getDate() + 14);
+          /* rescoreFromDate records the walkthrough this deadline was measured
+             from, so changing the window later can recalculate it without
+             having to work backwards from a date already derived. */
           await db.update(people)
-            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearId })
+            .set({
+              needsRescore:        true,
+              rescoreDueDate:      await rescoreDueDateFor(date),
+              rescoreFromDate:     date,
+              rescoreSchoolYearId: activeYearId,
+            })
             .where(eq(people.employeeId, obs.observedEmployeeId));
         } else {
           await db.update(people)
-            .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
+            .set({ needsRescore: false, rescoreDueDate: null, rescoreFromDate: null, rescoreSchoolYearId: null })
             .where(eq(people.employeeId, obs.observedEmployeeId));
         }
       }
@@ -1159,14 +1166,17 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       if (savedScoresForRescore.length > 0) {
         const avg = savedScoresForRescore.reduce((s, r) => s + r.score, 0) / savedScoresForRescore.length;
         if (avg < 0.7) {
-          const due = new Date(updated.date);
-          due.setDate(due.getDate() + 14);
           await db.update(people)
-            .set({ needsRescore: true, rescoreDueDate: due.toISOString().split("T")[0], rescoreSchoolYearId: activeYearIdPut })
+            .set({
+              needsRescore:        true,
+              rescoreDueDate:      await rescoreDueDateFor(updated.date),
+              rescoreFromDate:     updated.date,
+              rescoreSchoolYearId: activeYearIdPut,
+            })
             .where(eq(people.employeeId, updated.observedEmployeeId));
         } else {
           await db.update(people)
-            .set({ needsRescore: false, rescoreDueDate: null, rescoreSchoolYearId: null })
+            .set({ needsRescore: false, rescoreDueDate: null, rescoreFromDate: null, rescoreSchoolYearId: null })
             .where(eq(people.employeeId, updated.observedEmployeeId));
         }
       }
