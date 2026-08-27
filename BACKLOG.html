@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>367&thinsp;/&thinsp;367</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -704,6 +704,77 @@
               </div>
             </td>
             <td class="cat">Rescore</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+
+          <tr>
+            <td class="p">10</td>
+            <td class="idcell">40</td>
+            <td>
+              <div class="task">
+                <h3>A teacher has two different pages</h3>
+                <p class="lineage">New, 27 Aug. Found by landing on the wrong one and assuming the app had broken.</p>
+                <p class="why">
+                  Clicking a teacher's name in the <strong>Action Center</strong> and clicking one on
+                  the <strong>dashboard</strong> lead to different pages. Both are &ldquo;the
+                  teacher's page&rdquo; to anybody using them, and nothing on screen says which one
+                  you are on.
+                </p>
+                <details>
+                  <summary>What each one is, and why this keeps costing something</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The profile</strong> &mdash; dashboard, click a teacher. Observation
+                      history, scores, the detail modal, editing, the walkthrough tag. This is the
+                      one everything gets built into.
+                    </p>
+                    <p>
+                      <strong>The action steps page</strong> &mdash;
+                      <code>/teacher/:employeeId</code>, reached from the Action Center. Open and
+                      Mastered action steps, and a button to add an observation. No observation
+                      history at all. Added 13 Jul as &ldquo;Add Action Step UI&rdquo;
+                      (<code>117b685</code>) for working through somebody's overdue steps, and it
+                      has never shown observations.
+                    </p>
+                    <p>
+                      <strong>How it surfaced.</strong> Arriving from the Action Center on 27 Aug it
+                      looked as though the walkthrough tag and the observation editing had
+                      disappeared. Nothing was broken &mdash; that page has no observation boxes to
+                      put them on. But the page gives no clue that it is a different thing, so the
+                      reasonable conclusion was that the app had lost a feature.
+                    </p>
+                    <p>
+                      <strong>Why it will keep happening.</strong> Everything added to observations
+                      lands on the profile only. Today that is the walkthrough tag and the date,
+                      time and teacher editing; next time it will be something else. Nothing forces
+                      the two to agree, and only one of them is ever remembered.
+                    </p>
+                    <p>
+                      <strong>The decision.</strong> Not a refactor to schedule but a question to
+                      answer: should a teacher have one page? Roughly:
+                    </p>
+                    <ul>
+                      <li><strong>One page.</strong> The Action Center links to the profile, which
+                        grows an action-steps section. Everything about a teacher in one place, and
+                        the drift ends. Most work, and the profile is already long.</li>
+                      <li><strong>Keep both, make them obviously different.</strong> Retitle the
+                        action steps page so it does not read as the teacher's profile, and link to
+                        the full profile from it. Cheap, and honest about what it is.</li>
+                      <li><strong>Fold action steps into the profile and retire the route.</strong>
+                        The Action Center deep-links to the profile with the action steps section
+                        opened. One page, one URL, and the deep link still lands where it should.</li>
+                    </ul>
+                    <p>
+                      Same shape as the department classifier and the two rubric copy paths &mdash;
+                      one idea implemented twice, drifting because nothing holds them together.
+                      Worse here because it is the part people see.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Navigation</td>
             <td><span class="chip u-med">Medium</span></td>
           </tr>
 
