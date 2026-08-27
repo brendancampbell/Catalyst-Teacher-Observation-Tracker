@@ -3579,14 +3579,20 @@ export default function AdminPage() {
   const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
-    ...(isNetworkAdmin ? [{ id: "system" as AdminTab,        label: "System Settings" }] : []),
     ...(isNetworkAdmin ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
     ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]           : []),
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
+    ...(isNetworkAdmin ? [{ id: "system" as AdminTab,        label: "System Settings" }] : []),
   ];
 
-  const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
+  /* Whatever is leftmost for this person. The list is already built from their
+     role, so this lands a network admin on Rubric Settings and a school leader
+     on Users without either being named here — and a tab added or reordered
+     later moves the landing page with it rather than leaving a stale literal.
+     The fallback covers nobody having any tab, which the page guards against
+     reaching at all. */
+  const defaultTab: AdminTab = tabs[0]?.id ?? "people";
   const visibleTab: AdminTab =
     (activeTab === "rubric"         && !isNetworkAdmin)   ? defaultTab :
     (activeTab === "people"         && !canManagePeople)  ? defaultTab :
