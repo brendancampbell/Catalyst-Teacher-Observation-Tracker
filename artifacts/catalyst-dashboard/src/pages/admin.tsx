@@ -3579,11 +3579,11 @@ export default function AdminPage() {
   const canBulkImport    = currentUser?.role === "NETWORK_ADMIN";
 
   const tabs: { id: AdminTab; label: string }[] = [
+    ...(isNetworkAdmin ? [{ id: "system" as AdminTab,        label: "System Settings" }] : []),
     ...(isNetworkAdmin ? [{ id: "rubric" as AdminTab,        label: "Rubric Settings" }] : []),
     ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]           : []),
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
-    ...(isNetworkAdmin ? [{ id: "system" as AdminTab,        label: "System Settings" }] : []),
   ];
 
   const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
