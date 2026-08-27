@@ -11,10 +11,9 @@ import {
   Score,
   DraftObservation,
   ActionStep,
-  createObservation,
-  updateObservation,
   fetchMyDrafts,
 } from "@/lib/api";
+import { saveObservation } from "@/lib/observation-save";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import { isNetworkScope } from "@/lib/roles";
 import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff, RefreshCw } from "lucide-react";
@@ -46,6 +45,7 @@ export function localDraftKey(userId: string | number | undefined, rubricSetId: 
 export interface LocalDraft {
   teacherId: string;
   date: string;
+  time: string;
   course: string;
   scores: Partial<Record<string, Score>>;
   strengths: string;
@@ -93,8 +93,17 @@ export default function ObservationPage() {
   });
 
   const todayIso = new Date().toISOString().split("T")[0];
+
+  /* Pre-filled with the clock, and editable — the same as the desktop form.
+     Mobile recorded no time at all until now, so a phone observation could
+     not say when in the day it happened. */
+  const nowTime = () => {
+    const n = new Date();
+    return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+  };
   const [teacherId, setTeacherId] = useState<string>("");
   const [date, setDate] = useState(todayIso);
+  const [time, setTime] = useState(nowTime);
   const [course, setCourse] = useState("");
   const [scores, setScores] = useState<Partial<Record<string, Score>>>({});
   const [strengths, setStrengths] = useState("");
@@ -208,6 +217,7 @@ export default function ObservationPage() {
   function loadDraftIntoForm(draft: DraftObservation) {
     draftJustLoaded.current = true;
     setDate(draft.date);
+    setTime(draft.time ?? nowTime());
     setCourse(draft.course ?? "");
     setScores(draft.scores as Partial<Record<string, Score>>);
     setStrengths(draft.strengths ?? "");
@@ -244,6 +254,7 @@ export default function ObservationPage() {
         if (ld.teacherId === forTeacherId) {
           draftJustLoaded.current = true;
           setDate(ld.date);
+          setTime(ld.time ?? nowTime());
           setCourse(ld.course);
           setScores(ld.scores);
           setStrengths(ld.strengths);
@@ -292,6 +303,7 @@ export default function ObservationPage() {
        this same flag and skips one cycle when it is true. */
     draftJustLoaded.current = true;
     setDate(todayIso);
+    setTime(nowTime());
     setCourse("");
     setScores({});
     setStrengths("");
@@ -358,6 +370,7 @@ export default function ObservationPage() {
     const lsDraft: LocalDraft = {
       teacherId,
       date,
+      time,
       course,
       scores,
       strengths,
@@ -383,44 +396,25 @@ export default function ObservationPage() {
       if (isSubmittingRef.current) return;
       try {
         const currentDraftId = draftIdRef.current;
-        const scoresRecord = scores as Record<string, Score>;
-        let savedId: string;
-        if (currentDraftId) {
-          const obs = await updateObservation(currentDraftId, {
-            strengths: strengths || undefined,
-            growthAreas: growthAreas || undefined,
-            scores: scoresRecord,
-            /* The facts, not just the writing. These used to ride along only
-               on the POST that first created the draft, so the walkthrough
-               toggle was saved only if it was already on within the first two
-               seconds — and never afterwards. */
-            date,
-            course: course || null,
-            isWalkthrough,
-            status: "draft",
-            newActionStep: newActionStepDraft,
-            masterActionStepId: masterActionStepId ?? undefined,
-          });
-          savedId = obs.id;
-        } else {
-          const obs = await createObservation({
+        /* One description of the observation, whether it is being created or
+           saved again — see ObservationFormFields. */
+        const obs = await saveObservation({
+          draftId: currentDraftId ?? undefined,
+          status:  "draft",
+          fields: {
             teacherId,
             rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
-            date,
-            course: course || undefined,
-            scores: scoresRecord,
-            strengths: strengths || undefined,
-            growthAreas: growthAreas || undefined,
-            observer: user?.name,
-            observerId: user?.id != null ? Number(user.id) : undefined,
-            isWalkthrough,
-            status: "draft",
-            newActionStep: newActionStepDraft,
+            date, time, course,
+            scores: scores as Record<string, Score>,
+            strengths, growthAreas, isWalkthrough,
+            newActionStep:      newActionStepDraft,
             masterActionStepId: masterActionStepId ?? undefined,
-          });
-          savedId = obs.id;
-          setDraftId(savedId);
-        }
+          },
+          observer:   user?.name,
+          observerId: user?.id != null ? Number(user.id) : undefined,
+        });
+        const savedId = obs.id;
+        if (!currentDraftId) setDraftId(savedId);
         const now = new Date();
         const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         setAutoSaveStatus("saved");
@@ -436,7 +430,7 @@ export default function ObservationPage() {
       clearTimeout(timer);
       autoSaveTimerRef.current = null;
     };
-  }, [teacherId, date, course, scoresJson, strengths, growthAreas, isWalkthrough, actionStepText, actionStepDueDate, markMastered]);
+  }, [teacherId, date, time, course, scoresJson, strengths, growthAreas, isWalkthrough, actionStepText, actionStepDueDate, markMastered]);
 
   function hasFormContent(): boolean {
     return (
@@ -471,34 +465,22 @@ export default function ObservationPage() {
         actionStepText.trim().length > 0 && actionStepDueDate.length > 0
           ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
           : undefined;
-      if (currentDraftId) {
-        await updateObservation(currentDraftId, {
-          strengths: strengths || undefined,
-          growthAreas: growthAreas || undefined,
-          scores: scores as Record<string, Score>,
-          date,
-          course: course || null,
-          isWalkthrough,
-          status: "draft",
-          newActionStep: newActionStepDraft,
-          masterActionStepId: masterActionStepId ?? undefined,
-        });
-      } else {
-        const obs = await createObservation({
+      const obs = await saveObservation({
+        draftId: currentDraftId ?? undefined,
+        status:  "draft",
+        fields: {
           teacherId,
           rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
-          date,
-          course: course || undefined,
+          date, time, course,
           scores: scores as Record<string, Score>,
-          strengths: strengths || undefined,
-          growthAreas: growthAreas || undefined,
-          observer: user?.name,
-          observerId: user?.id != null ? Number(user.id) : undefined,
-          isWalkthrough,
-          status: "draft",
-          newActionStep: newActionStepDraft,
+          strengths, growthAreas, isWalkthrough,
+          newActionStep:      newActionStepDraft,
           masterActionStepId: masterActionStepId ?? undefined,
-        });
+        },
+        observer:   user?.name,
+        observerId: user?.id != null ? Number(user.id) : undefined,
+      });
+      if (!currentDraftId) {
         draftIdRef.current = obs.id;
         setDraftId(obs.id);
       }
@@ -536,6 +518,7 @@ export default function ObservationPage() {
     setLocalDraftRestored(false);
     setTeacherId(filteredTeachers[0]?.id ?? "");
     setDate(new Date().toISOString().split("T")[0]);
+    setTime(nowTime());
     setCourse("");
     setScores({});
     setStrengths("");
@@ -586,38 +569,27 @@ export default function ObservationPage() {
 
     try {
       const currentDraftId = draftIdRef.current;
-      let pendingMasteryWarning: string | undefined;
-      if (currentDraftId) {
-        const putResult = await updateObservation(currentDraftId, {
-          strengths: strengths || undefined,
-          growthAreas: growthAreas || undefined,
-          scores: scores as Record<string, Score>,
-          date,
-          course: course || null,
-          isWalkthrough,
-          status: "published",
-          newActionStep: newActionStepPayload,
+      /* The raw fetch this used to make, purely to read masteryWarning, was
+         one of the places that stopped sending the walkthrough toggle. The
+         wrapper reports the warning now, so there is nothing to bypass. */
+      const saved = await saveObservation({
+        draftId: currentDraftId ?? undefined,
+        status:  "published",
+        fields: {
+          teacherId,
+          rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
+          date, time, course,
+          scores: Object.fromEntries(
+            Object.entries(scores).filter(([, v]) => v !== undefined),
+          ) as Record<string, Score>,
+          strengths, growthAreas, isWalkthrough,
+          newActionStep:      newActionStepPayload,
           masterActionStepId: masterActionStepIdPayload,
-        });
-        pendingMasteryWarning = putResult.masteryWarning;
-      } else {
-        const postResult = await apiFetch<{ id: string; masteryWarning?: string }>("/api/observations", {
-          method: "POST",
-          body: JSON.stringify({
-            observedEmployeeId: teacherId,
-            rubricSetId: rubricData?.rubricSet.id ?? selectedRubric.id,
-            date,
-            course: course || null,
-            strengths: strengths || null,
-            growthAreas: growthAreas || null,
-            scores: Object.fromEntries(Object.entries(scores).filter(([, v]) => v !== undefined)),
-            isWalkthrough,
-            newActionStep: newActionStepPayload,
-            masterActionStepId: masterActionStepIdPayload,
-          }),
-        });
-        pendingMasteryWarning = postResult.masteryWarning;
-      }
+        },
+        observer:   user?.name,
+        observerId: user?.id != null ? Number(user.id) : undefined,
+      });
+      const pendingMasteryWarning = saved.masteryWarning;
       clearLocalDraft();
       setConfirmed(true);
       const capturedWarning = pendingMasteryWarning;
@@ -747,7 +719,7 @@ export default function ObservationPage() {
               </div>
             )}
 
-            {/* Teacher + Date */}
+            {/* Teacher, date and time */}
             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Teacher</label>
@@ -771,19 +743,38 @@ export default function ObservationPage() {
                 </div>
               </div>
 
-              <div className="min-w-0">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Observation Date
-                </label>
-                <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500">
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                    className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
-                    style={{ boxSizing: "border-box", border: "none", display: "block" }}
-                  />
+              {/* Date and time side by side — the time starts at the clock, so
+                  it is right without being touched during the lesson. */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Observation Date
+                  </label>
+                  <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500">
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                      className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
+                      style={{ boxSizing: "border-box", border: "none", display: "block" }}
+                    />
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Time
+                  </label>
+                  <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500">
+                    <input
+                      type="time"
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
+                      style={{ boxSizing: "border-box", border: "none", display: "block" }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

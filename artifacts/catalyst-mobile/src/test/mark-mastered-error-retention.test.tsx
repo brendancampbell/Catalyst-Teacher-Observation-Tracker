@@ -267,21 +267,26 @@ describe("Mark as Mastered — retained after network error on POST (new observa
     vi.mocked(updateObservation).mockResolvedValue({ id: "auto-draft-001" } as never);
   });
 
-  /* Build a fresh apiFetch mock per test so POST call-count resets cleanly */
+  /* Fresh per test so the call count resets cleanly.
+
+     Publishing goes through createObservation now, not a hand-rolled apiFetch
+     POST — that raw call was removed because it was one of three places that
+     had stopped sending the walkthrough toggle. The failure is injected where
+     the request actually leaves. */
   function setupPostMock(opts: { failFirstPost?: boolean } = {}) {
     let postCallCount = 0;
-    mockApiFetch.mockImplementation((url: string, fetchOpts?: { method?: string; body?: string }) => {
+    mockApiFetch.mockImplementation((url: string) => {
       if (url.includes("/api/people")) return Promise.resolve([TEACHER_A]);
       if (url.includes("/api/rubric")) return Promise.resolve(RUBRIC_DATA);
       if (url.includes("/api/action-steps/latest")) return Promise.resolve(OPEN_ACTION_STEP);
-      if (url.includes("/api/observations") && fetchOpts?.method === "POST") {
-        postCallCount += 1;
-        if (opts.failFirstPost && postCallCount === 1) {
-          return Promise.reject(new Error("Failed to save observation"));
-        }
-        return Promise.resolve({ id: "new-obs-001" });
-      }
       return Promise.resolve({});
+    });
+    vi.mocked(createObservation).mockImplementation(() => {
+      postCallCount += 1;
+      if (opts.failFirstPost && postCallCount === 1) {
+        return Promise.reject(new Error("Failed to save observation"));
+      }
+      return Promise.resolve({ id: "new-obs-001" });
     });
     return { getPostCallCount: () => postCallCount };
   }
@@ -350,14 +355,12 @@ describe("Mark as Mastered — retained after network error on POST (new observa
 
     await waitFor(
       () => {
-        const postCalls = mockApiFetch.mock.calls.filter(
-          ([url, opts]: [string, { method?: string }]) =>
-            url.includes("/api/observations") && opts?.method === "POST",
-        );
+        const postCalls = vi.mocked(createObservation).mock.calls;
         /* Both the failing call and the retry must have been made */
         expect(postCalls.length).toBe(2);
-        const retryBody = JSON.parse(postCalls[1][1].body as string) as Record<string, unknown>;
-        expect(retryBody.masterActionStepId).toBe(55);
+        expect(postCalls[1]![0]).toEqual(
+          expect.objectContaining({ masterActionStepId: 55 }),
+        );
       },
       { timeout: 4000 },
     );

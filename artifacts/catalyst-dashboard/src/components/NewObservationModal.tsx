@@ -5,7 +5,8 @@ import DOMPurify from "dompurify";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
-import { fetchMyDrafts, deleteObservation, createObservation, updateObservation, fetchLatestActionStep } from "@/lib/api";
+import { fetchMyDrafts, deleteObservation, fetchLatestActionStep } from "@/lib/api";
+import { saveObservation } from "@/lib/observation-save";
 import { toast } from "@/hooks/use-toast";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
@@ -344,44 +345,23 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       if (isSubmittingRef.current) return;
       try {
         const currentDraftId = draftIdRef.current;
-        const scoresRecord = scores as Record<string, Score>;
-        let savedId: string;
-        if (currentDraftId) {
-          const obs = await updateObservation(currentDraftId, {
-            strengths:          strengths   || undefined,
-            growthAreas:        growthAreas || undefined,
-            scores:             scoresRecord,
-            /* The facts, not just the writing. Only the POST that first
-               created the draft carried these, so correcting the date, time
-               or course on a draft was lost the moment it was reopened. */
-            date,
-            time:               time   || null,
-            course:             course || null,
-            isWalkthrough:      isWalkthrough,
-            status:             "draft",
+        /* One description of the observation, whether it is being created or
+           saved again. See ObservationFormFields — leaving a field out here is
+           a compile error rather than a field that quietly stops being sent. */
+        const obs = await saveObservation({
+          draftId:  currentDraftId ?? undefined,
+          status:   "draft",
+          observer: observerName,
+          fields: {
+            teacherId, rubricSetId, date, time, course,
+            scores:             scores as Record<string, Score>,
+            strengths, growthAreas, isWalkthrough,
             newActionStep:      newActionStepDraft,
             masterActionStepId: masterActionStepIdDraft,
-          });
-          savedId = obs.id;
-        } else {
-          const obs = await createObservation({
-            teacherId,
-            rubricSetId,
-            date,
-            time:               time   || undefined,
-            course:             course || undefined,
-            scores:             scoresRecord,
-            strengths:          strengths || undefined,
-            growthAreas:        growthAreas || undefined,
-            observer:           observerName,
-            isWalkthrough:      isWalkthrough,
-            status:             "draft",
-            newActionStep:      newActionStepDraft,
-            masterActionStepId: masterActionStepIdDraft,
-          });
-          savedId = obs.id;
-          setDraftId(savedId);
-        }
+          },
+        });
+        const savedId = obs.id;
+        if (!currentDraftId) setDraftId(savedId);
         const now = new Date();
         const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         setAutoSaveStatus("saved");

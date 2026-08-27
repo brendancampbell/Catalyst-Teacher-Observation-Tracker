@@ -71,8 +71,14 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-export async function createObservation(payload: CreateObservationPayload): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>("/api/observations", {
+/* masteryWarning is part of the answer, same as on PUT. It was left off the
+   type, so the publish path bypassed this wrapper with a raw fetch just to
+   read it — and that raw call was one of the places that quietly stopped
+   sending the walkthrough toggle. */
+export async function createObservation(
+  payload: CreateObservationPayload,
+): Promise<{ id: string; masteryWarning?: string }> {
+  return apiFetch<{ id: string; masteryWarning?: string }>("/api/observations", {
     method: "POST",
     body: JSON.stringify(payload),
   });

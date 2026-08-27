@@ -1,6 +1,7 @@
 export * from "./grade-levels";
 export * from "./subject-audience";
 export * from "./system-settings";
+export * from "./observation-payload";
 
 /**
  * Maximum non-archived rubric sets allowed IN ONE SCHOOL YEAR.

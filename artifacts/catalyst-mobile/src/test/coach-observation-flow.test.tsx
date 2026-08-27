@@ -108,6 +108,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
+import { createObservation } from "@/lib/api";
 import { useApp } from "@/context/AppContext";
 
 function setupAppContext(overrides: {
@@ -278,16 +279,14 @@ describe("Step 3 — COACH observation form", () => {
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     });
 
-    // The POST to /api/observations must have been called
+    /* Asserted through createObservation rather than a raw apiFetch. Publishing
+       used to bypass the wrapper with its own fetch just to read the mastery
+       warning, and that hand-written body was one of the three places that
+       stopped sending the walkthrough toggle. */
     await waitFor(() => {
-      const postCall = mockApiFetch.mock.calls.find(
-        ([url, opts]: [string, RequestInit | undefined]) =>
-          url.includes("/api/observations") && opts?.method === "POST",
+      expect(createObservation).toHaveBeenCalledWith(
+        expect.objectContaining({ teacherId: "emp-c01", rubricSetId: 3 }),
       );
-      expect(postCall).toBeDefined();
-      const body = JSON.parse(postCall![1]!.body as string) as Record<string, unknown>;
-      expect(body.observedEmployeeId).toBe("emp-c01");
-      expect(body.rubricSetId).toBe(3);
     });
   });
 });

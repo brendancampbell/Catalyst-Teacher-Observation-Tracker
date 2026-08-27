@@ -18,7 +18,6 @@ import {
   fetchDistrictSummary,
   fetchNetworkAverages,
   fetchRubricSets,
-  createObservation,
   fetchAIInsights,
   fetchAICalibrationFlags,
   fetchOverdueActionSteps,
@@ -48,6 +47,7 @@ import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { fetchSystemSettings } from "@/lib/api";
 import { describeWindow, DEFAULT_WINDOW_DAYS } from "@workspace/api-types";
 import { NewObservationModal } from "@/components/NewObservationModal";
+import { saveObservation } from "@/lib/observation-save";
 import { QualitativeThemesCard } from "@/components/QualitativeThemesCard";
 import { useUser } from "@/context/UserContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -858,28 +858,25 @@ export default function ActionCenterPage() {
     isWalkthrough:       boolean,
     time:                string,
     course:              string,
-    _draftId?:           string,
+    draftId?:           string,
     newActionStep?:      { text: string; dueDate: string },
     masterActionStepId?: number,
     extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
     setSaving(true);
     try {
-      const obs = await createObservation({
-        teacherId,
-        rubricSetId:       activeQuarterId,
-        date,
-        time:              time        || undefined,
-        course:            course      || undefined,
-        scores,
-        strengths:         strengths   || undefined,
-        growthAreas:       growthAreas || undefined,
-        observer:          currentUser?.name ?? "Unknown",
-        observerId:        currentUser?.id,
-        isWalkthrough,
-        newActionStep,
-        masterActionStepId,
-        extendActionStep,
+      const fields = {
+        teacherId, rubricSetId: activeQuarterId, date, time, course, scores,
+        strengths, growthAreas, isWalkthrough,
+        newActionStep, masterActionStepId, extendActionStep,
+      };
+      /* The draft id is used, not discarded. The form autosaves a draft after
+         two seconds; this screen used to ignore it and create a second
+         observation, leaving an abandoned draft behind every single time. */
+      const obs = await saveObservation({
+        draftId, fields, status: "published",
+        observer:   currentUser?.name ?? "Unknown",
+        observerId: currentUser?.id,
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.rescoreQueue });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueObservations });

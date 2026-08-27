@@ -6,6 +6,7 @@ import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { removeObservationFromDashboards } from "@/lib/observation-cache";
+import { saveObservation } from "@/lib/observation-save";
 import {
   SUBJECTS,
   GRADE_LEVELS,
@@ -14,7 +15,7 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, fetchMyLatestRubricSlug } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
@@ -512,52 +513,20 @@ export default function Dashboard() {
     if (!rubricSetId) return "";
     setSaving(true);
     try {
-      let obs;
-      if (draftId) {
-        /* Publishing an existing draft → PUT with status: published.
-
-           Sends the facts as well as the writing. It used to send only the
-           wording and the scores, which meant the walkthrough toggle, the
-           date, the time and the course reached the server only if the
-           two-second draft autosave happened to fire after they were touched
-           — and clicking Save cancels a pending autosave. Flip the walkthrough
-           toggle and save promptly, which is the natural thing to do since the
-           toggle sits by the Save button, and the observation published as an
-           ordinary one. That is what happened to two walkthroughs in a row at
-           Brownsville North; editing them afterwards worked because the edit
-           path always sent the flag. */
-        obs = await updateObservation(draftId, {
-          strengths:          strengths    || undefined,
-          growthAreas:        growthAreas  || undefined,
-          scores:             scores,
-          date,
-          time:               time   || null,
-          course:             course || null,
-          isWalkthrough,
-          status:             "published",
-          newActionStep,
-          masterActionStepId,
-          extendActionStep,
-        });
-      } else {
-        obs = await createObservation({
-          teacherId,
-          rubricSetId,
-          date,
-          time:               time   || undefined,
-          course:             course || undefined,
-          scores,
-          strengths:          strengths || undefined,
-          growthAreas:        growthAreas || undefined,
-          observer:           currentUser?.name ?? "Unknown",
-          observerId:         currentUser?.id,
-          isWalkthrough,
-          status:             "published",
-          newActionStep,
-          masterActionStepId,
-          extendActionStep,
-        });
-      }
+      /* One description of the observation, whichever call it goes out on.
+         Publishing used to send only the wording and the scores, so the
+         walkthrough toggle, date, time and course were dropped — see
+         ObservationFormFields for what that cost. */
+      const fields = {
+        teacherId, rubricSetId, date, time, course, scores,
+        strengths, growthAreas, isWalkthrough,
+        newActionStep, masterActionStepId, extendActionStep,
+      };
+      const obs = await saveObservation({
+        draftId, fields, status: "published",
+        observer:   currentUser?.name ?? "Unknown",
+        observerId: currentUser?.id,
+      });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
       await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });

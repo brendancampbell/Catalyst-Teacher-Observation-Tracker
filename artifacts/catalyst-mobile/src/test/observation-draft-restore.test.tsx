@@ -114,6 +114,7 @@ function makeDraft(teacherId: string, strengths: string): LocalDraft {
   return {
     teacherId,
     date: "2026-07-13",
+    time: "09:15",
     course: "Algebra 1",
     scores: {},
     strengths,

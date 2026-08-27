@@ -13,11 +13,10 @@ import {
   deleteObservation,
   fetchDashboard,
   fetchMyLatestRubricSlug,
-  createObservation,
-  updateObservation,
   type DraftObservation,
   type CategoryEntry,
 } from "@/lib/api";
+import { saveObservation } from "@/lib/observation-save";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { toast } from "@/hooks/use-toast";
 import type { Teacher, DomainEntry, Score } from "@/data/dummy";
@@ -241,7 +240,7 @@ export default function DraftsPage() {
     isWalkthrough: boolean,
     time:         string,
     course:       string,
-    _draftId?:    string,
+    draftId?:     string,
     newActionStep?: { text: string; dueDate: string },
     masterActionStepId?: number,
     extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
@@ -249,22 +248,15 @@ export default function DraftsPage() {
     if (!newObsData) return "";
     setNewObsSaving(true);
     try {
-      const obs = await createObservation({
-        teacherId,
-        rubricSetId:  newObsData.rubricSetId,
-        date,
-        time:         time        || undefined,
-        course:       course      || undefined,
-        scores,
-        strengths:    strengths   || undefined,
-        growthAreas:  growthAreas || undefined,
-        observer:     currentUser?.name ?? "Unknown",
-        observerId:   currentUser?.id,
-        isWalkthrough,
-        status: "published",
-        newActionStep,
-        masterActionStepId,
-        extendActionStep,
+      const fields = {
+        teacherId, rubricSetId: newObsData.rubricSetId, date, time, course, scores,
+        strengths, growthAreas, isWalkthrough,
+        newActionStep, masterActionStepId, extendActionStep,
+      };
+      const obs = await saveObservation({
+        draftId, fields, status: "published",
+        observer:   currentUser?.name ?? "Unknown",
+        observerId: currentUser?.id,
       });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Observation submitted!" });
@@ -312,49 +304,21 @@ export default function DraftsPage() {
     if (!resumeData) return "";
     setResumeSaving(true);
     try {
-      let obs: { id: string | number; masteryWarning?: string };
-      if (draftId) {
-        obs = await updateObservation(draftId, {
-          strengths:   strengths   || undefined,
-          growthAreas: growthAreas || undefined,
-          scores,
-          /* The facts, not just the writing — see the same fix in Dashboard.
-             Worse here than there: resuming a draft always has a draftId, so
-             this branch is always the one taken and the walkthrough toggle was
-             never saved from the Drafts page at all. */
-          date,
-          time:   time   || null,
-          course: course || null,
-          isWalkthrough,
-          status: "published",
-          newActionStep,
-          masterActionStepId,
-          extendActionStep,
-        });
-        if (obs.masteryWarning) {
-          toast({
-            title: "Observation submitted — mastery note",
-            description: obs.masteryWarning,
-            variant: "destructive",
-          });
-        }
-      } else {
-        obs = await createObservation({
-          teacherId,
-          rubricSetId:  resumeData.draft.rubricSetId,
-          date,
-          time:         time   || undefined,
-          course:       course || undefined,
-          scores,
-          strengths:    strengths   || undefined,
-          growthAreas:  growthAreas || undefined,
-          observer:     currentUser?.name ?? "Unknown",
-          observerId:   currentUser?.id,
-          isWalkthrough,
-          status: "published",
-          newActionStep,
-          masterActionStepId,
-          extendActionStep,
+      const fields = {
+        teacherId, rubricSetId: resumeData.draft.rubricSetId, date, time, course, scores,
+        strengths, growthAreas, isWalkthrough,
+        newActionStep, masterActionStepId, extendActionStep,
+      };
+      const obs = await saveObservation({
+        draftId, fields, status: "published",
+        observer:   currentUser?.name ?? "Unknown",
+        observerId: currentUser?.id,
+      });
+      if (obs.masteryWarning) {
+        toast({
+          title: "Observation submitted — mastery note",
+          description: obs.masteryWarning,
+          variant: "destructive",
         });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
