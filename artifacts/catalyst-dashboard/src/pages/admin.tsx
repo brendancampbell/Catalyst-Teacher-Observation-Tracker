@@ -3438,9 +3438,22 @@ function NotificationsTab() {
    this regroups rather than changing who can reach them. */
 type AdminTab = "rubric" | "people" | "schools" | "school-years" | "system";
 
+/* Sub-tabs inside System Settings. Rescore Window leads because it is the one
+   somebody comes here to change; the other two were tabs of their own before
+   and are unchanged behind these. */
+type SystemSection = "rescore" | "notifications" | "ai-quota";
+
+const SYSTEM_SECTIONS: { id: SystemSection; label: string }[] = [
+  { id: "rescore",       label: "Rescore Window" },
+  { id: "notifications", label: "Notifications" },
+  { id: "ai-quota",      label: "AI Quota" },
+];
+
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
   const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
+  /* Opens on the first sub-tab, matching how the tabs above behave. */
+  const [systemSection, setSystemSection] = useState<SystemSection>("rescore");
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
   const _adminSearch = new URLSearchParams(window.location.search);
@@ -3830,28 +3843,35 @@ export default function AdminPage() {
         <AdminSchoolYearsTab onGoToUsers={() => setActiveTab("people")} />
       )}
       {visibleTab === "system" && isNetworkAdmin && (
-        <div className="px-4 sm:px-6 py-5 flex flex-col gap-10">
-          <section>
-            <h2 className="font-bold uppercase tracking-widest mb-1" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-              Rescore Window
-            </h2>
-            <p className="text-xs text-slate-500 mb-4">Deadlines that apply across the whole network.</p>
-            <RescoreWindowSettings />
-          </section>
+        <div className="flex flex-col flex-1">
+          {/* Sub-tabs, in the same shape as User List / Bulk Upload above. */}
+          <div className="px-4 sm:px-6 flex gap-6" style={{ backgroundColor: "white", borderBottom: "1px solid #e2e8f0" }}>
+            {SYSTEM_SECTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setSystemSection(id)}
+                className="flex items-center gap-2 py-3 text-sm font-semibold transition-colors"
+                style={
+                  systemSection === id
+                    ? { color: NAVY, borderBottom: `2px solid ${YELLOW}`, marginBottom: -1 }
+                    : { color: "#64748b", borderBottom: "2px solid transparent", marginBottom: -1 }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 28 }}>
-            <h2 className="font-bold uppercase tracking-widest mb-4" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-              Notifications
-            </h2>
-            <NotificationsTab />
-          </section>
-
-          <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 28 }}>
-            <h2 className="font-bold uppercase tracking-widest mb-4" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
-              AI Quota
-            </h2>
-            <AIQuotaTab />
-          </section>
+          <div className="px-4 sm:px-6 py-5">
+            {systemSection === "rescore" && (
+              <>
+                <p className="text-xs text-slate-500 mb-4">Deadlines that apply across the whole network.</p>
+                <RescoreWindowSettings />
+              </>
+            )}
+            {systemSection === "notifications" && <NotificationsTab />}
+            {systemSection === "ai-quota"      && <AIQuotaTab />}
+          </div>
         </div>
       )}
 
