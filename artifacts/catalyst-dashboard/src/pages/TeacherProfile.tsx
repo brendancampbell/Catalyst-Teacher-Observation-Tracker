@@ -15,6 +15,7 @@ import type { Score, Teacher } from "@/data/dummy";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AppHeader from "@/components/AppHeader";
 import { NewObservationModal } from "@/components/NewObservationModal";
+import { actionCenterHref } from "@/lib/school-context";
 import { useUser } from "@/context/UserContext";
 
 const NAVY   = "#1034B4";
@@ -168,7 +169,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         basePath={baseUrl}
         onAddObservation={() => setNewObsOpen(true)}
         draftsHref={`${baseUrl}/drafts?returnUrl=${returnUrl}`}
-        actionCenterHref={`${baseUrl}/action-center`}
+        actionCenterHref={actionCenterHref(baseUrl, `/teacher/${employeeId}`)}
         userName={currentUser?.name ?? ""}
         userEmail={currentUser?.email}
         userRole={currentUser?.role ?? "SCHOOL_LEADER"}

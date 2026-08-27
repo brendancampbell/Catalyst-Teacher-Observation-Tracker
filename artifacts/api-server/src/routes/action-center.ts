@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
-import { eq, and, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, or, sql, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { getWindows } from "../lib/system-settings";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
@@ -12,6 +12,19 @@ import { TtlCache } from "../lib/ttl-cache";
 export const networkAvgsCache = new TtlCache<object>(2 * 60 * 1000, 5 * 60 * 1000);
 
 const router = Router();
+
+/* ── Home Office is not a school ──────────────────────────────────
+   Its people are network and admin staff, never observable teachers. GET
+   /people has excluded them from the feedback tracker since the beginning;
+   the Action Center never did, so pointing it at the Home Office school id
+   listed network staff as though they were teachers to observe and rescore.
+
+   Written once and used by all three queries here rather than repeated, since
+   repeating it is how /people came to be right and this file wrong.
+
+   isNull is included deliberately: a person with no school at all is not Home
+   Office and should not be dropped by this filter. */
+const notHomeOffice = or(isNull(schools.isHomeOffice), eq(schools.isHomeOffice, false))!;
 
 /* ── GET /api/action-center/network-averages ─────────────────────
    Domain averages for authenticated users.
@@ -99,7 +112,13 @@ router.get("/network-averages", requireAuth, async (req, res) => {
       const allPeople = await db
         .select()
         .from(people)
-        .where(and(eq(people.isActive, true), isNotNull(people.schoolId), eq(people.includeInFeedbackTracker, true)));
+        .where(and(
+          eq(people.isActive, true),
+          isNotNull(people.schoolId),
+          eq(people.includeInFeedbackTracker, true),
+          /* No schools join on this query, so the exclusion is a subquery. */
+          sql`EXISTS (SELECT 1 FROM schools s WHERE s.id = ${people.schoolId} AND s.is_home_office = false)`,
+        ));
 
       const obsByTeacher = new Map<string, typeof allObs>();
       for (const o of allObs) {
@@ -191,8 +210,8 @@ router.get("/rescore-queue", requireAuth, async (req, res) => {
       .leftJoin(schools, eq(people.schoolId, schools.id))
       .where(
         scopedSchoolId !== null
-          ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId))
-          : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId)),
+          ? and(eq(people.needsRescore, true), eq(people.schoolId, scopedSchoolId), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId), notHomeOffice)
+          : and(eq(people.needsRescore, true), eq(people.includeInFeedbackTracker, true), eq(people.rescoreSchoolYearId, activeYearId), notHomeOffice),
       )
       .orderBy(people.rescoreDueDate);
 
@@ -256,6 +275,7 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
         eq(people.isActive, true),
         eq(people.includeInFeedbackTracker, true),
         schoolFilter,
+        notHomeOffice,
       ))
       .groupBy(people.employeeId, people.firstName, people.lastName, people.department, people.gradeLevel, schools.displayName)
       .having(

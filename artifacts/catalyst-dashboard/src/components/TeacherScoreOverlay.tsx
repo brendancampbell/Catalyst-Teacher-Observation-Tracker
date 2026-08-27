@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { actionCenterHref } from "@/lib/school-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { toast } from "@/hooks/use-toast";
@@ -639,7 +640,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             basePath={basePath}
             onAddObservation={onNewObs}
             draftsHref={`${basePath}/drafts?returnUrl=${encodeURIComponent('/teacher/' + teacher.id)}`}
-            actionCenterHref={`${basePath}/action-center?returnTo=${encodeURIComponent(backHref)}`}
+            actionCenterHref={actionCenterHref(basePath, backHref, schoolId)}
             userName={currentUser.name}
             userEmail={currentUser.email}
             userRole={currentUser.role}
