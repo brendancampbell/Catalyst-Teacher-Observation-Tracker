@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, Trash2, Pencil, Check, X, UserCheck, UserX, ShieldOff,
 import { safeReturnTo } from "@/lib/safeReturnTo";
 import AppHeader from "@/components/AppHeader";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
+import { RescoreWindowSettings } from "@/components/RescoreWindowSettings";
 import {
   fetchRubric,
   fetchRubricSets,
@@ -3432,7 +3433,10 @@ function NotificationsTab() {
    ADMIN PAGE (root)
    ════════════════════════════════════════════════════════════════ */
 
-type AdminTab = "rubric" | "people" | "schools" | "school-years" | "ai-quota" | "notifications";
+/* ai-quota and notifications are no longer tabs of their own — they are
+   sections inside System Settings. Both were already network-admin only, so
+   this regroups rather than changing who can reach them. */
+type AdminTab = "rubric" | "people" | "schools" | "school-years" | "system";
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
@@ -3579,8 +3583,7 @@ export default function AdminPage() {
     ...(canManagePeople ? [{ id: "people" as AdminTab,        label: "Users" }]           : []),
     ...(isNetworkAdmin ? [{ id: "schools" as AdminTab,       label: "Schools" }]          : []),
     ...(isNetworkAdmin ? [{ id: "school-years" as AdminTab,  label: "School Years" }]     : []),
-    ...(isNetworkAdmin ? [{ id: "ai-quota" as AdminTab,      label: "AI Quota" }]         : []),
-    ...(isNetworkAdmin ? [{ id: "notifications" as AdminTab, label: "Notifications" }]    : []),
+    ...(isNetworkAdmin ? [{ id: "system" as AdminTab,        label: "System Settings" }] : []),
   ];
 
   const defaultTab: AdminTab = canManagePeople ? "people" : "rubric";
@@ -3589,8 +3592,7 @@ export default function AdminPage() {
     (activeTab === "people"         && !canManagePeople)  ? defaultTab :
     (activeTab === "schools"        && !isNetworkAdmin)   ? defaultTab :
     (activeTab === "school-years"   && !isNetworkAdmin)   ? defaultTab :
-    (activeTab === "ai-quota"       && !isNetworkAdmin)   ? defaultTab :
-    (activeTab === "notifications"  && !isNetworkAdmin)   ? defaultTab :
+    (activeTab === "system"         && !isNetworkAdmin)   ? defaultTab :
     activeTab;
 
   return (
@@ -3821,8 +3823,31 @@ export default function AdminPage() {
       {visibleTab === "school-years" && isNetworkAdmin  && (
         <AdminSchoolYearsTab onGoToUsers={() => setActiveTab("people")} />
       )}
-      {visibleTab === "ai-quota"        && isNetworkAdmin  && <AIQuotaTab />}
-      {visibleTab === "notifications"   && isNetworkAdmin  && <NotificationsTab />}
+      {visibleTab === "system" && isNetworkAdmin && (
+        <div className="px-4 sm:px-6 py-5 flex flex-col gap-10">
+          <section>
+            <h2 className="font-bold uppercase tracking-widest mb-1" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+              Rescore Window
+            </h2>
+            <p className="text-xs text-slate-500 mb-4">Deadlines that apply across the whole network.</p>
+            <RescoreWindowSettings />
+          </section>
+
+          <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 28 }}>
+            <h2 className="font-bold uppercase tracking-widest mb-4" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+              Notifications
+            </h2>
+            <NotificationsTab />
+          </section>
+
+          <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 28 }}>
+            <h2 className="font-bold uppercase tracking-widest mb-4" style={{ color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em" }}>
+              AI Quota
+            </h2>
+            <AIQuotaTab />
+          </section>
+        </div>
+      )}
 
       {/* ── New Rubric Set dialog ─────────────────────────────── */}
       {showNewRubricSetDialog && (

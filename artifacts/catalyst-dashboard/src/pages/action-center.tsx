@@ -45,6 +45,8 @@ import {
 } from "@/lib/api";
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
+import { fetchSystemSettings } from "@/lib/api";
+import { describeWindow, DEFAULT_WINDOW_DAYS } from "@workspace/api-types";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { QualitativeThemesCard } from "@/components/QualitativeThemesCard";
 import { useUser } from "@/context/UserContext";
@@ -614,6 +616,16 @@ export default function ActionCenterPage() {
   );
 
   /* ── Rescore queue ─────────────────────────────────── */
+  /* The two windows are settings now, so the copy below states whatever they
+     currently are rather than a number baked into the page. Falls back to the
+     old hardcoded value if the settings have not loaded, so the sentence is
+     never half-written. */
+  const { data: systemSettings } = useQuery({
+    queryKey: QUERY_KEYS.systemSettings,
+    queryFn:  fetchSystemSettings,
+    staleTime: 60_000,
+  });
+
   const { data: queue = [], isLoading, isError } = useQuery<RescoreQueueItem[]>({
     queryKey: [...QUERY_KEYS.rescoreQueue, schoolId],
     queryFn:  () => fetchRescoreQueue(schoolId),
@@ -1646,7 +1658,7 @@ export default function ActionCenterPage() {
                       Walkthrough Rescore Queue
                     </h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                      Teachers who received a walkthrough score below {PROFICIENCY_THRESHOLD} and require a rescore within 14 days.
+                      Teachers who received a walkthrough score below {PROFICIENCY_THRESHOLD} and require a rescore within {describeWindow(systemSettings?.rescoreWindowDays ?? DEFAULT_WINDOW_DAYS)}.
                     </p>
                   </div>
                   {isLoading ? (
@@ -1719,7 +1731,7 @@ export default function ActionCenterPage() {
                       Overdue Observations
                     </h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                      Teachers who have not been observed in the last 14 days.
+                      Teachers who have not been observed in the last {systemSettings?.overdueWindowDays ?? DEFAULT_WINDOW_DAYS} days.
                     </p>
                   </div>
                   {overdueTeachers.length === 0 ? (

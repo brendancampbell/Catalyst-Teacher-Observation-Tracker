@@ -496,6 +496,29 @@ export async function deleteObservation(
   });
 }
 
+/* ── System settings ──────────────────────────────────────────────
+   The two network-wide windows. Readable by anyone signed in — the Action
+   Center states them in its own copy — but only network admins may write. */
+export async function fetchSystemSettings(): Promise<import("@workspace/api-types").SystemSettings> {
+  return apiFetch("/system-settings");
+}
+
+/** What a change would do, before making it. Network admins only. */
+export async function previewSystemSettings(
+  next: { rescoreWindowDays?: number; overdueWindowDays?: number },
+): Promise<import("@workspace/api-types").SystemSettingsPreview> {
+  const qs = new URLSearchParams();
+  if (next.rescoreWindowDays !== undefined) qs.set("rescoreWindowDays", String(next.rescoreWindowDays));
+  if (next.overdueWindowDays !== undefined) qs.set("overdueWindowDays", String(next.overdueWindowDays));
+  return apiFetch(`/system-settings/preview?${qs.toString()}`);
+}
+
+export async function updateSystemSettings(
+  next: { rescoreWindowDays?: number; overdueWindowDays?: number },
+): Promise<import("@workspace/api-types").SystemSettings & { recalculated: number }> {
+  return apiFetch("/system-settings", { method: "PUT", body: JSON.stringify(next) });
+}
+
 export async function fetchMyDrafts(): Promise<DraftObservation[]> {
   return apiFetch<DraftObservation[]>("/observations/drafts");
 }

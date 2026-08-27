@@ -19,6 +19,12 @@ const {
 vi.mock("@/lib/api", () => ({
   fetchDashboard:           mockFetchDashboard,
   fetchRubricSets:          mockFetchRubricSets,
+  /* The Action Center now states the configured windows in its own copy. */
+  fetchSystemSettings:      async () => ({
+    rescoreWindowDays: 14, overdueWindowDays: 14,
+    rescoreUpdatedAt: null, rescoreUpdatedBy: null,
+    overdueUpdatedAt: null, overdueUpdatedBy: null,
+  }),
   fetchRescoreQueue:        async () => [],
   fetchOverdueObservations: async () => [],
   fetchAIInsights:          async () => null,

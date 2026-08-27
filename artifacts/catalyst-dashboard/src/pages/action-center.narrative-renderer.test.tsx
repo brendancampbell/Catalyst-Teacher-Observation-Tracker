@@ -9,6 +9,12 @@ import { render, screen } from "@testing-library/react";
 vi.mock("@/lib/api", () => ({
   fetchDashboard:           async () => null,
   fetchRubricSets:          async () => [],
+  /* The Action Center now states the configured windows in its own copy. */
+  fetchSystemSettings:      async () => ({
+    rescoreWindowDays: 14, overdueWindowDays: 14,
+    rescoreUpdatedAt: null, rescoreUpdatedBy: null,
+    overdueUpdatedAt: null, overdueUpdatedBy: null,
+  }),
   fetchRescoreQueue:        async () => [],
   fetchOverdueObservations: async () => [],
   fetchAIInsights:          async () => null,

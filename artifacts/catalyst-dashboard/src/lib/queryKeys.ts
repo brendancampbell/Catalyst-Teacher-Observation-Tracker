@@ -64,4 +64,7 @@ export const QUERY_KEYS = {
   // ── Platform notifications ───────────────────────────────────────
   adminNotifications:   ["admin-notifications"]    as const,
   activeNotifications:  ["active-notifications"]   as const,
+
+  // ── System settings ──────────────────────────────────────────────
+  systemSettings:       ["system-settings"]        as const,
 } as const;
