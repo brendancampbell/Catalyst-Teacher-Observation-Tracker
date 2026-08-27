@@ -146,3 +146,61 @@ export async function previewOverdueChange(newWindowDays: number): Promise<{ new
 
   return { newlyListed: Number(rows.rows[0]?.newly_listed ?? 0) };
 }
+
+/**
+ * Work out, from scratch, whether a teacher belongs in the rescore queue.
+ *
+ * The create path decides this from the observation being written, which is
+ * fine while observations only ever appear. Editing breaks that: a walkthrough
+ * can stop being one, its date can move, or it can be reassigned to somebody
+ * else — and none of those can be answered by looking at a single observation.
+ *
+ * So this asks the question the queue is actually meant to answer: given
+ * everything on record for this teacher, does their most recent published
+ * walkthrough this year fall below the threshold? Clearing and re-deriving is
+ * both simpler and more truthful than trying to unpick which observation set
+ * the flag.
+ */
+export async function recomputeRescoreForTeacher(
+  employeeId: string,
+  activeYearId: number,
+  proficiencyThreshold = 0.7,
+): Promise<void> {
+  const rows = await db.execute<{ date: string; avg: number }>(sql`
+    SELECT o.date, AVG(s.score)::float AS avg
+      FROM observations o
+      JOIN observation_scores s ON s.observation_id = o.id
+     WHERE o.observed_employee_id = ${employeeId}
+       AND o.school_year_id = ${activeYearId}
+       AND o.is_walkthrough = true
+       AND o.status = 'published'
+     GROUP BY o.id, o.date
+     ORDER BY o.date DESC, o.id DESC
+     LIMIT 1
+  `);
+
+  const latest = rows.rows[0];
+
+  if (!latest || Number(latest.avg) >= proficiencyThreshold) {
+    await db.execute(sql`
+      UPDATE people
+         SET needs_rescore = false, rescore_due_date = NULL,
+             rescore_from_date = NULL, rescore_school_year_id = NULL,
+             updated_at = now()
+       WHERE employee_id = ${employeeId}
+         AND needs_rescore = true
+    `);
+    return;
+  }
+
+  const { rescoreWindowDays } = await getWindows();
+  await db.execute(sql`
+    UPDATE people
+       SET needs_rescore = true,
+           rescore_from_date = ${latest.date}::date,
+           rescore_due_date = (${latest.date}::date + make_interval(days => ${rescoreWindowDays}))::date,
+           rescore_school_year_id = ${activeYearId},
+           updated_at = now()
+     WHERE employee_id = ${employeeId}
+  `);
+}

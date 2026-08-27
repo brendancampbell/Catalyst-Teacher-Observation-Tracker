@@ -14,7 +14,7 @@ import { eq, desc, and, ne, inArray, isNotNull } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { canAccessSchoolScopedRecord } from "../middleware/auth";
 import { validateExtensionRequest, checkStepIsExtendable, type ExtendActionStepInput } from "../lib/action-step-extension.js";
-import { rescoreDueDateFor } from "../lib/system-settings";
+import { rescoreDueDateFor, recomputeRescoreForTeacher } from "../lib/system-settings";
 
 const router = Router();
 
@@ -867,11 +867,23 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
   try {
     const currentUser = req.user as Express.User;
     const obsId = Number(req.params.id);
-    const { strengths, growthAreas, scores, status, newActionStep, masterActionStepId, extendActionStep } = req.body as {
+    const {
+      strengths, growthAreas, scores, status, newActionStep, masterActionStepId, extendActionStep,
+      /* Correcting an observation after the fact: which of these were wrong is
+         not knowable in advance, so all four are editable. observedEmployeeId
+         is constrained to the observation's own school — see below. */
+      date: newDate, time: newTime, course: newCourse,
+      isWalkthrough: newIsWalkthrough, observedEmployeeId: newObservedId,
+    } = req.body as {
       strengths?: string;
       growthAreas?: string;
       scores?: Record<string, number>;
       status?: string;
+      date?: string;
+      time?: string | null;
+      course?: string | null;
+      isWalkthrough?: boolean;
+      observedEmployeeId?: string;
       newActionStep?: { text: string; dueDate: string };
       masterActionStepId?: number;
       extendActionStep?: ExtendActionStepInput;
@@ -909,6 +921,60 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         });
         return;
       }
+    }
+
+    /* ── Corrected fields, validated BEFORE any write ───────────── */
+    if (newDate !== undefined) {
+      const d = String(newDate);
+      const parsed = new Date(`${d}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(parsed.getTime())
+          || parsed.toISOString().slice(0, 10) !== d) {
+        res.status(400).json({ error: "Invalid date. Use YYYY-MM-DD." });
+        return;
+      }
+    }
+
+    if (newTime !== undefined && newTime !== null && newTime !== "") {
+      if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(String(newTime))) {
+        res.status(400).json({ error: "Invalid time format. Use HH:MM or HH:MM:SS (24-hour)." });
+        return;
+      }
+    }
+
+    if (newIsWalkthrough !== undefined && typeof newIsWalkthrough !== "boolean") {
+      res.status(400).json({ error: "isWalkthrough must be true or false" });
+      return;
+    }
+
+    /* Reassigning an observation to a different teacher, within the same
+       school only.
+
+       The observation's schoolId is frozen at creation and is what decides who
+       may see it; action steps from it carry the same frozen value. Moving one
+       across a school boundary would either hide it from both schools or
+       require rewriting that history, and the mistake this exists to fix is
+       picking the wrong name from one school's list. So the correction is
+       allowed and the boundary is not. */
+    let reassignedFrom: string | null = null;
+    if (newObservedId !== undefined && newObservedId !== existing.observedEmployeeId) {
+      if (existing.target !== "TEACHER") {
+        res.status(400).json({ error: "A school-wide observation has no observed teacher" });
+        return;
+      }
+      const nextTeacher = await db.query.people.findFirst({
+        where: eq(people.employeeId, String(newObservedId)),
+      });
+      if (!nextTeacher) {
+        res.status(404).json({ error: "Teacher not found" });
+        return;
+      }
+      if (nextTeacher.schoolId !== existing.schoolId) {
+        res.status(400).json({
+          error: "An observation can only be reassigned to a teacher at the same school",
+        });
+        return;
+      }
+      reassignedFrom = existing.observedEmployeeId;
     }
 
     /* ── Score validation BEFORE any write ──────────────────────── */
@@ -1057,6 +1123,13 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
           strengths:   strengths   !== undefined ? (strengths   || null) : existing.strengths,
           growthAreas: growthAreas !== undefined ? (growthAreas || null) : existing.growthAreas,
           status:      resolvedStatus,
+          /* Corrections. Each is written only when the caller mentioned it, so
+             editing the scores does not quietly blank the course. */
+          ...(newDate           !== undefined ? { date:               String(newDate) }        : {}),
+          ...(newTime           !== undefined ? { time:               newTime || null }        : {}),
+          ...(newCourse         !== undefined ? { course:             newCourse || null }      : {}),
+          ...(newIsWalkthrough  !== undefined ? { isWalkthrough:      newIsWalkthrough }       : {}),
+          ...(newObservedId     !== undefined ? { observedEmployeeId: String(newObservedId) }  : {}),
           /* While it is a draft, keep the intended step here so resuming can
              show it. Publishing creates the real step below and clears these,
              so nothing is left claiming a step that now exists for real.
@@ -1179,6 +1252,32 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             .set({ needsRescore: false, rescoreDueDate: null, rescoreFromDate: null, rescoreSchoolYearId: null })
             .where(eq(people.employeeId, updated.observedEmployeeId));
         }
+      }
+    }
+
+    /* ── Rescore after a correction ───────────────────────────────
+       An edit can change whether an observation is a walkthrough, when it
+       happened, or whose it is. None of those can be answered by looking at
+       the observation just written — toggling walkthrough OFF has to remove a
+       flag, and reassigning has to settle two people at once — so the queue is
+       re-derived from what is on record for each teacher involved.
+
+       Only for published observations that changed something relevant; a draft
+       has never contributed to the queue, and editing the wording of a
+       published observation should not touch it. */
+    const rescoreRelevantChange =
+      newIsWalkthrough !== undefined || newDate !== undefined
+      || newObservedId !== undefined || scores !== undefined;
+
+    if (resolvedStatus === "published" && rescoreRelevantChange && activeYearIdPut !== null) {
+      const affected = new Set<string>();
+      if (updated.observedEmployeeId) affected.add(updated.observedEmployeeId);
+      /* The teacher it was moved AWAY from: their queue entry may have been
+         caused by this very observation, and nothing else would clear it. */
+      if (reassignedFrom) affected.add(reassignedFrom);
+
+      for (const employeeId of affected) {
+        await recomputeRescoreForTeacher(employeeId, activeYearIdPut);
       }
     }
 
