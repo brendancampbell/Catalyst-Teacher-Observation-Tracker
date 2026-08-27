@@ -318,6 +318,14 @@ export default function DraftsPage() {
           strengths:   strengths   || undefined,
           growthAreas: growthAreas || undefined,
           scores,
+          /* The facts, not just the writing — see the same fix in Dashboard.
+             Worse here than there: resuming a draft always has a draftId, so
+             this branch is always the one taken and the walkthrough toggle was
+             never saved from the Drafts page at all. */
+          date,
+          time:   time   || null,
+          course: course || null,
+          isWalkthrough,
           status: "published",
           newActionStep,
           masterActionStepId,
