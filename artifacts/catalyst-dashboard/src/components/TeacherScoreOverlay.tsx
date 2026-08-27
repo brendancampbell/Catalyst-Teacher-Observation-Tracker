@@ -51,7 +51,7 @@ function ObservationCard({ obs, index, categories, onClick }: { obs: Observation
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
-      aria-label={`View observation from ${obs.date}`}
+      aria-label={`View ${obs.isWalkthrough ? "walkthrough" : "observation"} from ${obs.date}`}
     >
       <div
         className="flex items-center justify-between px-4 py-3"
@@ -72,6 +72,21 @@ function ObservationCard({ obs, index, categories, onClick }: { obs: Observation
           >
             {formatDate(obs.date)}
           </span>
+          {/* Walkthroughs are treated differently downstream — below the
+              proficiency threshold they put the teacher in the rescore queue —
+              so the history should say which observations were one. */}
+          {obs.isWalkthrough && (
+            <span
+              className="text-xs font-bold uppercase tracking-wider rounded px-2 py-0.5"
+              style={
+                index === 0
+                  ? { backgroundColor: "#EEF1FB", color: NAVY }
+                  : { backgroundColor: "#EEF1FB", color: NAVY, border: "1px solid #c7d2fe" }
+              }
+            >
+              Walkthrough
+            </span>
+          )}
           <span
             className="text-xs"
             style={{ color: index === 0 ? "#93c5fd" : "#94a3b8" }}
