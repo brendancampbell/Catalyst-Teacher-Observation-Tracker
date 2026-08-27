@@ -640,7 +640,6 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             backLabel={schoolDisplayName || "Dashboard"}
             basePath={basePath}
             onAddObservation={onNewObs}
-            draftsHref={`${basePath}/drafts?returnUrl=${encodeURIComponent('/teacher/' + teacher.id)}`}
             actionCenterHref={actionCenterHref(basePath, backHref, schoolId)}
             userName={currentUser.name}
             userEmail={currentUser.email}

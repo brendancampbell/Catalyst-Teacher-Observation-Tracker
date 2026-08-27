@@ -94,7 +94,6 @@ export default function SupportPage() {
         userEmail={currentUser?.email}
         userRole={currentUser?.role ?? ""}
         canAdmin={currentUser?.role !== "COACH"}
-        draftsHref={`${BASE}/drafts`}
       />
 
       <main className="flex-1 px-4 sm:px-8 py-8 max-w-2xl mx-auto w-full">

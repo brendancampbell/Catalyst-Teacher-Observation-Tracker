@@ -1,18 +1,16 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { QUERY_KEYS } from "@/lib/queryKeys";
-import { useSearch } from "wouter";
 import {
-  FileEdit, Trash2, RotateCcw, FileX, Loader2,
+  FileEdit, Trash2, RotateCcw, FileX, Loader2, X,
   CheckSquare, Square, ChevronDown,
 } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
 import { useUser } from "@/context/UserContext";
 import {
   fetchMyDrafts,
   deleteObservation,
   fetchDashboard,
-  fetchMyLatestRubricSlug,
   type DraftObservation,
   type CategoryEntry,
 } from "@/lib/api";
@@ -20,7 +18,6 @@ import { saveObservation } from "@/lib/observation-save";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { toast } from "@/hooks/use-toast";
 import type { Teacher, DomainEntry, Score } from "@/data/dummy";
-import { safeReturnTo } from "@/lib/safeReturnTo";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -60,30 +57,31 @@ const STALE_OPTIONS = [
   { label: "30+ days old", days: 30 },
 ];
 
-export default function DraftsPage() {
+interface Props {
+  open:         boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+/**
+ * The drafts list, over whatever screen you were already on.
+ *
+ * It used to be its own page, reached by leaving the one you were working on
+ * and coming back afterwards. Nothing about a list of your own unfinished
+ * observations needs a page of its own, and the round trip was the whole cost
+ * of glancing at it.
+ *
+ * Lives here rather than in each screen: the account menu carries the button
+ * and sits on every screen, so this hangs off the menu and works everywhere at
+ * once, with nothing for a new screen to wire up.
+ */
+export function DraftsModal({ open, onOpenChange }: Props) {
   const { currentUser } = useUser();
   const queryClient     = useQueryClient();
-  const baseUrl         = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-  const search          = useSearch();
 
   const [deleting,      setDeleting]      = useState<string | null>(null);
   const [bulkDeleting,  setBulkDeleting]  = useState(false);
   const [selected,      setSelected]      = useState<Set<string>>(new Set());
   const [staleMenuOpen, setStaleMenuOpen] = useState(false);
-
-  const parsedSearch = new URLSearchParams(search);
-  const rawReturnUrl = parsedSearch.get("returnUrl");
-  const backHref = safeReturnTo(rawReturnUrl, `${baseUrl}/`);
-  const schoolAbbreviation = parsedSearch.get("schoolAbbreviation") ?? currentUser?.schoolAbbreviation ?? null;
-  const schoolIdParam = parsedSearch.get("schoolId");
-  const schoolId = schoolIdParam != null ? parseInt(schoolIdParam, 10) : null;
-  const effectiveSchoolId = schoolId != null && !isNaN(schoolId) ? schoolId : null;
-  const schoolName = parsedSearch.get("schoolName") ?? null;
-  const acParams = new URLSearchParams();
-  if (effectiveSchoolId != null) acParams.set("schoolId", String(effectiveSchoolId));
-  if (schoolName)               acParams.set("schoolName", schoolName);
-  if (schoolAbbreviation)       acParams.set("schoolAbbreviation", schoolAbbreviation);
-  const actionCenterHref = `${baseUrl}/action-center${acParams.toString() ? `?${acParams.toString()}` : ""}`;
 
   /* ── Resume-modal state ─────────────────────────────────────────── */
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -96,26 +94,18 @@ export default function DraftsPage() {
   const [resumeLoading, setResumeLoading] = useState<string | null>(null);
   const [resumeSaving,  setResumeSaving]  = useState(false);
 
-  /* ── New-observation modal state ─────────────────────────────────── */
-  const [newObsOpen,    setNewObsOpen]    = useState(false);
-  const [, setNewObsLoading] = useState(false);
-  const [newObsSaving,  setNewObsSaving]  = useState(false);
-  const [newObsData, setNewObsData] = useState<{
-    teachers:    Teacher[];
-    categories:  CategoryEntry[];
-    allDomains:  DomainEntry[];
-    rubricSetId: number;
-  } | null>(null);
-
   /* ── Drafts query ───────────────────────────────────────────────── */
   const { data: drafts = [], isLoading, isError } = useQuery<DraftObservation[]>({
     queryKey:  QUERY_KEYS.myDrafts,
     queryFn:   fetchMyDrafts,
     staleTime: 15_000,
+    /* Nothing to fetch while the list is shut. */
+    enabled:   open,
   });
 
   /* ── Selection helpers ──────────────────────────────────────────── */
   const emptyDraftIds  = useMemo(() => drafts.filter(isDraftEmpty).map((d) => d.id), [drafts]);
+  const emptyCount     = emptyDraftIds.length;
   const allSelected    = drafts.length > 0 && selected.size === drafts.length;
   const someSelected   = selected.size > 0;
 
@@ -216,60 +206,6 @@ export default function DraftsPage() {
     }
   }
 
-  async function handleNewObsClick() {
-    setNewObsLoading(true);
-    try {
-      const activeSlug = await fetchMyLatestRubricSlug().catch(() => null) ?? "Q1";
-      const data = await fetchDashboard(activeSlug, currentUser?.schoolId ?? null);
-      const allDomains = data.categories.flatMap((c) => c.domains);
-      setNewObsData({ teachers: data.teachers, categories: data.categories, allDomains, rubricSetId: data.rubricSet.id });
-      setNewObsOpen(true);
-    } catch {
-      toast({ title: "Could not load observation form", variant: "destructive" });
-    } finally {
-      setNewObsLoading(false);
-    }
-  }
-
-  async function handleSubmitNew(
-    teacherId:    string,
-    date:         string,
-    scores:       Record<string, Score>,
-    strengths:    string,
-    growthAreas:  string,
-    isWalkthrough: boolean,
-    time:         string,
-    course:       string,
-    draftId?:     string,
-    newActionStep?: { text: string; dueDate: string },
-    masterActionStepId?: number,
-    extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
-  ): Promise<string> {
-    if (!newObsData) return "";
-    setNewObsSaving(true);
-    try {
-      const fields = {
-        teacherId, rubricSetId: newObsData.rubricSetId, date, time, course, scores,
-        strengths, growthAreas, isWalkthrough,
-        newActionStep, masterActionStepId, extendActionStep,
-      };
-      const obs = await saveObservation({
-        draftId, fields, status: "published",
-        observer:   currentUser?.name ?? "Unknown",
-        observerId: currentUser?.id,
-      });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
-      toast({ title: "Observation submitted!" });
-      return String(obs.id);
-    } catch (err) {
-      console.error("Failed to submit observation:", err);
-      toast({ title: "Failed to submit observation", variant: "destructive" });
-      return "";
-    } finally {
-      setNewObsSaving(false);
-    }
-  }
-
   async function handleResume(draft: DraftObservation) {
     setResumeLoading(draft.id);
     try {
@@ -279,12 +215,22 @@ export default function DraftsPage() {
       );
       const allDomains = data.categories.flatMap((c) => c.domains);
       setResumeData({ draft, teachers: data.teachers, categories: data.categories, allDomains });
+      /* The list steps aside rather than stacking. One window at a time, and
+         it comes back when the observation closes so a run of drafts can be
+         worked through without reopening the menu each time. */
+      onOpenChange(false);
       setResumeOpen(true);
     } catch {
       toast({ title: "Could not load draft data", variant: "destructive" });
     } finally {
       setResumeLoading(null);
     }
+  }
+
+  function closeResume() {
+    setResumeOpen(false);
+    setResumeData(null);
+    onOpenChange(true);
   }
 
   async function handleSubmitResumed(
@@ -333,53 +279,49 @@ export default function DraftsPage() {
     }
   }
 
-  if (!currentUser) return null;
-
-  const emptyCount = emptyDraftIds.length;
-
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    <>
+      <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Content
+            className="fixed z-50 flex flex-col bg-white shadow-2xl overflow-hidden inset-x-2 inset-y-3 rounded-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-4xl sm:max-h-[88vh]"
+            style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+          >
 
-      <div className="sticky top-0 z-30 shadow-md">
-        <AppHeader
-          subtitle="My Drafts"
-          backHref={backHref}
-          backLabel="Back to Dashboard"
-          basePath={baseUrl}
-          draftsHref={`${baseUrl}/drafts`}
-          actionCenterHref={actionCenterHref}
-          schoolAbbreviation={schoolAbbreviation}
-          userName={currentUser.name}
-          userEmail={currentUser.email}
-          userRole={currentUser.role}
-          canAdmin={currentUser.role !== "COACH"}
-          onAddObservation={handleNewObsClick}
-        />
-      </div>
-
-      <main className="flex-1 px-4 sm:px-8 py-8 max-w-5xl mx-auto w-full">
-
-        {/* ── Page title + quick-select toolbar ── */}
-        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 flex items-center justify-center rounded shrink-0"
-              style={{ backgroundColor: NAVY }}
-            >
-              <FileEdit size={18} color={YELLOW} />
-            </div>
-            <div>
-              <h1
-                className="text-2xl uppercase leading-none"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+            {/* ── Header ───────────────────────────────── */}
+            <div className="shrink-0 flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 flex items-center justify-center rounded shrink-0"
+                  style={{ backgroundColor: NAVY }}
+                >
+                  <FileEdit size={18} color={YELLOW} />
+                </div>
+                <div>
+                  <DialogPrimitive.Title
+                    className="text-2xl uppercase leading-none"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}
+                  >
+                    My Drafts
+                  </DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="text-xs text-slate-500 mt-0.5">
+                    Observations in progress — auto-saved. Submit when you're ready to publish.
+                  </DialogPrimitive.Description>
+                </div>
+              </div>
+              <DialogPrimitive.Close
+                className="shrink-0 p-1.5 rounded hover:bg-slate-100 transition-colors"
+                aria-label="Close drafts"
               >
-                My Drafts
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Observations in progress — auto-saved. Submit when you're ready to publish.
-              </p>
+                <X size={18} className="text-slate-500" />
+              </DialogPrimitive.Close>
             </div>
-          </div>
+
+            {/* ── Body ─────────────────────────────────── */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+
+              <div className="flex items-start justify-end gap-4 mb-5 flex-wrap">
           {/* Quick-select controls (only shown when there are drafts) */}
           {!isLoading && !isError && drafts.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
@@ -459,7 +401,7 @@ export default function DraftsPage() {
               </div>
             </div>
           )}
-        </div>
+              </div>
 
         {/* ── Bulk-action bar (shown when items are selected) ── */}
         {someSelected && (
@@ -516,15 +458,18 @@ export default function DraftsPage() {
             <FileX size={48} className="text-slate-300" />
             <p className="text-lg font-semibold text-slate-400">No drafts in progress</p>
             <p className="text-sm text-slate-400 max-w-xs">
-              Start an observation from the dashboard — it will auto-save here as you go.
+              Start an observation and it will auto-save here as you go.
             </p>
-            <a
-              href={backHref}
+            {/* "Go to Dashboard" when this was a page. There is nowhere to go
+                from a pop-up — the screen behind it is already there. */}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
               className="mt-2 px-5 py-2 rounded text-sm font-bold text-white"
               style={{ backgroundColor: NAVY }}
             >
-              Go to Dashboard
-            </a>
+              Close
+            </button>
           </div>
         )}
 
@@ -648,57 +593,34 @@ export default function DraftsPage() {
             })}
           </div>
         )}
-      </main>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
-      {/* ── New observation modal ── */}
-      {newObsData && (
-        <NewObservationModal
-          teachers={newObsData.teachers}
-          categories={newObsData.categories}
-          allDomains={newObsData.allDomains}
-          open={newObsOpen}
-          onOpenChange={(o) => { setNewObsOpen(o); if (!o) setNewObsData(null); }}
-          /* Autosave refuses to run without a rubric set, so an observation
-             started from this page never wrote a draft — the one page where
-             somebody is plainly thinking about drafts. handleSubmitNew has
-             always read the same id off newObsData; it just never reached the
-             modal. */
-          rubricSetId={newObsData.rubricSetId}
-          observerName={currentUser.name}
-          canMarkWalkthrough={true}
-          onSubmit={handleSubmitNew}
-          saving={newObsSaving}
-          freshStart
-        />
-      )}
-
-      {/* ── Resume modal (opens inline on this page) ── */}
+      {/* ── Resume: the list steps aside, then comes back ── */}
       {resumeData && (
         <NewObservationModal
           teachers={resumeData.teachers}
           categories={resumeData.categories}
           allDomains={resumeData.allDomains}
           open={resumeOpen}
-          onOpenChange={(o) => { setResumeOpen(o); if (!o) setResumeData(null); }}
+          onOpenChange={(o) => { if (!o) closeResume(); }}
           defaultTeacherId={resumeData.draft.observedEmployeeId}
           resumeDraftId={resumeData.draft.id}
           rubricSetId={resumeData.draft.rubricSetId}
-          /* Discarding from inside the modal closes it onto this list, so the
-             row has to be gone by the time it is visible again. */
+          /* Discarding from inside the modal returns to this list, so the row
+             has to be gone by the time it is visible again. */
           onDraftDiscarded={(id) => {
             removeFromList([id]);
             void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
           }}
-          observerName={currentUser.name}
+          observerName={currentUser?.name}
           canMarkWalkthrough={true}
           onSubmit={handleSubmitResumed}
           saving={resumeSaving}
         />
       )}
-
-      <footer className="text-center pt-1 pb-4" style={{ color: "#94a3b8", fontSize: 12, fontFamily: "'Libre Franklin', sans-serif" }}>
-        &copy; {new Date().getFullYear()} Uncommon Schools, Inc. All rights reserved. | This site is in beta and may have bugs. Share feedback and ideas by completing <a href="https://docs.google.com/forms/d/e/1FAIpQLScGsGBwHNyxAv1jcKYR5Q85gHbIZpUojwVW9PxrgJm7zv20jw/viewform?usp=header" target="_blank" rel="noopener noreferrer" style={{ color: "#64748b", fontWeight: 600 }}>this form</a>.
-      </footer>
-    </div>
+    </>
   );
 }

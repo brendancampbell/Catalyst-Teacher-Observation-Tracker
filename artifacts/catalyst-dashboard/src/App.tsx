@@ -6,7 +6,6 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/components/Dashboard";
 import AdminPage from "@/pages/admin";
 import ActionCenterPage from "@/pages/action-center";
-import DraftsPage from "@/pages/drafts";
 import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import TeacherProfilePage from "@/pages/TeacherProfile";
@@ -82,9 +81,6 @@ function Router() {
       </Route>
       <Route path="/action-center">
         <ProtectedRoute><ActionCenterPage /></ProtectedRoute>
-      </Route>
-      <Route path="/drafts">
-        <ProtectedRoute><DraftsPage /></ProtectedRoute>
       </Route>
       <Route path="/support">
         <ProtectedRoute><SupportPage /></ProtectedRoute>

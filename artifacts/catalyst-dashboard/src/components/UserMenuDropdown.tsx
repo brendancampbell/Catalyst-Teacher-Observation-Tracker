@@ -11,10 +11,10 @@ interface Props {
   basePath:            string;
   canAdmin:            boolean;
   schoolAbbreviation?: string | null;
-  draftsHref?:         string;
+  onOpenDrafts?:       () => void;
 }
 
-export default function UserMenuDropdown({ name, email, role, basePath, canAdmin, schoolAbbreviation, draftsHref }: Props) {
+export default function UserMenuDropdown({ name, email, role, basePath, canAdmin, schoolAbbreviation, onOpenDrafts }: Props) {
   const [open, setOpen]  = useState(false);
   const ref              = useRef<HTMLDivElement>(null);
 
@@ -88,16 +88,19 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
 
           {/* Menu items */}
           <div className="py-1">
-            {draftsHref && (
-              <a
-                href={draftsHref}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
-                style={{ color: NAVY, textDecoration: "none" }}
+            {onOpenDrafts && (
+              /* Opens the list over the page you are on. It used to navigate
+                 to a page of its own and navigate back afterwards, which was
+                 the whole cost of glancing at your drafts. */
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onOpenDrafts(); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+                style={{ color: NAVY, background: "none", border: "none", textAlign: "left", cursor: "pointer" }}
               >
                 <FileEdit size={14} strokeWidth={2} />
                 My Drafts
-              </a>
+              </button>
             )}
 
             {role === "NETWORK_LEADER" || role === "NETWORK_ADMIN" ? (

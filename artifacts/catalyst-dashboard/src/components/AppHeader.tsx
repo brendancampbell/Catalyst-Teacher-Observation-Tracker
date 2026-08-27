@@ -1,6 +1,7 @@
 import { Plus, Activity, ArrowLeft, ChevronDown, Microscope, BookOpen, School, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import UserMenuDropdown from "./UserMenuDropdown";
+import { DraftsModal } from "@/components/DraftsModal";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -27,7 +28,7 @@ interface AppHeaderProps {
   backLabel?: string;
   basePath: string;
   onAddObservation?: () => void;
-  draftsHref?: string;
+
   actionCenterHref?: string;
   actionCenterLabel?: string;
   userName: string;
@@ -46,7 +47,6 @@ export default function AppHeader({
   backLabel = "Dashboard",
   basePath,
   onAddObservation,
-  draftsHref,
   actionCenterHref,
   actionCenterLabel = "Action Center",
   userName,
@@ -58,6 +58,10 @@ export default function AppHeader({
   onRubricChange,
 }: AppHeaderProps) {
   const [rubricOpen, setRubricOpen] = useState(false);
+  /* The drafts list hangs off the header rather than off each screen. The
+     header is on all of them and already carries the button, so this works
+     everywhere at once and a new screen has nothing to wire up. */
+  const [draftsOpen, setDraftsOpen] = useState(false);
   const rubricRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -231,12 +235,14 @@ export default function AppHeader({
               basePath={basePath}
               canAdmin={canAdmin}
               schoolAbbreviation={schoolAbbreviation}
-              draftsHref={draftsHref}
+              onOpenDrafts={() => setDraftsOpen(true)}
             />
           </div>
         </div>
         <div style={{ height: 3, backgroundColor: YELLOW }} />
       </header>
+
+      <DraftsModal open={draftsOpen} onOpenChange={setDraftsOpen} />
     </>
   );
 }

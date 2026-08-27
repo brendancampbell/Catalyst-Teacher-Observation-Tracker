@@ -1216,7 +1216,6 @@ export default function ActionCenterPage() {
               subtitle="Action Center"
               backHref={returnTo}
               backLabel="Back to Dashboard"
-              draftsHref={`${baseUrl}/drafts${schoolId != null ? `?schoolId=${schoolId}&schoolName=${encodeURIComponent(schoolNameFromUrl)}&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation ?? "")}` : schoolAbbreviation ? `?schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}`}
               basePath={baseUrl}
               actionCenterHref={`${baseUrl}/action-center${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
               schoolAbbreviation={schoolAbbreviation}

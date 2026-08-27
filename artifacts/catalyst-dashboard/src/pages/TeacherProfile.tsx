@@ -152,8 +152,6 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
   const openSteps  = actionSteps.filter((s) => s.status === "open");
   const masteredSteps = actionSteps.filter((s) => s.status === "mastered");
 
-  const returnUrl = encodeURIComponent(`/teacher/${employeeId}`);
-
   return (
     <div
       className="h-full overflow-hidden flex flex-col"
@@ -165,7 +163,6 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         schoolAbbreviation={schoolAbbreviation}
         basePath={baseUrl}
         onAddObservation={() => setNewObsOpen(true)}
-        draftsHref={`${baseUrl}/drafts?returnUrl=${returnUrl}`}
         actionCenterHref={actionCenterHref(baseUrl, `/teacher/${employeeId}`)}
         userName={currentUser?.name ?? ""}
         userEmail={currentUser?.email}

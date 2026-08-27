@@ -629,7 +629,6 @@ export default function Dashboard() {
             schoolAbbreviation={schoolAbbreviation ?? currentUser.schoolAbbreviation ?? null}
             basePath={BASE_PATH}
             onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
-            draftsHref={`${BASE_PATH}/drafts?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}${schoolAbbreviation ? `&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}`}
             actionCenterHref={`${BASE_PATH}/action-center?rubric=${encodeURIComponent(activeRubricSet)}${schoolId != null ? `&schoolId=${schoolId}` : ""}${searchParams.get("schoolName") ? `&schoolName=${encodeURIComponent(searchParams.get("schoolName")!)}` : ""}${schoolAbbreviation ? `&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}

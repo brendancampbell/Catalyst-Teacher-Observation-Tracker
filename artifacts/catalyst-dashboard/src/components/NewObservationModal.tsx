@@ -18,8 +18,6 @@ import type { SubjectAudience } from "@/lib/subject-audience";
    rich text (TipTap output) sanitised, exactly as the server-side builder
    used to do before it was removed. The preview iframe is sandboxed
    without allow-scripts, but that is a backstop, not a substitute.        */
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-
 const EMAIL_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "b", "i", "u", "s", "blockquote"];
 
 function escapeEmailHtml(value: unknown): string {
@@ -885,13 +883,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         : "This observation has not finished saving.\n\nIf you close now, your most recent changes may be lost. Close anyway?";
       if (!window.confirm(message)) return;
     } else if (draftId && autoSaveStatus === "saved") {
+      /* This used to link to /drafts. There is no such page now — the list is
+         a pop-up on whatever screen you are already on — so the message says
+         where the button is instead of offering a link to nowhere. */
       toast({
         title: "Draft saved",
-        description: (
-          <a href={`${BASE}/drafts`} className="underline font-semibold">
-            Find it on the Drafts page
-          </a>
-        ),
+        description: "Find it under My Drafts, in the account menu.",
       });
     }
     reset();
