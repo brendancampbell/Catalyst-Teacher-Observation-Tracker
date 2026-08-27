@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; de21a82</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 2ae5e3e</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -365,55 +365,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">41</td>
-            <td>
-              <div class="task">
-                <h3>One definition of what an observation is</h3>
-                <p class="lineage">Raised 27 Aug, out of the lost walkthroughs &mdash; <code>34a0546</code> and <code>de21a82</code> were the patches, not the fix.</p>
-                <p class="why">
-                  Seventeen places in the two apps build an observation to send to the server, each
-                  listing its fields by hand. Nothing requires them to agree, so when a field is
-                  added it is added to some of them. That is not a hypothetical: three of the
-                  seventeen quietly stopped sending the walkthrough toggle, and two real
-                  walkthroughs were recorded as ordinary observations before anybody noticed.
-                </p>
-                <details>
-                  <summary>What went wrong, and what would have stopped it</summary>
-                  <div class="detail">
-                    <p>
-                      Saving a draft and publishing it are separate calls that must carry the same
-                      information. Publishing sent the writing &mdash; glows, grows, scores &mdash;
-                      and left out the walkthrough toggle, the date, the time and the course. The
-                      toggle therefore reached the server only through the two-second draft
-                      autosave, which clicking Save cancels. The toggle sits beside the Save button.
-                    </p>
-                    <p>
-                      <strong>Three separate copies, found one at a time.</strong> The desktop app,
-                      then the mobile app on the same day, then the Drafts page after that &mdash;
-                      the last one missed on the first pass through, and worse than the other two,
-                      because resuming a draft always takes that branch and so could never save the
-                      toggle at all.
-                    </p>
-                    <p>
-                      <strong>The work.</strong> One function that turns what is on screen into what
-                      the server is sent, called by every one of those seventeen places. Adding a
-                      field then means adding it once. The difference between a draft and a
-                      published observation is one word in the payload, not a different list of
-                      fields.
-                    </p>
-                    <p>
-                      Not a rewrite and not a reorganisation &mdash; the screens stay exactly as they
-                      are. This is only about the last step before the data leaves.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Correctness</td>
-            <td><span class="chip u-high">High</span></td>
-          </tr>
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -467,7 +418,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -493,7 +444,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -518,7 +469,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -531,7 +482,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -547,7 +498,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -564,7 +515,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -658,7 +609,7 @@
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -707,7 +658,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -1205,6 +1156,55 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">41</td>
+            <td>
+              <div class="task">
+                <h3>One definition of what an observation is</h3>
+                <p class="lineage"><code>2ae5e3e</code> &mdash; fifteen hand-written copies, now one</p>
+                <p class="why">
+                  Every place that saved an observation listed the fields to send by hand, and
+                  nothing made them agree. Three had stopped sending the walkthrough toggle, which
+                  is how two real walkthroughs were filed as ordinary observations. The fields now
+                  live in one place and every one of them is required, so a screen that has a field
+                  and forgets to send it does not compile.
+                </p>
+                <details>
+                  <summary>What it turned up on the way</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>A third copy of the original bug.</strong> The Drafts page was found
+                      only while this item was being written up, and was the worst of the three:
+                      resuming a draft always took the branch that dropped the toggle, so
+                      publishing from there could never record a walkthrough at all.
+                    </p>
+                    <p>
+                      <strong>An abandoned draft behind every observation.</strong> Whether to
+                      create or update was also being decided screen by screen. Three of them
+                      &mdash; the Action Center, a teacher&rsquo;s profile, and new observations
+                      from the Drafts page &mdash; ignored the draft the form had already autosaved
+                      and created a second observation, leaving the draft stranded. That is settled
+                      in one place now: if a draft exists, it is the thing being saved.
+                    </p>
+                    <p>
+                      <strong>Mobile gained a time.</strong> Phone observations recorded a date and
+                      no time, so nothing said when in the day one happened. There is now a time
+                      field, pre-filled with the clock and editable, which is what the desktop form
+                      has always done.
+                    </p>
+                    <p>
+                      Correcting an observation after the fact was deliberately left alone. It is a
+                      different shape &mdash; the few things that changed, sometimes a different
+                      teacher &mdash; and it was never the thing that was wrong.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Correctness</td>
+            <td><span class="chip u-done">27 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">4</td>
