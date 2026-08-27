@@ -5,6 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { removeObservationFromDashboards } from "@/lib/observation-cache";
 import {
   SUBJECTS,
   GRADE_LEVELS,
@@ -13,7 +14,7 @@ import {
   type Observation,
   type DomainEntry,
 } from "@/data/dummy";
-import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, deleteObservation, fetchMyLatestRubricSlug } from "@/lib/api";
+import { fetchDashboard, fetchRubricSets, createObservation, updateObservation, fetchMyLatestRubricSlug } from "@/lib/api";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { CategoryEntry, RubricSetRow } from "@/lib/api";
 import { useUser } from "@/context/UserContext";
@@ -555,35 +556,26 @@ export default function Dashboard() {
   }
 
 
-  async function handleUpdateObs(teacherId: string, updated: Observation) {
-    setSaving(true);
-    try {
-      await updateObservation(updated.id, {
-        date: updated.date,
-        strengths: updated.strengths,
-        growthAreas: updated.growthAreas,
-        observer: updated.observer,
-        scores: updated.scores as Record<string, Score>,
-      });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
-      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
-    } catch (err) {
-      console.error("Failed to update observation:", err);
-    } finally {
-      setSaving(false);
-    }
+  /* The drill-down modal writes to the server itself — it owns the confirm
+     step and needs the server's answer to show an error. These two only hear
+     that it happened, and refresh what is on screen.
+
+     They used to repeat the write. The delete was the visible casualty: the
+     modal's DELETE succeeded, this second one came back 404, the catch below
+     swallowed it, and the refresh underneath never ran — so the observation
+     stayed on screen until the page was reloaded. */
+  async function handleUpdateObs(teacherId: string, _updated: Observation) {
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+    await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
   }
 
   async function handleDeleteObs(teacherId: string, observationId: string) {
-    try {
-      await deleteObservation(observationId, true);
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
-      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
-    } catch (err) {
-      console.error("Failed to delete observation:", err);
-    }
+    /* Off the screen now, not one round trip from now. */
+    removeObservationFromDashboards(queryClient, observationId);
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+    await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
   }
 
   function openDrillDown(teacher: Teacher, domainId: string, domainLabel: string) {

@@ -345,4 +345,66 @@ describe("Dashboard — Action Center cache invalidation after edit/delete", () 
       { timeout: 3000 },
     );
   });
+  it("does not delete the observation a second time", async () => {
+    /* The drill-down modal issues the DELETE itself, then tells the Dashboard
+       it happened. The Dashboard used to issue its own DELETE on being told,
+       which came back 404 because the row was already gone. That 404 was
+       caught and logged, and the refresh underneath it never ran — which is
+       why a principal saw "failed to delete" and the observation stayed on
+       screen until he reloaded the page. */
+    const qc = makeSeededQueryClient();
+    const Dashboard = (await import("@/components/Dashboard")).default;
+
+    render(
+      React.createElement(
+        QueryClientProvider,
+        { client: qc },
+        React.createElement(Dashboard),
+      ),
+    );
+
+    await waitFor(() => expect(capturedCallbacks.onDeleteObs).not.toBeNull(), { timeout: 3000 });
+
+    await act(async () => {
+      await capturedCallbacks.onDeleteObs!(TEACHER_ID, "obs-1");
+    });
+
+    expect(mockDeleteObservation).not.toHaveBeenCalled();
+  });
+
+  it("takes the deleted observation off the screen without waiting for a refetch", async () => {
+    const qc = makeSeededQueryClient();
+    const Dashboard = (await import("@/components/Dashboard")).default;
+
+    render(
+      React.createElement(
+        QueryClientProvider,
+        { client: qc },
+        React.createElement(Dashboard),
+      ),
+    );
+
+    await waitFor(() => expect(capturedCallbacks.onDeleteObs).not.toBeNull(), { timeout: 3000 });
+
+    /* What the server will answer once the refetch lands. */
+    mockFetchDashboard.mockResolvedValue({
+      ...MOCK_DASHBOARD_DATA,
+      teachers: [{ ...MOCK_DASHBOARD_DATA.teachers[0]!, observations: [] }],
+    });
+
+    const cachedIds = () =>
+      (qc.getQueryData(["dashboard", "q1-test", 5, false]) as typeof MOCK_DASHBOARD_DATA)
+        .teachers[0]!.observations.map((o) => o.id);
+
+    const pending = capturedCallbacks.onDeleteObs!(TEACHER_ID, "obs-1");
+
+    /* Read before awaiting anything: the refetch is still in flight here, so
+       this only passes if the observation was taken out of the cache up front
+       rather than by the round trip. That round trip is what the principal was
+       waiting through when he reached for the refresh button. */
+    expect(cachedIds()).not.toContain("obs-1");
+
+    await act(async () => { await pending; });
+    expect(cachedIds()).not.toContain("obs-1");
+  });
 });

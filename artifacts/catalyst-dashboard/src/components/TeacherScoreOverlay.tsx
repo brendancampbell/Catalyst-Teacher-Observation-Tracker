@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { actionCenterHref } from "@/lib/school-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { removeObservationFromDashboards } from "@/lib/observation-cache";
 import { toast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
@@ -983,6 +984,9 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               return next;
             });
             setSelectedObservation(null);
+            /* Off the screen now, not one round trip from now. The invalidate
+               below still runs; this is what makes it disappear immediately. */
+            removeObservationFromDashboards(queryClient, observationId);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
