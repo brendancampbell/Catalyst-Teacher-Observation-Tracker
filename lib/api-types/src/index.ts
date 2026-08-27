@@ -327,6 +327,12 @@ export interface CreateObservationPayload {
 
 export interface UpdateObservationPayload {
   date?:               string;
+  /* Null clears it. The facts of an observation are correctable after the
+     event; observedEmployeeId only within the observation's own school, which
+     the server enforces. */
+  time?:               string | null;
+  course?:             string | null;
+  observedEmployeeId?: string;
   strengths?:          string;
   growthAreas?:        string;
   observer?:           string;

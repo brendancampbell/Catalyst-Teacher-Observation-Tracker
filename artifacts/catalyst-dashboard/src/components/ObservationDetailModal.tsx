@@ -77,12 +77,19 @@ interface Props {
   canEdit: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (updated: Observation) => Promise<void>;
+  /* observedEmployeeId rides alongside because Observation itself does not
+     carry the teacher — the modal is always shown in the context of one. */
+  onSave: (updated: Observation & { observedEmployeeId?: string }) => Promise<void>;
+  /* Teachers at this observation's school. Supplied by callers that have the
+     list; without it the teacher cannot be changed, which is the right
+     default for anywhere that does not know the roster. */
+  reassignableTeachers?: { id: string; name: string }[];
   onDelete?: (observationId: string) => Promise<void>;
 }
 
 export function ObservationDetailModal({
   teacher, observation, categories, canEdit, open, onOpenChange, onSave, onDelete,
+  reassignableTeachers,
 }: Props) {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -93,6 +100,11 @@ export function ObservationDetailModal({
   const [draftScores, setDraftScores]   = useState<Record<string, Score>>(observation.scores);
   const [draftStrengths, setDraftStrengths] = useState(observation.strengths ?? "");
   const [draftGrowth, setDraftGrowth]   = useState(observation.growthAreas ?? "");
+  /* The facts of the observation, correctable after the event. */
+  const [draftDate, setDraftDate]       = useState(observation.date);
+  const [draftTime, setDraftTime]       = useState(observation.time ?? "");
+  const [draftWalkthrough, setDraftWalkthrough] = useState(!!observation.isWalkthrough);
+  const [draftTeacherId, setDraftTeacherId]     = useState<string>(teacher.employeeId ?? "");
 
   /* ── Action step data ──────────────────────────────────────────── */
   const [assignedSteps, setAssignedSteps] = useState<ActionStep[]>([]);
@@ -132,6 +144,10 @@ export function ObservationDetailModal({
     setDraftScores(observation.scores);
     setDraftStrengths(observation.strengths ?? "");
     setDraftGrowth(observation.growthAreas ?? "");
+    setDraftDate(observation.date);
+    setDraftTime(observation.time ?? "");
+    setDraftWalkthrough(!!observation.isWalkthrough);
+    setDraftTeacherId(teacher.employeeId ?? "");
     setSaveError(null);
     setEditing(true);
   }
@@ -150,6 +166,12 @@ export function ObservationDetailModal({
         scores: draftScores,
         strengths: draftStrengths || undefined,
         growthAreas: draftGrowth || undefined,
+        date: draftDate,
+        time: draftTime || undefined,
+        isWalkthrough: draftWalkthrough,
+        ...(draftTeacherId && draftTeacherId !== teacher.employeeId
+          ? { observedEmployeeId: draftTeacherId }
+          : {}),
       });
       setEditing(false);
     } catch {
@@ -258,6 +280,91 @@ export function ObservationDetailModal({
                 >
                   {observation.course}
                 </span>
+              </div>
+            )}
+
+            {/* ── The facts of the observation, while editing ──────────
+                Shown only in edit mode: outside it the header already states
+                the date, the time and whether it was a walkthrough. */}
+            {editing && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Date</span>
+                    <input
+                      type="date"
+                      value={draftDate}
+                      onChange={(e) => setDraftDate(e.target.value)}
+                      className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Time</span>
+                    <input
+                      type="time"
+                      value={draftTime}
+                      onChange={(e) => setDraftTime(e.target.value)}
+                      className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                    />
+                  </label>
+
+                  {/* Only where the caller supplied a roster, and only within
+                      this observation's own school — the server enforces the
+                      same limit. */}
+                  {reassignableTeachers && reassignableTeachers.length > 0 && (
+                    <label className="flex flex-col gap-1 min-w-[14rem]">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Teacher observed</span>
+                      <select
+                        value={draftTeacherId}
+                        onChange={(e) => setDraftTeacherId(e.target.value)}
+                        className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                      >
+                        {reassignableTeachers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={draftWalkthrough}
+                  onClick={() => setDraftWalkthrough((v) => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-colors self-start"
+                  style={{
+                    borderColor:     draftWalkthrough ? NAVY : "#cbd5e1",
+                    backgroundColor: draftWalkthrough ? "#EEF1FB" : "white",
+                  }}
+                >
+                  <span className="text-xs font-semibold" style={{ color: draftWalkthrough ? NAVY : "#64748b" }}>
+                    Walkthrough
+                  </span>
+                  <span
+                    className="relative inline-flex w-9 h-5 rounded-full transition-colors shrink-0"
+                    style={{ backgroundColor: draftWalkthrough ? NAVY : "#cbd5e1" }}
+                  >
+                    <span
+                      className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                      style={{ transform: draftWalkthrough ? "translateX(16px)" : "translateX(0)" }}
+                    />
+                  </span>
+                </button>
+
+                {draftWalkthrough !== !!observation.isWalkthrough && (
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    Changing this affects the rescore queue: a walkthrough scored below
+                    proficiency puts the teacher in it, and turning it off can take them
+                    out again.
+                  </p>
+                )}
+                {reassignableTeachers && draftTeacherId !== teacher.employeeId && (
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    This observation and any action step from it will move to the teacher
+                    you have chosen.
+                  </p>
+                )}
               </div>
             )}
 

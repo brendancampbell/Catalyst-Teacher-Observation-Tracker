@@ -640,6 +640,9 @@ export default function Dashboard() {
         rubricSets={compatibleRubricSets}
         initialRubricSet={activeRubricSet}
         initialCategories={categories}
+        /* For correcting "wrong teacher" on an existing observation. This list
+           is already one school's, which is the limit the server applies. */
+        reassignableTeachers={teachers.map((t) => ({ id: t.id, name: t.name }))}
         schoolId={effectiveSchoolId}
       />
     ) : (

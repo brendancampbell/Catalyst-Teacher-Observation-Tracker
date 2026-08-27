@@ -406,6 +406,10 @@ interface Props {
   initialRubricSet: string;
   initialCategories: CategoryEntry[];
   schoolId?: number | null;
+  /* Everyone the observation could be reassigned to. Same school only — the
+     server enforces that, and the dashboard only ever holds one school's
+     teachers anyway. */
+  reassignableTeachers?: { id: string; name: string }[];
 }
 
 /**
@@ -428,7 +432,7 @@ function ExtensionNote({ count, originalDueDate }: { count?: number; originalDue
   );
 }
 
-export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId }: Props) {
+export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, initialRubricSet, initialCategories, schoolId, reassignableTeachers }: Props) {
   const { currentUser } = useUser();
   const queryClient = useQueryClient();
 
@@ -946,6 +950,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
       {/* ── Observation detail modal ──────────────────────── */}
       {selectedObservation && (
         <ObservationDetailModal
+          reassignableTeachers={reassignableTeachers}
           teacher={activeTeacher}
           observation={localObsOverrides[selectedObservation.id] ?? selectedObservation}
           categories={activeCategories}
@@ -957,6 +962,12 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               strengths:   updated.strengths,
               growthAreas: updated.growthAreas,
               scores:      updated.scores,
+              date:          updated.date,
+              time:          updated.time ?? null,
+              isWalkthrough: updated.isWalkthrough,
+              ...(updated.observedEmployeeId
+                ? { observedEmployeeId: updated.observedEmployeeId }
+                : {}),
             });
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
