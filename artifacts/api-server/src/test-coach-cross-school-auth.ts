@@ -97,13 +97,20 @@ const TEST_DOMAIN_SLUG = "tst_coach_domain";
 
 describe("Cross-school auth — COACH role", () => {
   before(async () => {
-    /* Resolve two distinct school IDs from the live DB */
+    /* Resolve two distinct school IDs from the live DB.
+
+       Home Office is excluded deliberately. It is seeded first, so it holds the
+       lowest id and an unfiltered "first two schools" would pick it — and the
+       Action Center leaves Home Office out of its lists on purpose, so a test
+       fixture sitting there would look like a school a coach cannot see. This
+       test is about one real school versus another. */
     const twoSchools = await db
       .select({ id: schools.id })
       .from(schools)
+      .where(eq(schools.isHomeOffice, false))
       .orderBy(asc(schools.id))
       .limit(2);
-    assert.equal(twoSchools.length, 2, "Need at least 2 schools in the DB to run this test");
+    assert.equal(twoSchools.length, 2, "Need at least 2 non-Home-Office schools in the DB to run this test");
     SCHOOL_A_ID = twoSchools[0]!.id;
     SCHOOL_B_ID = twoSchools[1]!.id;
 
