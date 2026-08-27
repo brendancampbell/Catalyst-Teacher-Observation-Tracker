@@ -514,11 +514,26 @@ export default function Dashboard() {
     try {
       let obs;
       if (draftId) {
-        /* Publishing an existing draft → PUT with status: published */
+        /* Publishing an existing draft → PUT with status: published.
+
+           Sends the facts as well as the writing. It used to send only the
+           wording and the scores, which meant the walkthrough toggle, the
+           date, the time and the course reached the server only if the
+           two-second draft autosave happened to fire after they were touched
+           — and clicking Save cancels a pending autosave. Flip the walkthrough
+           toggle and save promptly, which is the natural thing to do since the
+           toggle sits by the Save button, and the observation published as an
+           ordinary one. That is what happened to two walkthroughs in a row at
+           Brownsville North; editing them afterwards worked because the edit
+           path always sent the flag. */
         obs = await updateObservation(draftId, {
           strengths:          strengths    || undefined,
           growthAreas:        growthAreas  || undefined,
           scores:             scores,
+          date,
+          time:               time   || null,
+          course:             course || null,
+          isWalkthrough,
           status:             "published",
           newActionStep,
           masterActionStepId,

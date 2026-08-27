@@ -351,6 +351,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             strengths:          strengths   || undefined,
             growthAreas:        growthAreas || undefined,
             scores:             scoresRecord,
+            /* The facts, not just the writing. Only the POST that first
+               created the draft carried these, so correcting the date, time
+               or course on a draft was lost the moment it was reopened. */
+            date,
+            time:               time   || null,
+            course:             course || null,
             isWalkthrough:      isWalkthrough,
             status:             "draft",
             newActionStep:      newActionStepDraft,

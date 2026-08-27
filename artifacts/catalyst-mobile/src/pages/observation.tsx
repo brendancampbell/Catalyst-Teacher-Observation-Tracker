@@ -390,6 +390,13 @@ export default function ObservationPage() {
             strengths: strengths || undefined,
             growthAreas: growthAreas || undefined,
             scores: scoresRecord,
+            /* The facts, not just the writing. These used to ride along only
+               on the POST that first created the draft, so the walkthrough
+               toggle was saved only if it was already on within the first two
+               seconds — and never afterwards. */
+            date,
+            course: course || null,
+            isWalkthrough,
             status: "draft",
             newActionStep: newActionStepDraft,
             masterActionStepId: masterActionStepId ?? undefined,
@@ -469,6 +476,9 @@ export default function ObservationPage() {
           strengths: strengths || undefined,
           growthAreas: growthAreas || undefined,
           scores: scores as Record<string, Score>,
+          date,
+          course: course || null,
+          isWalkthrough,
           status: "draft",
           newActionStep: newActionStepDraft,
           masterActionStepId: masterActionStepId ?? undefined,
@@ -582,6 +592,9 @@ export default function ObservationPage() {
           strengths: strengths || undefined,
           growthAreas: growthAreas || undefined,
           scores: scores as Record<string, Score>,
+          date,
+          course: course || null,
+          isWalkthrough,
           status: "published",
           newActionStep: newActionStepPayload,
           masterActionStepId: masterActionStepIdPayload,
