@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 34a0546</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; de21a82</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -365,6 +365,56 @@
 
           <tr>
             <td class="p">1</td>
+            <td class="idcell">41</td>
+            <td>
+              <div class="task">
+                <h3>One definition of what an observation is</h3>
+                <p class="lineage">Raised 27 Aug, out of the lost walkthroughs &mdash; <code>34a0546</code> and <code>de21a82</code> were the patches, not the fix.</p>
+                <p class="why">
+                  Seventeen places in the two apps build an observation to send to the server, each
+                  listing its fields by hand. Nothing requires them to agree, so when a field is
+                  added it is added to some of them. That is not a hypothetical: three of the
+                  seventeen quietly stopped sending the walkthrough toggle, and two real
+                  walkthroughs were recorded as ordinary observations before anybody noticed.
+                </p>
+                <details>
+                  <summary>What went wrong, and what would have stopped it</summary>
+                  <div class="detail">
+                    <p>
+                      Saving a draft and publishing it are separate calls that must carry the same
+                      information. Publishing sent the writing &mdash; glows, grows, scores &mdash;
+                      and left out the walkthrough toggle, the date, the time and the course. The
+                      toggle therefore reached the server only through the two-second draft
+                      autosave, which clicking Save cancels. The toggle sits beside the Save button.
+                    </p>
+                    <p>
+                      <strong>Three separate copies, found one at a time.</strong> The desktop app,
+                      then the mobile app on the same day, then the Drafts page after that &mdash;
+                      the last one missed on the first pass through, and worse than the other two,
+                      because resuming a draft always takes that branch and so could never save the
+                      toggle at all.
+                    </p>
+                    <p>
+                      <strong>The work.</strong> One function that turns what is on screen into what
+                      the server is sent, called by every one of those seventeen places. Adding a
+                      field then means adding it once. The difference between a draft and a
+                      published observation is one word in the payload, not a different list of
+                      fields.
+                    </p>
+                    <p>
+                      Not a rewrite and not a reorganisation &mdash; the screens stay exactly as they
+                      are. This is only about the last step before the data leaves.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Correctness</td>
+            <td><span class="chip u-high">High</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -391,7 +441,7 @@
           </tr>
 
           <tr>
-            <td class="p">2</td>
+            <td class="p">3</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -417,7 +467,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">3</td>
+            <td class="p">4</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -431,7 +481,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -448,18 +498,54 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
                 <h3>Continuous integration</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #15b.</p>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #15b. <strong>Its stated blocker, #25, is done.</strong></p>
                 <p class="why">
-                  Deferred on the grounds that &ldquo;Replit workflows already cover validation on
-                  merge&rdquo;. <strong>That was wrong.</strong> <code>post-merge.sh</code> ran two
-                  schema checks and no tests at all. It now runs the two no-database tiers
-                  (~300 checks, under a minute). The rest needs #25 first.
+                  Nothing runs the full test suite except a person remembering to. The tests that
+                  need a database can only be run where there is one &mdash; in practice, by hand in
+                  Replit, with the results read back. Between a change being pushed and the app
+                  being published, the only check is that somebody thought to run it.
                 </p>
+                <details>
+                  <summary>What the work actually is</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>One file.</strong> A GitHub Actions workflow that runs on every push
+                      and every pull request. GitHub&rsquo;s standard machines already have
+                      PostgreSQL installed, so it needs no infrastructure and nothing to maintain.
+                    </p>
+                    <p>
+                      <strong>It runs what already exists.</strong> <code>pnpm test:clean</code> is
+                      self-contained &mdash; it stands up a throwaway database, migrates it, seeds
+                      it, starts the API and runs the suite against it. That was #25, and it is
+                      done. Alongside it: the two no-database tiers, both front-end suites, the
+                      type checks and the schema check. No new tests are written; nothing about how
+                      tests work changes.
+                    </p>
+                    <p>
+                      <strong>The only fiddly part.</strong> The Postgres tools have to be findable
+                      on the runner &mdash; a line adding them to the path. That is the whole of the
+                      new engineering.
+                    </p>
+                    <p>
+                      <strong>What it changes.</strong> A red mark appears on the commit within a
+                      few minutes if anything is broken, before it is published rather than after.
+                      Worth confirming first: whether the repository is private, which decides
+                      whether the minutes are free or metered.
+                    </p>
+                    <p>
+                      Deferred originally on the grounds that &ldquo;Replit workflows already cover
+                      validation on merge&rdquo;. <strong>That was wrong.</strong>
+                      <code>post-merge.sh</code> ran two schema checks and no tests at all; it now
+                      runs the two no-database tiers, roughly 300 checks in under a minute, and
+                      only on the machine that pulled.
+                    </p>
+                  </div>
+                </details>
               </div>
             </td>
             <td class="cat">Tooling</td>
@@ -467,7 +553,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -490,7 +576,7 @@
 
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -586,7 +672,7 @@
 
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -637,7 +723,7 @@
 
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
