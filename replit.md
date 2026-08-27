@@ -141,9 +141,10 @@ All routes mounted at `/api`:
 
 - **`observations.isWalkthrough`** (boolean, DB column `is_walkthrough`) — marks an observation as a district walkthrough
 - **`people.needsRescore`** (boolean, DB column `needs_rescore`) — set true when a published walkthrough's mean score is **< 0.7** (scores are 0 / 0.5 / 1.0, so 0.7 is the proficiency threshold). A walkthrough at or above 0.7 clears the flag.
-- **`people.rescoreDueDate`** (date, DB column `rescore_due_date`) — 14 days after the walkthrough date
+- **`people.rescoreDueDate`** (date, DB column `rescore_due_date`) — the rescore window after the walkthrough date. The window is a setting (`system_settings.rescore_window_days`, default 14) changed by network admins in Settings → System Settings; changing it recalculates every queued teacher from `people.rescore_from_date`, the walkthrough that flagged them.
+- **`system_settings`** — one row, network-wide. `rescore_window_days` and `overdue_window_days` were both hardcoded at 14 until 27 Aug 2026. They are independent: the first is how fast a struggling teacher must be seen again, the second is how long since anyone's last observation before they appear in Overdue Observations. The overdue list is derived on read, so changing that window stores nothing and takes effect at once.
 - **`people.rescoreSchoolYearId`** — scopes the flag to the school year it was raised in
-- **Rescore logic**: `POST /api/observations` and `PUT /api/observations/:id` — fires when the observation is a published walkthrough and the creator is SCHOOL_LEADER, NETWORK_LEADER, or NETWORK_ADMIN
+- **Rescore logic**: `POST /api/observations` and `PUT /api/observations/:id` — fires when the observation is a published walkthrough, whoever made it. The observer's role used to gate this, which silently excluded every COACH; removed 25 Aug 2026, since whether a teacher needs rescoring is a fact about the scores.
 - **Dashboard `?walkthroughsOnly=true`** — filters to walkthrough-only observations
 - **Action Center page** (`/action-center`) — rescore queue, overdue observations, and overdue action steps. Always scoped to one school at a time, so a Network Leader viewing a school sees the same thing that school's leader sees.
 
