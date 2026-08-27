@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 26 August 2026 &middot; f2d5720</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 34a0546</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,8 +332,8 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
-      <span><b>367&thinsp;/&thinsp;367</b> passing on a database built from empty</span>
+      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
 
@@ -365,78 +365,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">4</td>
-            <td>
-              <div class="task">
-                <h3>Bisect the demo-teachers test isolation failure</h3>
-                <p class="lineage"><strong>Instrumented in <code>44b3b6b</code> &mdash; waiting on a recurrence.</strong> Still has not recurred; the first full run on a database built from empty was clean (326/326, 23 Aug).</p>
-                <p class="why">
-                  Will not reproduce: passed every run since, including a full 298/298 on 20 Aug.
-                  Bisecting needs a failure, so the suite now names its own cause when it next
-                  breaks.
-                </p>
-                <details>
-                  <summary>Everything already ruled out</summary>
-                  <div class="detail">
-                    <p>
-                      At suite time
-                      <code>GET /people?includeInFeedbackTracker=true&amp;schoolId=39</code> returned
-                      31 rows without <code>DEMO-T-001</code>&ndash;<code>006</code>. At rest the same
-                      predicate matches 35, including them.
-                    </p>
-                    <p><strong>Ruled out:</strong></p>
-                    <ul>
-                      <li>All four <code>WHERE</code> conditions &mdash; verified true at rest</li>
-                      <li>A <code>LIMIT</code> &mdash; the handler has none</li>
-                      <li><code>test-action-step-transfer-authz</code> &mdash; scoped to its own employee ID</li>
-                      <li><code>test-ai-insights-rubric-year-scoping</code> &mdash; creates an <em>inactive</em> year</li>
-                    </ul>
-                    <p>
-                      The count moved 31&nbsp;&rarr;&nbsp;35 while gaining six demo teachers, so two
-                      real non-demo people also differed. Whatever this is, it moves real rows.
-                    </p>
-                    <p>
-                      <strong>The narrowing that matters.</strong>
-                      <code>GET /people</code> filters on exactly four things: <code>is_active</code>,
-                      <code>school_id</code>, <code>include_in_feedback_tracker</code>, and the Home
-                      Office exclusion. <code>school_id</code> is already eliminated &mdash;
-                      <code>before()</code> asserted it and passed. So the column that moved was
-                      <code>is_active</code> or the tracker flag, the two nothing looked at.
-                    </p>
-                    <p>
-                      And the <strong>only</strong> bulk <code>is_active = false</code> anywhere in
-                      the app is the school-year activation flip; everything else writes one person
-                      or inserts. Six teachers going inactive together can only have come from an
-                      activation. In the sequential suite both year-activating tests run at
-                      positions 42&ndash;43, <em>after</em> this one at 21, and both roll back
-                      &mdash; so a sequential run cannot produce it. That points at concurrent
-                      execution, which is exactly what #22 describes.
-                    </p>
-                    <p>
-                      Not proven, and one fact argues against it: both those tests copy every open
-                      assignment forward precisely so the flip deactivates nobody.
-                    </p>
-                    <p>
-                      <strong>Now instrumented.</strong> All four conditions are checked for all six
-                      demo teachers before a single request is issued, reporting every problem at
-                      once and naming the column; the three assertions that failed attach a live
-                      snapshot of the six rows. It asserts rather than repairs on purpose &mdash;
-                      repairing would turn the suite green and destroy the only evidence.
-                    </p>
-                    <p>
-                      The next occurrence settles it: <code>isActive=false</code> means an
-                      activation did it, anything else means the theory is wrong.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Test health</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -463,7 +391,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -489,7 +417,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -503,7 +431,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -520,7 +448,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -539,7 +467,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -562,7 +490,7 @@
 
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -658,7 +586,7 @@
 
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -709,7 +637,7 @@
 
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -1207,6 +1135,55 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">4</td>
+            <td>
+              <div class="task">
+                <h3>The demo-teachers flake had already been fixed</h3>
+                <p class="lineage"><code>10fd39b</code> &mdash; closed on the evidence, not on a recurrence</p>
+                <p class="why">
+                  Six demo teachers vanished from a query mid-run, once, and never again. The item
+                  survived as &ldquo;wait for it to come back and tell us why&rdquo;. It had in fact
+                  been fixed two days before that instrumentation was written, by a commit that
+                  never mentioned it.
+                </p>
+                <details>
+                  <summary>Why the two were never connected</summary>
+                  <div class="detail">
+                    <p>
+                      <code>test-school-year-activation-cache</code> activated whichever
+                      <em>real</em> school year had the lowest id and then activated the original
+                      back. Harmless when activation moved a status column; not harmless once it ran
+                      a departure pass, which deactivated <code>U13</code> &mdash; a live seeded
+                      SCHOOL_LEADER. That is the bulk <code>is_active = false</code> this item had
+                      already narrowed to. It now builds and tears down its own scratch year.
+                    </p>
+                    <p>
+                      The evidence matches exactly. This item recorded that the count moved while
+                      <strong>two real non-demo people</strong> also differed;
+                      <code>10fd39b</code> names two, <code>U13</code> and <code>U10</code>, and
+                      repairs both.
+                    </p>
+                    <p>
+                      <strong>The stated theory was wrong and did not matter.</strong> Concurrent
+                      execution was the leading explanation for how a test at position 42 could
+                      damage one at 21. The real mechanism was sequential and needed no such thing
+                      &mdash; and the suite has run serially since <code>abf40f5</code> anyway.
+                    </p>
+                    <p>
+                      Closed on circumstantial evidence, which is worth saying plainly: a failure
+                      seen once cannot distinguish &ldquo;fixed&rdquo; from &ldquo;has not recurred&rdquo;.
+                      The instrumentation from <code>44b3b6b</code> stays where it is, costing
+                      nothing, and will name the cause if this is wrong.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-done">27 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">37</td>
