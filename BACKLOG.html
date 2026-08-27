@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 2ae5e3e</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; afa9929</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>10</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -365,6 +365,49 @@
 
           <tr>
             <td class="p">1</td>
+            <td class="idcell">42</td>
+            <td>
+              <div class="task">
+                <h3>Clear the abandoned drafts already in the database</h3>
+                <p class="lineage">Turned up by #41, <code>2ae5e3e</code>. The cause is fixed; the rows it left are not.</p>
+                <p class="why">
+                  Three screens used to publish an observation without consuming the draft the form
+                  had already saved, leaving the draft behind every time. Those drafts are still
+                  there, and they are not inert: opening a new observation for that teacher
+                  <strong>silently loads the old draft</strong>, so somebody starting fresh finds
+                  the previous visit&rsquo;s scores and notes already filled in.
+                </p>
+                <details>
+                  <summary>What has to be true before anything is deleted</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Not every draft is abandoned.</strong> People legitimately leave one
+                      part-written overnight. Deleting on age alone would throw away real work, so
+                      the test has to be that a published observation exists for the same observer,
+                      the same teacher and the same rubric &mdash; that is what makes a draft a
+                      leftover rather than a work in progress.
+                    </p>
+                    <p>
+                      <strong>Count first, then show, then delete.</strong> Nobody knows the size
+                      of this yet. It is one read-only query to find out, and the answer decides
+                      whether this is a handful to remove by hand or worth a script.
+                    </p>
+                    <p>
+                      The silent auto-load deserves a second look on its own account. It is
+                      reasonable behaviour for a draft somebody meant to keep and surprising for
+                      one they did not, and it gives no sign either way &mdash; the form simply
+                      opens with someone else&rsquo;s work in it.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">2</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -418,7 +461,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">2</td>
+            <td class="p">3</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -444,7 +487,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
-            <td class="p">3</td>
+            <td class="p">4</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -469,7 +512,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -482,7 +525,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -498,7 +541,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -515,7 +558,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr>
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -609,7 +652,7 @@
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
           <tr>
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -658,7 +701,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
