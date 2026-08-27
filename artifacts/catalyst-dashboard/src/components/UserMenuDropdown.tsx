@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Settings, LogOut, FileEdit, LifeBuoy } from "lucide-react";
+import { ChevronDown, Settings, LogOut, FileEdit, LifeBuoy, Footprints } from "lucide-react";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -135,6 +135,18 @@ export default function UserMenuDropdown({ name, email, role, basePath, canAdmin
                 Support
               </a>
             )}
+
+            <a
+              href={`${basePath}/training-walkthrough.html`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50"
+              style={{ color: NAVY, textDecoration: "none" }}
+            >
+              <Footprints size={14} strokeWidth={2} />
+              Walkthrough Guide
+            </a>
 
             {canAdmin && (
               <a
