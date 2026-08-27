@@ -157,13 +157,22 @@ describe("Copying a rubric carries the hover text", () => {
     const res = await request("POST", `/rubric/sets/${src.id}/copy-forward`,
       { targetSchoolYearId: other.id }, adminJar);
     assert.ok(res.status === 200 || res.status === 201, JSON.stringify(res.body));
-    const newId = Number(res.body.id);
+
+    /* This route answers { rubricSet, categories }, not the set itself. */
+    const newId = Number(res.body.rubricSet.id);
+    assert.ok(Number.isFinite(newId), `expected a new set id, got ${JSON.stringify(res.body)}`);
     createdSetIds.push(newId);
 
-    const copied = await db.select({ name: rubricDomains.name, description: rubricDomains.description })
-      .from(rubricDomains).where(eq(rubricDomains.rubricSetId, newId));
-    const byName = new Map(copied.map((d) => [d.name, d.description]));
-    assert.equal(byName.get("Circulation"), DESC_A);
-    assert.equal(byName.get("Questioning"), DESC_B);
+    /* Read the descriptions out of the response rather than the database: the
+       copied rubric is handed straight back to the browser, so this checks
+       what the client actually receives. */
+    const returned = new Map<string, string | null>(
+      (res.body.categories as Array<{ domains: Array<{ name: string; description: string | null }> }>)
+        .flatMap((c) => c.domains)
+        .map((d) => [d.name, d.description]),
+    );
+    assert.equal(returned.get("Circulation"), DESC_A);
+    assert.equal(returned.get("Questioning"), DESC_B);
+    assert.equal(returned.get("Undescribed"), null);
   });
 });
