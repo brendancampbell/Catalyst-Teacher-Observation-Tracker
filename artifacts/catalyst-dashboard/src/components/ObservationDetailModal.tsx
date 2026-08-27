@@ -289,6 +289,23 @@ export function ObservationDetailModal({
             {editing && (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
                 <div className="flex flex-wrap gap-4">
+                  {/* Only where the caller supplied a roster, and only within
+                      this observation's own school — the server enforces the
+                      same limit. */}
+                  {reassignableTeachers && reassignableTeachers.length > 0 && (
+                    <label className="flex flex-col gap-1 min-w-[14rem]">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Teacher observed</span>
+                      <select
+                        value={draftTeacherId}
+                        onChange={(e) => setDraftTeacherId(e.target.value)}
+                        className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                      >
+                        {reassignableTeachers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label className="flex flex-col gap-1">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Date</span>
                     <input
@@ -308,23 +325,6 @@ export function ObservationDetailModal({
                     />
                   </label>
 
-                  {/* Only where the caller supplied a roster, and only within
-                      this observation's own school — the server enforces the
-                      same limit. */}
-                  {reassignableTeachers && reassignableTeachers.length > 0 && (
-                    <label className="flex flex-col gap-1 min-w-[14rem]">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Teacher observed</span>
-                      <select
-                        value={draftTeacherId}
-                        onChange={(e) => setDraftTeacherId(e.target.value)}
-                        className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                      >
-                        {reassignableTeachers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
                 </div>
 
                 <button
