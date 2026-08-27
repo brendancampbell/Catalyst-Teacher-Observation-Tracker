@@ -55,11 +55,18 @@ export function classifySubject(subject: string | null | undefined): SubjectAudi
  * - HUMANITIES audience  → only Humanities teachers
  * - ALL audience         → every teacher
  * - Unclassified teachers (Visual Arts, PE, College, null) → only for ALL audience
+ * - SpEd → every audience, being the one department that is not a subject
  */
+/* Departments belonging to EVERY audience rather than to one bucket. The
+   opposite of an unclassified department: classifying somebody "ALL" makes
+   them appear only on an ALL rubric, which is the narrowest outcome. */
+const EVERY_AUDIENCE = new Set<string>(["SpEd"]);
+
 export function teacherMatchesAudience(
   subject: string | null | undefined,
   audience: SubjectAudience,
 ): boolean {
   if (audience === "ALL") return true;
+  if (subject && EVERY_AUDIENCE.has(subject.trim())) return true;
   return classifySubject(subject) === audience;
 }
