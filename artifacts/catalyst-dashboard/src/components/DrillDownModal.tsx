@@ -201,11 +201,19 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
     }
   }
 
-  async function handleSave(updated: Observation) {
+  async function handleSave(updated: Observation & { observedEmployeeId?: string }) {
+    /* The facts travel with the wording. Sending only strengths, growth areas
+       and scores meant a corrected date or a flipped walkthrough toggle was
+       dropped here before it reached the server — the edit appeared to save
+       and nothing changed. */
     const saved = await updateObservation(updated.id, {
-      strengths:   updated.strengths,
-      growthAreas: updated.growthAreas,
-      scores:      updated.scores,
+      strengths:     updated.strengths,
+      growthAreas:   updated.growthAreas,
+      scores:        updated.scores,
+      date:          updated.date,
+      time:          updated.time ?? null,
+      isWalkthrough: updated.isWalkthrough,
+      ...(updated.observedEmployeeId ? { observedEmployeeId: updated.observedEmployeeId } : {}),
     });
     onUpdateObs(teacher!.id, saved);
   }
