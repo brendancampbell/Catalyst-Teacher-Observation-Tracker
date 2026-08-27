@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>10</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -412,93 +412,8 @@
             <td class="cat">Correctness</td>
             <td><span class="chip u-high">High</span></td>
           </tr>
-
           <tr>
             <td class="p">2</td>
-            <td class="idcell">17</td>
-            <td>
-              <div class="task">
-                <h3>Tag coaches to teachers</h3>
-                <p class="lineage">Long term. Design alongside #18.</p>
-                <p class="why">
-                  There is no coach&nbsp;&rarr;&nbsp;teacher relationship today. Assignments link a
-                  person to a <em>school</em> and a year, not to each other.
-                </p>
-                <details>
-                  <summary>Why this one is larger than it looks</summary>
-                  <div class="detail">
-                    <p>
-                      A new relationship that almost certainly needs to be year-scoped, like
-                      assignments &mdash; a coach&rsquo;s caseload changes each August, and the
-                      rollover would need to carry it forward or ask for it in the roster.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-low">Low</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
-            <td class="idcell">18</td>
-            <td>
-              <div class="task">
-                <h3>Custom groups of teachers for filtering</h3>
-                <p class="lineage">Long term. Design alongside #17.</p>
-                <p class="why">
-                  Filtering is currently by school, department, grade and rubric audience. Ad-hoc
-                  groupings (a cohort, a PD group) have nowhere to live.
-                </p>
-                <details>
-                  <summary>Open question</summary>
-                  <div class="detail">
-                    <p>
-                      Same year-scoping question as #17: does a group persist across a rollover, and
-                      what happens to a group whose members have departed?
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-low">Low</span></td>
-          </tr>
-
-          <tr class="deferred">
-            <td class="p">4</td>
-            <td class="idcell">10</td>
-            <td>
-              <div class="task">
-                <h3>Performance micro-optimisations</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review findings #21 and #22.</p>
-                <p class="why">Meaningless at current data size. Revisit if query times become visible.</p>
-              </div>
-            </td>
-            <td class="cat">Performance</td>
-            <td><span class="chip u-defer">Deferred</span></td>
-          </tr>
-
-          <tr class="deferred">
-            <td class="p">5</td>
-            <td class="idcell">11</td>
-            <td>
-              <div class="task">
-                <h3>Split the two large page components</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #23.</p>
-                <p class="why">
-                  <code>admin.tsx</code> is ~3.9k lines and <code>action-center.tsx</code> ~2.5k.
-                  Real, and not urgent.
-                </p>
-              </div>
-            </td>
-            <td class="cat">Code structure</td>
-            <td><span class="chip u-defer">Deferred</span></td>
-          </tr>
-
-          <tr class="deferred">
-            <td class="p">6</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -549,9 +464,88 @@
               </div>
             </td>
             <td class="cat">Tooling</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+          <tr>
+            <td class="p">3</td>
+            <td class="idcell">17</td>
+            <td>
+              <div class="task">
+                <h3>Tag coaches to teachers</h3>
+                <p class="lineage">Long term. Design alongside #18.</p>
+                <p class="why">
+                  There is no coach&nbsp;&rarr;&nbsp;teacher relationship today. Assignments link a
+                  person to a <em>school</em> and a year, not to each other.
+                </p>
+                <details>
+                  <summary>Why this one is larger than it looks</summary>
+                  <div class="detail">
+                    <p>
+                      A new relationship that almost certainly needs to be year-scoped, like
+                      assignments &mdash; a coach&rsquo;s caseload changes each August, and the
+                      rollover would need to carry it forward or ask for it in the roster.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+          <tr>
+            <td class="p">4</td>
+            <td class="idcell">18</td>
+            <td>
+              <div class="task">
+                <h3>Custom groups of teachers for filtering</h3>
+                <p class="lineage">Long term. Design alongside #17.</p>
+                <p class="why">
+                  Filtering is currently by school, department, grade and rubric audience. Ad-hoc
+                  groupings (a cohort, a PD group) have nowhere to live.
+                </p>
+                <details>
+                  <summary>Open question</summary>
+                  <div class="detail">
+                    <p>
+                      Same year-scoping question as #17: does a group persist across a rollover, and
+                      what happens to a group whose members have departed?
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Low</span></td>
+          </tr>
+          <tr class="deferred">
+            <td class="p">5</td>
+            <td class="idcell">10</td>
+            <td>
+              <div class="task">
+                <h3>Performance micro-optimisations</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review findings #21 and #22.</p>
+                <p class="why">Meaningless at current data size. Revisit if query times become visible.</p>
+              </div>
+            </td>
+            <td class="cat">Performance</td>
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
-
+          <tr class="deferred">
+            <td class="p">6</td>
+            <td class="idcell">11</td>
+            <td>
+              <div class="task">
+                <h3>Split the two large page components</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #23.</p>
+                <p class="why">
+                  <code>admin.tsx</code> is ~3.9k lines and <code>action-center.tsx</code> ~2.5k.
+                  Real, and not urgent.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Code structure</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
           <tr class="deferred">
             <td class="p">7</td>
             <td class="idcell">13</td>
@@ -569,12 +563,6 @@
             <td class="cat">Data safety</td>
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
-
-
-
-
-
-
           <tr>
             <td class="p">8</td>
             <td class="idcell">38</td>
@@ -669,8 +657,6 @@
             <td class="cat">Rollover</td>
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
-
-
           <tr>
             <td class="p">9</td>
             <td class="idcell">39</td>
@@ -720,8 +706,6 @@
             <td class="cat">Rescore</td>
             <td><span class="chip u-med">Medium</span></td>
           </tr>
-
-
           <tr>
             <td class="p">10</td>
             <td class="idcell">40</td>
