@@ -1,61 +1,19 @@
-export type SubjectAudience = "STEM" | "HUMANITIES" | "ALL";
+/* Departments and audiences live in @workspace/api-types — one source shared
+   with the mobile app and with the database enum. Re-exported here so the many
+   existing imports of "@/lib/subject-audience" keep working.
 
-const STEM_SUBJECTS = new Set([
-  "math", "mathematics", "algebra", "geometry", "calculus", "statistics",
-  "science", "biology", "chemistry", "physics", "earth science",
-  "compsci", "computer science", "cs", "computing", "engineering",
-  "technology", "stem",
-]);
+   rubricSetsForTeacher stays local: it is about this app's rubric list, not
+   about what a department means. */
+export {
+  classifySubject,
+  teacherMatchesAudience,
+  DEPARTMENT_VALUES,
+  DEPARTMENT_AUDIENCE,
+} from "@workspace/api-types";
+export type { SubjectAudience, Department } from "@workspace/api-types";
 
-const HUMANITIES_SUBJECTS = new Set([
-  "ela", "english", "english language arts", "language arts",
-  "history", "social studies", "geography", "civics", "economics",
-  "humanities", "reading", "writing", "literature",
-]);
-
-/**
- * Returns the audience bucket for a teacher's subject.
- * Returns "ALL" for unclassified subjects (Art, PE, Music, etc.) and null subjects.
- * Those teachers only appear when the rubric audience is "ALL".
- */
-export function classifySubject(subject: string | null | undefined): SubjectAudience {
-  if (!subject) return "ALL";
-  const normalized = subject.toLowerCase().trim();
-  if (STEM_SUBJECTS.has(normalized)) return "STEM";
-  for (const s of STEM_SUBJECTS) { if (normalized.includes(s)) return "STEM"; }
-  if (HUMANITIES_SUBJECTS.has(normalized)) return "HUMANITIES";
-  for (const s of HUMANITIES_SUBJECTS) { if (normalized.includes(s)) return "HUMANITIES"; }
-  return "ALL";
-}
-
-/**
- * Whether a teacher with the given subject should appear in the dropdown
- * when a rubric with the given audience is selected.
- *
- * - STEM audience   → only STEM teachers
- * - HUMANITIES audience → only Humanities teachers
- * - ALL audience    → every teacher
- * - Unclassified teachers (Art, PE, Music, null) → only for ALL audience
- * - SpEd → every audience, being the one department that is not a subject
- */
-/**
- * Departments that belong to EVERY audience rather than to one bucket.
- *
- * Note this is the opposite of an unclassified department. Classifying
- * somebody as "ALL" means they appear only when the rubric audience is "ALL" —
- * the narrowest outcome, not the widest. A SpEd teacher may teach any subject,
- * so they should appear whichever rubric is selected.
- */
-const EVERY_AUDIENCE = new Set(["sped"]);
-
-export function teacherMatchesAudience(
-  subject: string | null | undefined,
-  audience: SubjectAudience,
-): boolean {
-  if (audience === "ALL") return true;
-  if (subject && EVERY_AUDIENCE.has(subject.toLowerCase().trim())) return true;
-  return classifySubject(subject) === audience;
-}
+import { teacherMatchesAudience } from "@workspace/api-types";
+import type { SubjectAudience } from "@workspace/api-types";
 
 /**
  * The rubrics on a teacher's profile, out of the ones already valid for their

@@ -1,72 +1,14 @@
-export type SubjectAudience = "STEM" | "HUMANITIES" | "ALL";
+/* Departments and audiences live in @workspace/api-types — one source shared
+   with the dashboard and with the database enum.
 
-type Department =
-  | "English"
-  | "Math"
-  | "Science"
-  | "History"
-  | "Spanish"
-  | "Physical Education"
-  | "Comp Sci/Engineering"
-  | "Visual Arts"
-  | "College"
-  | "SpEd"
-  | "Other";
-
-const DEPARTMENT_AUDIENCE: Record<Department, SubjectAudience> = {
-  "Math":                 "STEM",
-  "Science":              "STEM",
-  "Comp Sci/Engineering": "STEM",
-  "English":              "HUMANITIES",
-  "History":              "HUMANITIES",
-  "Spanish":              "HUMANITIES",
-  "Physical Education":   "ALL",
-  "Visual Arts":          "ALL",
-  "College":              "ALL",
-  /* A SpEd teacher may teach any subject, so they belong to every audience
-     rather than to STEM or Humanities. */
-  "SpEd":                 "ALL",
-  "Other":                "ALL",
-};
-
-const KNOWN_DEPARTMENTS = new Set<string>(Object.keys(DEPARTMENT_AUDIENCE));
-
-/**
- * Returns the audience bucket for a teacher's department value.
- * Returns "ALL" for null/undefined/empty and for any value not in the
- * known department enum (logs a console.warn so the gap is surfaced).
- */
-export function classifySubject(subject: string | null | undefined): SubjectAudience {
-  if (!subject) return "ALL";
-  const trimmed = subject.trim();
-  if (!trimmed) return "ALL";
-  if (KNOWN_DEPARTMENTS.has(trimmed)) {
-    return DEPARTMENT_AUDIENCE[trimmed as Department];
-  }
-  console.warn(`classifySubject: unknown department value "${trimmed}" — falling back to "ALL"`);
-  return "ALL";
-}
-
-/**
- * Whether a teacher with the given subject should appear in the dropdown
- * when a rubric with the given audience is selected.
- *
- * - STEM audience        → only STEM teachers
- * - HUMANITIES audience  → only Humanities teachers
- * - ALL audience         → every teacher
- * - Unclassified teachers (Visual Arts, PE, College, null) → only for ALL audience
- * - SpEd → every audience, being the one department that is not a subject
- */
-/* Departments belonging to EVERY audience rather than to one bucket. The
-   opposite of an unclassified department: classifying somebody "ALL" makes
-   them appear only on an ALL rubric, which is the narrowest outcome. */
-const EVERY_AUDIENCE = new Set<string>(["SpEd"]);
-
-export function teacherMatchesAudience(
-  subject: string | null | undefined,
-  audience: SubjectAudience,
-): boolean {
-  if (audience === "ALL") return true;
-  if (subject && EVERY_AUDIENCE.has(subject.trim())) return true;
-  return classifySubject(subject) === audience;
-}
+   This file used to hold a second implementation: an explicit department map,
+   while the dashboard matched keywords. They drifted, and a Spanish teacher
+   appeared under a Humanities rubric here and nowhere on a desktop. Kept as a
+   re-export so existing imports are undisturbed. */
+export {
+  classifySubject,
+  teacherMatchesAudience,
+  DEPARTMENT_VALUES,
+  DEPARTMENT_AUDIENCE,
+} from "@workspace/api-types";
+export type { SubjectAudience, Department } from "@workspace/api-types";
