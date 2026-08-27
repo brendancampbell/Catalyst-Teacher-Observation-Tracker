@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>8</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>9</b> open &middot; <b>4</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>367&thinsp;/&thinsp;367</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -654,6 +654,57 @@
             </td>
             <td class="cat">Rollover</td>
             <td><span class="chip u-high">Annual deadline</span></td>
+          </tr>
+
+
+          <tr>
+            <td class="p">9</td>
+            <td class="idcell">39</td>
+            <td>
+              <div class="task">
+                <h3>Make the 0.7 proficiency threshold a setting too</h3>
+                <p class="lineage">New, 27 Aug. The other half of the rescore rule, deliberately left out of #38's sibling work.</p>
+                <p class="why">
+                  The rescore <em>deadline</em> is now a setting. The score that puts somebody in
+                  the queue at all is still <code>0.7</code>, hardcoded in about a dozen places.
+                </p>
+                <details>
+                  <summary>Why this is a bigger change than the windows were</summary>
+                  <div class="detail">
+                    <p>
+                      A deadline change moves dates. A threshold change alters <strong>who is
+                      flagged at all</strong> &mdash; raise it and teachers who were fine are
+                      suddenly in the queue; lower it and people leave it. It also decides the
+                      red/green colouring across the Action Center and the district view, so it is
+                      not confined to one feature.
+                    </p>
+                    <p>
+                      <strong>Where it lives.</strong> Server:
+                      <code>routes/observations.ts</code> (both rescore branches),
+                      <code>routes/ai.ts</code> (three), <code>services/ai-service.ts</code> (five,
+                      including the assistant's own system prompt, which states the number to
+                      users). Client: <code>PROFICIENCY_THRESHOLD</code> in
+                      <code>action-center.tsx</code>, used in several places, plus the
+                      district dashboard.
+                    </p>
+                    <p>
+                      <strong>The infrastructure already exists.</strong>
+                      <code>system_settings</code> is a single network-wide row with an audit
+                      trail, and the AI prompt already substitutes a live value for the rescore
+                      window &mdash; the same mechanism would carry the threshold. The work is
+                      finding all dozen sites and deciding what happens to people already in the
+                      queue when it moves, which is the same question the windows raised.
+                    </p>
+                    <p>
+                      Worth doing deliberately rather than riding along on a deadline change, which
+                      is why it was split out on 27 Aug.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rescore</td>
+            <td><span class="chip u-med">Medium</span></td>
           </tr>
 
         </tbody>
