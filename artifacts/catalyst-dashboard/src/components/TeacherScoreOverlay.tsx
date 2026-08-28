@@ -958,6 +958,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
         <ObservationDetailModal
           reassignableTeachers={reassignableTeachers}
           teacher={activeTeacher}
+          priorObservations={activeTeacher.observations}
           observation={localObsOverrides[selectedObservation.id] ?? selectedObservation}
           categories={activeCategories}
           /* Per observation, not per person — canEdit above is the role half,

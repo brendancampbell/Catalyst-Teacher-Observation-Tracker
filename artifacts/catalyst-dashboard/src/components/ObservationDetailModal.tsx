@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Pencil, Check, ChevronLeft, Trash2 } from "lucide-react";
+import { X, Pencil, Check, ChevronLeft, Trash2, Mail } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { EmailFeedbackPanel } from "@/components/EmailFeedbackPanel";
+import { defaultIntro, type EmailSource } from "@/lib/observation-email";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Observation, type Score } from "@/data/dummy";
 import { type CategoryEntry, type ActionStep, type ObservationStepImpact,
@@ -67,6 +69,11 @@ function formatDateTime(iso: string) {
 
 interface TeacherMeta {
   name: string;
+  /** For "Dear Meg," — falls back to the first word of name. */
+  firstName?: string;
+  /** Where the email is addressed. Absent just means the observer fills it
+      in themselves; the email is still worth composing. */
+  email?: string | null;
   subject?: string | null;
   gradeLevel: string[];
   employeeId?: string | null;
@@ -86,12 +93,18 @@ interface Props {
      list; without it the teacher cannot be changed, which is the right
      default for anywhere that does not know the roster. */
   reassignableTeachers?: { id: string; name: string }[];
+  /* This teacher's observations, for the up/down arrows the email puts beside
+     each score. Pass the whole history — this one is filtered out of it here,
+     or every arrow would compare the observation against itself and read flat.
+     Without it every row reads "New", which is why callers that have the
+     history pass it. */
+  priorObservations?: { id: string; date: string; scores: Record<string, Score | undefined> }[];
   onDelete?: (observationId: string) => Promise<void>;
 }
 
 export function ObservationDetailModal({
   teacher, observation, categories, canEdit, open, onOpenChange, onSave, onDelete,
-  reassignableTeachers,
+  reassignableTeachers, priorObservations,
 }: Props) {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -133,6 +146,49 @@ export function ObservationDetailModal({
     });
     return () => { cancelled = true; };
   }, [open, teacher.employeeId, observation.id]);
+
+  const [emailOpen, setEmailOpen] = useState(false);
+
+  /* What the email is built from.
+
+     The action steps are the ones THIS observation dealt with — the step it
+     assigned, and any it marked mastered — taken from the record rather than
+     from how things stand today. A step assigned here and since extended is
+     described with the due date it was given, because that is what the
+     observation said at the time.
+
+     "A step assigned earlier and still open" is deliberately absent. It is not
+     recoverable for a past observation without knowing what was open on the
+     day, and a guess would put a teacher's finished work back in front of
+     them. */
+  function emailSource(): EmailSource {
+    const assigned = assignedSteps[0];
+    const mastered = masteredSteps[0];
+    return {
+      teacher: {
+        name: teacher.name, firstName: teacher.firstName,
+        email: teacher.email, subject: teacher.subject,
+        gradeLevel: teacher.gradeLevel,
+      },
+      date:         observation.date,
+      time:         observation.time,
+      course:       observation.course,
+      observerName: observation.observer,
+      categories,
+      scores:       observation.scores,
+      strengths:    observation.strengths   ?? "",
+      growthAreas:  observation.growthAreas ?? "",
+      steps: {
+        assigned: assigned
+          ? { text: assigned.text, dueDate: assigned.originalDueDate ?? assigned.dueDate }
+          : undefined,
+        mastered: mastered
+          ? { text: mastered.text, masteredByName: mastered.masteredByName }
+          : undefined,
+      },
+      priorObservations: (priorObservations ?? []).filter((o) => o.id !== observation.id),
+    };
+  }
 
   async function performDelete() {
     if (!onDelete) return;
@@ -580,6 +636,19 @@ export function ObservationDetailModal({
                         Delete
                       </button>
                     )}
+                    {/* Sending it on afterwards. The same panel the form
+                        offers the moment an observation is filed — an
+                        observation emailed today and one emailed weeks later
+                        should look identical to the teacher. */}
+                    <button
+                      type="button"
+                      onClick={() => setEmailOpen(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-bold transition-colors hover:bg-blue-50 border border-blue-200 disabled:opacity-50"
+                      style={{ color: NAVY }}
+                    >
+                      <Mail size={13} />
+                      Email to Teacher
+                    </button>
                     <button
                       type="button"
                       onClick={startEdit}
@@ -660,6 +729,29 @@ export function ObservationDetailModal({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* Sending it on. Its own window over the observation, so closing it
+        leaves you back on the observation rather than nowhere. */}
+    <DialogPrimitive.Root open={emailOpen} onOpenChange={setEmailOpen}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[1px]" />
+        <DialogPrimitive.Content className="fixed z-[60] flex flex-col bg-white shadow-2xl overflow-hidden inset-x-2 inset-y-3 rounded-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-3xl sm:max-h-[90vh]">
+          <DialogPrimitive.Title className="sr-only">Email this observation to the teacher</DialogPrimitive.Title>
+          {emailOpen && (
+            <EmailFeedbackPanel
+              src={emailSource()}
+              initialIntro={defaultIntro(
+                teacher.firstName || teacher.name.split(" ")[0] || "Teacher",
+                observation.observer,
+              )}
+              initialGlows={observation.strengths   ?? ""}
+              initialGrows={observation.growthAreas ?? ""}
+              onClose={() => setEmailOpen(false)}
+            />
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
     </>
   );
 }

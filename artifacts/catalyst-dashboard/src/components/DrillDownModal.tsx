@@ -439,6 +439,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
       {detailObs && (
         <ObservationDetailModal
           teacher={teacher}
+          priorObservations={teacher.observations}
           observation={detailObs}
           categories={categories}
           /* Per observation, not per person: a coach may correct the ones they

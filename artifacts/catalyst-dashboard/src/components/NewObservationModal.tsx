@@ -1,38 +1,16 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus, Loader2, RotateCcw, AlertCircle, RefreshCw } from "lucide-react";
-import DOMPurify from "dompurify";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
 import { fetchMyDrafts, deleteObservation, fetchLatestActionStep } from "@/lib/api";
 import { saveObservation } from "@/lib/observation-save";
 import { toast } from "@/hooks/use-toast";
+import { EmailFeedbackPanel } from "@/components/EmailFeedbackPanel";
+import { defaultIntro, type EmailSource } from "@/lib/observation-email";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
-
-/* ── Email HTML escaping ──────────────────────────────────────────────
-   buildHtmlEmail() below assembles a raw HTML string that is rendered in
-   the preview iframe and copied to the clipboard for pasting into a mail
-   client. Every interpolated value must therefore be escaped, and any
-   rich text (TipTap output) sanitised, exactly as the server-side builder
-   used to do before it was removed. The preview iframe is sandboxed
-   without allow-scripts, but that is a backstop, not a substitute.        */
-const EMAIL_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "b", "i", "u", "s", "blockquote"];
-
-function escapeEmailHtml(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/** Sanitise TipTap rich text down to a safe formatting-only subset. */
-function sanitizeEmailRichText(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS: EMAIL_ALLOWED_TAGS, ALLOWED_ATTR: [] });
-}
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -84,8 +62,6 @@ function scorePillClass(s: Score, selected: boolean): string {
   return "bg-red-300 text-red-900 border-2 border-red-400 shadow-sm";
 }
 
-const SCORE_LABEL: Record<string, string> = { "0": "Not Yet", "0.5": "Developing", "1": "Proficient" };
-
 function formatDateLong(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -127,15 +103,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const draftJustLoaded   = useRef(false);
   const isSubmittingRef   = useRef(false);
   const draftIdRef        = useRef<string | null>(null);
-  const [emailPreview, setEmailPreview] = useState<{ subject: string; body: string; htmlEmail: string; mailtoUrl: string; outlookWebUrl: string } | null>(null);
-  const [copiedHtml, setCopiedHtml] = useState(false);
+  /* Just a flag now: the panel builds the email itself from the same source
+     the form would have used, so there is nothing to hand it but that. */
+  const [emailPreview, setEmailPreview] = useState(false);
   const [editableIntro, setEditableIntro] = useState("");
   const [editableGlows, setEditableGlows] = useState("");
   const [editableGrows, setEditableGrows] = useState("");
-  const [emailTab, setEmailTab] = useState<"preview" | "edit">("edit");
-  const [editableSubject, setEditableSubject] = useState("");
   const [, setSavedObsId] = useState<string | null>(null);
-  const [emailMode, setEmailMode] = useState<"all" | "scored" | "glows">("all");
 
   /* ── Action step state ────────────────────────────────────────── */
   const [latestActionStep, setLatestActionStep] = useState<ActionStep | null>(null);
@@ -374,6 +348,37 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, teacherId, date, time, course, JSON.stringify(scores), strengths, growthAreas, isWalkthrough, newActionStepText, newActionStepDueDate, markMastered]);
 
+  /* What the email is built from. The action steps are what THIS observation
+     is doing about them — assigning one, marking one mastered, or leaving an
+     earlier one standing — which is what the email should say. */
+  function emailSource(): EmailSource {
+    const t = teachers.find((x) => x.id === teacherId);
+    return {
+      teacher: t && {
+        name: t.name, firstName: t.firstName, email: t.email,
+        subject: t.subject, gradeLevel: t.gradeLevel,
+      },
+      date, time, course,
+      observerName,
+      categories,
+      scores,
+      strengths,
+      growthAreas,
+      steps: {
+        mastered: (markMastered && latestActionStep?.status === "open")
+          ? { text: latestActionStep.text, masteredByName: observerName }
+          : undefined,
+        stillOpen: (latestActionStep?.status === "open" && !markMastered)
+          ? { text: latestActionStep.text, dueDate: latestActionStep.dueDate, assignedByName: latestActionStep.assignedByName }
+          : undefined,
+        assigned: (newActionStepText.trim() && newActionStepDueDate)
+          ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
+          : undefined,
+      },
+      priorObservations: t?.observations ?? [],
+    };
+  }
+
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
@@ -386,14 +391,10 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setGrowthAreas("");
     setIsWalkthrough(false);
     setEmailFeedback(false);
-    setEmailPreview(null);
-    setCopiedHtml(false);
-    setEditableSubject("");
+    setEmailPreview(false);
     setEditableIntro("");
     setEditableGlows("");
     setEditableGrows("");
-    setEmailTab("edit");
-    setEmailMode("all");
     setDraftId(null);
     setDraftResumedFrom(null);
     setAutoSaveStatus("idle");
@@ -408,388 +409,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setActionStepDueDateError(null);
   }
 
-  function buildEmailDraft(introText?: string, mode: "all" | "scored" | "glows" = emailMode): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
-    const teacher = teachers.find((t) => t.id === teacherId);
-    const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
-    const dateLabel = formatDateLong(date);
-    const observer = observerName ?? "Your Observer";
 
-    const nl = "\n";
-    const divider = "─".repeat(48);
-
-    let scoreBlock = "";
-    if (mode !== "glows") {
-      for (const cat of categories) {
-        const domainsToShow = mode === "scored"
-          ? cat.domains.filter((d) => scores[d.id] !== undefined)
-          : cat.domains;
-        if (domainsToShow.length === 0) continue;
-        scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
-        let catTotal = 0, catCount = 0;
-        for (const domain of domainsToShow) {
-          const raw = scores[domain.id];
-          const scoreStr = raw !== undefined ? String(raw) : undefined;
-          const label = scoreStr !== undefined ? `${scoreStr}  (${SCORE_LABEL[scoreStr] ?? scoreStr})` : "—";
-          scoreBlock += `  ${domain.label.padEnd(32)} ${label}${nl}`;
-          if (raw !== undefined) { catTotal += raw; catCount++; }
-        }
-        if (catCount > 0) {
-          scoreBlock += `  ${"Sub-average".padEnd(32)} ${(catTotal / catCount).toFixed(1)}${nl}`;
-        }
-      }
-    }
-
-    const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
-    const overallAvg = scoredVals.length ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(1) : "—";
-
-    const resolvedIntro = introText ?? `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
-
-    const rubricLines = mode !== "glows" && scoreBlock.trim() ? [
-      divider,
-      `RUBRIC SCORES`,
-      divider,
-      scoreBlock.trimEnd(),
-      nl,
-      `${"Overall Average".padEnd(32)} ${overallAvg}`,
-      nl,
-    ] : [];
-
-    const body = [
-      resolvedIntro,
-      nl,
-      divider,
-      `OBSERVATION DETAILS`,
-      divider,
-      `Date:      ${dateLabel}`,
-      `Observer:  ${observer}`,
-      `Teacher:   ${teacher?.name ?? ""}`,
-      `Subject:   ${teacher?.subject ?? ""}  ·  Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`,
-      nl,
-      ...rubricLines,
-      divider,
-      `GLOWS (Teacher Strengths)`,
-      divider,
-      strengths.trim() || "(none entered)",
-      nl,
-      divider,
-      `GROWS (Growth Areas)`,
-      divider,
-      growthAreas.trim() || "(none entered)",
-    ].join(nl);
-
-    const subject = `Classroom Observation Feedback - ${dateLabel}`;
-    const teacherEmail = teacher?.email ?? "";
-    const mailtoUrl = `mailto:${encodeURIComponent(teacherEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    const outlookWebUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(teacherEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    return { subject, body, mailtoUrl, outlookWebUrl };
-  }
-
-  function richToEmailHtml(text: string, color: string): string {
-    if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
-    const isHtml = /<[a-z][\s\S]*>/i.test(text);
-    if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${sanitizeEmailRichText(text)}</div>`;
-    return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
-  }
-
-  function buildHtmlEmail(intro: string, glowsText: string, growsText: string, mode: "all" | "scored" | "glows" = emailMode): string {
-    const teacher = teachers.find((t) => t.id === teacherId);
-    const dateLabel = formatDateLong(date);
-    const observer = observerName ?? "Your Observer";
-    const logoUrl = `${window.location.origin}/uncommon-logo-white.png`;
-    const logoStyle = "display:block;height:36px;max-width:180px;";
-
-    const scoredVals = allDomains.map((d) => scores[d.id]).filter((v): v is Score => v !== undefined);
-    const overallAvg = scoredVals.length
-      ? (scoredVals.reduce((a, b) => a + b, 0) / scoredVals.length).toFixed(2)
-      : null;
-
-    function scoreBg(val: Score | undefined): string {
-      if (val === undefined) return "#e2e8f0";
-      if (val >= 1) return "#16a34a";
-      if (val >= 0.5) return "#ca8a04";
-      return "#dc2626";
-    }
-    function scoreColor(val: Score | undefined): string {
-      if (val === undefined) return "#94a3b8";
-      return "#ffffff";
-    }
-    function scoreText(val: Score | undefined): string {
-      if (val === undefined) return "—";
-      return val === 0.5 ? "0.5" : String(val);
-    }
-
-    /* Trend: compare current scores to the most recent PRIOR observation.
-       Only observations dated on or before this one count as prior — sorting
-       by date alone would let an observation dated in the future (a mistyped
-       year, say) become the baseline and invert the arrow. Drafts are already
-       excluded upstream by the dashboard query. */
-    const prevObs = (teachers.find((t) => t.id === teacherId)?.observations ?? [])
-      .filter((o) => o.date <= date)
-      .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
-
-    function trendHtml(domainId: string, currentVal: Score | undefined): string {
-      if (currentVal === undefined) return `<span style="color:#cbd5e1;font-size:14px;">—</span>`;
-      const prior = prevObs.find((o) => o.scores[domainId] !== undefined);
-      if (!prior) return `<span style="color:#94a3b8;font-size:13px;" title="First observation">New</span>`;
-      const prevVal = prior.scores[domainId] as Score;
-      if (currentVal > prevVal)
-        return `<span style="color:#16a34a;font-size:18px;font-weight:900;line-height:1;">↑</span>`;
-      if (currentVal < prevVal)
-        return `<span style="color:#dc2626;font-size:18px;font-weight:900;line-height:1;">↓</span>`;
-      return `<span style="color:#94a3b8;font-size:18px;font-weight:700;line-height:1;">→</span>`;
-    }
-
-    let scoreTableRows = "";
-    if (mode !== "glows") {
-      for (const cat of categories) {
-        const domainsToShow = mode === "scored"
-          ? cat.domains.filter((d) => scores[d.id] !== undefined)
-          : cat.domains;
-        if (domainsToShow.length === 0) continue;
-        scoreTableRows += `
-        <tr>
-          <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${escapeEmailHtml(cat.label)}</td>
-        </tr>`;
-        let catTotal = 0, catCount = 0;
-        for (const domain of domainsToShow) {
-          const val = scores[domain.id] as Score | undefined;
-          const bg = scoreBg(val);
-          const fg = scoreColor(val);
-          const txt = scoreText(val);
-          scoreTableRows += `
-        <tr style="border-bottom:1px solid #e2e8f0;">
-          <td style="padding:8px 14px;font-size:13px;color:#374151;">${escapeEmailHtml(domain.label)}</td>
-          <td style="padding:8px 6px;text-align:center;">
-            <span style="display:inline-block;background:${bg};color:${fg};border-radius:4px;padding:2px 10px;font-size:12px;font-weight:700;min-width:32px;">${txt}</span>
-          </td>
-          <td style="padding:8px 10px;text-align:center;">${trendHtml(domain.id, val)}</td>
-        </tr>`;
-          if (val !== undefined) { catTotal += val; catCount++; }
-        }
-        if (catCount > 0) {
-          const avg = (catTotal / catCount).toFixed(2);
-          scoreTableRows += `
-        <tr style="background:#f8fafc;border-bottom:2px solid #dde3f0;">
-          <td style="padding:7px 14px;font-size:12px;font-weight:700;color:#374151;font-style:italic;">Sub-average</td>
-          <td style="padding:7px 6px;text-align:center;font-size:12px;font-weight:700;color:#374151;">${avg}</td>
-          <td></td>
-        </tr>`;
-        }
-      }
-      if (overallAvg !== null && scoreTableRows.trim()) {
-        scoreTableRows += `
-        <tr style="background:#1034B4;">
-          <td style="padding:9px 14px;font-size:13px;font-weight:700;color:#fff;">Overall Average</td>
-          <td style="padding:9px 6px;text-align:center;font-size:14px;font-weight:700;color:#FFB500;">${overallAvg}</td>
-          <td></td>
-        </tr>`;
-      }
-    }
-
-    const gradeLabel = `Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`;
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Observation Feedback</title>
-</head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Libre Franklin',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-
-      <!-- Header -->
-      <tr>
-        <td style="background:#1034B4;padding:20px 28px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td>
-                <img src="${escapeEmailHtml(logoUrl)}" alt="Uncommon Schools" height="36" style="${logoStyle}"/>
-              </td>
-              <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
-                Observation Feedback
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <!-- Yellow accent bar -->
-      <tr><td style="background:#FFB500;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- Greeting -->
-      <tr>
-        <td style="padding:28px 28px 0 28px;">
-          <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${escapeEmailHtml(intro).replace(/\n/g, "<br/>")}</p>
-        </td>
-      </tr>
-
-      <!-- Observation Details -->
-      <tr>
-        <td style="padding:24px 28px 0 28px;">
-          <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Observation Details</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;width:110px;background:#f8fafc;">Date</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(dateLabel)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Time</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(time)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Observer</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(observer)}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Teacher</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(teacher?.name ?? "")}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Subject</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(teacher?.subject ?? "")}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Grade</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(gradeLabel)}</td>
-            </tr>
-            ${course ? `<tr>
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;background:#f8fafc;">Course</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(course)}</td>
-            </tr>` : ""}
-          </table>
-        </td>
-      </tr>
-
-      ${scoreTableRows.trim() ? `
-      <!-- Rubric Scores -->
-      <tr>
-        <td style="padding:24px 28px 0 28px;">
-          <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Rubric Scores</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
-            <thead>
-              <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Domain</th>
-                <th style="padding:7px 6px;font-size:11px;font-weight:700;text-align:center;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:60px;">Score</th>
-                <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:center;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;width:80px;">Trend</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${scoreTableRows}
-            </tbody>
-          </table>
-        </td>
-      </tr>` : ""}
-
-      <!-- Glows -->
-      <tr>
-        <td style="padding:24px 28px 0 28px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
-            <tr>
-              <td style="padding:14px 16px;">
-                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
-                ${richToEmailHtml(glowsText, "#166534")}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <!-- Grows -->
-      <tr>
-        <td style="padding:16px 28px 0 28px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
-            <tr>
-              <td style="padding:14px 16px;">
-                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
-                ${richToEmailHtml(growsText, "#9a3412")}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      ${(() => {
-        const masteredStep = (markMastered && latestActionStep?.status === "open")
-          ? { text: latestActionStep.text, masteredByName: observerName }
-          : undefined;
-        const stillOpenStep = (latestActionStep?.status === "open" && !markMastered)
-          ? { text: latestActionStep.text, dueDate: latestActionStep.dueDate, assignedByName: latestActionStep.assignedByName }
-          : undefined;
-        const newStep = (newActionStepText.trim() && newActionStepDueDate)
-          ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
-          : undefined;
-        if (!masteredStep && !stillOpenStep && !newStep) return "";
-        let rows = "";
-        if (masteredStep) {
-          const byLine = masteredStep.masteredByName
-            ? ` <span style="color:#6b7280;font-size:12px;">— mastered by ${escapeEmailHtml(masteredStep.masteredByName)}</span>`
-            : "";
-          rows += `
-            <tr style="border-bottom:1px solid #d1fae5;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#065f46;background:#ecfdf5;width:110px;">✔ Mastered</td>
-              <td style="padding:8px 14px;font-size:13px;color:#064e3b;">${richToEmailHtml(masteredStep.text, "#064e3b")}${byLine}</td>
-            </tr>`;
-        }
-        if (stillOpenStep) {
-          const assignedLine = stillOpenStep.assignedByName
-            ? ` <span style="color:#6b7280;font-size:12px;">— assigned by ${escapeEmailHtml(stillOpenStep.assignedByName)}</span>`
-            : "";
-          rows += `
-            <tr style="border-bottom:1px solid #e2e8f0;">
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;width:110px;">⏳ Still Open</td>
-              <td style="padding:8px 14px;font-size:13px;color:#78350f;">${richToEmailHtml(stillOpenStep.text, "#78350f")}<br/><span style="font-size:11px;color:#92400e;">Due: ${escapeEmailHtml(stillOpenStep.dueDate)}</span>${assignedLine}</td>
-            </tr>`;
-        }
-        if (newStep) {
-          rows += `
-            <tr>
-              <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#1d4ed8;background:#eff6ff;width:110px;">🎯 New Step</td>
-              <td style="padding:8px 14px;font-size:13px;color:#1e3a8a;">${richToEmailHtml(newStep.text, "#1e3a8a")}<br/><span style="font-size:11px;color:#1e40af;">Due: ${escapeEmailHtml(newStep.dueDate)}</span></td>
-            </tr>`;
-        }
-        return `
-      <!-- Action Steps -->
-      <tr>
-        <td style="padding:16px 28px 0 28px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
-            <tr>
-              <td style="padding:14px 16px 6px 16px;">
-                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0369a1;">◎ Action Step</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 6px 6px 6px;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden;">
-                  ${rows}
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>`;
-      })()}
-
-      <!-- Spacer -->
-      <tr><td style="height:24px;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- Footer -->
-      <tr>
-        <td style="padding:24px 28px;border-top:1px solid #e2e8f0;">
-          <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">&copy; ${new Date().getFullYear()} Uncommon Schools, Inc.</p>
-        </td>
-      </tr>
-
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>`;
-  }
-
-  const DEFAULT_INTRO_BODY = `Thank you for your continued commitment to your students. I wanted to share feedback from my recent observation of your classroom. I hope these notes are helpful as you continue to grow in your practice.`;
 
   async function handleSubmit() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -850,16 +470,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       const _t = teachers.find((t) => t.id === teacherId);
       const firstName = _t?.firstName || _t?.name.split(" ")[0] || "Teacher";
       const observer = observerName ?? "Your Observer";
-      const intro = `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
+      const intro = defaultIntro(firstName, observer);
       const glows = strengths;
       const grows = growthAreas;
       setEditableIntro(intro);
       setEditableGlows(glows);
       setEditableGrows(grows);
-      const draft = buildEmailDraft(intro);
-      const htmlEmail = buildHtmlEmail(intro, glows, grows);
-      setEditableSubject(draft.subject);
-      setEmailPreview({ ...draft, htmlEmail });
+      setEmailPreview(true);
     } else {
       reset();
       onOpenChange(false);
@@ -923,66 +540,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
   }
 
-  async function writeRichHtmlToClipboard(html: string): Promise<void> {
-    const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
-
-    // 1. Modern Clipboard API — writes both text/html and text/plain
-    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html":  new Blob([html],  { type: "text/html"  }),
-            "text/plain": new Blob([plain], { type: "text/plain" }),
-          }),
-        ]);
-        return;
-      } catch { /* fall through */ }
-    }
-
-    // 2. contenteditable + execCommand — copies rendered DOM so rich formatting is preserved
-    try {
-      const div = document.createElement("div");
-      div.contentEditable = "true";
-      div.innerHTML = html;
-      Object.assign(div.style, {
-        position: "fixed", top: "0", left: "0",
-        width: "1px", height: "1px",
-        opacity: "0", pointerEvents: "none", overflow: "hidden",
-      });
-      document.body.appendChild(div);
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(div);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-      document.execCommand("copy");
-      sel?.removeAllRanges();
-      document.body.removeChild(div);
-      return;
-    } catch { /* fall through */ }
-
-    // 3. Last resort — raw HTML markup as plain text
-    await navigator.clipboard.writeText(html);
-  }
-
-  async function handleCopyHtml(html: string) {
-    try { await writeRichHtmlToClipboard(html); } catch { /* ignore */ }
-    setCopiedHtml(true);
-    setTimeout(() => setCopiedHtml(false), 3500);
-  }
-
-  // Recomputes whenever the editable text fields change
-  const liveHtmlEmail = useMemo(
-    () => emailPreview ? buildHtmlEmail(editableIntro, editableGlows, editableGrows, emailMode) : "",
-    [emailPreview, editableIntro, editableGlows, editableGrows, emailMode], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-
-  // Plain-text body for mailto/Outlook links — stays in sync with editable intro
-  const livePlainBody = useMemo(
-    () => emailPreview ? buildEmailDraft(editableIntro, emailMode).body : "",
-    [emailPreview, editableIntro, emailMode], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-
   const inputBase =
     "w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white";
 
@@ -1018,134 +575,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
 
           {/* ── Email Preview Screen ──────────────────────── */}
           {emailPreview && (
-            <>
-              <div className="overflow-y-auto flex-1 flex flex-col gap-3 px-6 py-4" style={{ fontFamily: "'Libre Franklin', sans-serif" }}>
-
-                {/* Header row */}
-                <div className="flex items-center justify-between gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">✉</span>
-                    <div>
-                      <p className="font-bold text-slate-700 text-sm leading-snug">Observation saved!</p>
-                      <p className="text-slate-500 text-xs mt-0.5 leading-snug">Edit the opening below, then copy or send in Outlook.</p>
-                    </div>
-                  </div>
-                  {/* Edit / Preview tabs */}
-                  <div className="flex rounded overflow-hidden border shrink-0" style={{ borderColor: NAVY }}>
-                    {(["edit", "preview"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setEmailTab(tab)}
-                        className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors"
-                        style={{
-                          backgroundColor: emailTab === tab ? NAVY : "white",
-                          color: emailTab === tab ? "white" : NAVY,
-                        }}
-                      >
-                        {tab === "edit" ? "Edit Opening" : "Preview"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Edit tab — subject + opening only */}
-                {emailTab === "edit" && (
-                  <div className="flex flex-col gap-4 flex-1">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Subject Line
-                        </label>
-                        <input
-                          type="text"
-                          value={editableSubject}
-                          onChange={(e) => setEditableSubject(e.target.value)}
-                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                        />
-                      </div>
-                      <div className="shrink-0">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Include Scores
-                        </label>
-                        <select
-                          value={emailMode}
-                          onChange={(e) => setEmailMode(e.target.value as "all" | "scored" | "glows")}
-                          className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                        >
-                          <option value="all">All Rubric Rows</option>
-                          <option value="scored">Scored Rows Only</option>
-                          <option value="glows">Glows / Grows Only</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex flex-col">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Opening Message (Salutation, Body &amp; Signature)
-                      </label>
-                      <textarea
-                        value={editableIntro}
-                        onChange={(e) => setEditableIntro(e.target.value)}
-                        className="w-full flex-1 px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none"
-                        style={{ fontFamily: "'Libre Franklin', sans-serif", minHeight: 180 }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Preview tab — rendered iframe */}
-                {emailTab === "preview" && (
-                  <div className="flex-1 flex flex-col min-h-0">
-                    <iframe
-                      srcDoc={liveHtmlEmail}
-                      className="w-full rounded border border-slate-200 bg-white flex-1"
-                      style={{ minHeight: 320 }}
-                      title="Email Preview"
-                      sandbox="allow-same-origin"
-                    />
-                  </div>
-                )}
-
-              </div>
-
-              {/* Footer */}
-              <style>{`
-                @keyframes catalystFadeOut {
-                  0%   { opacity: 1; }
-                  60%  { opacity: 1; }
-                  100% { opacity: 0; }
-                }
-                .catalyst-copy-notif { animation: catalystFadeOut 3.5s forwards; }
-              `}</style>
-              <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    {copiedHtml && (
-                      <p className="catalyst-copy-notif text-sm font-semibold text-green-700 truncate">
-                        Email Copied — Paste (Ctrl+V) into a new email message.
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyHtml(liveHtmlEmail)}
-                    className="shrink-0 px-5 py-2 rounded text-sm font-bold text-white transition-opacity hover:opacity-90 shadow-sm"
-                    style={{ backgroundColor: NAVY }}
-                  >
-                    Copy Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { reset(); onOpenChange(false); }}
-                    className="shrink-0 px-5 py-2 rounded text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </>
+            <EmailFeedbackPanel
+              src={emailSource()}
+              initialIntro={editableIntro}
+              initialGlows={editableGlows}
+              initialGrows={editableGrows}
+              onClose={() => { reset(); onOpenChange(false); }}
+            />
           )}
 
           {/* ── Form (hidden when showing email preview) ───── */}
