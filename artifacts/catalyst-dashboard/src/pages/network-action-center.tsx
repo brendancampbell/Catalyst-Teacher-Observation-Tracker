@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart2, Activity, Building2, Loader2 } from "lucide-react";
+import { BarChart2, Activity, Building2, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { UsageTable } from "@/components/UsageTable";
+import { SummaryStatCard, NoStatYet } from "@/components/SummaryStatCard";
+import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/context/UserContext";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary, fetchRubricSets } from "@/lib/api";
@@ -11,6 +13,7 @@ import type { RubricSetRow } from "@/lib/api";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
+const PROFICIENCY_THRESHOLD = 0.7;
 
 /**
  * The whole organisation, in two tabs.
@@ -53,8 +56,6 @@ export default function NetworkActionCenterPage() {
   const domains    = useMemo(() => categories.flatMap((c) => c.domains), [categories]);
 
   /* Every number here is the network's, which is the whole point of the page. */
-  const observedTotal = schools.reduce((n, s) => n + s.observedCount, 0);
-  const teacherTotal  = schools.reduce((n, s) => n + s.teacherCount, 0);
   const scoredSchools = schools.filter((s) => s.overall !== null);
   const networkAvg = scoredSchools.length
     ? scoredSchools.reduce((a, s) => a + (s.overall ?? 0), 0) / scoredSchools.length
@@ -70,6 +71,19 @@ export default function NetworkActionCenterPage() {
       schoolsScored: vals.length,
     };
   }), [domains, schools]);
+
+  const scoredDomains = useMemo(
+    () => domainRows.filter((r): r is typeof r & { avg: number } => r.avg !== null),
+    [domainRows],
+  );
+  const highest = useMemo(
+    () => scoredDomains.reduce<typeof scoredDomains[number] | null>((best, r) => (!best || r.avg > best.avg ? r : best), null),
+    [scoredDomains],
+  );
+  const lowest = useMemo(
+    () => scoredDomains.reduce<typeof scoredDomains[number] | null>((worst, r) => (!worst || r.avg < worst.avg ? r : worst), null),
+    [scoredDomains],
+  );
 
   /* Ranked, not alphabetical: the question this box answers is who is where. */
   const ranked = useMemo(
@@ -136,19 +150,63 @@ export default function NetworkActionCenterPage() {
 
             {!isLoading && !isError && (
               <>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {[
-                    { label: "Network Avg",  value: networkAvg !== null ? networkAvg.toFixed(2) : "—", sub: `${scoredSchools.length} of ${schools.length} schools scored` },
-                    { label: "Schools",      value: String(schools.length),  sub: "in the network" },
-                    { label: "Observations", value: String(observedTotal),   sub: "on this rubric" },
-                    { label: "Teachers",     value: String(teacherTotal),    sub: "on the roster" },
-                  ].map(({ label, value, sub }) => (
-                    <div key={label} className="rounded-xl px-4 py-3 text-center" style={{ backgroundColor: NAVY }}>
-                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">{label}</p>
-                      <p className="text-3xl font-bold leading-tight" style={{ color: YELLOW }}>{value}</p>
-                      <p className="text-blue-200 text-xs mt-0.5 truncate">{sub}</p>
+                {/* The same three cards a school's summary opens with, and
+                    literally the same component — a network average rather
+                    than a school one, and the domains measured across every
+                    school instead of one. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <SummaryStatCard icon={<BarChart2 size={17} />} title="Current Network Average">
+                    <div className="flex items-end gap-3">
+                      <span
+                        className="text-2xl font-bold tabular-nums leading-tight"
+                        style={{ color: networkAvg !== null ? (networkAvg >= PROFICIENCY_THRESHOLD ? "#16a34a" : "#dc2626") : "#94a3b8",
+                                 fontFamily: "'Bebas Neue', sans-serif" }}
+                      >
+                        {networkAvg !== null ? networkAvg.toFixed(2) : "—"}
+                      </span>
+                      {networkAvg !== null && (
+                        <Badge
+                          className="mb-1 text-xs font-bold px-2 py-0.5"
+                          style={{
+                            backgroundColor: networkAvg >= PROFICIENCY_THRESHOLD ? "#DCFCE7" : "#FEE2E2",
+                            color:           networkAvg >= PROFICIENCY_THRESHOLD ? "#15803D" : "#B91C1C",
+                            border: "none",
+                          }}
+                        >
+                          {networkAvg >= PROFICIENCY_THRESHOLD ? "Proficient" : "Not Proficient"}
+                        </Badge>
+                      )}
                     </div>
-                  ))}
+                    <p className="text-sm text-slate-500 mt-1">
+                      Across {scoredSchools.length} of {schools.length} school{schools.length !== 1 ? "s" : ""}, most recent observations
+                    </p>
+                  </SummaryStatCard>
+
+                  <SummaryStatCard icon={<TrendingUp size={17} />} title="Highest Domain">
+                    {highest ? (
+                      <>
+                        <p className="text-2xl font-bold leading-tight" style={{ color: "#15803D", fontFamily: "'Bebas Neue', sans-serif" }}>
+                          {highest.domain.label}
+                        </p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Avg score <span className="font-bold text-green-700">{highest.avg.toFixed(2)}</span> across {highest.schoolsScored} school{highest.schoolsScored !== 1 ? "s" : ""}
+                        </p>
+                      </>
+                    ) : <NoStatYet />}
+                  </SummaryStatCard>
+
+                  <SummaryStatCard icon={<TrendingDown size={17} />} title="Lowest Domain">
+                    {lowest ? (
+                      <>
+                        <p className="text-2xl font-bold leading-tight" style={{ color: "#B91C1C", fontFamily: "'Bebas Neue', sans-serif" }}>
+                          {lowest.domain.label}
+                        </p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Avg score <span className="font-bold text-red-700">{lowest.avg.toFixed(2)}</span> across {lowest.schoolsScored} school{lowest.schoolsScored !== 1 ? "s" : ""}
+                        </p>
+                      </>
+                    ) : <NoStatYet />}
+                  </SummaryStatCard>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">

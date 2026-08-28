@@ -53,6 +53,7 @@ import { useUser } from "@/context/UserContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SummaryStatCard, NoStatYet } from "@/components/SummaryStatCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -1269,13 +1270,7 @@ export default function ActionCenterPage() {
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <BarChart2 size={17} style={{ color: YELLOW }} /> Current School Average
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 pb-5">
+              <SummaryStatCard icon={<BarChart2 size={17} />} title="Current School Average">
                   <div className="flex items-end gap-3">
                     <span
                       className="text-2xl font-bold tabular-nums leading-tight"
@@ -1298,16 +1293,9 @@ export default function ActionCenterPage() {
                     )}
                   </div>
                   <p className="text-sm text-slate-500 mt-1">Across all domains, most recent observations</p>
-                </CardContent>
-              </Card>
+              </SummaryStatCard>
 
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <TrendingUp size={17} style={{ color: YELLOW }} /> Highest Domain
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 pb-5">
+              <SummaryStatCard icon={<TrendingUp size={17} />} title="Highest Domain">
                   {insights?.topStrength ? (
                     <>
                       <p className="text-2xl font-bold leading-tight" style={{ color: "#15803D", fontFamily: "'Bebas Neue', sans-serif" }}>
@@ -1318,21 +1306,11 @@ export default function ActionCenterPage() {
                       </p>
                     </>
                   ) : (
-                    <>
-                      <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
-                      <p className="text-sm text-slate-500 mt-1">No observation data yet</p>
-                    </>
+                    <NoStatYet />
                   )}
-                </CardContent>
-              </Card>
+              </SummaryStatCard>
 
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="px-5 pt-5 pb-3 min-h-[60px] flex flex-col justify-center">
-                  <CardTitle className="flex items-center gap-2 text-base font-bold" style={{ color: NAVY }}>
-                    <TrendingDown size={17} style={{ color: YELLOW }} /> Lowest Domain
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 pb-5">
+              <SummaryStatCard icon={<TrendingDown size={17} />} title="Lowest Domain">
                   {insights?.topGrowth ? (
                     <>
                       <p className="text-2xl font-bold leading-tight" style={{ color: "#B91C1C", fontFamily: "'Bebas Neue', sans-serif" }}>
@@ -1343,13 +1321,9 @@ export default function ActionCenterPage() {
                       </p>
                     </>
                   ) : (
-                    <>
-                      <p className="text-2xl font-bold text-slate-300" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</p>
-                      <p className="text-sm text-slate-500 mt-1">No observation data yet</p>
-                    </>
+                    <NoStatYet />
                   )}
-                </CardContent>
-              </Card>
+              </SummaryStatCard>
             </div>
 
             {/* ── Qualitative Trends ────────────────────────────── */}
