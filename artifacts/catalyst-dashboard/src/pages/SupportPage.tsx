@@ -85,7 +85,9 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB" }}>
+    /* Same reason as the network action center: the app shell hides overflow,
+       so a page that does not scroll itself does not scroll. */
+    <div className="h-full overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB" }}>
       <AppHeader
         basePath={BASE}
         backHref={BASE || "/"}
@@ -96,7 +98,7 @@ export default function SupportPage() {
         canAdmin={currentUser?.role !== "COACH"}
       />
 
-      <main className="flex-1 px-4 sm:px-8 py-8 max-w-2xl mx-auto w-full">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-8 max-w-2xl mx-auto w-full">
         <div className="mb-8">
           <h1
             className="uppercase leading-none mb-2"

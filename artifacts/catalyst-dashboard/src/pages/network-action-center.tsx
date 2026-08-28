@@ -92,7 +92,11 @@ export default function NetworkActionCenterPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
+    /* h-full and a scrolling main, not min-h-screen. The app shell sets
+       overflow:hidden all the way down, so the document itself never scrolls
+       and each page carries its own scroll. Without this the summary simply
+       ran off the bottom of the screen. */
+    <div className="h-full overflow-hidden flex flex-col" style={{ backgroundColor: "#F4F6FB", fontFamily: "'Libre Franklin', sans-serif" }}>
       <div className="sticky top-0 z-30 shadow-md">
         {currentUser && (
           <AppHeader
@@ -112,7 +116,7 @@ export default function NetworkActionCenterPage() {
       </div>
 
       {/* ── Two tabs, and only two ── */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6">
+      <div className="shrink-0 bg-white border-b border-slate-200 px-4 sm:px-6">
         <div className="flex">
           {([
             { value: "summary", label: "Summary", icon: <BarChart2 size={15} /> },
@@ -134,7 +138,7 @@ export default function NetworkActionCenterPage() {
         </div>
       </div>
 
-      <main className="flex-1 px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         {tab === "summary" && (
           <>
             {isLoading && (
