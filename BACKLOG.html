@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; afa9929</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; f8b0739</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -365,49 +365,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">42</td>
-            <td>
-              <div class="task">
-                <h3>Clear the abandoned drafts already in the database</h3>
-                <p class="lineage">Turned up by #41, <code>2ae5e3e</code>. The cause is fixed; the rows it left are not.</p>
-                <p class="why">
-                  Three screens used to publish an observation without consuming the draft the form
-                  had already saved, leaving the draft behind every time. Those drafts are still
-                  there, and they are not inert: opening a new observation for that teacher
-                  <strong>silently loads the old draft</strong>, so somebody starting fresh finds
-                  the previous visit&rsquo;s scores and notes already filled in.
-                </p>
-                <details>
-                  <summary>What has to be true before anything is deleted</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Not every draft is abandoned.</strong> People legitimately leave one
-                      part-written overnight. Deleting on age alone would throw away real work, so
-                      the test has to be that a published observation exists for the same observer,
-                      the same teacher and the same rubric &mdash; that is what makes a draft a
-                      leftover rather than a work in progress.
-                    </p>
-                    <p>
-                      <strong>Count first, then show, then delete.</strong> Nobody knows the size
-                      of this yet. It is one read-only query to find out, and the answer decides
-                      whether this is a handful to remove by hand or worth a script.
-                    </p>
-                    <p>
-                      The silent auto-load deserves a second look on its own account. It is
-                      reasonable behaviour for a draft somebody meant to keep and surprising for
-                      one they did not, and it gives no sign either way &mdash; the form simply
-                      opens with someone else&rsquo;s work in it.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">12</td>
             <td>
               <div class="task">
@@ -459,6 +416,56 @@
             </td>
             <td class="cat">Tooling</td>
             <td><span class="chip u-med">Medium</span></td>
+          </tr>
+          <tr>
+            <td class="p">2</td>
+            <td class="idcell">42</td>
+            <td>
+              <div class="task">
+                <h3>Clear the abandoned drafts already in the database</h3>
+                <p class="lineage">Turned up by #41, <code>2ae5e3e</code>. The cause is fixed; the rows it left are not.</p>
+                <p class="why">
+                  Three screens used to publish an observation without consuming the draft the form
+                  had already saved, leaving a copy behind every time. Those copies are still in
+                  people&rsquo;s draft lists: half-written duplicates of observations that were
+                  finished and submitted weeks ago.
+                </p>
+                <details>
+                  <summary>What has to be true before anything is deleted</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Not every draft is abandoned.</strong> People legitimately leave one
+                      part-written overnight. Deleting on age alone would throw away real work, so
+                      the test has to be that a published observation exists for the same observer,
+                      the same teacher and the same rubric &mdash; that is what makes a draft a
+                      leftover rather than a work in progress.
+                    </p>
+                    <p>
+                      <strong>Count first, then show, then delete.</strong> Nobody knows the size
+                      of this yet. It is one read-only query to find out, and the answer decides
+                      whether this is a handful to remove by hand or worth a script.
+                    </p>
+                    <p>
+                      <strong>What this is not.</strong> An earlier version of this entry said the
+                      leftovers silently reload themselves into the next observation for that
+                      teacher. They do not: every &ldquo;add an observation&rdquo; button opens a
+                      clean form, and the auto-load only runs where that is asked for, which is
+                      nowhere. They also reach no score, average or report &mdash; every figure in
+                      the tool excludes drafts outright.
+                    </p>
+                    <p>
+                      <strong>What it is.</strong> Clutter people have to read past to find real
+                      work, and one live risk: somebody resumes a leftover, does not recognise it
+                      as already-submitted, and files it &mdash; a second observation for a lesson
+                      that was recorded once. It takes a deliberate click, so it is a hazard rather
+                      than something happening on its own.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
             <td class="p">3</td>
