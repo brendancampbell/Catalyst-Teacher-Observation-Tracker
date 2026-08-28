@@ -1,14 +1,23 @@
 -- ⚠️  This one DELETES. Everything before it only read.
 --
--- Backlog #42. Thirteen drafts, listed by id rather than found by a rule —
+-- Backlog #42. Seventeen drafts, listed by id rather than found by a rule —
 -- each one was read, and each one's published twin was shown to contain its
--- writing. A rule could pick up a fourteenth tomorrow; a list cannot.
+-- writing. A rule could pick up an eighteenth tomorrow; a list cannot.
+--
+-- Thirteen the comparison cleared outright, plus four whose differing words
+-- turned out to be nothing:
+--   531  the draft's entire glow is the word "Glows"
+--   465  "Great job at" — a sentence abandoned mid-way
+--   591  the same paragraph as the twin, which is the fuller edit of it
+--   619  the same notes as the twin, reworded and expanded there
 --
 -- Not on this list, deliberately:
 --   370  its twin was published BEFORE it, which is the reverse of the bug,
 --        so whatever it is, it is not this
---   405, 441, 452, 455, 465, 531, 591, 619
---        their drafts hold words the published version does not
+--   455  the draft has a glow and the published observation has NONE
+--   405  the draft carries a glow the twin does not, and longer growth notes
+--   452  the draft's read of the lesson differs from the published one
+--   441  one clause and two scores the twin does not have — cheap to keep
 --
 -- Two guards, both of which abort the whole thing rather than half-do it:
 --   1. every id must still be a draft — if somebody resumed and published one
@@ -24,7 +33,7 @@ BEGIN;
 
 DO $$
 DECLARE
-  ids    int[] := ARRAY[265, 277, 350, 352, 463, 482, 485, 525, 534, 535, 540, 598, 627];
+  ids    int[] := ARRAY[265, 277, 350, 352, 463, 465, 482, 485, 525, 531, 534, 535, 540, 591, 598, 619, 627];
   n_draft int;
   n_steps int;
 BEGIN
@@ -54,12 +63,12 @@ SELECT o.id, o.date,
   FROM observations o
   LEFT JOIN people ob ON ob.employee_id = o.observer_employee_id
   LEFT JOIN people te ON te.employee_id = o.observed_employee_id
- WHERE o.id IN (265, 277, 350, 352, 463, 482, 485, 525, 534, 535, 540, 598, 627)
+ WHERE o.id IN (265, 277, 350, 352, 463, 465, 482, 485, 525, 531, 534, 535, 540, 591, 598, 619, 627)
  ORDER BY o.id;
 
 -- observation_scores cascades, so the scores go with them.
 DELETE FROM observations
- WHERE id IN (265, 277, 350, 352, 463, 482, 485, 525, 534, 535, 540, 598, 627)
+ WHERE id IN (265, 277, 350, 352, 463, 465, 482, 485, 525, 531, 534, 535, 540, 591, 598, 619, 627)
    AND status = 'draft';
 
 \echo ''
