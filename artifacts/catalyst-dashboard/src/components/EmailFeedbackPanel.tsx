@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   buildEmailPlainText, buildEmailHtml,
-  applicableSections, defaultSections, SECTION_LABELS,
+  applicableSections, defaultSections, normaliseSections, SECTION_LABELS,
   type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
 
@@ -38,15 +38,20 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
   function toggle(key: keyof EmailSections) {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }
+
+  /* What the email actually gets. The unscored rows cannot travel without the
+     scored ones; the raw choice is kept rather than cleared, so turning the
+     scored rows back on restores the sub-choice instead of losing it. */
+  const effective = useMemo(() => normaliseSections(sections), [sections]);
   const [emailTab,        setEmailTab]        = useState<"preview" | "edit">("edit");
   const [copiedHtml,      setCopiedHtml]      = useState(false);
 
   const liveHtmlEmail = useMemo(
-    () => buildEmailHtml(src, editableIntro, editableGlows, editableGrows, sections),
+    () => buildEmailHtml(src, editableIntro, editableGlows, editableGrows, effective),
     [src, editableIntro, editableGlows, editableGrows, sections],
   );
   const livePlainBody = useMemo(
-    () => buildEmailPlainText(src, editableIntro, sections).body,
+    () => buildEmailPlainText(src, editableIntro, effective).body,
     [src, editableIntro, sections],
   );
   const [editableSubject, setEditableSubject] = useState(() => buildEmailPlainText(src, initialIntro, defaultSections(src)).subject);
@@ -152,21 +157,30 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
                           Include in Email
                         </label>
                         <div className="flex flex-col gap-1">
-                          {SECTION_LABELS.map(({ key, label }) => {
+                          {SECTION_LABELS.map(({ key, label, underScoredRows }) => {
                             /* Shown either way. A line that vanished when it had
                                nothing behind it would leave people hunting for
                                an option that was never there. */
-                            const available = applicable[key];
+                            const present  = applicable[key];
+                            /* Indented under the scored rows, and greyed with
+                               them, so the dependency is visible before it is
+                               clicked rather than surprising afterwards. */
+                            const blocked  = !!underScoredRows && !sections.scoredRows;
+                            const enabled  = present && !blocked;
                             return (
                               <label
                                 key={key}
-                                className={`flex items-center gap-2 text-sm ${available ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"}`}
-                                title={available ? undefined : "Nothing of this kind on this observation"}
+                                className={`flex items-center gap-2 text-sm ${underScoredRows ? "ml-5" : ""} ${enabled ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"}`}
+                                title={
+                                  !present ? "Nothing of this kind on this observation"
+                                  : blocked ? "Include the scored rows first"
+                                  : undefined
+                                }
                               >
                                 <input
                                   type="checkbox"
-                                  checked={available && sections[key]}
-                                  disabled={!available}
+                                  checked={enabled && effective[key]}
+                                  disabled={!enabled}
                                   onChange={() => toggle(key)}
                                   className="w-4 h-4 rounded border-slate-300 accent-[#1034B4] disabled:opacity-50"
                                 />

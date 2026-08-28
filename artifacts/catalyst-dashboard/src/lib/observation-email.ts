@@ -109,13 +109,24 @@ export function defaultSections(src: EmailSource): EmailSections {
   return applicableSections(src);
 }
 
-export const SECTION_LABELS: { key: keyof EmailSections; label: string }[] = [
+export const SECTION_LABELS: { key: keyof EmailSections; label: string; underScoredRows?: true }[] = [
   { key: "scoredRows",   label: "Scored rubric rows" },
-  { key: "unscoredRows", label: "Unscored rubric rows" },
+  { key: "unscoredRows", label: "Unscored rubric rows", underScoredRows: true },
   { key: "glows",        label: "Glows" },
   { key: "grows",        label: "Grows" },
   { key: "actionSteps",  label: "Action steps" },
 ];
+
+/**
+ * The unscored rows ride with the scored ones; they cannot go alone.
+ *
+ * A rubric table of only the rows nobody scored is a list of what the observer
+ * did not look at, which is not feedback. The rule lives here rather than in
+ * the panel so it holds however the email is built.
+ */
+export function normaliseSections(sections: EmailSections): EmailSections {
+  return { ...sections, unscoredRows: sections.scoredRows && sections.unscoredRows };
+}
 
 export interface EmailSource {
   teacher: {
@@ -140,7 +151,8 @@ export interface EmailSource {
   priorObservations: { date: string; scores: Record<string, Score | undefined> }[];
 }
 
-export function buildEmailPlainText(src: EmailSource, introText: string | undefined, sections: EmailSections): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
+export function buildEmailPlainText(src: EmailSource, introText: string | undefined, rawSections: EmailSections): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
+  const sections = normaliseSections(rawSections);
   const teacher = src.teacher;
   const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
   const dateLabel = formatDateLong(src.date);
@@ -233,7 +245,8 @@ function richToEmailHtml(text: string, color: string): string {
   return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
 }
 
-export function buildEmailHtml(src: EmailSource, intro: string, glowsText: string, growsText: string, sections: EmailSections): string {
+export function buildEmailHtml(src: EmailSource, intro: string, glowsText: string, growsText: string, rawSections: EmailSections): string {
+  const sections = normaliseSections(rawSections);
   const teacher = src.teacher;
   const dateLabel = formatDateLong(src.date);
   const observer = src.observerName ?? "Your Observer";

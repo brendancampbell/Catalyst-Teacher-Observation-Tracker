@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildEmailHtml, buildEmailPlainText, defaultIntro,
-  applicableSections, defaultSections,
+  applicableSections, defaultSections, normaliseSections,
   type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
 
@@ -80,10 +80,26 @@ describe("the feedback email", () => {
       expect(body).not.toContain("Pacing");
     });
 
-    it("keeps unscored rows and drops scored ones", () => {
+    it("will not send the unscored rows on their own", () => {
+      /* A rubric table of only the rows nobody scored is a list of what the
+         observer did not look at. The rule is enforced in the builder, not
+         just greyed out in the panel, so it holds however this is called. */
       const body = buildEmailPlainText(twoDomains(), "i", only({ unscoredRows: true })).body;
+      expect(body).not.toContain("RUBRIC SCORES");
+      expect(body).not.toContain("Pacing");
+    });
+
+    it("sends both together when both are wanted", () => {
+      const body = buildEmailPlainText(twoDomains(), "i", only({ scoredRows: true, unscoredRows: true })).body;
+      expect(body).toContain("Planning");
       expect(body).toContain("Pacing");
-      expect(body).not.toContain("Planning");
+    });
+
+    it("normalises rather than clears, so the sub-choice survives", () => {
+      const kept = normaliseSections({ scoredRows: false, unscoredRows: true, glows: true, grows: true, actionSteps: true });
+      expect(kept.unscoredRows).toBe(false);
+      const back = normaliseSections({ scoredRows: true, unscoredRows: true, glows: true, grows: true, actionSteps: true });
+      expect(back.unscoredRows).toBe(true);
     });
 
     it("leaves the rubric out when neither is wanted", () => {
