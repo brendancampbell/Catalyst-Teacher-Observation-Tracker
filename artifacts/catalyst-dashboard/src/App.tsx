@@ -10,6 +10,7 @@ import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
 import TeacherProfilePage from "@/pages/TeacherProfile";
 import SupportPage from "@/pages/SupportPage";
+import NetworkActionCenterPage from "@/pages/network-action-center";
 import { UserProvider, useUser } from "@/context/UserContext";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import NotificationModal from "@/components/NotificationModal";
@@ -81,6 +82,9 @@ function Router() {
       </Route>
       <Route path="/action-center">
         <ProtectedRoute><ActionCenterPage /></ProtectedRoute>
+      </Route>
+      <Route path="/network-action-center">
+        <ProtectedRoute><NetworkActionCenterPage /></ProtectedRoute>
       </Route>
       <Route path="/support">
         <ProtectedRoute><SupportPage /></ProtectedRoute>

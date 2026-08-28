@@ -265,6 +265,9 @@ export default function DistrictDashboard({ onDrillDown, onSchoolProfile, active
             rubricSets={rubricSets}
             activeRubricSet={activeRubricSet}
             onRubricChange={onRubricChange}
+            /* Same button as everywhere else; where it lands follows where you
+               already are. On the network view that is the network. */
+            actionCenterHref={`${baseUrl}/network-action-center?rubric=${encodeURIComponent(activeRubricSet)}`}
           />
         </div>
       )}
