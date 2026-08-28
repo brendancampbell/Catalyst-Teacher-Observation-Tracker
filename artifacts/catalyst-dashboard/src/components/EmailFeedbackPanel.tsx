@@ -54,7 +54,6 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
     () => buildEmailPlainText(src, editableIntro, effective).body,
     [src, editableIntro, sections],
   );
-  const [editableSubject, setEditableSubject] = useState(() => buildEmailPlainText(src, initialIntro, defaultSections(src)).subject);
 
   async function writeRichHtmlToClipboard(html: string): Promise<void> {
     const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
@@ -139,56 +138,58 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
                 {/* Edit tab — subject + opening only */}
                 {emailTab === "edit" && (
                   <div className="flex flex-col gap-4 flex-1">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Subject Line
-                        </label>
-                        <input
-                          type="text"
-                          value={editableSubject}
-                          onChange={(e) => setEditableSubject(e.target.value)}
-                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                        />
-                      </div>
-                      <div className="shrink-0">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                          Include in Email
-                        </label>
-                        <div className="flex flex-col gap-1">
-                          {SECTION_LABELS.map(({ key, label, underScoredRows }) => {
-                            /* Shown either way. A line that vanished when it had
-                               nothing behind it would leave people hunting for
-                               an option that was never there. */
-                            const present  = applicable[key];
-                            /* Indented under the scored rows, and greyed with
-                               them, so the dependency is visible before it is
-                               clicked rather than surprising afterwards. */
-                            const blocked  = !!underScoredRows && !sections.scoredRows;
-                            const enabled  = present && !blocked;
-                            return (
-                              <label
-                                key={key}
-                                className={`flex items-center gap-2 text-sm ${underScoredRows ? "ml-5" : ""} ${enabled ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"}`}
-                                title={
-                                  !present ? "Nothing of this kind on this observation"
-                                  : blocked ? "Include the scored rows first"
-                                  : undefined
-                                }
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={enabled && effective[key]}
-                                  disabled={!enabled}
-                                  onChange={() => toggle(key)}
-                                  className="w-4 h-4 rounded border-slate-300 accent-[#1034B4] disabled:opacity-50"
-                                />
-                                {label}
-                              </label>
-                            );
-                          })}
-                        </div>
+                    {/* One row rather than a stacked list. Five ticked lines
+                        pushed the opening message off the bottom of a laptop
+                        screen, and this is a setting people glance at, not a
+                        form they fill in.
+
+                        The two rubric choices sit in one bordered group so the
+                        second reads as part of the first — the dependency the
+                        indent used to carry. */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        Include in Email
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {SECTION_LABELS.map(({ key, label, underScoredRows }) => {
+                          /* Shown either way. A chip that vanished when it had
+                             nothing behind it would leave people hunting for an
+                             option that was never there. */
+                          const present = applicable[key];
+                          const blocked = !!underScoredRows && !sections.scoredRows;
+                          const enabled = present && !blocked;
+                          const on      = enabled && effective[key];
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => enabled && toggle(key)}
+                              disabled={!enabled}
+                              aria-pressed={on}
+                              title={
+                                !present ? "Nothing of this kind on this observation"
+                                : blocked ? "Include the scored rows first"
+                                : undefined
+                              }
+                              className={[
+                                "flex items-center gap-1.5 rounded-full text-xs font-semibold transition-colors",
+                                "px-3 py-1.5 border",
+                                underScoredRows ? "-ml-1 rounded-l-none border-l-0" : "",
+                                enabled ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                              ].join(" ")}
+                              style={{
+                                backgroundColor: on ? NAVY : "white",
+                                borderColor:     on ? NAVY : "#dde3f0",
+                                color:           on ? "white" : enabled ? "#475569" : "#94a3b8",
+                              }}
+                            >
+                              <span aria-hidden className="text-[13px] leading-none">
+                                {on ? "✓" : "＋"}
+                              </span>
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div className="flex-1 flex flex-col">
