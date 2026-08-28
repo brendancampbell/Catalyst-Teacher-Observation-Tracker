@@ -4,7 +4,7 @@ import {
   schools, people, rubricSets, rubricCategories,
   observations, observationScores,
 } from "@workspace/db/schema";
-import { eq, inArray, and, isNotNull, desc } from "drizzle-orm";
+import { eq, inArray, and, isNotNull, desc, ne } from "drizzle-orm";
 import { TtlCache } from "../lib/ttl-cache";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 
@@ -275,6 +275,132 @@ router.get("/summary", async (req, res) => {
   } catch (err) {
     console.error("GET /district/summary error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── GET /api/district/schools/:schoolId/observations?rubricSet=<slug> ──
+   One school's school-wide observation history, in full.
+
+   /summary above answers "how are the schools doing" and returns averages
+   only; there is nothing behind a number to click on. The school profile page
+   asks the other question — what actually happened at this school — so it
+   needs the observations themselves.
+
+   Shaped like a teacher's observations on /dashboard, deliberately: the same
+   pop-up opens them, and the two must not drift into describing an observation
+   differently. Network scope is enforced on the router.                     */
+router.get("/schools/:schoolId/observations", async (req, res) => {
+  try {
+    const schoolId = Number(req.params.schoolId);
+    if (!Number.isFinite(schoolId)) {
+      res.status(400).json({ error: "Invalid school id" });
+      return;
+    }
+
+    const setSlug = (req.query.rubricSet as string) || (req.query.quarter as string) || "Q1";
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
+    const school = await db.query.schools.findFirst({ where: eq(schools.id, schoolId) });
+    if (!school) { res.status(404).json({ error: "School not found" }); return; }
+
+    const rubricSet = await db.query.rubricSets.findFirst({
+      where: and(eq(rubricSets.slug, setSlug), eq(rubricSets.schoolYearId, activeYearId)),
+    });
+    if (!rubricSet) { res.status(404).json({ error: `Rubric set '${setSlug}' not found` }); return; }
+    if (rubricSet.target !== "SCHOOL") {
+      /* A classroom rubric has no school-wide history to show, and answering
+         with an empty list would look like a school nobody has observed. */
+      res.status(400).json({ error: "That rubric is for classroom observations, not school-wide ones" });
+      return;
+    }
+
+    const categories = await db.query.rubricCategories.findMany({
+      where: eq(rubricCategories.rubricSetId, rubricSet.id),
+      orderBy: (c, { asc }) => [asc(c.displayOrder)],
+      with: { domains: { orderBy: (d, { asc }) => [asc(d.displayOrder)] } },
+    });
+
+    const obs = await db
+      .select()
+      .from(observations)
+      .where(and(
+        eq(observations.rubricSetId, rubricSet.id),
+        eq(observations.target, "SCHOOL"),
+        eq(observations.schoolId, schoolId),
+        eq(observations.schoolYearId, activeYearId),
+        ne(observations.status, "draft"),
+      ))
+      .orderBy(desc(observations.date));
+
+    /* Names for the audit line and the "observed by" row, in one round trip. */
+    const editorIds   = [...new Set(obs.map((o) => o.editedByEmployeeId).filter((id): id is string => id != null))];
+    const observerIds = [...new Set(obs.map((o) => o.observerEmployeeId).filter((id): id is string => id != null))];
+    const allPeopleIds = [...new Set([...editorIds, ...observerIds])];
+    const editorMap   = new Map<string, string>();
+    const observerMap = new Map<string, { name: string; email: string }>();
+    if (allPeopleIds.length > 0) {
+      const rows = await db
+        .select({ employeeId: people.employeeId, firstName: people.firstName, lastName: people.lastName, email: people.email })
+        .from(people)
+        .where(inArray(people.employeeId, allPeopleIds));
+      for (const p of rows) {
+        const fullName = `${p.firstName} ${p.lastName}`.trim();
+        if (editorIds.includes(p.employeeId))   editorMap.set(p.employeeId, fullName);
+        if (observerIds.includes(p.employeeId)) observerMap.set(p.employeeId, { name: fullName, email: p.email });
+      }
+    }
+
+    const obsIds = obs.map((o) => o.id);
+    const scoreRows = obsIds.length > 0
+      ? await db.select().from(observationScores).where(inArray(observationScores.observationId, obsIds))
+      : [];
+    const scoresByObs = new Map<number, Record<string, number>>();
+    for (const sc of scoreRows) {
+      if (!scoresByObs.has(sc.observationId)) scoresByObs.set(sc.observationId, {});
+      scoresByObs.get(sc.observationId)![sc.domainSlug] = sc.score;
+    }
+
+    res.json({
+      school: {
+        id:           school.id,
+        name:         school.displayName,
+        abbreviation: school.abbreviation,
+        gradeSpan:    school.gradeSpan,
+        region:       school.region,
+      },
+      rubricSet: {
+        id: rubricSet.id, slug: rubricSet.slug, name: rubricSet.name,
+        gradeSpan: rubricSet.gradeSpan, target: rubricSet.target,
+      },
+      categories: categories.map((cat) => ({
+        id: `cat_${cat.id}`,
+        label: cat.name,
+        domains: (cat.domains ?? []).map((d) => ({ id: d.slug, label: d.name, description: d.description ?? undefined })),
+      })),
+      observations: obs.map((o) => ({
+        id:                 String(o.id),
+        date:               o.date,
+        time:               o.time ?? undefined,
+        course:             o.course ?? undefined,
+        isWalkthrough:      o.isWalkthrough,
+        strengths:          o.strengths ?? undefined,
+        growthAreas:        o.growthAreas ?? undefined,
+        observer:           o.observerEmployeeId ? (observerMap.get(o.observerEmployeeId)?.name ?? "") : "",
+        observerEmployeeId: o.observerEmployeeId ?? undefined,
+        observerEmail:      o.observerEmployeeId ? (observerMap.get(o.observerEmployeeId)?.email ?? undefined) : undefined,
+        editedBy:           o.editedByEmployeeId ? (editorMap.get(o.editedByEmployeeId) ?? undefined) : undefined,
+        editedAt:           o.updatedAt?.toISOString() ?? undefined,
+        scores:             scoresByObs.get(o.id) ?? {},
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "GET /district/schools/:schoolId/observations failed");
+    res.status(500).json({ error: "Failed to load school observations" });
   }
 });
 

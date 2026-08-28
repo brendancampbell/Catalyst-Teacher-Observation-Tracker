@@ -42,6 +42,9 @@ export const QUERY_KEYS = {
   adminSchools:         ["adminSchools"]           as const,
   people:               ["people"]                 as const,
 
+  // ── School profile ───────────────────────────────────────────────
+  schoolObservations:   ["school-observations"]    as const,
+
   // ── Teacher profile ──────────────────────────────────────────────
   actionSteps:          ["action-steps"]           as const,
   personName:           ["person-name"]            as const,

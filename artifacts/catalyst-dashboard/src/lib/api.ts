@@ -441,6 +441,26 @@ export async function fetchDashboard(rubricSetSlug = "Q1", schoolId?: number | n
   return apiFetch<DashboardData>(`/dashboard?${params.toString()}`);
 }
 
+/* ── School profile ────────────────────────────────────────────── */
+
+import type { SchoolObservationHistory } from "@workspace/api-types";
+
+/**
+ * One school's school-wide observation history.
+ *
+ * The district summary answers "how are the schools doing" with averages and
+ * nothing behind them. This answers what actually happened at one school, and
+ * is what the school profile page is built on.
+ */
+export async function fetchSchoolObservations(
+  schoolId: number,
+  rubricSetSlug: string,
+): Promise<SchoolObservationHistory> {
+  return apiFetch<SchoolObservationHistory>(
+    `/district/schools/${schoolId}/observations?rubricSet=${encodeURIComponent(rubricSetSlug)}`,
+  );
+}
+
 /* ── Action Center ─────────────────────────────────────────────── */
 
 import type { RescoreQueueItem, OverdueTeacher } from "@workspace/api-types";

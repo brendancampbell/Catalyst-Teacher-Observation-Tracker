@@ -99,12 +99,17 @@ interface Props {
      Without it every row reads "New", which is why callers that have the
      history pass it. */
   priorObservations?: { id: string; date: string; scores: Record<string, Score | undefined> }[];
+  /* A school-wide observation is about a school, not a person. It has no
+     teacher to email, and no action steps — the server only allows those on
+     teacher observations — so both are absent rather than empty. `teacher`
+     carries the school's name and grade span in that case. */
+  schoolWide?: boolean;
   onDelete?: (observationId: string) => Promise<void>;
 }
 
 export function ObservationDetailModal({
   teacher, observation, categories, canEdit, open, onOpenChange, onSave, onDelete,
-  reassignableTeachers, priorObservations,
+  reassignableTeachers, priorObservations, schoolWide = false,
 }: Props) {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -640,6 +645,7 @@ export function ObservationDetailModal({
                         offers the moment an observation is filed — an
                         observation emailed today and one emailed weeks later
                         should look identical to the teacher. */}
+                    {!schoolWide && (
                     <button
                       type="button"
                       onClick={() => setEmailOpen(true)}
@@ -649,6 +655,7 @@ export function ObservationDetailModal({
                       <Mail size={13} />
                       Email to Teacher
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={startEdit}

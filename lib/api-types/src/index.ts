@@ -268,6 +268,21 @@ export interface DashboardData {
   teachers:        Teacher[];
 }
 
+export interface SchoolObservationHistory {
+  school: {
+    id:           number;
+    name:         string;
+    abbreviation: string | null;
+    gradeSpan:    string | null;
+    region:       string | null;
+  };
+  rubricSet:    RubricSetInfo;
+  categories:   CategoryEntry[];
+  /* Newest first. School-wide observations have no teacher attached, which is
+     why they cannot appear on any teacher's page and need one of their own. */
+  observations: Observation[];
+}
+
 /* ── District ────────────────────────────────────────────────────── */
 
 export interface DistrictSchoolRow {
