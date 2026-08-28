@@ -180,6 +180,57 @@ describe("the feedback email", () => {
     });
   });
 
+  /* Outlook renders HTML with Word's engine, which ignores a good deal of CSS
+     and helps itself to spacing you did not ask for. These pin the handful of
+     things that actually decide whether a pasted email holds together. */
+  describe("surviving Outlook", () => {
+    const html = () => buildEmailHtml(
+      src({ strengths: "<p>First point</p><p>Second point</p>" }),
+      "Dear Meg,", "<p>First point</p><p>Second point</p>", "Grow", ALL);
+
+    it("loads no images", () => {
+      /* A remote logo survives or breaks on the recipient's image settings,
+         which is one person getting a header and the next a broken box. */
+      expect(html()).not.toContain("<img");
+    });
+
+    it("states background colours as an attribute as well as CSS", () => {
+      /* Word drops background declared only in CSS, which is how the coloured
+         glows and grows panels arrive as plain white boxes. */
+      const out = html();
+      const cssBackgrounds = out.match(/<(?:td|table)[^>]*style="background:#[0-9A-Fa-f]{6}/g) ?? [];
+      expect(cssBackgrounds.length).toBeGreaterThan(0);
+      for (const tag of cssBackgrounds) {
+        expect(tag).toContain("bgcolor=");
+      }
+    });
+
+    it("turns table borders off explicitly", () => {
+      /* Word draws a hairline around tables that do not say otherwise. */
+      for (const tag of html().match(/<table[^>]*>/g) ?? []) {
+        expect(tag).toContain('border="0"');
+      }
+    });
+
+    it("pins line height in a way Word honours", () => {
+      expect(html()).toContain("mso-line-height-rule:exactly");
+    });
+
+    it("stops Word inflating the gaps between paragraphs", () => {
+      /* The editor emits bare <p>, and Word gives each one ~14pt of space
+         after it — the write-up arrives looking nothing like the preview. */
+      const out = html();
+      expect(out).toContain('<p style="margin:0 0 8px;">First point</p>');
+      expect(out).not.toMatch(/<p>First point/);
+    });
+
+    it("declares its character set", () => {
+      /* Otherwise the receiving app guesses, and the dashes and ticks in here
+         arrive as rubble. */
+      expect(html()).toContain('<meta charset="UTF-8"/>');
+    });
+  });
+
   it("escapes anything a person typed", () => {
     const nasty = src({ teacher: { name: '<img src=x onerror=alert(1)>', gradeLevel: [] } });
     const html = buildEmailHtml(nasty, "i", "g", "r", ALL);

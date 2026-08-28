@@ -238,11 +238,24 @@ export function buildEmailPlainText(src: EmailSource, introText: string | undefi
   return { subject, body, mailtoUrl, outlookWebUrl };
 }
 
+/**
+ * Word gives every paragraph roughly 14pt of space after it unless told not
+ * to, so rich text pasted into Outlook opens up into a gappy mess that looks
+ * nothing like the preview. The editor emits bare <p> and <li> tags; each one
+ * gets an explicit margin on the way out.
+ */
+function tightenParagraphs(html: string): string {
+  return html
+    .replace(/<p(?![^>]*style=)/gi, '<p style="margin:0 0 8px;"')
+    .replace(/<li(?![^>]*style=)/gi, '<li style="margin:0 0 4px;"')
+    .replace(/<(ul|ol)(?![^>]*style=)/gi, '<$1 style="margin:0 0 8px;padding-left:22px;"');
+}
+
 function richToEmailHtml(text: string, color: string): string {
   if (!text?.trim()) return `<p style="margin:0;font-size:13px;color:${color};font-style:italic;">(none entered)</p>`;
   const isHtml = /<[a-z][\s\S]*>/i.test(text);
-  if (isHtml) return `<div style="font-size:13px;color:${color};line-height:1.6;">${sanitizeEmailRichText(text)}</div>`;
-  return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
+  if (isHtml) return `<div style="font-size:13px;color:${color};mso-line-height-rule:exactly;line-height:22px;">${tightenParagraphs(sanitizeEmailRichText(text))}</div>`;
+  return `<p style="margin:0;font-size:13px;color:${color};mso-line-height-rule:exactly;line-height:22px;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
 }
 
 export function buildEmailHtml(src: EmailSource, intro: string, glowsText: string, growsText: string, rawSections: EmailSections): string {
@@ -250,8 +263,6 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
   const teacher = src.teacher;
   const dateLabel = formatDateLong(src.date);
   const observer = src.observerName ?? "Your Observer";
-  const logoUrl = `${window.location.origin}/uncommon-logo-white.png`;
-  const logoStyle = "display:block;height:36px;max-width:180px;";
 
   const scoredVals = allDomainsOf(src.categories).map((d) => src.scores[d.id]).filter((v): v is Score => v !== undefined);
   const overallAvg = scoredVals.length
@@ -302,7 +313,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
       if (domainsToShow.length === 0) continue;
       scoreTableRows += `
       <tr>
-        <td colspan="3" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${escapeEmailHtml(cat.label)}</td>
+        <td colspan="3" bgcolor="#1034B4" style="background:#1034B4;color:#fff;font-family:'Bebas Neue',Arial,sans-serif;font-size:15px;letter-spacing:0.06em;padding:8px 14px;text-transform:uppercase;">${escapeEmailHtml(cat.label)}</td>
       </tr>`;
       let catTotal = 0, catCount = 0;
       for (const domain of domainsToShow) {
@@ -350,17 +361,21 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
 <title>Observation Feedback</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Libre Franklin',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f1f5f9" style="background:#f1f5f9;padding:24px 0;">
 <tr><td align="center">
-  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <table width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
 
     <!-- Header -->
     <tr>
-      <td style="background:#1034B4;padding:20px 28px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
+      <td bgcolor="#1034B4" style="background:#1034B4;padding:20px 28px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td>
-              <img src="${escapeEmailHtml(logoUrl)}" alt="Uncommon Schools" height="36" style="${logoStyle}"/>
+              <!-- Set in type, not loaded as an image. A remote logo survives
+                   or breaks depending on the recipient's Outlook image
+                   settings and whether it can reach the site, which is how one
+                   person got the header and the next got a broken box. -->
+              <span style="font-family:'Bebas Neue',Impact,Arial Narrow,sans-serif;font-size:26px;letter-spacing:0.08em;color:#ffffff;text-transform:uppercase;mso-line-height-rule:exactly;line-height:30px;">Uncommon Schools</span>
             </td>
             <td align="right" style="color:#bfcbf7;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;vertical-align:middle;">
               Observation Feedback
@@ -371,12 +386,12 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     </tr>
 
     <!-- Yellow accent bar -->
-    <tr><td style="background:#FFB500;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td bgcolor="#FFB500" style="background:#FFB500;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
 
     <!-- Greeting -->
     <tr>
       <td style="padding:28px 28px 0 28px;">
-        <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${escapeEmailHtml(intro).replace(/\n/g, "<br/>")}</p>
+        <p style="margin:0;font-size:14px;color:#475569;mso-line-height-rule:exactly;line-height:22px;">${escapeEmailHtml(intro).replace(/\n/g, "<br/>")}</p>
       </td>
     </tr>
 
@@ -384,7 +399,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     <tr>
       <td style="padding:24px 28px 0 28px;">
         <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Observation Details</p>
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
           <tr style="border-bottom:1px solid #e2e8f0;">
             <td style="padding:8px 14px;font-size:12px;font-weight:700;color:#64748b;width:110px;background:#f8fafc;">Date</td>
             <td style="padding:8px 14px;font-size:13px;color:#1e293b;">${escapeEmailHtml(dateLabel)}</td>
@@ -422,7 +437,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     <tr>
       <td style="padding:24px 28px 0 28px;">
         <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;">Rubric Scores</p>
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
           <thead>
             <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
               <th style="padding:7px 14px;font-size:11px;font-weight:700;text-align:left;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Domain</th>
@@ -440,7 +455,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     <!-- Glows -->
     ${sections.glows ? `<tr>
       <td style="padding:24px 28px 0 28px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0fdf4" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
           <tr>
             <td style="padding:14px 16px;">
               <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#16a34a;">✦ Teacher Strengths (Glows)</p>
@@ -454,7 +469,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     <!-- Grows -->
     ${sections.grows ? `<tr>
       <td style="padding:16px 28px 0 28px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fff7ed" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
           <tr>
             <td style="padding:14px 16px;">
               <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#ea580c;">↑ Growth Areas (Grows)</p>
@@ -501,7 +516,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     <!-- Action Steps -->
     <tr>
       <td style="padding:16px 28px 0 28px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f9ff" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;">
           <tr>
             <td style="padding:14px 16px 6px 16px;">
               <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0369a1;">◎ Action Step</p>
@@ -509,7 +524,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
           </tr>
           <tr>
             <td style="padding:0 6px 6px 6px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:4px;overflow:hidden;">
                 ${rows}
               </table>
             </td>

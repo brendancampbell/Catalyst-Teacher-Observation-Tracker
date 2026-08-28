@@ -63,8 +63,11 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
       try {
         await navigator.clipboard.write([
           new ClipboardItem({
-            "text/html":  new Blob([html],  { type: "text/html"  }),
-            "text/plain": new Blob([plain], { type: "text/plain" }),
+            /* charset spelled out. Without it the receiving app guesses, and
+               Outlook guessing wrong is how an em dash becomes "â€"" and the
+               tick marks turn to rubble. */
+            "text/html":  new Blob([html],  { type: "text/html;charset=utf-8"  }),
+            "text/plain": new Blob([plain], { type: "text/plain;charset=utf-8" }),
           }),
         ]);
         return;
