@@ -7,7 +7,7 @@ import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/compon
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 import { useUser } from "@/context/UserContext";
 import { QUERY_KEYS } from "@/lib/queryKeys";
-import { fetchSchoolObservations, updateObservation, deleteObservation } from "@/lib/api";
+import { fetchSchoolObservations, fetchDistrictSummary, updateObservation, deleteObservation } from "@/lib/api";
 import { canEditObservation } from "@/lib/observation-permissions";
 import type { Observation, RubricSetRow, Score } from "@/lib/api";
 
@@ -81,6 +81,22 @@ export function SchoolProfileOverlay({
   const daysSince = recent
     ? Math.round((Date.now() - new Date(recent.date + "T00:00:00").getTime()) / 86_400_000)
     : null;
+
+  /* Where a mis-filed observation can be moved to. The network summary is
+     already the list of schools on this rubric, so nothing new is fetched to
+     answer it. Home Office is not a school anybody observes; the server
+     refuses it too. */
+  const { data: districtData } = useQuery({
+    queryKey: [...QUERY_KEYS.districtSummary, selectedSlug, "schools-for-move"],
+    queryFn:  () => fetchDistrictSummary(selectedSlug, "recent"),
+    staleTime: 5 * 60_000,
+  });
+  const reassignableSchools = useMemo(
+    () => (districtData?.schools ?? [])
+      .map((sc) => ({ id: sc.id, name: sc.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [districtData],
+  );
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolObservations });
@@ -252,6 +268,8 @@ export function SchoolProfileOverlay({
           open={!!selected}
           onOpenChange={(o) => { if (!o) setSelected(null); }}
           priorObservations={observations}
+          reassignableSchools={reassignableSchools}
+          currentSchoolId={schoolId}
           onSave={async (updated) => {
             const saved = await updateObservation(updated.id, {
               strengths:     updated.strengths,
@@ -260,8 +278,15 @@ export function SchoolProfileOverlay({
               date:          updated.date,
               time:          updated.time ?? null,
               isWalkthrough: updated.isWalkthrough,
+              ...(updated.schoolId !== undefined ? { schoolId: updated.schoolId } : {}),
             });
-            setSelected(saved);
+            /* Moved away: it is no longer this school's, so close rather than
+               show a record that has gone elsewhere. */
+            if (updated.schoolId !== undefined && updated.schoolId !== schoolId) {
+              setSelected(null);
+            } else {
+              setSelected(saved);
+            }
             await refresh();
           }}
           onDelete={canEditObservation(selected, currentUser) ? async (observationId) => {

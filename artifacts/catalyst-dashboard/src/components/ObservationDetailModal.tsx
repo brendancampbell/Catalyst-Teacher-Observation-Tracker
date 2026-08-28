@@ -88,7 +88,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /* observedEmployeeId rides alongside because Observation itself does not
      carry the teacher — the modal is always shown in the context of one. */
-  onSave: (updated: Observation & { observedEmployeeId?: string }) => Promise<void>;
+  onSave: (updated: Observation & { observedEmployeeId?: string; schoolId?: number }) => Promise<void>;
   /* Teachers at this observation's school. Supplied by callers that have the
      list; without it the teacher cannot be changed, which is the right
      default for anywhere that does not know the roster. */
@@ -104,12 +104,19 @@ interface Props {
      teacher observations — so both are absent rather than empty. `teacher`
      carries the school's name and grade span in that case. */
   schoolWide?: boolean;
+  /* Where a school-wide observation can be moved to — the counterpart of
+     reassigning a teacher observation. Supplied only by callers that hold the
+     school list; without it the school is fixed, which is the right default
+     anywhere that does not know the network. */
+  reassignableSchools?: { id: number; name: string }[];
+  currentSchoolId?: number;
   onDelete?: (observationId: string) => Promise<void>;
 }
 
 export function ObservationDetailModal({
   teacher, observation, categories, canEdit, open, onOpenChange, onSave, onDelete,
   reassignableTeachers, priorObservations, schoolWide = false,
+  reassignableSchools, currentSchoolId,
 }: Props) {
   const [editing, setEditing]           = useState(false);
   const [saving, setSaving]             = useState(false);
@@ -130,6 +137,7 @@ export function ObservationDetailModal({
   const [draftTime, setDraftTime]       = useState(observation.time ?? "");
   const [draftWalkthrough, setDraftWalkthrough] = useState(!!observation.isWalkthrough);
   const [draftTeacherId, setDraftTeacherId]     = useState<string>(teacher.employeeId ?? "");
+  const [draftSchoolId,  setDraftSchoolId]      = useState<number | undefined>(currentSchoolId);
 
   /* ── Action step data ──────────────────────────────────────────── */
   const [assignedSteps, setAssignedSteps] = useState<ActionStep[]>([]);
@@ -220,6 +228,7 @@ export function ObservationDetailModal({
     setDraftTime(observation.time ?? "");
     setDraftWalkthrough(!!observation.isWalkthrough);
     setDraftTeacherId(teacher.employeeId ?? "");
+    setDraftSchoolId(currentSchoolId);
     setSaveError(null);
     setEditing(true);
   }
@@ -243,6 +252,9 @@ export function ObservationDetailModal({
         isWalkthrough: draftWalkthrough,
         ...(draftTeacherId && draftTeacherId !== teacher.employeeId
           ? { observedEmployeeId: draftTeacherId }
+          : {}),
+        ...(draftSchoolId !== undefined && draftSchoolId !== currentSchoolId
+          ? { schoolId: draftSchoolId }
           : {}),
       });
       setEditing(false);
@@ -374,6 +386,25 @@ export function ObservationDetailModal({
                       >
                         {reassignableTeachers.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {/* The same correction for a school-wide observation: the
+                      mistake is picking the wrong school off the network list.
+                      Unlike the teacher version this genuinely moves the
+                      record between schools, which is why the server allows it
+                      to network roles only. */}
+                  {schoolWide && reassignableSchools && reassignableSchools.length > 0 && (
+                    <label className="flex flex-col gap-1 min-w-[16rem]">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">School observed</span>
+                      <select
+                        value={draftSchoolId ?? ""}
+                        onChange={(e) => setDraftSchoolId(Number(e.target.value))}
+                        className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                      >
+                        {reassignableSchools.map((sc) => (
+                          <option key={sc.id} value={sc.id}>{sc.name}</option>
                         ))}
                       </select>
                     </label>

@@ -349,6 +349,9 @@ export interface UpdateObservationPayload {
   time?:               string | null;
   course?:             string | null;
   observedEmployeeId?: string;
+  /* Moving a school-wide observation to another school — the counterpart of
+     correcting the wrong teacher. Network roles only, enforced on the server. */
+  schoolId?:           number;
   strengths?:          string;
   growthAreas?:        string;
   observer?:           string;

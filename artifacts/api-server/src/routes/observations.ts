@@ -874,6 +874,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
          is constrained to the observation's own school — see below. */
       date: newDate, time: newTime, course: newCourse,
       isWalkthrough: newIsWalkthrough, observedEmployeeId: newObservedId,
+      schoolId: newSchoolId,
     } = req.body as {
       strengths?: string;
       growthAreas?: string;
@@ -884,6 +885,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       course?: string | null;
       isWalkthrough?: boolean;
       observedEmployeeId?: string;
+      schoolId?: number;
       newActionStep?: { text: string; dueDate: string };
       masterActionStepId?: number;
       extendActionStep?: ExtendActionStepInput;
@@ -957,6 +959,35 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     if (newIsWalkthrough !== undefined && typeof newIsWalkthrough !== "boolean") {
       res.status(400).json({ error: "isWalkthrough must be true or false" });
       return;
+    }
+
+    /* Moving a school-wide observation to a different school.
+       The counterpart of correcting the wrong teacher: the mistake it exists
+       to fix is picking the wrong school from the network list.
+
+       Network roles only, and deliberately stricter than the rest of this
+       route. Every other correction leaves the observation where it is; this
+       one hands it to a different school, and the school it leaves is the one
+       whose leaders could reach it. Somebody who can only see one school
+       should not be able to push a record out of it. */
+    let movedFromSchoolId: number | null = null;
+    if (newSchoolId !== undefined && newSchoolId !== existing.schoolId) {
+      if (existing.target !== "SCHOOL") {
+        res.status(400).json({ error: "Only a school-wide observation can be moved between schools" });
+        return;
+      }
+      const isNetwork = currentUser.role === "NETWORK_LEADER" || currentUser.role === "NETWORK_ADMIN";
+      if (!isNetwork) {
+        res.status(403).json({ error: "Only Network Leaders and Network Admins may move an observation to another school" });
+        return;
+      }
+      const nextSchool = await db.query.schools.findFirst({ where: eq(schools.id, Number(newSchoolId)) });
+      if (!nextSchool) { res.status(404).json({ error: "School not found" }); return; }
+      if (nextSchool.isHomeOffice) {
+        res.status(400).json({ error: "The Home Office is not a school to observe" });
+        return;
+      }
+      movedFromSchoolId = existing.schoolId;
     }
 
     /* Reassigning an observation to a different teacher, within the same
@@ -1142,6 +1173,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
           ...(newTime           !== undefined ? { time:               newTime || null }        : {}),
           ...(newCourse         !== undefined ? { course:             newCourse || null }      : {}),
           ...(newIsWalkthrough  !== undefined ? { isWalkthrough:      newIsWalkthrough }       : {}),
+          ...(movedFromSchoolId !== null      ? { schoolId:           Number(newSchoolId) }    : {}),
           ...(newObservedId     !== undefined ? { observedEmployeeId: String(newObservedId) }  : {}),
           /* While it is a draft, keep the intended step here so resuming can
              show it. Publishing creates the real step below and clears these,
