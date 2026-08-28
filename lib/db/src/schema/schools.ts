@@ -18,7 +18,11 @@ export const schools = pgTable("schools", {
   isActive:     boolean("is_active").notNull().default(true),
   isArchived:   boolean("is_archived").notNull().default(false),
   isHomeOffice: boolean("is_home_office").notNull().default(false),
-  schoolNumber: text("school_number"),
+  /* NOT NULL since migration 0006, which the declaration never caught up with.
+     Every environment built from the migrations has the constraint; only this
+     line said otherwise, and check:schema-sync had never run against a database
+     built from empty to notice. */
+  schoolNumber: text("school_number").notNull(),
   createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:    timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
