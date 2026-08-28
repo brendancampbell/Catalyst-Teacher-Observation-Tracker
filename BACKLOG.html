@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 61e1ff4</p>
+    <p class="eyebrow">Live list &middot; updated 28 August 2026 &middot; 3349de1</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -333,7 +333,7 @@
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
       <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>7</b> unranked</span>
-      <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
+      <span><b>306</b> front-end passing &middot; <b>392</b> server, plus 11 new awaiting a run</span>
     </div>
   </header>
 
@@ -1145,6 +1145,75 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">43</td>
+            <td>
+              <div class="task">
+                <h3>School-wide rubrics catch up with classroom ones</h3>
+                <p class="lineage"><code>55806a7</code> &rarr; <code>92b1222</code>, tests in <code>3349de1</code></p>
+                <p class="why">
+                  A year of work had gone into what you can do with a classroom observation &mdash;
+                  open it, correct it, email it, see a history. A school-wide observation had almost
+                  none of it. A school&rsquo;s name on the network view was not even clickable.
+                </p>
+                <details>
+                  <summary>What was built, and what was deliberately left out</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>A school profile page</strong>, the teacher profile&rsquo;s counterpart
+                      and deliberately its shape: the same stat cards, the same domain scores and
+                      trend arrows, the same observation cards, the same pop-up for correcting one.
+                      A rubric switcher across school-wide rubrics, and a link across to that
+                      school&rsquo;s dashboard for classroom observations, landing on whichever
+                      rubric the reader last used. Clicking a school on a classroom rubric still
+                      goes to the dashboard, as before.
+                    </p>
+                    <p>
+                      Almost all of it was lifted out of the teacher page rather than rebuilt, so
+                      the two cannot answer the same question differently. That matters most for the
+                      trend arrow, which compares the earliest score to the latest so a single bad
+                      day does not read as a decline.
+                    </p>
+                    <p>
+                      <strong>Moving an observation to the right school</strong> &mdash; the
+                      counterpart of correcting the wrong teacher, and the same mistake underneath.
+                      Stricter than every other correction on that route, deliberately: the others
+                      leave an observation where it is, this one hands it to a different school, so
+                      it is network-only and enforced on the server rather than merely hidden in a
+                      network-only screen.
+                    </p>
+                    <p>
+                      <strong>A network action center</strong> with the two tabs that survive being
+                      widened. Most of the school version answers questions that only exist at one
+                      school &mdash; who needs rescoring, whose observations are overdue &mdash; and
+                      a network-wide list of those is a list nobody owns. Summary and Usage remain.
+                      Usage needed nothing built: it had always answered network-wide and was only
+                      ever being asked about one school.
+                    </p>
+                    <p>
+                      <strong>Three things are absent by design.</strong> No action steps on a school
+                      profile, because the server does not allow them on school-wide observations.
+                      No email, because there is no teacher to write to. No Qualitative Trends on the
+                      network summary, by request. Network Comparison, which measures one school
+                      against the network, became the network&rsquo;s own version of that question:
+                      the schools ranked against each other.
+                    </p>
+                    <p>
+                      <strong>A caution recorded here because it was wrong.</strong> Moving an
+                      observation between schools was flagged as changing who could see it. It does
+                      not: school leaders cannot reach school-wide observations at all, the network
+                      view is closed to them and their own dashboard walks each observation back to
+                      the teacher it is about, which a school-wide one does not have. The usage
+                      figures do not move either &mdash; they count by observer, not by school.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">School-wide rubrics</td>
+            <td><span class="chip u-done">28 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">26</td>
