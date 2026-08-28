@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   buildEmailPlainText, buildEmailHtml,
-  applicableSections, defaultSections, normaliseSections, SECTION_LABELS,
+  defaultSections, normaliseSections, SECTION_LABELS,
   type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
 
@@ -32,8 +32,7 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
   const [editableGrows]   = useState(initialGrows);
   /* Fresh on every email. A choice made weeks ago should not quietly shape
      what a teacher receives today. */
-  const applicable = useMemo(() => applicableSections(src), [src]);
-  const [sections, setSections] = useState<EmailSections>(() => defaultSections(src));
+  const [sections, setSections] = useState<EmailSections>(defaultSections);
 
   function toggle(key: keyof EmailSections) {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -155,12 +154,12 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
                       </label>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {SECTION_LABELS.map(({ key, label, underScoredRows }) => {
-                          /* Shown either way. A chip that vanished when it had
-                             nothing behind it would leave people hunting for an
-                             option that was never there. */
-                          const present = applicable[key];
-                          const blocked = !!underScoredRows && !sections.scoredRows;
-                          const enabled = present && !blocked;
+                          /* The only thing that switches a chip off is the one
+                             real dependency below. An observation with no
+                             action step leaves that chip on and simply has no
+                             action step to print — the tool has no business
+                             overruling the observer about the rest. */
+                          const enabled = !(underScoredRows && !sections.scoredRows);
                           const on      = enabled && effective[key];
                           return (
                             <button
@@ -169,11 +168,7 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
                               onClick={() => enabled && toggle(key)}
                               disabled={!enabled}
                               aria-pressed={on}
-                              title={
-                                !present ? "Nothing of this kind on this observation"
-                                : blocked ? "Include the scored rows first"
-                                : undefined
-                              }
+                              title={enabled ? undefined : "Include the scored rows first"}
                               className={[
                                 "flex items-center gap-1.5 rounded-full text-xs font-semibold transition-colors",
                                 "px-3 py-1.5 border",

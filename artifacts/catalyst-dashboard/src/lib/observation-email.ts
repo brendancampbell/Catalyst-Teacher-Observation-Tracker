@@ -85,28 +85,16 @@ export interface EmailActionSteps {
 }
 
 /**
- * Which of the five lines this observation can actually offer.
+ * All five, ticked. Where every email starts.
  *
- * A line with nothing behind it is shown but not tickable — an empty greyed
- * box says "there is nothing here", which is both true and better than hiding
- * the line and leaving somebody wondering where action steps went.
+ * These were once greyed out when the observation had nothing of that kind —
+ * no action step, say. It read as the tool overruling the observer, and the
+ * greying was doing no work: a section with nothing in it renders nothing,
+ * so leaving it ticked costs the reader nothing either. The only thing that
+ * greys out now is a genuine dependency, in normaliseSections below.
  */
-export function applicableSections(src: EmailSource): EmailSections {
-  const domains = allDomainsOf(src.categories);
-  const stripped = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
-
-  return {
-    scoredRows:   domains.some((d) => src.scores[d.id] !== undefined),
-    unscoredRows: domains.some((d) => src.scores[d.id] === undefined),
-    glows:        stripped(src.strengths).length   > 0,
-    grows:        stripped(src.growthAreas).length > 0,
-    actionSteps:  !!(src.steps.assigned || src.steps.mastered || src.steps.stillOpen),
-  };
-}
-
-/** Everything that applies, ticked. Where every email starts. */
-export function defaultSections(src: EmailSource): EmailSections {
-  return applicableSections(src);
+export function defaultSections(): EmailSections {
+  return { scoredRows: true, unscoredRows: true, glows: true, grows: true, actionSteps: true };
 }
 
 export const SECTION_LABELS: { key: keyof EmailSections; label: string; underScoredRows?: true }[] = [

@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildEmailHtml, buildEmailPlainText, defaultIntro,
-  applicableSections, defaultSections, normaliseSections,
+  defaultSections, normaliseSections,
   type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
 
@@ -129,31 +129,25 @@ describe("the feedback email", () => {
     });
   });
 
-  describe("which lines are offered at all", () => {
-    it("offers everything when everything is there", () => {
-      const full = src({ steps: { assigned: { text: "step", dueDate: "2026-09-01" } } });
-      expect(defaultSections(full)).toEqual({
-        scoredRows: true, unscoredRows: false, glows: true, grows: true, actionSteps: true,
+  describe("where every email starts", () => {
+    it("offers all five, ticked", () => {
+      expect(defaultSections()).toEqual({
+        scoredRows: true, unscoredRows: true, glows: true, grows: true, actionSteps: true,
       });
     });
 
-    it("does not offer action steps when there are none", () => {
-      expect(applicableSections(src()).actionSteps).toBe(false);
+    it("does not care what the observation happens to contain", () => {
+      /* These used to grey out when there was nothing of that kind. It read as
+         the tool overruling the observer, and it bought nothing: a section
+         with nothing in it prints nothing either way. */
+      expect(defaultSections()).toEqual(defaultSections());
     });
 
-    it("does not offer glows when nothing was written", () => {
-      /* Tiptap leaves "<p></p>" behind for an untouched editor, which is not
-         writing and must not read as it. */
-      expect(applicableSections(src({ strengths: "<p></p>" })).glows).toBe(false);
-      expect(applicableSections(src({ strengths: "  " })).glows).toBe(false);
-    });
-
-    it("does not offer unscored rows when every row is scored", () => {
-      expect(applicableSections(src()).unscoredRows).toBe(false);
-    });
-
-    it("does not offer scored rows when nothing was scored", () => {
-      expect(applicableSections(src({ scores: {} })).scoredRows).toBe(false);
+    it("prints nothing for a section that is on but empty", () => {
+      const bare = src({ steps: {}, scores: {} });
+      const out = buildEmailHtml(bare, "i", "", "", ALL);
+      expect(out).not.toContain("RUBRIC SCORES");
+      expect(out).not.toContain("Action Step");
     });
   });
 

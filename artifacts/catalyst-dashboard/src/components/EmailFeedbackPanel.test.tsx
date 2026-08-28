@@ -51,19 +51,28 @@ describe("Include in Email", () => {
     }
   });
 
-  it("starts with everything applicable turned on", () => {
+  it("starts with all five turned on", () => {
     show();
-    expect(chip(/Scored rubric rows/).getAttribute("aria-pressed")).toBe("true");
-    expect(chip(/Glows/).getAttribute("aria-pressed")).toBe("true");
+    for (const label of [/Scored rubric rows/, /Unscored rubric rows/, /Glows/, /Grows/, /Action steps/]) {
+      expect(chip(label).getAttribute("aria-pressed")).toBe("true");
+    }
   });
 
-  it("shows an inapplicable one greyed and off, not hidden", () => {
-    /* No action step on this observation. The chip stays so nobody hunts for
-       an option that was never there. */
+  it("leaves a chip on even when the observation has nothing of that kind", () => {
+    /* This observation has no action step. The chip stays on and clickable —
+       the section simply prints nothing. Greying it read as the tool
+       overruling the observer, and bought nothing. */
     show();
     const steps = chip(/Action steps/);
-    expect(steps.hasAttribute("disabled")).toBe(true);
-    expect(steps.getAttribute("aria-pressed")).toBe("false");
+    expect(steps.hasAttribute("disabled")).toBe(false);
+    expect(steps.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("greys nothing but the one real dependency", () => {
+    show({ scores: {}, strengths: "", growthAreas: "", steps: {} });
+    for (const label of [/Scored rubric rows/, /Glows/, /Grows/, /Action steps/]) {
+      expect(chip(label).hasAttribute("disabled")).toBe(false);
+    }
   });
 
   it("turns one off when clicked", () => {
