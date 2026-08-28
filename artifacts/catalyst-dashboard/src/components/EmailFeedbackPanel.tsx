@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import {
   buildEmailPlainText, buildEmailHtml,
-  type EmailSource, type EmailMode,
+  applicableSections, defaultSections, SECTION_LABELS,
+  type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
 
 const NAVY = "#1034B4";
@@ -29,19 +30,26 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
   const [editableIntro,   setEditableIntro]   = useState(initialIntro);
   const [editableGlows]   = useState(initialGlows);
   const [editableGrows]   = useState(initialGrows);
-  const [emailMode,       setEmailMode]       = useState<EmailMode>("all");
+  /* Fresh on every email. A choice made weeks ago should not quietly shape
+     what a teacher receives today. */
+  const applicable = useMemo(() => applicableSections(src), [src]);
+  const [sections, setSections] = useState<EmailSections>(() => defaultSections(src));
+
+  function toggle(key: keyof EmailSections) {
+    setSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
   const [emailTab,        setEmailTab]        = useState<"preview" | "edit">("edit");
   const [copiedHtml,      setCopiedHtml]      = useState(false);
 
   const liveHtmlEmail = useMemo(
-    () => buildEmailHtml(src, editableIntro, editableGlows, editableGrows, emailMode),
-    [src, editableIntro, editableGlows, editableGrows, emailMode],
+    () => buildEmailHtml(src, editableIntro, editableGlows, editableGrows, sections),
+    [src, editableIntro, editableGlows, editableGrows, sections],
   );
   const livePlainBody = useMemo(
-    () => buildEmailPlainText(src, editableIntro, emailMode).body,
-    [src, editableIntro, emailMode],
+    () => buildEmailPlainText(src, editableIntro, sections).body,
+    [src, editableIntro, sections],
   );
-  const [editableSubject, setEditableSubject] = useState(() => buildEmailPlainText(src, initialIntro, "all").subject);
+  const [editableSubject, setEditableSubject] = useState(() => buildEmailPlainText(src, initialIntro, defaultSections(src)).subject);
 
   async function writeRichHtmlToClipboard(html: string): Promise<void> {
     const plain = livePlainBody || html.replace(/<[^>]+>/g, "");
@@ -140,19 +148,33 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
                         />
                       </div>
                       <div className="shrink-0">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                          Include Scores
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                          Include in Email
                         </label>
-                        <select
-                          value={emailMode}
-                          onChange={(e) => setEmailMode(e.target.value as "all" | "scored" | "glows")}
-                          className="px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                        >
-                          <option value="all">All Rubric Rows</option>
-                          <option value="scored">Scored Rows Only</option>
-                          <option value="glows">Glows / Grows Only</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                          {SECTION_LABELS.map(({ key, label }) => {
+                            /* Shown either way. A line that vanished when it had
+                               nothing behind it would leave people hunting for
+                               an option that was never there. */
+                            const available = applicable[key];
+                            return (
+                              <label
+                                key={key}
+                                className={`flex items-center gap-2 text-sm ${available ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"}`}
+                                title={available ? undefined : "Nothing of this kind on this observation"}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={available && sections[key]}
+                                  disabled={!available}
+                                  onChange={() => toggle(key)}
+                                  className="w-4 h-4 rounded border-slate-300 accent-[#1034B4] disabled:opacity-50"
+                                />
+                                {label}
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                     <div className="flex-1 flex flex-col">

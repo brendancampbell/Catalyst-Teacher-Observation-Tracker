@@ -51,8 +51,18 @@ export function defaultIntro(firstName: string, observerName?: string): string {
   return `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observerName ?? "Your Observer"}`;
 }
 
-/** How much of the rubric to include. */
-export type EmailMode = "all" | "scored" | "glows";
+/**
+ * What goes in the email. Five independent choices rather than a menu of
+ * three fixed combinations, because the combinations people actually wanted
+ * were not among them — sending the scores without the grows, say.
+ */
+export interface EmailSections {
+  scoredRows:   boolean;
+  unscoredRows: boolean;
+  glows:        boolean;
+  grows:        boolean;
+  actionSteps:  boolean;
+}
 
 /**
  * The action steps the email mentions.
@@ -73,6 +83,39 @@ export interface EmailActionSteps {
   /** Assigned by this observation. */
   assigned?:  { text: string; dueDate: string };
 }
+
+/**
+ * Which of the five lines this observation can actually offer.
+ *
+ * A line with nothing behind it is shown but not tickable — an empty greyed
+ * box says "there is nothing here", which is both true and better than hiding
+ * the line and leaving somebody wondering where action steps went.
+ */
+export function applicableSections(src: EmailSource): EmailSections {
+  const domains = allDomainsOf(src.categories);
+  const stripped = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+
+  return {
+    scoredRows:   domains.some((d) => src.scores[d.id] !== undefined),
+    unscoredRows: domains.some((d) => src.scores[d.id] === undefined),
+    glows:        stripped(src.strengths).length   > 0,
+    grows:        stripped(src.growthAreas).length > 0,
+    actionSteps:  !!(src.steps.assigned || src.steps.mastered || src.steps.stillOpen),
+  };
+}
+
+/** Everything that applies, ticked. Where every email starts. */
+export function defaultSections(src: EmailSource): EmailSections {
+  return applicableSections(src);
+}
+
+export const SECTION_LABELS: { key: keyof EmailSections; label: string }[] = [
+  { key: "scoredRows",   label: "Scored rubric rows" },
+  { key: "unscoredRows", label: "Unscored rubric rows" },
+  { key: "glows",        label: "Glows" },
+  { key: "grows",        label: "Grows" },
+  { key: "actionSteps",  label: "Action steps" },
+];
 
 export interface EmailSource {
   teacher: {
@@ -97,7 +140,7 @@ export interface EmailSource {
   priorObservations: { date: string; scores: Record<string, Score | undefined> }[];
 }
 
-export function buildEmailPlainText(src: EmailSource, introText: string | undefined, mode: EmailMode): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
+export function buildEmailPlainText(src: EmailSource, introText: string | undefined, sections: EmailSections): { subject: string; body: string; mailtoUrl: string; outlookWebUrl: string } {
   const teacher = src.teacher;
   const firstName = teacher?.firstName || teacher?.name.split(" ")[0] || "Teacher";
   const dateLabel = formatDateLong(src.date);
@@ -107,11 +150,10 @@ export function buildEmailPlainText(src: EmailSource, introText: string | undefi
   const divider = "─".repeat(48);
 
   let scoreBlock = "";
-  if (mode !== "glows") {
+  if (sections.scoredRows || sections.unscoredRows) {
     for (const cat of src.categories) {
-      const domainsToShow = mode === "scored"
-        ? cat.domains.filter((d) => src.scores[d.id] !== undefined)
-        : cat.domains;
+      const domainsToShow = cat.domains.filter((d) =>
+        src.scores[d.id] !== undefined ? sections.scoredRows : sections.unscoredRows);
       if (domainsToShow.length === 0) continue;
       scoreBlock += `${nl}${cat.label.toUpperCase()}${nl}`;
       let catTotal = 0, catCount = 0;
@@ -122,7 +164,7 @@ export function buildEmailPlainText(src: EmailSource, introText: string | undefi
         scoreBlock += `  ${domain.label.padEnd(32)} ${label}${nl}`;
         if (raw !== undefined) { catTotal += raw; catCount++; }
       }
-      if (catCount > 0) {
+      if (sections.scoredRows && catCount > 0) {
         scoreBlock += `  ${"Sub-average".padEnd(32)} ${(catTotal / catCount).toFixed(1)}${nl}`;
       }
     }
@@ -133,14 +175,32 @@ export function buildEmailPlainText(src: EmailSource, introText: string | undefi
 
   const resolvedIntro = introText ?? `Dear ${firstName},\n\n${DEFAULT_INTRO_BODY}\n\nWarm regards,\n${observer}`;
 
-  const rubricLines = mode !== "glows" && scoreBlock.trim() ? [
+  /* The overall average is an average of the scored rows. With those left
+     out it would describe something the reader cannot see. */
+  const rubricLines = (sections.scoredRows || sections.unscoredRows) && scoreBlock.trim() ? [
     divider,
     `RUBRIC SCORES`,
     divider,
     scoreBlock.trimEnd(),
     nl,
-    `${"Overall Average".padEnd(32)} ${overallAvg}`,
+    /* The average is an average of the SCORED rows. Printed beneath a table
+       of unscored ones it would describe something the reader cannot see. */
+    ...(sections.scoredRows ? [`${"Overall Average".padEnd(32)} ${overallAvg}`, nl] : []),
+  ] : [];
+
+  const glowLines = sections.glows ? [
+    divider,
+    `GLOWS (Teacher Strengths)`,
+    divider,
+    src.strengths.trim() || "(none entered)",
     nl,
+  ] : [];
+
+  const growLines = sections.grows ? [
+    divider,
+    `GROWS (Growth Areas)`,
+    divider,
+    src.growthAreas.trim() || "(none entered)",
   ] : [];
 
   const body = [
@@ -155,15 +215,8 @@ export function buildEmailPlainText(src: EmailSource, introText: string | undefi
     `Subject:   ${teacher?.subject ?? ""}  ·  Grade${(teacher?.gradeLevel.length ?? 0) !== 1 ? "s" : ""} ${teacher?.gradeLevel.join(", ") ?? ""}`,
     nl,
     ...rubricLines,
-    divider,
-    `GLOWS (Teacher Strengths)`,
-    divider,
-    src.strengths.trim() || "(none entered)",
-    nl,
-    divider,
-    `GROWS (Growth Areas)`,
-    divider,
-    src.growthAreas.trim() || "(none entered)",
+    ...glowLines,
+    ...growLines,
   ].join(nl);
 
   const subject = `Classroom Observation Feedback - ${dateLabel}`;
@@ -180,7 +233,7 @@ function richToEmailHtml(text: string, color: string): string {
   return `<p style="margin:0;font-size:13px;color:${color};line-height:1.6;white-space:pre-wrap;">${escapeEmailHtml(text.trim())}</p>`;
 }
 
-export function buildEmailHtml(src: EmailSource, intro: string, glowsText: string, growsText: string, mode: EmailMode): string {
+export function buildEmailHtml(src: EmailSource, intro: string, glowsText: string, growsText: string, sections: EmailSections): string {
   const teacher = src.teacher;
   const dateLabel = formatDateLong(src.date);
   const observer = src.observerName ?? "Your Observer";
@@ -229,11 +282,10 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
   }
 
   let scoreTableRows = "";
-  if (mode !== "glows") {
+  if (sections.scoredRows || sections.unscoredRows) {
     for (const cat of src.categories) {
-      const domainsToShow = mode === "scored"
-        ? cat.domains.filter((d) => src.scores[d.id] !== undefined)
-        : cat.domains;
+      const domainsToShow = cat.domains.filter((d) =>
+        src.scores[d.id] !== undefined ? sections.scoredRows : sections.unscoredRows);
       if (domainsToShow.length === 0) continue;
       scoreTableRows += `
       <tr>
@@ -255,7 +307,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
       </tr>`;
         if (val !== undefined) { catTotal += val; catCount++; }
       }
-      if (catCount > 0) {
+      if (sections.scoredRows && catCount > 0) {
         const avg = (catTotal / catCount).toFixed(2);
         scoreTableRows += `
       <tr style="background:#f8fafc;border-bottom:2px solid #dde3f0;">
@@ -265,7 +317,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
       </tr>`;
       }
     }
-    if (overallAvg !== null && scoreTableRows.trim()) {
+    if (sections.scoredRows && overallAvg !== null && scoreTableRows.trim()) {
       scoreTableRows += `
       <tr style="background:#1034B4;">
         <td style="padding:9px 14px;font-size:13px;font-weight:700;color:#fff;">Overall Average</td>
@@ -373,7 +425,7 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
     </tr>` : ""}
 
     <!-- Glows -->
-    <tr>
+    ${sections.glows ? `<tr>
       <td style="padding:24px 28px 0 28px;">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
           <tr>
@@ -384,10 +436,10 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
           </tr>
         </table>
       </td>
-    </tr>
+    </tr>` : ""}
 
     <!-- Grows -->
-    <tr>
+    ${sections.grows ? `<tr>
       <td style="padding:16px 28px 0 28px;">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
           <tr>
@@ -398,9 +450,10 @@ export function buildEmailHtml(src: EmailSource, intro: string, glowsText: strin
           </tr>
         </table>
       </td>
-    </tr>
+    </tr>` : ""}
 
     ${(() => {
+      if (!sections.actionSteps) return "";
       const { mastered: masteredStep, stillOpen: stillOpenStep, assigned: newStep } = src.steps;
       if (!masteredStep && !stillOpenStep && !newStep) return "";
       let rows = "";
