@@ -71,7 +71,7 @@ function buildDisplayRows(
         key:           String(s.id),
         label:         s.name,
         subLabel,
-        isClickable:   !isSchoolTarget,
+        isClickable:   true,
         schoolId:      s.id,
         domainAverages: s.domainAverages,
         catSubAvgs,
@@ -149,11 +149,15 @@ function buildDisplayRows(
 
 interface Props {
   onDrillDown:    (schoolId: number, schoolName: string, schoolGradeSpan?: string, schoolAbbreviation?: string) => void;
+  /* Where a school name goes on a SCHOOL-target rubric. There is no classroom
+     dashboard to drill into for one of those — the observations are about the
+     building — so it opens the school's own profile instead. */
+  onSchoolProfile: (schoolId: number) => void;
   activeRubricSet: string;
   onRubricChange:  (slug: string) => void;
 }
 
-export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubricChange }: Props) {
+export default function DistrictDashboard({ onDrillDown, onSchoolProfile, activeRubricSet, onRubricChange }: Props) {
   const { currentUser } = useUser();
 
   /* ── Header height measurement for sticky rows ── */
@@ -599,6 +603,7 @@ export default function DistrictDashboard({ onDrillDown, activeRubricSet, onRubr
                               style={{ color: NAVY, fontSize: 15, cursor: "pointer" }}
                               onClick={() => {
                                 if (row.schoolId == null) return;
+                                if (isSchoolTarget) { onSchoolProfile(row.schoolId); return; }
                                 const school = data.schools.find((s) => s.id === row.schoolId);
                                 onDrillDown(row.schoolId, row.label, school?.gradeSpan, school?.abbreviation ?? undefined);
                               }}

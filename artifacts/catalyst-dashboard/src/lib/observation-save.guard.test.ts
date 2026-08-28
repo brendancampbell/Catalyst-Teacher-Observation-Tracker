@@ -27,6 +27,7 @@ const ALLOWED = new Set([
   "lib/observation-save.ts",             // the one way in
   "components/DrillDownModal.tsx",       // correcting, not composing
   "components/TeacherScoreOverlay.tsx",  // correcting, not composing
+  "components/SchoolProfileOverlay.tsx", // correcting, not composing
 ]);
 
 function sourceFiles(dir: string): string[] {

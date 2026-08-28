@@ -6,6 +6,7 @@ import { useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { removeObservationFromDashboards } from "@/lib/observation-cache";
+import { SchoolProfileOverlay } from "@/components/SchoolProfileOverlay";
 import { saveObservation } from "@/lib/observation-save";
 import {
   SUBJECTS,
@@ -248,6 +249,8 @@ export default function Dashboard() {
     return (v === "subject" || v === "grade") ? v : "teacher";
   });
 
+  const [schoolProfileId, setSchoolProfileId] = useState<number | null>(null);
+
   const walkthroughsOnly = viewMode === "walkthroughs";
 
   const { data, isLoading, isError } = useQuery({
@@ -471,10 +474,31 @@ export default function Dashboard() {
 
   /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
   if (isDistrictHome) {
+    /* A school clicked on a school-wide rubric opens its profile, over the
+       network view rather than navigating away, so Back returns to the same
+       list in the same state. */
+    if (schoolProfileId !== null) {
+      return (
+        <SchoolProfileOverlay
+          schoolId={schoolProfileId}
+          initialRubricSet={activeRubricSet}
+          rubricSets={allRubricSets}
+          onBack={() => setSchoolProfileId(null)}
+          onOpenSchoolDashboard={() => {
+            /* No rubric in the link on purpose: a school-wide one means
+               nothing on a classroom dashboard, so the reader lands on
+               whichever rubric they last used. */
+            const p: Record<string, string> = { schoolId: String(schoolProfileId) };
+            window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
+          }}
+        />
+      );
+    }
     return (
       <DistrictDashboard
         activeRubricSet={activeRubricSet}
         onRubricChange={setActiveRubricSet}
+        onSchoolProfile={setSchoolProfileId}
         onDrillDown={(id, name, gradeSpan, abbr) => {
           const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric: activeRubricSet };
           if (gradeSpan) p.schoolGradeSpan     = gradeSpan;

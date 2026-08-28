@@ -112,6 +112,7 @@ describe("DistrictDashboard score grid — 0.0 domain average", () => {
           activeRubricSet={RUBRIC_SLUG}
           onRubricChange={() => {}}
           onDrillDown={() => {}}
+          onSchoolProfile={() => {}}
         />
       </QueryClientProvider>,
     );
@@ -134,6 +135,7 @@ describe("DistrictDashboard score grid — 0.0 domain average", () => {
           activeRubricSet={RUBRIC_SLUG}
           onRubricChange={() => {}}
           onDrillDown={() => {}}
+          onSchoolProfile={() => {}}
         />
       </QueryClientProvider>,
     );
@@ -162,6 +164,7 @@ describe("DistrictDashboard score grid — 0.0 domain average", () => {
           activeRubricSet={RUBRIC_SLUG}
           onRubricChange={() => {}}
           onDrillDown={() => {}}
+          onSchoolProfile={() => {}}
         />
       </QueryClientProvider>,
     );
