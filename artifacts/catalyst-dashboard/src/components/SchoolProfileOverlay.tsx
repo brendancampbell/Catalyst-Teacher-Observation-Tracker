@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { School, ChevronDown, LayoutDashboard, FileX, Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { ObservationCard } from "@/components/ObservationCard";
+import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 import { useUser } from "@/context/UserContext";
 import { QUERY_KEYS } from "@/lib/queryKeys";
@@ -66,6 +67,20 @@ export function SchoolProfileOverlay({
   const school       = data?.school;
   const activeRubricName =
     schoolWideSets.find((r) => r.slug === selectedSlug)?.name ?? selectedSlug;
+
+  /* Newest first from the server, so the first row is the most recent. */
+  const recent = observations[0];
+  const allScores = useMemo(
+    () => domainScoreRows(categories, observations),
+    [categories, observations],
+  );
+  const overallAvg = useMemo(() => {
+    const vals = allScores.map((r) => r.recentScore).filter((v): v is Score => v !== undefined);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }, [allScores]);
+  const daysSince = recent
+    ? Math.round((Date.now() - new Date(recent.date + "T00:00:00").getTime()) / 86_400_000)
+    : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolObservations });
@@ -152,6 +167,36 @@ export function SchoolProfileOverlay({
             </button>
           </div>
         </div>
+
+        {/* ── The same three numbers a teacher's page opens with ── */}
+        {!isLoading && !isError && (
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {[
+              { label: "Current Avg",   value: overallAvg !== null ? overallAvg.toFixed(1) : "—", sub: activeRubricName },
+              { label: "Observations",  value: String(observations.length), sub: "this rubric" },
+              { label: "Last Observed", value: daysSince !== null ? `${daysSince}d` : "—",
+                sub: recent ? new Date(recent.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "never" },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="rounded-xl px-4 py-3 text-center" style={{ backgroundColor: NAVY }}>
+                <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">{label}</p>
+                <p className="text-3xl font-bold leading-tight" style={{ color: YELLOW }}>{value}</p>
+                <p className="text-blue-200 text-xs mt-0.5 truncate">{sub}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Domain scores and the latest write-up ── */}
+        {!isLoading && !isError && observations.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">
+            <div className="lg:col-span-3 space-y-4">
+              <DomainScorePanel categories={categories} allScores={allScores} />
+            </div>
+            <div className="lg:col-span-2 space-y-4">
+              {recent && <RecentFeedbackCards recent={recent} />}
+            </div>
+          </div>
+        )}
 
         {/* ── History ─────────────────────────────────────── */}
         {isLoading && (

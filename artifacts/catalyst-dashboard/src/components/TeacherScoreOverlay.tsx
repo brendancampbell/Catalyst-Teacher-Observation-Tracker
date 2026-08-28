@@ -5,14 +5,13 @@ import { QUERY_KEYS } from "@/lib/queryKeys";
 import { canEditObservation } from "@/lib/observation-permissions";
 import { removeObservationFromDashboards } from "@/lib/observation-cache";
 import { toast } from "@/hooks/use-toast";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
-import { RichTextDisplay } from "@/components/RichTextDisplay";
-import { type Teacher, type Observation, type Score } from "@/data/dummy";
+import { School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
+import { type Teacher, type Observation } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { rubricSetsForTeacher } from "@/lib/subject-audience";
-import { getScoreColorExact } from "@/components/ScoreCell";
 import { ObservationCard } from "@/components/ObservationCard";
+import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 import AppHeader from "@/components/AppHeader";
@@ -20,24 +19,10 @@ import AppHeader from "@/components/AppHeader";
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
 
-const SCORE_LABELS: Record<number, string> = {
-  0:   "Not Yet",
-  0.5: "Developing",
-  1:   "Proficient",
-};
-
 function formatDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
-}
-
-function ScoreChip({ score }: { score: Score }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-bold text-sm ${getScoreColorExact(score)}`}>
-      {score} <span className="font-normal text-xs opacity-80">{SCORE_LABELS[score]}</span>
-    </span>
-  );
 }
 
 interface ActionStepsDrawerProps {
@@ -466,21 +451,10 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
   const recent = sortedObs[0];
 
-  const allScores = useMemo(() => {
-    return activeCategories.flatMap((c) => c.domains).map((d) => {
-      const vals = activeTeacher.observations
-        .map((o) => o.scores[d.id] as Score | undefined)
-        .filter((s): s is Score => s !== undefined);
-      const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
-      const definedVals = [...activeTeacher.observations]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .flatMap((o) => (o.scores[d.id] !== undefined ? [o.scores[d.id] as Score] : []));
-      const trend = definedVals.length >= 2
-        ? definedVals[definedVals.length - 1] - definedVals[0]
-        : 0;
-      return { domain: d, recentScore: recent?.scores[d.id] as Score | undefined, avg, trend };
-    });
-  }, [activeTeacher, activeCategories, recent]);
+  const allScores = useMemo(
+    () => domainScoreRows(activeCategories, activeTeacher.observations),
+    [activeTeacher, activeCategories],
+  );
 
   /* Most-recent score for a specific domain — walks observations newest→oldest,
      returns the first observation that actually scored this domain. */
@@ -676,57 +650,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
           {/* LEFT: Domain score breakdown */}
           <div className="lg:col-span-3 space-y-4">
-            <div
-              className="bg-white rounded-xl shadow-sm overflow-hidden"
-              style={{ border: "1px solid #dde3f0" }}
-            >
-              <div
-                className="px-4 py-3 flex items-center gap-2"
-                style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}
-              >
-                <BookOpen size={16} style={{ color: NAVY }} />
-                <h2
-                  className="font-bold uppercase tracking-wide"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
-                >
-                  Domain Scores — Most Recent
-                </h2>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {activeCategories.map((cat) => (
-                  <div key={cat.id}>
-                    <div
-                      className="px-4 py-2 text-xs font-bold uppercase tracking-wider"
-                      style={{ backgroundColor: "#f0f3fc", color: NAVY, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" }}
-                    >
-                      {cat.label}
-                    </div>
-                    {cat.domains.map((d) => {
-                      const item = allScores.find((x) => x.domain.id === d.id);
-                      if (!item) return null;
-                      return (
-                        <div key={d.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors">
-                          <span className="text-sm font-medium text-slate-700 flex-1">{d.label}</span>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-xs text-slate-400 w-16 justify-end">
-                              {item.trend > 0
-                                ? <><TrendingUp size={12} className="text-green-500" /> <span className="text-green-600 font-semibold">+{item.trend}</span></>
-                                : item.trend < 0
-                                ? <><TrendingDown size={12} className="text-red-400" /> <span className="text-red-500 font-semibold">{item.trend}</span></>
-                                : <><Minus size={12} className="text-slate-300" /> <span>flat</span></>}
-                            </div>
-                            {item.recentScore !== undefined
-                              ? <ScoreChip score={item.recentScore} />
-                              : <span className="text-xs text-slate-400 italic">not scored</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DomainScorePanel categories={activeCategories} allScores={allScores} />
           </div>
 
           {/* RIGHT: Action Steps → Glows → Grows */}
@@ -740,57 +664,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             )}
             {recent && (
               <>
-                <div
-                  className="bg-white rounded-xl shadow-sm overflow-hidden"
-                  style={{ border: "1px solid #dde3f0" }}
-                >
-                  <div
-                    className="px-4 py-3 flex items-center gap-2"
-                    style={{ borderBottom: "3px solid #16a34a", borderLeft: `4px solid ${YELLOW}` }}
-                  >
-                    <Star size={16} className="text-green-600" />
-                    <h2
-                      className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#16a34a", fontSize: 18, letterSpacing: "0.02em" }}
-                    >
-                      ✦ Teacher Strengths (Glows)
-                    </h2>
-                  </div>
-                  <div className="px-4 py-4">
-                    <RichTextDisplay
-                      content={recent.strengths}
-                      className="text-slate-700"
-                      emptyNode={<p className="text-slate-400 italic text-sm">No strengths recorded for most recent observation.</p>}
-                    />
-                    <p className="text-xs text-slate-400 mt-3">From observation on {formatDate(recent.date)}</p>
-                  </div>
-                </div>
-
-                <div
-                  className="bg-white rounded-xl shadow-sm overflow-hidden"
-                  style={{ border: "1px solid #dde3f0" }}
-                >
-                  <div
-                    className="px-4 py-3 flex items-center gap-2"
-                    style={{ borderBottom: "3px solid #ea580c", borderLeft: `4px solid ${YELLOW}` }}
-                  >
-                    <CalendarDays size={16} className="text-orange-600" />
-                    <h2
-                      className="font-bold uppercase tracking-wide"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#ea580c", fontSize: 18, letterSpacing: "0.02em" }}
-                    >
-                      ↑ Growth Areas (Grows)
-                    </h2>
-                  </div>
-                  <div className="px-4 py-4">
-                    <RichTextDisplay
-                      content={recent.growthAreas}
-                      className="text-slate-700"
-                      emptyNode={<p className="text-slate-400 italic text-sm">No growth areas recorded for most recent observation.</p>}
-                    />
-                    <p className="text-xs text-slate-400 mt-3">From observation on {formatDate(recent.date)}</p>
-                  </div>
-                </div>
+                <RecentFeedbackCards recent={recent} />
               </>
             )}
           </div>
