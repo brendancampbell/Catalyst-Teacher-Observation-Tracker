@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; f8b0739</p>
+    <p class="eyebrow">Live list &middot; updated 27 August 2026 &middot; 61e1ff4</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>10</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -419,56 +419,6 @@
           </tr>
           <tr>
             <td class="p">2</td>
-            <td class="idcell">42</td>
-            <td>
-              <div class="task">
-                <h3>Clear the abandoned drafts already in the database</h3>
-                <p class="lineage">Turned up by #41, <code>2ae5e3e</code>. The cause is fixed; the rows it left are not.</p>
-                <p class="why">
-                  Three screens used to publish an observation without consuming the draft the form
-                  had already saved, leaving a copy behind every time. Those copies are still in
-                  people&rsquo;s draft lists: half-written duplicates of observations that were
-                  finished and submitted weeks ago.
-                </p>
-                <details>
-                  <summary>What has to be true before anything is deleted</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Not every draft is abandoned.</strong> People legitimately leave one
-                      part-written overnight. Deleting on age alone would throw away real work, so
-                      the test has to be that a published observation exists for the same observer,
-                      the same teacher and the same rubric &mdash; that is what makes a draft a
-                      leftover rather than a work in progress.
-                    </p>
-                    <p>
-                      <strong>Count first, then show, then delete.</strong> Nobody knows the size
-                      of this yet. It is one read-only query to find out, and the answer decides
-                      whether this is a handful to remove by hand or worth a script.
-                    </p>
-                    <p>
-                      <strong>What this is not.</strong> An earlier version of this entry said the
-                      leftovers silently reload themselves into the next observation for that
-                      teacher. They do not: every &ldquo;add an observation&rdquo; button opens a
-                      clean form, and the auto-load only runs where that is asked for, which is
-                      nowhere. They also reach no score, average or report &mdash; every figure in
-                      the tool excludes drafts outright.
-                    </p>
-                    <p>
-                      <strong>What it is.</strong> Clutter people have to read past to find real
-                      work, and one live risk: somebody resumes a leftover, does not recognise it
-                      as already-submitted, and files it &mdash; a second observation for a lesson
-                      that was recorded once. It takes a deliberate click, so it is a hazard rather
-                      than something happening on its own.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-low">Low</span></td>
-          </tr>
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -494,7 +444,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -519,7 +469,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -532,7 +482,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -548,7 +498,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -565,7 +515,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -659,7 +609,7 @@
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -708,7 +658,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -1144,6 +1094,28 @@
       </p>
     </div>
     <div class="settled">
+      <div class="settled-row">
+        <h3>The leftover drafts stay where they are &mdash; declined</h3>
+        <p>
+          Three screens used to publish an observation without consuming the draft feeding it,
+          leaving a copy behind. The cause shipped fixed on 27 Aug; the question was what to do
+          about the 53 drafts already in the database. Measured rather than guessed: 17 carried
+          the bug&rsquo;s exact signature and were cleared for deletion, and the remainder were
+          genuine work in progress. <strong>Deleting them was declined.</strong> They reach no
+          score, average or report &mdash; every figure excludes drafts &mdash; and they do not
+          pre-fill anybody&rsquo;s next observation, which an earlier draft of this entry wrongly
+          claimed. What is left is clutter in seventeen people&rsquo;s own draft lists and one
+          hazard: resuming a leftover and filing it a second time. Both are cheaper to live with
+          than a deletion pass over other people&rsquo;s written feedback. The scripts remain in
+          <code>scripts/</code> if that judgement changes.
+        </p>
+        <p>
+          Worth keeping separate: reading those drafts found three <em>published</em> observations
+          poorer than their abandoned drafts &mdash; one filed with no strengths at all. That is a
+          gap in feedback teachers have already received, it has nothing to do with the drafts
+          being tidied or not, and leaving the drafts in place is what preserves the only copy.
+        </p>
+      </div>
       <div class="settled-row">
         <h3>Being active and being rostered are two gates &mdash; both are now written together</h3>
         <p>
