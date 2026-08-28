@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { actionCenterHref } from "@/lib/school-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { canEditObservation } from "@/lib/observation-permissions";
 import { removeObservationFromDashboards } from "@/lib/observation-cache";
 import { toast } from "@/hooks/use-toast";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, BookOpen, Star, School, User, CheckCircle2, Clock, AlertCircle, RotateCcw, X } from "lucide-react";
@@ -438,6 +439,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   const queryClient = useQueryClient();
 
   /* ── Role-based edit permission ───────────────────────────────── */
+  /* The role half, and all the action-step drawer needs: mastering a step is
+     about leading the school, not about who wrote the observation. */
   const canEdit =
     currentUser?.role === "SCHOOL_LEADER" ||
     currentUser?.role === "NETWORK_LEADER" ||
@@ -948,13 +951,19 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
       />
 
       {/* ── Observation detail modal ──────────────────────── */}
-      {selectedObservation && (
+      {selectedObservation && (() => {
+        const shown = localObsOverrides[selectedObservation.id] ?? selectedObservation;
+        const canEditThisObs = canEditObservation(shown, currentUser);
+        return (
         <ObservationDetailModal
           reassignableTeachers={reassignableTeachers}
           teacher={activeTeacher}
           observation={localObsOverrides[selectedObservation.id] ?? selectedObservation}
           categories={activeCategories}
-          canEdit={canEdit}
+          /* Per observation, not per person — canEdit above is the role half,
+             and stays as it is for the action-step drawer, which is a
+             different right. */
+          canEdit={canEditThisObs}
           open={!!selectedObservation}
           onOpenChange={(open) => { if (!open) setSelectedObservation(null); }}
           onSave={async (updated) => {
@@ -975,7 +984,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           }}
-          onDelete={canEdit ? async (observationId) => {
+          onDelete={canEditThisObs ? async (observationId) => {
             await deleteObservation(observationId, true);
             setLocalObsOverrides((prev) => {
               const next = { ...prev };
@@ -991,7 +1000,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           } : undefined}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }

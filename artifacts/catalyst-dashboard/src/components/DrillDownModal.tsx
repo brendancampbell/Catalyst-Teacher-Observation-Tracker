@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { type Teacher, type Observation } from "@/data/dummy";
 import { updateObservation, deleteObservation, type CategoryEntry } from "@/lib/api";
+import { canEditObservation } from "@/lib/observation-permissions";
+import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 
 const NAVY = "#1034B4";
@@ -133,6 +135,7 @@ interface Props {
 }
 
 export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onDeleteObs, onTeacherClick, categories, canEdit }: Props) {
+  const { currentUser } = useUser();
   const [detailObsId, setDetailObsId] = useState<string | null>(null);
   const [pendingGroup, setPendingGroup] = useState<ChartPoint | null>(null);
 
@@ -438,11 +441,14 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
           teacher={teacher}
           observation={detailObs}
           categories={categories}
-          canEdit={canEdit}
+          /* Per observation, not per person: a coach may correct the ones they
+             wrote, a school leader any at their school. canEdit alone is the
+             role half of that. */
+          canEdit={canEditObservation(detailObs, currentUser)}
           open={detailObsId !== null}
           onOpenChange={(o) => { if (!o) setDetailObsId(null); }}
           onSave={handleSave}
-          onDelete={canEdit ? handleDelete : undefined}
+          onDelete={canEditObservation(detailObs, currentUser) ? handleDelete : undefined}
         />
       )}
     </>

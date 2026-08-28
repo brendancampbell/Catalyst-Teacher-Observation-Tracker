@@ -894,9 +894,22 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const isDraftEdit = existing.status === "draft" && existing.observerEmployeeId === currentUser.employeeId;
+    /* Your own work is yours to correct, whether it is still a draft or was
+       filed months ago. A coach who put an observation on the wrong teacher,
+       or mistyped the date, used to have to find a school leader to fix it.
 
-    if (!isDraftEdit) {
+       Deliberately not time-limited: an error found late is still an error,
+       and the alternative is a wrong record left standing because the window
+       shut. Every edit to a filed observation is stamped with who made it and
+       when, and shown on the observation, so this is visible rather than
+       silent. */
+    const isOwnObservation = existing.observerEmployeeId === currentUser.employeeId;
+
+    /* Only an autosave of your own draft skips the audit stamp. Editing your
+       own FILED observation is recorded like anybody else's. */
+    const isDraftAutosave = existing.status === "draft" && isOwnObservation;
+
+    if (!isOwnObservation) {
       const isSchoolLeader   = currentUser.role === "SCHOOL_LEADER";
       const isNetworkLeader  = currentUser.role === "NETWORK_LEADER";
       const isNetworkAdmin   = currentUser.role === "NETWORK_ADMIN";
@@ -1112,7 +1125,7 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
     }
 
     /* updatedAt is set on edits by non-draft-owner; draft autosaves leave it null */
-    const auditFields = !isDraftEdit
+    const auditFields = !isDraftAutosave
       ? { editedByEmployeeId: currentUser.employeeId, updatedAt: new Date() }
       : {};
 
@@ -1424,9 +1437,8 @@ router.get("/:id/delete-impact", async (req, res) => {
 
     /* Same access rule as the delete itself: asking what would happen must not
        reveal anything about an observation you could not delete. */
-    const isDraftOwner = existing.status === "draft"
-      && existing.observerEmployeeId === currentUser.employeeId;
-    if (!isDraftOwner) {
+    const isOwnObservation = existing.observerEmployeeId === currentUser.employeeId;
+    if (!isOwnObservation) {
       const mayDelete = currentUser.role === "SCHOOL_LEADER"
         || currentUser.role === "NETWORK_LEADER"
         || currentUser.role === "NETWORK_ADMIN";
@@ -1458,9 +1470,14 @@ router.delete("/:id", observationMutationLimiter, async (req, res) => {
     });
     if (!existing) { res.status(404).json({ error: "Observation not found" }); return; }
 
-    const isDraftOwner = existing.status === "draft" && existing.observerEmployeeId === currentUser.employeeId;
+    /* Same rule as editing: your own observation is yours to remove, filed or
+       not. The action-step warning below still applies in full — it names what
+       would go with it, mastered steps included, and refuses without an
+       explicit force. A coach sees that warning exactly as a school leader
+       does. */
+    const isOwnObservation = existing.observerEmployeeId === currentUser.employeeId;
 
-    if (!isDraftOwner) {
+    if (!isOwnObservation) {
       const isSchoolLeader  = currentUser.role === "SCHOOL_LEADER";
       const isNetworkLeader = currentUser.role === "NETWORK_LEADER";
       const isNetworkAdmin  = currentUser.role === "NETWORK_ADMIN";
