@@ -1,0 +1,80 @@
+# Runs the tests on every push and every pull request.
+#
+# Backlog #12. Nothing ran the full suite except somebody remembering to, and
+# the tests that need a database could only be run where there was one — in
+# practice by hand, with the results read back. Between a change being pushed
+# and the app being published, the only check was that a person thought to make
+# it.
+#
+# No new tests are written here and nothing about how they work changes. This
+# runs what already exists, in the order that fails fastest: type errors before
+# unit tests, unit tests before the database ones, so a typo does not wait
+# behind a Postgres boot to be reported.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push supersedes the first — no point finishing a run for a commit
+# nobody is waiting on any more.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from "packageManager" in package.json, so this file does
+      # not carry a second copy of it to fall out of date.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      # Everything that needs no database: the api's own tier and both
+      # front-end suites, ~420 checks in well under a minute.
+      - name: Unit tests
+        run: pnpm run test
+
+      # ubuntu-latest ships PostgreSQL but leaves its binaries off PATH, and
+      # scripts/test-db.sh calls initdb and pg_ctl directly to stand up a
+      # throwaway server of its own. This is the whole of the CI-specific setup.
+      - name: Put PostgreSQL on PATH
+        run: |
+          PGBIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)"
+          echo "Using $PGBIN"
+          echo "$PGBIN" >> "$GITHUB_PATH"
+
+      # Both of these need a database and neither is in `test` or `test:clean`
+      # — check:schema-sync reads one, and test:db is a tier that is easy to
+      # miss. Run against the same throwaway rather than folded into
+      # test:clean, which is the command people run by hand and should keep
+      # meaning what it has always meant.
+      - name: Schema sync and database unit tests
+        run: |
+          bash scripts/test-db.sh sh -c '
+            pnpm --filter @workspace/db run check:schema-sync &&
+            pnpm --filter @workspace/api-server run test:db
+          '
+
+      - name: Integration tests
+        # test-db.sh builds a database from empty, migrates it, seeds it,
+        # starts the API and throws the lot away afterwards.
+        run: pnpm run test:clean
