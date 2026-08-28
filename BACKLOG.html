@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>8</b> unranked</span>
+      <span><b>9</b> open &middot; <b>3</b> deferred &middot; <b>7</b> unranked</span>
       <span><b>384&thinsp;/&thinsp;384</b> passing on a database built from empty</span>
     </div>
   </header>
@@ -748,39 +748,6 @@
         </thead>
         <tbody>
 
-          <tr>
-            <td class="idcell">26</td>
-            <td>
-              <div class="task">
-                <h3>Check the formatting of emailed observations</h3>
-                <p class="why">
-                  Catalyst does not send email. The preview builds an HTML string in the browser and
-                  the <strong>Copy Email</strong> button puts it on the clipboard; Outlook does the
-                  rest. So this is about how that pasted HTML survives a real mail client, not about
-                  a sending bug.
-                </p>
-                <details>
-                  <summary>Where it lives and what to look at</summary>
-                  <div class="detail">
-                    <p>
-                      <code>buildHtmlEmail()</code> in
-                      <code>NewObservationModal.tsx</code> assembles the whole thing client-side.
-                      Nothing on the server is involved &mdash; the old send route, the Resend
-                      client and its dependencies were all removed.
-                    </p>
-                    <p>
-                      Outlook renders HTML with its own quirks, so the things worth checking are
-                      spacing, table borders, and how a long strengths or growth-areas paragraph
-                      wraps. Worth doing on a real observation with real text in it, in Outlook
-                      rather than a browser preview.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Feedback</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
 
           <tr>
             <td class="idcell">27</td>
@@ -1178,6 +1145,65 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">26</td>
+            <td>
+              <div class="task">
+                <h3>The emailed observation survives Outlook</h3>
+                <p class="lineage"><code>a47aab5</code>, on top of <code>d17558b</code> and <code>c6f1a36</code></p>
+                <p class="why">
+                  Catalyst sends nothing: the browser builds an HTML string, <strong>Copy Email</strong>
+                  puts it on the clipboard, and Outlook does the rest. Outlook renders that with
+                  Word&rsquo;s engine, which ignores a fair amount of CSS and helps itself to spacing
+                  nobody asked for &mdash; so the preview looked right and the pasted result did not.
+                </p>
+                <details>
+                  <summary>Six causes, in order of damage</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The logo.</strong> An image fetched from the Catalyst site, so whether
+                      it arrived depended on the reader&rsquo;s image settings and whether their
+                      machine could reach us. One person got a header, the next a broken box &mdash;
+                      which is most of what &ldquo;sometimes it looks weird&rdquo; was. Set in type
+                      now, and cannot fail.
+                    </p>
+                    <p>
+                      <strong>Colour disappearing.</strong> Backgrounds declared in CSS alone are
+                      dropped by Word, so the green glows panel and orange grows panel were arriving
+                      white. Each states its colour a second way now.
+                    </p>
+                    <p>
+                      <strong>Spacing ballooning.</strong> Word gives every paragraph about 14pt
+                      after it unless told otherwise, so a three-paragraph write-up arrived loose and
+                      gappy. Every paragraph, list and item now leaves with its margin pinned.
+                    </p>
+                    <p>
+                      And three smaller ones: tables now say <code>border="0"</code>, because Word
+                      draws a hairline round ones that do not; line heights carry the
+                      <code>mso</code> rule that makes Word honour them; and the clipboard states its
+                      character set, so an em dash stops arriving as mojibake. The wrapper also
+                      stopped asking for a fixed 600px and 100% at once, which Word settled by
+                      stretching to the compose window.
+                    </p>
+                    <p>
+                      <strong>Rounded corners and the drop shadow are gone in Outlook and staying
+                      gone.</strong> Word does neither. The panels keep their colour and borders, so
+                      they still read as panels.
+                    </p>
+                    <p>
+                      This item pointed at <code>buildHtmlEmail()</code> in
+                      <code>NewObservationModal.tsx</code>. It lives in
+                      <code>lib/observation-email.ts</code> now &mdash; #41&rsquo;s doing, so that
+                      the form and the observation screen cannot drift into two different emails.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-done">27 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">41</td>
