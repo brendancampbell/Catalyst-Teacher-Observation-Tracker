@@ -365,60 +365,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">12</td>
-            <td>
-              <div class="task">
-                <h3>Continuous integration</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #15b. <strong>Its stated blocker, #25, is done.</strong></p>
-                <p class="why">
-                  Nothing runs the full test suite except a person remembering to. The tests that
-                  need a database can only be run where there is one &mdash; in practice, by hand in
-                  Replit, with the results read back. Between a change being pushed and the app
-                  being published, the only check is that somebody thought to run it.
-                </p>
-                <details>
-                  <summary>What the work actually is</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>One file.</strong> A GitHub Actions workflow that runs on every push
-                      and every pull request. GitHub&rsquo;s standard machines already have
-                      PostgreSQL installed, so it needs no infrastructure and nothing to maintain.
-                    </p>
-                    <p>
-                      <strong>It runs what already exists.</strong> <code>pnpm test:clean</code> is
-                      self-contained &mdash; it stands up a throwaway database, migrates it, seeds
-                      it, starts the API and runs the suite against it. That was #25, and it is
-                      done. Alongside it: the two no-database tiers, both front-end suites, the
-                      type checks and the schema check. No new tests are written; nothing about how
-                      tests work changes.
-                    </p>
-                    <p>
-                      <strong>The only fiddly part.</strong> The Postgres tools have to be findable
-                      on the runner &mdash; a line adding them to the path. That is the whole of the
-                      new engineering.
-                    </p>
-                    <p>
-                      <strong>What it changes.</strong> A red mark appears on the commit within a
-                      few minutes if anything is broken, before it is published rather than after.
-                      Worth confirming first: whether the repository is private, which decides
-                      whether the minutes are free or metered.
-                    </p>
-                    <p>
-                      Deferred originally on the grounds that &ldquo;Replit workflows already cover
-                      validation on merge&rdquo;. <strong>That was wrong.</strong>
-                      <code>post-merge.sh</code> ran two schema checks and no tests at all; it now
-                      runs the two no-database tiers, roughly 300 checks in under a minute, and
-                      only on the machine that pulled.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Tooling</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -444,7 +390,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -469,7 +415,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -482,7 +428,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -498,7 +444,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -515,7 +461,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -609,7 +555,7 @@
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -658,7 +604,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -1146,6 +1092,85 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">12</td>
+            <td>
+              <div class="task">
+                <h3>Continuous integration</h3>
+                <p class="lineage"><code>221c606</code> &rarr; <code>6f8e041</code>, fixes in <code>2c7e36b</code> and <code>a805df0</code></p>
+                <p class="why">
+                  Every push now runs the whole suite &mdash; type checks, both front ends, the
+                  no-database tiers, the schema check and the full database suite against a
+                  throwaway Postgres &mdash; on GitHub&rsquo;s machines, in about nine minutes.
+                  A red mark appears on the commit before anything is published, rather than
+                  depending on somebody remembering to run it.
+                </p>
+                <details>
+                  <summary>It found two real bugs before it ever went green</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Neither bug was in the workflow.</strong> Both had been in the app
+                      for months, invisible because every environment we had ever tested in
+                      happened to hide them. That is the entire argument for building a machine
+                      that starts from nothing.
+                    </p>
+                    <p>
+                      <strong>First: a column that lied.</strong>
+                      <code>schools.school_number</code> has been NOT NULL in the database since
+                      migration 0006, and the form validator has always said &ldquo;School Number
+                      is required&rdquo;. The Drizzle declaration never caught up and claimed it was
+                      optional. The schema check had only ever run against dev, which passes
+                      &mdash; an environment set up with <code>push</code> instead of
+                      <code>migrate</code> never gets the constraint. Run against a database built
+                      from the migrations, the disagreement surfaced immediately.
+                    </p>
+                    <p>
+                      <strong>Second, and worse: nobody could log in.</strong>
+                      <code>configurePassport()</code> returns early when the Google credentials are
+                      absent &mdash; correct, there is no strategy to register. But the two lines
+                      that store a signed-in user in their session sat below that return, and they
+                      have nothing to do with Google. Without OAuth configured, passport had no
+                      serializer at all and <em>every</em> login failed with a 500, dev-login
+                      included. That was all 403 integration tests, dying at their first line.
+                    </p>
+                    <p>
+                      It had never been seen because Replit sets that credential, so the early
+                      return never mattered. A CI runner is the first machine we have ever pointed
+                      at this that does not have it &mdash; which is precisely the machine a new
+                      environment, or a new developer, would be.
+                    </p>
+                    <p>
+                      <strong>The workflow itself is one file</strong> and needed no infrastructure:
+                      GitHub&rsquo;s runners already carry PostgreSQL, and <code>test:clean</code>
+                      was already self-contained from #25. The only real engineering was putting the
+                      Postgres tools on the path, and folding the schema check inside the database
+                      wrapper &mdash; it needs a <code>DATABASE_URL</code>, so it cannot run before
+                      one exists. The repository is public, so the minutes are free.
+                    </p>
+                    <p>
+                      <strong>Two guards came out of it,</strong> both checking things the type
+                      checker cannot see: that the session serializers stay above the Google
+                      bail-out, and &mdash; added while diagnosing &mdash; that the API server&rsquo;s
+                      own log is printed when the suite fails. The second is why the login bug took
+                      one run to find instead of several: the server had been explaining itself
+                      into a file nobody read.
+                    </p>
+                    <p>
+                      <strong>Left deliberately undone.</strong> The migration snapshot disagrees
+                      about <code>school_number</code> in the same way the declaration did. Fixing
+                      it means generating a migration whose <code>SET NOT NULL</code> would fail
+                      against any database holding a school with no number &mdash; exactly the kind
+                      of environment that hid this. It wants checking first, not bundling into a
+                      CI fix.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-done">28 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">43</td>
