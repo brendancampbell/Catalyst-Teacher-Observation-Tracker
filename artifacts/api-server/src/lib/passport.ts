@@ -111,6 +111,55 @@ function personToUser(
 }
 
 export function configurePassport() {
+  /*
+   * Session serialization, registered BEFORE the Google check below.
+   *
+   * These have nothing to do with Google — they turn a user into an
+   * employee id for the session cookie and back again. Registering them
+   * after the early return meant that with no OAuth credentials passport
+   * had no serializer at all, so EVERY login failed with 500 "Failed to
+   * serialize user into session", dev-login included. That is exactly the
+   * shape of a CI machine, and it is why nothing could log in there.
+   */
+  passport.serializeUser((user, done) => {
+    done(null, (user as Express.User).employeeId);
+  });
+
+  passport.deserializeUser(async (employeeId: string, done) => {
+    try {
+      const person = await db.query.people.findFirst({
+        where: eq(people.employeeId, employeeId),
+        with: { school: true },
+      });
+      if (!person) return done(null, false);
+      /* Re-enforce the same access gates applied at login time.
+         A deactivated account or a role downgraded to NO_ACCESS must
+         lose access immediately, not at cookie expiry (up to 7 days). */
+      if (!person.isActive || person.role === "NO_ACCESS") return done(null, false);
+      const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
+
+      /*
+       * Record that this person used Catalyst today (backlog #21).
+       *
+       * Here, and not in a later middleware, for two reasons. It is the one
+       * place every authenticated request passes through regardless of route.
+       * And it runs BEFORE applyImpersonation swaps req.user, so an admin
+       * impersonating someone is recorded as the admin — the impersonated
+       * person is not credited with activity they had no part in. Moving this
+       * later would silently break that.
+       *
+       * Fire-and-forget: this is on the hot path for every request, the write
+       * happens at most once per person per day, and recordActivity swallows
+       * its own failures. Telemetry must not be able to hang a request.
+       */
+      void recordActivity(person.employeeId);
+
+      done(null, personToUser(person as Person & { school?: { displayName: string } | null }, activeThisYear));
+    } catch (err) {
+      done(err);
+    }
+  });
+
   const clientID     = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -167,44 +216,6 @@ export function configurePassport() {
     ),
   );
 
-  passport.serializeUser((user, done) => {
-    done(null, (user as Express.User).employeeId);
-  });
-
-  passport.deserializeUser(async (employeeId: string, done) => {
-    try {
-      const person = await db.query.people.findFirst({
-        where: eq(people.employeeId, employeeId),
-        with: { school: true },
-      });
-      if (!person) return done(null, false);
-      /* Re-enforce the same access gates applied at login time.
-         A deactivated account or a role downgraded to NO_ACCESS must
-         lose access immediately, not at cookie expiry (up to 7 days). */
-      if (!person.isActive || person.role === "NO_ACCESS") return done(null, false);
-      const activeThisYear = await checkActiveThisYear(person.employeeId, person.role);
-
-      /*
-       * Record that this person used Catalyst today (backlog #21).
-       *
-       * Here, and not in a later middleware, for two reasons. It is the one
-       * place every authenticated request passes through regardless of route.
-       * And it runs BEFORE applyImpersonation swaps req.user, so an admin
-       * impersonating someone is recorded as the admin — the impersonated
-       * person is not credited with activity they had no part in. Moving this
-       * later would silently break that.
-       *
-       * Fire-and-forget: this is on the hot path for every request, the write
-       * happens at most once per person per day, and recordActivity swallows
-       * its own failures. Telemetry must not be able to hang a request.
-       */
-      void recordActivity(person.employeeId);
-
-      done(null, personToUser(person as Person & { school?: { displayName: string } | null }, activeThisYear));
-    } catch (err) {
-      done(err);
-    }
-  });
 }
 
 function buildCallbackURL(): string {
