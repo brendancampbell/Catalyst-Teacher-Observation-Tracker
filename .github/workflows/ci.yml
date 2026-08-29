@@ -31,13 +31,13 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Version comes from "packageManager" in package.json, so this file does
       # not carry a second copy of it to fall out of date.
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
@@ -58,8 +58,16 @@ jobs:
       # throwaway server of its own. This is the whole of the CI-specific setup.
       - name: Put PostgreSQL on PATH
         run: |
-          PGBIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)"
+          set -euo pipefail
+          PGBIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$PGBIN" ]; then
+            echo "No PostgreSQL found under /usr/lib/postgresql. What is here:"
+            ls -la /usr/lib/postgresql 2>&1 || echo "  (the directory does not exist)"
+            command -v initdb pg_ctl || echo "  initdb and pg_ctl are not on PATH either"
+            exit 1
+          fi
           echo "Using $PGBIN"
+          "$PGBIN/initdb" --version
           echo "$PGBIN" >> "$GITHUB_PATH"
 
       # Both of these need a database and neither is in `test` or `test:clean`
@@ -78,3 +86,13 @@ jobs:
         # test-db.sh builds a database from empty, migrates it, seeds it,
         # starts the API and throws the lot away afterwards.
         run: pnpm run test:clean
+
+      # The API server runs in the background and its output goes to a file
+      # that nothing reads unless it fails to START. A server that starts and
+      # then throws on every request — which is what a wall of identical 500s
+      # looks like — leaves its only explanation in there, unread.
+      - name: API server log
+        if: failure()
+        run: |
+          echo "───── /tmp/api-server-bg.log ─────"
+          cat /tmp/api-server-bg.log 2>/dev/null || echo "(no log — the server never started)"
