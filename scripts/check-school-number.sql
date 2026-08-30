@@ -9,6 +9,15 @@
 -- school with no number, and did 0006 ever reach it?
 
 \echo ''
+\echo '=== 0. WHICH DATABASE IS THIS? ==========================='
+-- Always first. psql does not error on an unset variable — it silently
+-- connects to the workspace default, which is dev. A run against the wrong
+-- database returns plausible numbers and has produced wrong conclusions here
+-- before. neondb + 2026-2027 is production; heliumdb + 2025-2026 is dev.
+SELECT current_database() AS database,
+       (SELECT name FROM school_years WHERE status = 'active') AS active_year;
+
+\echo ''
 \echo '=== 1. Does the constraint exist here? ===================='
 SELECT is_nullable AS school_number_is_nullable
   FROM information_schema.columns
