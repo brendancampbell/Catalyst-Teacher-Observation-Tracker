@@ -1,34 +1,40 @@
 -- schools.school_number: apply the constraint 0006 was credited with.
 --
 -- NOT a new decision. Migration 0006 made this column NOT NULL in July, and
--- the form validator has required it for longer than that. This migration
--- exists because on some databases 0006's constraint was never actually
--- applied, while the tracking table says it was.
+-- the form validator has required it for longer. This exists because on
+-- databases built with `push`, 0006's constraint was never actually applied
+-- while the tracking table says it was.
 --
--- How that happened, since it is worth understanding before trusting it:
+-- The chain, since it took four files to see:
 --
 --   1. 0006 was hand-written, so `drizzle-kit generate` never ran for it and
---      no snapshot ever learned about the constraint. All ten snapshots since
---      have said this column is nullable.
+--      no snapshot learned the constraint. All ten since say nullable.
 --   2. The Drizzle declaration was never given .notNull() either — the same
 --      omission, in the other file.
---   3. Databases built with `push` get the DECLARED schema, and the
---      declaration said nullable. So push made it nullable.
---   4. backfill-drizzle-migrations-table.ts then marked 0006 applied on those
---      databases so `migrate` would stop colliding — which also means migrate
---      will never apply 0006's constraint there. Ever.
+--   3. `push` applies the DECLARED schema, and the declaration said nullable.
+--      So push-built databases got a nullable column.
+--   4. backfill-drizzle-migrations-table.ts then marked 0006 applied so
+--      `migrate` would stop colliding — which also means migrate can never
+--      apply 0006's constraint there. Ever.
 --
--- That is exactly the failure that script's own header warns about: a
--- migration marked applied when it is not, so the change is skipped forever
--- and the app boots happily against a schema missing it.
+-- Exactly the failure that script's own header warns of: a migration marked
+-- applied when it is not, the change skipped forever, the app booting happily
+-- against a schema missing it.
 --
--- This is a NEW tag, absent from that baseline, so migrate applies it
--- normally and the gap closes on every environment.
+-- This is a NEW tag, absent from that baseline, so migrate applies it normally.
 --
--- IF THIS FAILS, it will be 23502 (not-null violation) and it means that
--- database holds a school with no number. Do not weaken this migration to get
--- past it — find those rows and give them their numbers:
+-- NO DATA STATEMENT HERE, deliberately. Production had one school with no
+-- number (NSA_IPES, 1 of 54; 0006 line 38 would have given it 315). The
+-- tempting fix is an UPDATE in this file. That is against the rule in
+-- README.md — schools are created and edited exclusively through the admin UI,
+-- and nothing in startup or deploy code writes to that table. ensureSchools()
+-- was removed for precisely this reason: it re-stamped every school on each
+-- boot and reverted admin edits. A blank was filled in through the admin UI
+-- instead, which is the supported path and leaves an audit trail.
+--
+-- IF THIS FAILS it is 23502, and it means that database still holds a school
+-- with no number. Do not weaken this migration. Find them and give them their
+-- numbers through the admin UI:
 --     SELECT id, abbreviation, display_name FROM schools WHERE school_number IS NULL;
--- Checked before writing this: dev had 0 of 55.
 
 ALTER TABLE "schools" ALTER COLUMN "school_number" SET NOT NULL;

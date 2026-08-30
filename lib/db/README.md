@@ -212,6 +212,31 @@ Existing environments are unaffected — their rows are already in place.
 backfill for environments that already had the 52 schools, and it deliberately
 has no startup mirror.
 
+#### `0006`'s constraint went missing, and `0016` puts it back
+
+Worth knowing, because it took four files to see and cost a full CI run to find.
+
+`0006` does two things: backfills `school_number` on 52 schools, then makes the
+column `NOT NULL`. On any database built with `push`, **neither happened** —
+`push` never reads migration files. `backfill-drizzle-migrations-table.ts` then
+marked `0006` applied so `migrate` would stop colliding, which also means
+`migrate` can never apply that constraint. The gap became permanent.
+
+It stayed invisible because the Drizzle declaration had no `.notNull()` either,
+so `check:schema-sync` compared one wrong thing to another and agreed. It only
+surfaced when CI first built a database from empty with `migrate`, where `0006`
+genuinely runs and the two sides finally disagreed.
+
+`0016_school_number_not_null_catchup.sql` is a new tag, absent from the
+backfill baseline, so `migrate` applies it everywhere and the gap closes. It
+carries **no data statement** — see the rule above. Production had one school
+with no number, and it was filled in through the admin UI, not by deploy code.
+
+The general lesson: a migration that mixes a data backfill with a schema change
+can be half-skipped by `push` and then marked wholly applied. Prefer separate
+files, and if the schema half matters, make sure something compares the
+declaration against a database built the way production is built.
+
 When you write a new migration file that contains `INSERT` or `UPDATE`
 statements:
 
