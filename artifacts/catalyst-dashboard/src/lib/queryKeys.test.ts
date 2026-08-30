@@ -9,7 +9,7 @@
  *   - GET /api/rubric-sets                   (rubricSets)
  *   - GET /api/rubric-sets                   (quarters / TeacherProfile)
  *   - GET /api/dashboard                     (dashboard)
- *   - GET /api/action-center/overdue-actions (overdueActionSteps)
+ *   - GET /api/action-center/latest-action-steps (latestActionSteps)
  */
 
 import { describe, it, expect } from "vitest";
@@ -28,7 +28,7 @@ describe("QUERY_KEYS — activateMut.onSuccess invalidation coverage", () => {
     QUERY_KEYS.activationPreview,
     QUERY_KEYS.quarters,
     QUERY_KEYS.dashboard,
-    QUERY_KEYS.overdueActionSteps,
+    QUERY_KEYS.latestActionSteps,
   ] as const;
 
   /**
@@ -44,7 +44,7 @@ describe("QUERY_KEYS — activateMut.onSuccess invalidation coverage", () => {
     QUERY_KEYS.activationPreview,      // AdminSchoolYearsTab previewQ
     QUERY_KEYS.quarters,               // action-center, TeacherProfile (page)
     QUERY_KEYS.dashboard,              // Dashboard, action-center, TeacherProfile
-    QUERY_KEYS.overdueActionSteps,     // action-center
+    QUERY_KEYS.latestActionSteps,     // action-center
   ] as const;
 
   it("each invalidation key prefix-matches at least one consumer key", () => {
@@ -66,8 +66,8 @@ describe("QUERY_KEYS — activateMut.onSuccess invalidation coverage", () => {
     expect(QUERY_KEYS.dashboard[0]).toBe("dashboard");
   });
 
-  it('overdueActionSteps key matches consumer declaration in action-center', () => {
-    expect(QUERY_KEYS.overdueActionSteps[0]).toBe("overdueActionSteps");
+  it('latestActionSteps key matches consumer declaration in action-center', () => {
+    expect(QUERY_KEYS.latestActionSteps[0]).toBe("latestActionSteps");
   });
 
   it("all key values are non-empty string arrays", () => {

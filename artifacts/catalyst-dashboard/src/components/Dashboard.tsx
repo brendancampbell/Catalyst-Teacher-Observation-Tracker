@@ -552,7 +552,7 @@ export default function Dashboard() {
         observerId: currentUser?.id,
       });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
       await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
       return obs.id;
     } catch (err) {
@@ -574,7 +574,7 @@ export default function Dashboard() {
      stayed on screen until the page was reloaded. */
   async function handleUpdateObs(teacherId: string, _updated: Observation) {
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
     await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
   }
 
@@ -582,7 +582,7 @@ export default function Dashboard() {
     /* Off the screen now, not one round trip from now. */
     removeObservationFromDashboards(queryClient, observationId);
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
     await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
   }
 

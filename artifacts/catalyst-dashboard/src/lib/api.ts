@@ -44,6 +44,7 @@ export type {
   AICalibrationFlag,
   ActionStep,
   OverdueActionStep,
+  LatestActionStepRow,
 } from "@workspace/api-types";
 
 export { REGIONS, GRADE_SPANS } from "@workspace/api-types";
@@ -730,7 +731,7 @@ export async function generateQualitativeSummary(
 
 /* ── Action Steps ──────────────────────────────────────────────── */
 
-import type { ActionStep, OverdueActionStep, UsageReport } from "@workspace/api-types";
+import type { ActionStep, OverdueActionStep, LatestActionStepRow, UsageReport } from "@workspace/api-types";
 
 export async function fetchLatestActionStep(teacherEmployeeId: string): Promise<ActionStep | null> {
   return apiFetch<ActionStep | null>(`/action-steps/latest?teacherEmployeeId=${encodeURIComponent(teacherEmployeeId)}`);
@@ -757,6 +758,17 @@ export async function fetchUsage(schoolId?: number | null): Promise<UsageReport>
 export async function fetchOverdueActionSteps(schoolId?: number | null): Promise<OverdueActionStep[]> {
   const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
   return apiFetch<OverdueActionStep[]>(`/action-steps/overdue${qs}`);
+}
+
+/**
+ * The whole roster with each teacher's most recent action step.
+ *
+ * Note the singular fetchLatestActionStep above is a different thing: one
+ * teacher, for their profile page. This one is the Action Center tab.
+ */
+export async function fetchLatestActionStepRoster(schoolId?: number | null): Promise<LatestActionStepRow[]> {
+  const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
+  return apiFetch<LatestActionStepRow[]>(`/action-center/latest-action-steps${qs}`);
 }
 
 /* ── Qualitative Themes ─────────────────────────────────────────── */

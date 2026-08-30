@@ -29,7 +29,7 @@ export const QUERY_KEYS = {
   networkAverages:      ["network-averages"]       as const,
 
   // ── Action center ────────────────────────────────────────────────
-  overdueActionSteps:   ["overdueActionSteps"]     as const,
+  latestActionSteps:    ["latestActionSteps"]      as const,
   rescoreQueue:         ["rescoreQueue"]           as const,
   overdueObservations:  ["overdueObservations"]    as const,
   aiInsights:           ["ai-insights"]            as const,

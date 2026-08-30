@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { people, schools, observations, rubricSets, rubricCategories, observationScores } from "@workspace/db/schema";
-import { eq, and, or, sql, inArray, isNotNull, isNull } from "drizzle-orm";
+import { people, schools, observations, rubricSets, rubricCategories, observationScores, actionSteps } from "@workspace/db/schema";
+import { eq, and, or, sql, inArray, isNotNull, isNull, desc } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 import { getWindows } from "../lib/system-settings";
 import { requireAuth, effectiveSchoolId, NoSchoolAssignedError, assertNetworkSchoolAccess } from "../middleware/auth";
 import { TtlCache } from "../lib/ttl-cache";
+import { loadExtensionSummary } from "./action-steps";
 
 /* Network-averages loads all teachers + observations + scores to compute a
    single aggregate object.  Cache the result per rubricSet+scope for 2 min. */
@@ -302,6 +303,163 @@ router.get("/overdue-observations", requireAuth, async (req, res) => {
       res.status(403).json({ error: err.message }); return;
     }
     console.error("GET /action-center/overdue-observations error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ── GET /api/action-center/latest-action-steps ──────────────────
+   The whole roster, one row per teacher, with their most recent action step.
+
+   Unlike its neighbours this is NOT a queue: a teacher with no action step at
+   all is a row here, deliberately blank. That absence is the finding, and it
+   is invisible on a list that only shows people who are behind.
+
+   It replaces the Overdue Action Steps sub-tab, which listed one row per
+   overdue STEP. Collapsing to one row per teacher would quietly lose a teacher
+   whose old step is overdue but who has since been given a newer one, so
+   hasOverdueStep is computed across ALL of that teacher's steps, not just the
+   one displayed. The overdue filter on the client reads that flag.          */
+router.get("/latest-action-steps", requireAuth, async (req, res) => {
+  try {
+    const user = req.user as Express.User;
+    const requested = req.query.schoolId ? parseInt(req.query.schoolId as string, 10) : null;
+    if (requested !== null && isNaN(requested)) {
+      res.status(400).json({ error: "Invalid schoolId" }); return;
+    }
+    if (requested !== null) {
+      const access = await assertNetworkSchoolAccess(user, requested);
+      if (!access.ok) { res.status(access.status).json({ error: access.error }); return; }
+    }
+    const scopedSchoolId = effectiveSchoolId(user, requested);
+
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." }); return;
+    }
+
+    const today = new Date().toISOString().split("T")[0]!;
+
+    /* ── The roster ─────────────────────────────────────────────
+       Same population as the rest of the Action Center, Home Office
+       excluded (see notHomeOffice above).                          */
+    const roster = await db
+      .select({
+        employeeId:  people.employeeId,
+        firstName:   people.firstName,
+        lastName:    people.lastName,
+        department:  people.department,
+        gradeLevel:  people.gradeLevel,
+        schoolName:  schools.displayName,
+      })
+      .from(people)
+      .leftJoin(schools, eq(people.schoolId, schools.id))
+      .where(and(
+        eq(people.isActive, true),
+        eq(people.includeInFeedbackTracker, true),
+        scopedSchoolId !== null ? eq(people.schoolId, scopedSchoolId) : sql`1=1`,
+        notHomeOffice,
+      ));
+
+    if (roster.length === 0) { res.json([]); return; }
+    const teacherIds = roster.map((r) => r.employeeId);
+
+    /* ── Their action steps ─────────────────────────────────────
+       Scoped by snapshotSchoolId, the school frozen onto the step when it was
+       created — not the teacher's live school. GET /action-steps/latest does
+       the same, and for the same reason: a teacher who transferred in must not
+       drag their previous school's steps onto this list.
+
+       Draft observations do not create action_steps rows any more (they hold
+       the intended step in pendingActionStepText), but drafts written before
+       that change did. The observation join excludes those, so nothing a
+       coach has not actually published can appear here.                     */
+    const stepRows = await db
+      .select({
+        id:                   actionSteps.id,
+        teacherEmployeeId:    actionSteps.teacherEmployeeId,
+        text:                 actionSteps.text,
+        dueDate:              actionSteps.dueDate,
+        status:               actionSteps.status,
+        masteredAt:           actionSteps.masteredAt,
+        createdAt:            actionSteps.createdAt,
+        assignedByEmployeeId: actionSteps.assignedByEmployeeId,
+        assignedByFirst:      people.firstName,
+        assignedByLast:       people.lastName,
+      })
+      .from(actionSteps)
+      .leftJoin(people, eq(people.employeeId, actionSteps.assignedByEmployeeId))
+      .leftJoin(observations, eq(observations.id, actionSteps.assignedDuringObservationId))
+      .where(and(
+        inArray(actionSteps.teacherEmployeeId, teacherIds),
+        eq(actionSteps.schoolYearId, activeYearId),
+        scopedSchoolId !== null ? eq(actionSteps.snapshotSchoolId, scopedSchoolId) : sql`1=1`,
+        or(isNull(actionSteps.assignedDuringObservationId), sql`${observations.status} <> 'draft'`)!,
+      ))
+      .orderBy(desc(actionSteps.createdAt), desc(actionSteps.id));
+
+    /* Ordered newest first, so the first step seen for a teacher is theirs. */
+    const latestByTeacher = new Map<string, typeof stepRows[number]>();
+    const overdueTeachers = new Set<string>();
+    for (const r of stepRows) {
+      if (!latestByTeacher.has(r.teacherEmployeeId)) latestByTeacher.set(r.teacherEmployeeId, r);
+      if (r.status === "open" && r.dueDate < today) overdueTeachers.add(r.teacherEmployeeId);
+    }
+
+    /* Extension history only for the steps actually shown. */
+    const extensions = await loadExtensionSummary([...latestByTeacher.values()].map((s) => s.id));
+
+    const rows = roster.map((t) => {
+      const step = latestByTeacher.get(t.employeeId);
+      const ext  = step ? extensions.get(step.id) : undefined;
+      const stepOverdue = step ? step.status === "open" && step.dueDate < today : false;
+      return {
+        employeeId:      t.employeeId,
+        teacherName:     `${t.firstName} ${t.lastName}`.trim(),
+        department:      t.department,
+        gradeLevel:      t.gradeLevel ?? [],
+        schoolName:      t.schoolName ?? null,
+        /* True when ANY of this teacher's steps is overdue, which is not the
+           same as the displayed one being overdue. */
+        hasOverdueStep:  overdueTeachers.has(t.employeeId),
+        latestStep: step ? {
+          id:              step.id,
+          text:            step.text,
+          assignedDate:    step.createdAt.toISOString().split("T")[0]!,
+          dueDate:         step.dueDate,
+          status:          step.status,
+          mastered:        step.status === "mastered" || step.masteredAt != null,
+          masteredAt:      step.masteredAt?.toISOString() ?? null,
+          isOverdue:       stepOverdue,
+          daysOverdue:     stepOverdue
+            ? Math.floor((Date.now() - new Date(step.dueDate).getTime()) / 86_400_000)
+            : null,
+          extensionCount:  ext?.count ?? 0,
+          originalDueDate: ext?.originalDueDate ?? step.dueDate,
+          assignerName:    step.assignedByFirst
+            ? `${step.assignedByFirst} ${step.assignedByLast ?? ""}`.trim()
+            : null,
+        } : null,
+      };
+    });
+
+    /* Overdue first and worst first, so retiring the Overdue Action Steps tab
+       does not also retire its triage order. Everyone else alphabetically. */
+    rows.sort((a, b) => {
+      if (a.hasOverdueStep !== b.hasOverdueStep) return a.hasOverdueStep ? -1 : 1;
+      if (a.hasOverdueStep && b.hasOverdueStep) {
+        const ad = a.latestStep?.daysOverdue ?? 0;
+        const bd = b.latestStep?.daysOverdue ?? 0;
+        if (ad !== bd) return bd - ad;
+      }
+      return a.teacherName.localeCompare(b.teacherName);
+    });
+
+    res.json(rows);
+  } catch (err) {
+    if (err instanceof NoSchoolAssignedError) {
+      res.status(403).json({ error: err.message }); return;
+    }
+    console.error("GET /action-center/latest-action-steps error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

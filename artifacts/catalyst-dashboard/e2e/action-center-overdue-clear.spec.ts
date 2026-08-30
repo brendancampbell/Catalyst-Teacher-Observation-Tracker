@@ -8,9 +8,9 @@ import { test, expect } from "./fixtures";
  * Mechanism under test
  * --------------------
  * handleMaster() in TeacherProfile.tsx calls
- *   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps })
+ *   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps })
  * after a successful PATCH /api/action-steps/:id/master.  This invalidation
- * forces the Action Center's overdueActionSteps query to refetch when the user
+ * forces the Action Center's latestActionSteps query to refetch when the user
  * navigates back — no page reload needed.
  *
  * Test data
@@ -119,7 +119,7 @@ test.describe("Action Center — Overdue Action Steps clears after mastering (no
       /* ── 8. SPA-navigate back to Action Center via the header link ───
               This is a wouter <Link> — no hard browser reload.
               The React Query cache (including the now-invalidated
-              overdueActionSteps key) is fully preserved.              */
+              latestActionSteps key) is fully preserved.              */
       /* Two "Action Center" links exist on this page: the AppHeader back-arrow
          link and the header pill. We want the back-arrow link, which is first
          in DOM order.                                                        */

@@ -19,7 +19,7 @@ const router = Router();
  * is the date the step was first assigned with, not the date before the most
  * recent push.
  */
-async function loadExtensionSummary(
+export async function loadExtensionSummary(
   stepIds: number[],
 ): Promise<Map<number, { count: number; originalDueDate: string }>> {
   const out = new Map<number, { count: number; originalDueDate: string }>();

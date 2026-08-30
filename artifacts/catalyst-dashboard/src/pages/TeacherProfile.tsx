@@ -100,7 +100,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
     try {
       await masterActionStep(id);
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
     } catch {
       toast({ title: "Could not mark step as mastered", variant: "destructive" });
     } finally { setMasteringId(null); }
@@ -137,7 +137,7 @@ export default function TeacherProfilePage({ employeeId, teacherName }: Props) {
         observerId: currentUser?.id,
       });
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, employeeId] });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       return obs.id;
     } catch (err) {

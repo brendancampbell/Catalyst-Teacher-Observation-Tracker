@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Regression guard: editing or deleting an observation from the Dashboard
- * must immediately invalidate the overdueActionSteps and per-teacher
+ * must immediately invalidate the latestActionSteps and per-teacher
  * actionSteps queries so the Action Center reflects the change without
  * a page reload.
  *
@@ -163,7 +163,7 @@ function makeSeededQueryClient() {
   qc.setQueryData(QUERY_KEYS.myLatestRubricSlug,                   "q1-test");
   qc.setQueryData(["dashboard", "q1-test", 5, false],             MOCK_DASHBOARD_DATA);
   qc.setQueryData(["dashboard", "q1-test", null, false],          MOCK_DASHBOARD_DATA);
-  qc.setQueryData(QUERY_KEYS.overdueActionSteps,                   [{ id: 1, teacherId: TEACHER_ID, text: "Improve wait time", dueDate: "2026-06-01" }]);
+  qc.setQueryData(QUERY_KEYS.latestActionSteps,                   [{ id: 1, teacherId: TEACHER_ID, text: "Improve wait time", dueDate: "2026-06-01" }]);
   qc.setQueryData([...QUERY_KEYS.actionSteps, TEACHER_ID],        [{ id: 1, text: "Improve wait time", status: "open" }]);
   return qc;
 }
@@ -203,7 +203,7 @@ describe("Dashboard — Action Center cache invalidation after edit/delete", () 
     vi.clearAllMocks();
   });
 
-  it("invalidates overdueActionSteps after editing an observation", async () => {
+  it("invalidates latestActionSteps after editing an observation", async () => {
     const qc = makeSeededQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
     const Dashboard = (await import("@/components/Dashboard")).default;
@@ -227,13 +227,13 @@ describe("Dashboard — Action Center cache invalidation after edit/delete", () 
       await capturedCallbacks.onUpdateObs!(TEACHER_ID, { ...OBSERVATION, strengths: "Updated" });
     });
 
-    /* Assert overdueActionSteps was invalidated — the core regression guard */
+    /* Assert latestActionSteps was invalidated — the core regression guard */
     await waitFor(
       () =>
         assertKeyInvalidated(
           invalidateSpy,
-          (key) => Array.isArray(key) && key[0] === QUERY_KEYS.overdueActionSteps[0],
-          `queryKey "${QUERY_KEYS.overdueActionSteps[0]}"`,
+          (key) => Array.isArray(key) && key[0] === QUERY_KEYS.latestActionSteps[0],
+          `queryKey "${QUERY_KEYS.latestActionSteps[0]}"`,
         ),
       { timeout: 3000 },
     );
@@ -276,7 +276,7 @@ describe("Dashboard — Action Center cache invalidation after edit/delete", () 
     );
   });
 
-  it("invalidates overdueActionSteps after deleting an observation", async () => {
+  it("invalidates latestActionSteps after deleting an observation", async () => {
     const qc = makeSeededQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
     const Dashboard = (await import("@/components/Dashboard")).default;
@@ -303,8 +303,8 @@ describe("Dashboard — Action Center cache invalidation after edit/delete", () 
       () =>
         assertKeyInvalidated(
           invalidateSpy,
-          (key) => Array.isArray(key) && key[0] === QUERY_KEYS.overdueActionSteps[0],
-          `queryKey "${QUERY_KEYS.overdueActionSteps[0]}"`,
+          (key) => Array.isArray(key) && key[0] === QUERY_KEYS.latestActionSteps[0],
+          `queryKey "${QUERY_KEYS.latestActionSteps[0]}"`,
         ),
       { timeout: 3000 },
     );

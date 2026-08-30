@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Regression guard: editing or deleting an observation from TeacherScoreOverlay
- * must invalidate the overdueActionSteps query AND the per-teacher actionSteps
+ * must invalidate the latestActionSteps query AND the per-teacher actionSteps
  * query so that the Action Center reflects the change without a manual refresh.
  *
  * Failure mode prevented: the onDelete / onSave handlers only called
@@ -242,7 +242,7 @@ describe("TeacherScoreOverlay — observation delete/edit cache invalidation", (
 
   /* ── Delete path ──────────────────────────────────────────────────────── */
 
-  it("invalidates overdueActionSteps after deleting an observation", async () => {
+  it("invalidates latestActionSteps after deleting an observation", async () => {
     const qc = makeQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -258,11 +258,11 @@ describe("TeacherScoreOverlay — observation delete/edit cache invalidation", (
         const calls = invalidateSpy.mock.calls;
         const hit = calls.some((args) => {
           const key = (args[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
-          return Array.isArray(key) && key[0] === QUERY_KEYS.overdueActionSteps[0];
+          return Array.isArray(key) && key[0] === QUERY_KEYS.latestActionSteps[0];
         });
         expect(
           hit,
-          `Expected invalidateQueries to be called with "${QUERY_KEYS.overdueActionSteps[0]}" ` +
+          `Expected invalidateQueries to be called with "${QUERY_KEYS.latestActionSteps[0]}" ` +
           `after delete, but calls were: ${JSON.stringify(calls.map((a) => a[0]))}`,
         ).toBe(true);
       },
@@ -305,7 +305,7 @@ describe("TeacherScoreOverlay — observation delete/edit cache invalidation", (
 
   /* ── Edit path ────────────────────────────────────────────────────────── */
 
-  it("invalidates overdueActionSteps after editing an observation", async () => {
+  it("invalidates latestActionSteps after editing an observation", async () => {
     const qc = makeQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -321,11 +321,11 @@ describe("TeacherScoreOverlay — observation delete/edit cache invalidation", (
         const calls = invalidateSpy.mock.calls;
         const hit = calls.some((args) => {
           const key = (args[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
-          return Array.isArray(key) && key[0] === QUERY_KEYS.overdueActionSteps[0];
+          return Array.isArray(key) && key[0] === QUERY_KEYS.latestActionSteps[0];
         });
         expect(
           hit,
-          `Expected invalidateQueries to be called with "${QUERY_KEYS.overdueActionSteps[0]}" ` +
+          `Expected invalidateQueries to be called with "${QUERY_KEYS.latestActionSteps[0]}" ` +
           `after edit/save, but calls were: ${JSON.stringify(calls.map((a) => a[0]))}`,
         ).toBe(true);
       },

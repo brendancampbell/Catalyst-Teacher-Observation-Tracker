@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
@@ -20,7 +19,7 @@ import {
   fetchRubricSets,
   fetchAIInsights,
   fetchAICalibrationFlags,
-  fetchOverdueActionSteps,
+  fetchLatestActionStepRoster,
   streamAIChat,
   generateAIAnalysis,
   fetchChatSessions,
@@ -34,7 +33,7 @@ import {
   type AIQuotaStatus,
   type RescoreQueueItem,
   type OverdueTeacher,
-  type OverdueActionStep,
+  type LatestActionStepRow,
   type RubricSetRow,
   type AICalibrationFlag,
   type AIInsightsResponse,
@@ -46,6 +45,9 @@ import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { fetchSystemSettings } from "@/lib/api";
 import { describeWindow, DEFAULT_WINDOW_DAYS } from "@workspace/api-types";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
+import { matchesActionStepFilters } from "@/lib/action-step-filters";
+import { GRADE_LEVELS } from "@/data/dummy";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { saveObservation } from "@/lib/observation-save";
 import { QualitativeThemesCard } from "@/components/QualitativeThemesCard";
@@ -67,6 +69,12 @@ const NAVY                  = "#1034B4";
 const YELLOW                = "#FFB500";
 const PROFICIENCY_THRESHOLD = 0.7;
 const WARNING_THRESHOLD     = 0.5;
+
+/* Date-only strings are parsed at local midnight. Without the explicit time
+   the browser reads them as UTC and shows the previous day west of Greenwich. */
+function formatStepDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 function getDueStatus(dueDateStr: string | null): { label: string; color: string; urgent: boolean } {
   if (!dueDateStr) return { label: "No due date", color: "#94a3b8", urgent: false };
@@ -594,7 +602,6 @@ export default function ActionCenterPage() {
   const { currentUser } = useUser();
   const queryClient     = useQueryClient();
   const baseUrl = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-  const [, navigate] = useLocation();
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -698,12 +705,51 @@ export default function ActionCenterPage() {
     staleTime: 60_000,
   });
 
-  /* ── Overdue action steps ─────────────────────────────── */
-  const { data: overdueActionSteps = [] } = useQuery<OverdueActionStep[]>({
-    queryKey: [...QUERY_KEYS.overdueActionSteps, schoolId],
-    queryFn:  () => fetchOverdueActionSteps(schoolId),
-    staleTime: 60_000,
-  });
+  /* ── Latest action step, one row per teacher ──────────── */
+  const { data: latestActionSteps = [], isLoading: latestStepsLoading, isError: latestStepsError } =
+    useQuery<LatestActionStepRow[]>({
+      queryKey: [...QUERY_KEYS.latestActionSteps, schoolId],
+      queryFn:  () => fetchLatestActionStepRoster(schoolId),
+      staleTime: 60_000,
+    });
+
+  /* ── Latest Action Step filters ─────────────────────────
+     Grade and department are multi-select: a teacher assigned several grades
+     matches if ANY of them is picked. Overdue is a third filter rather than a
+     separate tab — it is what the retired Overdue Action Steps tab did, and
+     it reads hasOverdueStep so a teacher with an old overdue step and a newer
+     one still appears. */
+  const [stepGradeFilter, setStepGradeFilter] = useState<string[]>([]);
+  const [stepDeptFilter,  setStepDeptFilter]  = useState<string[]>([]);
+  const [stepOverdueOnly, setStepOverdueOnly] = useState(false);
+
+  /* Filter options come from the rows themselves, so an option never offers a
+     grade or department that would return nothing. GRADE_LEVELS supplies the
+     order — sorting grades as strings puts 10 before 2. */
+  const availableStepGrades = useMemo(() => {
+    const present = new Set(latestActionSteps.flatMap((r) => r.gradeLevel));
+    return GRADE_LEVELS.filter((g) => present.has(g));
+  }, [latestActionSteps]);
+
+  const availableStepDepts = useMemo(
+    () => [...new Set(latestActionSteps.map((r) => r.department).filter((d): d is string => !!d))]
+      .sort((a, b) => a.localeCompare(b)),
+    [latestActionSteps],
+  );
+
+  const overdueTeacherCount = useMemo(
+    () => latestActionSteps.filter((r) => r.hasOverdueStep).length,
+    [latestActionSteps],
+  );
+
+  const filteredActionStepRows = useMemo(
+    () => latestActionSteps.filter((r) => matchesActionStepFilters(r, {
+      grades:      stepGradeFilter,
+      departments: stepDeptFilter,
+      overdueOnly: stepOverdueOnly,
+    })),
+    [latestActionSteps, stepOverdueOnly, stepDeptFilter, stepGradeFilter],
+  );
 
   /* ── Role helpers ────────────────────────────────────────── */
   const isSchoolScoped = currentUser?.role === "COACH" || currentUser?.role === "SCHOOL_LEADER";
@@ -745,7 +791,7 @@ export default function ActionCenterPage() {
   const [activeTab, setActiveTab] = useState("summary");
 
   /* ── Intervention sub-tab ───────────────────────────── */
-  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage">("usage");
+  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "latestActionSteps" | "usage">("usage");
 
   /* ── Domain comparison ───────────────────────────────── */
   const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
@@ -884,7 +930,7 @@ export default function ActionCenterPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiCalibrationFlags });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiInsights });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
       if (obs.masteryWarning) {
         toast({
           title:       "Action step already mastered",
@@ -1576,8 +1622,11 @@ export default function ActionCenterPage() {
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
-                  { key: "overdueActionSteps", label: "Overdue Action Steps", count: overdueActionSteps.length },
-                ] as { key: "rescore" | "overdue" | "calibration" | "overdueActionSteps" | "usage"; label: string; count: number }[]
+                  /* The badge counts TEACHERS with an overdue step, not steps.
+                     One row per teacher is what the tab shows, so counting
+                     steps here would not match anything you can click. */
+                  { key: "latestActionSteps", label: "Latest Action Step", count: overdueTeacherCount },
+                ] as { key: "rescore" | "overdue" | "calibration" | "latestActionSteps" | "usage"; label: string; count: number }[]
               ).map(({ key, label, count }) => {
                 const active = interventionTab === key;
                 return (
@@ -1756,22 +1805,76 @@ export default function ActionCenterPage() {
               )}
 
               {/* OVERDUE ACTION STEPS */}
-              {interventionTab === "overdueActionSteps" && (
+              {/* LATEST ACTION STEP — a roster, not a queue.
+                  Replaced the Overdue Action Steps sub-tab on 30 Aug: that one
+                  listed a row per overdue step and could not show you a teacher
+                  who has no step at all, which is the case worth seeing. */}
+              {interventionTab === "latestActionSteps" && (
                 <section>
                   <div className="mb-4">
                     <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
-                      Overdue Action Steps
+                      Latest Action Step
                     </h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                      Action steps that have passed their due date and have not yet been mastered.
+                      Every teacher and their most recent action step. Teachers with no action step
+                      yet are listed with the row left blank.
                     </p>
                   </div>
-                  {overdueActionSteps.length === 0 ? (
+
+                  {/* ── Filters ─────────────────────────────── */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <FilterMultiSelect label="Grade"      values={stepGradeFilter} onChange={setStepGradeFilter} options={availableStepGrades} />
+                    <FilterMultiSelect label="Department" values={stepDeptFilter}  onChange={setStepDeptFilter}  options={availableStepDepts} />
+                    <button
+                      type="button"
+                      onClick={() => setStepOverdueOnly((v) => !v)}
+                      aria-pressed={stepOverdueOnly}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-sm transition-colors"
+                      style={{
+                        border:          `1.5px solid ${stepOverdueOnly ? "#B91C1C" : "#dde3f0"}`,
+                        backgroundColor: stepOverdueOnly ? "#B91C1C" : "white",
+                        color:           stepOverdueOnly ? "white" : "#334155",
+                        fontFamily:      "'Libre Franklin', sans-serif",
+                      }}
+                    >
+                      Overdue only
+                      {overdueTeacherCount > 0 && (
+                        <span style={{ opacity: 0.85 }}>({overdueTeacherCount})</span>
+                      )}
+                    </button>
+                    {(stepGradeFilter.length > 0 || stepDeptFilter.length > 0 || stepOverdueOnly) && (
+                      <button
+                        type="button"
+                        onClick={() => { setStepGradeFilter([]); setStepDeptFilter([]); setStepOverdueOnly(false); }}
+                        className="text-sm font-semibold underline underline-offset-2 px-1"
+                        style={{ color: "#64748b" }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <span className="text-sm text-slate-500 ml-auto">
+                      {filteredActionStepRows.length} of {latestActionSteps.length} teacher{latestActionSteps.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {latestStepsLoading ? (
+                    <div className="flex items-center justify-center py-14">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: NAVY }} />
+                    </div>
+                  ) : latestStepsError ? (
+                    <div className="text-center py-14 text-red-500 font-semibold">Failed to load action steps. Please refresh.</div>
+                  ) : filteredActionStepRows.length === 0 ? (
                     <Card className="border-slate-200 shadow-sm flex flex-col items-center justify-center py-14 gap-3">
-                      <CheckCircle2 size={48} className="text-green-400" />
+                      <CheckCircle2 size={48} className="text-slate-300" />
                       <div className="text-center">
-                        <p className="font-bold text-lg" style={{ color: NAVY }}>All clear!</p>
-                        <p className="text-slate-500 text-sm mt-1">No overdue action steps at this time.</p>
+                        <p className="font-bold text-lg" style={{ color: NAVY }}>
+                          {latestActionSteps.length === 0 ? "No teachers to show" : "No teachers match these filters"}
+                        </p>
+                        <p className="text-slate-500 text-sm mt-1">
+                          {latestActionSteps.length === 0
+                            ? "Nobody at this school is marked for the feedback tracker."
+                            : "Try clearing a filter."}
+                        </p>
                       </div>
                     </Card>
                   ) : (
@@ -1780,49 +1883,90 @@ export default function ActionCenterPage() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr style={{ backgroundColor: NAVY }}>
-                              {["Teacher", "School", "Action Step", "Due Date", "Days Overdue", "Assigned By"].map((h, i) => (
+                              {["Teacher", "Subject / Grade", "Action Step", "Assigned", "Due", "Status", "Assigned By"].map((h, i) => (
                                 <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
                               ))}
                             </tr>
-                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={6} style={{ padding: 0, height: 3 }} /></tr>
+                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={7} style={{ padding: 0, height: 3 }} /></tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {overdueActionSteps.map((item) => (
-                              <tr
-                                key={item.id}
-                                className="hover:bg-slate-50 transition-colors cursor-pointer"
-                                onClick={() => navigate(`${baseUrl}/teacher/${item.teacherEmployeeId}?name=${encodeURIComponent(item.teacherName)}`)}
-                              >
-                                <td className="px-4 py-3 font-semibold" style={{ color: NAVY }}>
-                                  {item.teacherName}
-                                </td>
-                                <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
-                                <td className="px-4 py-3 text-slate-700 max-w-xs">
-                                  <p className="line-clamp-2 leading-snug">{item.text}</p>
-                                </td>
-                                <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                                  {new Date(item.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
-                                    {item.daysOverdue}d overdue
-                                  </span>
-                                  {/* Overdue AFTER being extended twice is a
-                                      different situation from overdue for the
-                                      first time — that teacher is stuck. */}
-                                  {(item.extensionCount ?? 0) > 0 && (
-                                    <span
-                                      className="inline-flex items-center font-bold px-2.5 py-1 rounded-full text-xs ml-1.5"
-                                      style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}
-                                      title={item.originalDueDate ? `Originally due ${item.originalDueDate}` : undefined}
-                                    >
-                                      extended {item.extensionCount}&times;
+                            {filteredActionStepRows.map((row) => {
+                              const step = row.latestStep;
+                              return (
+                                <tr key={row.employeeId} className="hover:bg-slate-50 transition-colors align-top">
+                                  <td className="px-4 py-3 font-semibold">
+                                    <a href={`${baseUrl}/?teacher=${row.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{row.teacherName}</a>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                    {row.department ?? "—"}
+                                    <span className="text-slate-400 ml-1.5">
+                                      {row.gradeLevel.length > 0 ? `· Gr. ${row.gradeLevel.join(", ")}` : ""}
                                     </span>
+                                  </td>
+
+                                  {step === null ? (
+                                    /* The blank row is the finding, so it says so
+                                       rather than leaving five empty cells. */
+                                    <td className="px-4 py-3 text-slate-400 italic" colSpan={5}>
+                                      No action step assigned this year
+                                    </td>
+                                  ) : (
+                                    <>
+                                      <td className="px-4 py-3 text-slate-700 max-w-xs">
+                                        <p className="line-clamp-2 leading-snug">{step.text}</p>
+                                      </td>
+                                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatStepDate(step.assignedDate)}</td>
+                                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                        {formatStepDate(step.dueDate)}
+                                        {step.extensionCount > 0 && (
+                                          /* Pushed back and still not done is a
+                                             different situation from late once —
+                                             that teacher is stuck. Carried over
+                                             from the tab this one replaced. */
+                                          <span
+                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5"
+                                            style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}
+                                            title={`Originally due ${formatStepDate(step.originalDueDate)}`}
+                                          >
+                                            extended {step.extensionCount}&times;
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {step.mastered ? (
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#F0FDF4", color: "#15803D" }}>
+                                            <CheckCircle2 size={12} /> Mastered
+                                          </span>
+                                        ) : step.isOverdue ? (
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
+                                            <Clock size={12} /> {step.daysOverdue}d overdue
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#F1F5F9", color: "#475569" }}>
+                                            Open
+                                          </span>
+                                        )}
+                                        {/* An overdue step elsewhere in this
+                                            teacher's history, when the newest one
+                                            is fine. Without this the overdue
+                                            filter would look wrong: the row
+                                            matches but shows nothing red. */}
+                                        {!step.isOverdue && row.hasOverdueStep && (
+                                          <span
+                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5"
+                                            style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}
+                                            title="An earlier action step for this teacher is still open and past due"
+                                          >
+                                            earlier step overdue
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{step.assignerName ?? "—"}</td>
+                                    </>
                                   )}
-                                </td>
-                                <td className="px-4 py-3 text-slate-600">{item.assignerName ?? "—"}</td>
-                              </tr>
-                            ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

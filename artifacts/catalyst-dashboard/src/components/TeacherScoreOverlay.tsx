@@ -351,7 +351,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
           ),
       );
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
     } catch {
       toast({ title: "Could not mark step as mastered", variant: "destructive" });
     } finally {
@@ -382,7 +382,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
       );
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
       /* It may be overdue again, so the Action Center has to re-read. */
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
     } catch {
       toast({ title: "Could not undo mastery", variant: "destructive" });
     } finally {
@@ -742,7 +742,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           }}
           onDelete={canEditThisObs ? async (observationId) => {
@@ -757,7 +757,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                below still runs; this is what makes it disappear immediately. */
             removeObservationFromDashboards(queryClient, observationId);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
           } : undefined}
         />

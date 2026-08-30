@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
  * Regression guard: mastering a step from the Dashboard TeacherProfile
- * component must immediately invalidate the overdueActionSteps query so that
+ * component must immediately invalidate the latestActionSteps query so that
  * the Action Center reflects the change without a manual page refresh.
  *
  * Failure mode prevented: a future refactor removes or misspells the
- * queryClient.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps })
+ * queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps })
  * call inside handleMasterStep, causing stale "Overdue" entries to persist.
  */
 
@@ -181,7 +181,7 @@ describe("TeacherScoreOverlay component — handleMasterStep cache invalidation"
     vi.clearAllMocks();
   });
 
-  it("invalidates overdueActionSteps query after mastering a step", async () => {
+  it("invalidates latestActionSteps query after mastering a step", async () => {
     const qc = makeQueryClient();
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -224,7 +224,7 @@ describe("TeacherScoreOverlay component — handleMasterStep cache invalidation"
     /* Assert masterActionStep API was called with the correct step id */
     expect(mockMasterActionStep).toHaveBeenCalledWith(OPEN_STEP.id);
 
-    /* Assert overdueActionSteps was invalidated — the core regression guard */
+    /* Assert latestActionSteps was invalidated — the core regression guard */
     await waitFor(
       () => {
         const calls = invalidateSpy.mock.calls;
@@ -232,12 +232,12 @@ describe("TeacherScoreOverlay component — handleMasterStep cache invalidation"
           (args) => {
             const opts = args[0] as { queryKey?: unknown[] } | undefined;
             const key = opts?.queryKey;
-            return Array.isArray(key) && key[0] === QUERY_KEYS.overdueActionSteps[0];
+            return Array.isArray(key) && key[0] === QUERY_KEYS.latestActionSteps[0];
           },
         );
         expect(
           invalidatedOverdue,
-          `Expected queryClient.invalidateQueries to be called with queryKey "${QUERY_KEYS.overdueActionSteps[0]}" ` +
+          `Expected queryClient.invalidateQueries to be called with queryKey "${QUERY_KEYS.latestActionSteps[0]}" ` +
           `but calls were: ${JSON.stringify(calls.map((a) => a[0]))}`,
         ).toBe(true);
       },

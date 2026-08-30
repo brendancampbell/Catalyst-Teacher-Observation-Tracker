@@ -425,6 +425,45 @@ export interface OverdueActionStep {
 
 /* ── Action Center ───────────────────────────────────────────────── */
 
+/**
+ * One teacher's row in the Latest Action Step tab.
+ *
+ * This is a roster, not a queue: latestStep is null for a teacher who has
+ * never been given one, and that row is still returned. The blank is the
+ * point — it is the thing an overdue-only list cannot show you.
+ */
+export interface LatestActionStepRow {
+  employeeId:     string;
+  teacherName:    string;
+  department:     string | null;
+  gradeLevel:     string[];
+  schoolName:     string | null;
+  /**
+   * True when ANY of this teacher's steps is open and past due — not only the
+   * one in latestStep. A teacher can be sitting on an overdue step and have
+   * been given a newer one since; filtering on the displayed step alone would
+   * quietly drop them off the overdue list.
+   */
+  hasOverdueStep: boolean;
+  latestStep: {
+    id:              number;
+    text:            string;
+    assignedDate:    string;
+    dueDate:         string;
+    status:          string;
+    mastered:        boolean;
+    masteredAt:      string | null;
+    isOverdue:       boolean;
+    daysOverdue:     number | null;
+    /* Overdue after two extensions is a different situation from overdue for
+       the first time. */
+    extensionCount:  number;
+    originalDueDate: string;
+    assignerName:    string | null;
+  } | null;
+}
+
+
 export interface RescoreQueueItem {
   employeeId:     string;
   teacherName:    string;

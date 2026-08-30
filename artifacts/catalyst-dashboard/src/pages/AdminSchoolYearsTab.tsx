@@ -114,7 +114,7 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.activationPreview });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.quarters });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.overdueActionSteps });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
       setShowActivate(false);
       setConfirmText("");
     },
