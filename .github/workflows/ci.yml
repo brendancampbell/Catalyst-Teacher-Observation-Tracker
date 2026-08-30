@@ -7,16 +7,57 @@
 # it.
 #
 # No new tests are written here and nothing about how they work changes. This
-# runs what already exists, in the order that fails fastest: type errors before
-# unit tests, unit tests before the database ones, so a typo does not wait
-# behind a Postgres boot to be reported.
+# runs what already exists.
+#
+# ── Two jobs, side by side ────────────────────────────────────────────────
+# These used to be one job in fastest-fails-first order, so a typo would not
+# wait behind a Postgres boot to be reported. That was the right shape for one
+# job, but it meant the integration tier — five or six minutes of the run —
+# did not START until the typecheck and unit tests had finished.
+#
+# They are now two jobs that run at the same time. A typo still surfaces in
+# about three minutes, because "static" is not queued behind anything, and the
+# database tier begins immediately rather than three minutes in.
+#
+# The two are genuinely independent: every workspace library exports its
+# TypeScript source directly (see the "exports" field in lib/*/package.json),
+# so nothing the database job runs needs the typecheck job to have built
+# anything first. Both install their own dependencies — duplicated work, but
+# it happens in parallel and the cache makes it cheap.
+#
+# ── Skipping a run ────────────────────────────────────────────────────────
+# Documentation-only pushes are filtered out below and cost nothing.
+#
+# For anything else you judge too small to test, GitHub honours a marker in
+# the commit message — put [skip ci] anywhere in it and the push runs nothing:
+#
+#     git commit -m "Nudge the header colour [skip ci]"
+#
+# Worth being sparing with. The changes that look too small to break something
+# are the ones nobody checks locally either, and a skipped run is a run that
+# cannot tell you which commit was at fault later.
 
 name: CI
 
 on:
   push:
     branches: [main]
+    # Prose and the backlog carry no code. Editing BACKLOG.html used to stand
+    # up a PostgreSQL database to prove that a static page still parsed.
+    #
+    # This skips a push only when EVERY changed file matches, so a commit
+    # touching both a document and the app is still tested in full.
+    paths-ignore:
+      - '**.md'
+      - 'BACKLOG.html'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'BACKLOG.html'
+      - 'LICENSE'
+      - '.gitignore'
 
 # A second push supersedes the first — no point finishing a run for a commit
 # nobody is waiting on any more.
@@ -25,10 +66,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Typecheck and test
+  # ── Everything that needs no database ──────────────────────────────────
+  # The fast half: type errors and ~420 unit checks, in a few minutes.
+  static:
+    name: Typecheck and unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -48,10 +91,31 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      # Everything that needs no database: the api's own tier and both
-      # front-end suites, ~420 checks in well under a minute.
+      # The api's own tier and both front-end suites, ~420 checks in well
+      # under a minute.
       - name: Unit tests
         run: pnpm run test
+
+  # ── Everything that needs one ──────────────────────────────────────────
+  # The slow half, and the only place some of this can run at all: there is
+  # no database on a developer machine by default.
+  database:
+    name: Database and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
 
       # ubuntu-latest ships PostgreSQL but leaves its binaries off PATH, and
       # scripts/test-db.sh calls initdb and pg_ctl directly to stand up a
