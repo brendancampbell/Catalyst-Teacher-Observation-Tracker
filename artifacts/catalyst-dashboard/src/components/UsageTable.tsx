@@ -81,12 +81,21 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
 
   const showSchool = schools.length > 1;
 
+  /* Same header as every other table in the tool — navy ground, Bebas Neue,
+     3px yellow rule. This one also sorts, which the others do not, so the
+     active column is picked out in yellow rather than by a colour change that
+     would be invisible against the navy. */
   const Header = ({ k, label, help }: { k: SortKey; label: string; help?: string }) => (
     <th
-      className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide cursor-pointer select-none whitespace-nowrap"
-      style={{ color: sortKey === k ? NAVY : "#64748b" }}
+      className="px-4 py-3 text-left font-bold uppercase tracking-wider text-base cursor-pointer select-none whitespace-nowrap transition-colors hover:brightness-110"
+      style={{
+        fontFamily:    "'Bebas Neue', sans-serif",
+        letterSpacing: "0.04em",
+        color:         sortKey === k ? YELLOW : "white",
+      }}
       onClick={() => toggleSort(k)}
       title={help}
+      aria-sort={sortKey === k ? (ascending ? "ascending" : "descending") : "none"}
     >
       {label}{sortKey === k ? (ascending ? " ▲" : " ▼") : ""}
     </th>
@@ -155,42 +164,47 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #e2e8f0" }}>
-            <tr>
-              <Header k="name" label="Name" />
-              <Header k="role" label="Role" />
-              {showSchool && <Header k="schoolName" label="School" />}
-              <Header k="lastUsed" label="Last used" help="The most recent day they opened Catalyst" />
-              <Header k="daysUsed" label="Total Days Used" />
-              <Header k="observations" label="Observations" help="Published observations, walkthroughs included. Drafts are not counted." />
-              <Header k="actionSteps" label="Action steps (incl. extensions)" help="Action steps assigned this year. Extending an existing step counts as one — it is still coaching work." />
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((r: UsageRow, i) => (
-              <tr key={r.employeeId} style={{ borderTop: i > 0 ? "1px solid #f1f5f9" : undefined }} className="hover:bg-slate-50">
-                <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{r.name}</td>
-                <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.role.replace(/_/g, " ")}</td>
-                {showSchool && <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.schoolName ?? "—"}</td>}
-                <td className="px-3 py-2 whitespace-nowrap" style={{ color: r.lastUsed ? "#334155" : "#B91C1C" }}>
-                  {r.lastUsed
-                    ? new Date(r.lastUsed + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                    : "Never"}
-                </td>
-                <td className="px-3 py-2 tabular-nums text-slate-700">{r.daysUsed}</td>
-                <td className="px-3 py-2 tabular-nums text-slate-700">{r.observations}</td>
-                <td className="px-3 py-2 tabular-nums text-slate-700">{r.actionSteps}</td>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ backgroundColor: NAVY }}>
+                <Header k="name" label="Name" />
+                <Header k="role" label="Role" />
+                {showSchool && <Header k="schoolName" label="School" />}
+                <Header k="lastUsed" label="Last used" help="The most recent day they opened Catalyst" />
+                <Header k="daysUsed" label="Total Days Used" />
+                <Header k="observations" label="Observations" help="Published observations, walkthroughs included. Drafts are not counted." />
+                <Header k="actionSteps" label="Action steps (incl. extensions)" help="Action steps assigned this year. Extending an existing step counts as one — it is still coaching work." />
               </tr>
-            ))}
-            {visible.length === 0 && (
-              <tr><td colSpan={showSchool ? 7 : 6} className="px-3 py-8 text-center text-sm text-slate-400">
-                No one matches those filters.
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+              <tr style={{ height: 3, backgroundColor: YELLOW }}>
+                <td colSpan={showSchool ? 7 : 6} style={{ padding: 0, height: 3 }} />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visible.map((r: UsageRow) => (
+                <tr key={r.employeeId} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: NAVY }}>{r.name}</td>
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.role.replace(/_/g, " ")}</td>
+                  {showSchool && <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.schoolName ?? "—"}</td>}
+                  <td className="px-4 py-3 whitespace-nowrap font-semibold" style={{ color: r.lastUsed ? "#475569" : "#B91C1C" }}>
+                    {r.lastUsed
+                      ? new Date(r.lastUsed + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "Never"}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-slate-600">{r.daysUsed}</td>
+                  <td className="px-4 py-3 tabular-nums text-slate-600">{r.observations}</td>
+                  <td className="px-4 py-3 tabular-nums text-slate-600">{r.actionSteps}</td>
+                </tr>
+              ))}
+              {visible.length === 0 && (
+                <tr><td colSpan={showSchool ? 7 : 6} className="px-4 py-8 text-center text-sm text-slate-400">
+                  No one matches those filters.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div style={{ height: 4, backgroundColor: YELLOW, borderRadius: 2, opacity: 0 }} />
     </div>

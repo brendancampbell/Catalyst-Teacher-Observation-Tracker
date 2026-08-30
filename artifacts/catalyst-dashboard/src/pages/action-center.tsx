@@ -1617,15 +1617,15 @@ export default function ActionCenterPage() {
                      is outstanding, and this one is not a queue. A number here
                      would read as work to do. */
                   { key: "usage", label: "Usage", count: 0 },
+                  /* The badge counts TEACHERS with an overdue step, not steps.
+                     One row per teacher is what the tab shows, so counting
+                     steps here would not match anything you can click. */
+                  { key: "latestActionSteps", label: "Latest Action Step", count: overdueTeacherCount },
                   { key: "rescore",     label: "Rescore Queue",       count: queue.length },
                   { key: "overdue",     label: "Overdue Observations", count: overdueTeachers.length },
                   ...(currentUser?.role !== "COACH"
                     ? [{ key: "calibration", label: "Calibration Flags", count: calibrationFlags.length }]
                     : []),
-                  /* The badge counts TEACHERS with an overdue step, not steps.
-                     One row per teacher is what the tab shows, so counting
-                     steps here would not match anything you can click. */
-                  { key: "latestActionSteps", label: "Latest Action Step", count: overdueTeacherCount },
                 ] as { key: "rescore" | "overdue" | "calibration" | "latestActionSteps" | "usage"; label: string; count: number }[]
               ).map(({ key, label, count }) => {
                 const active = interventionTab === key;
@@ -1666,8 +1666,16 @@ export default function ActionCenterPage() {
               })}
             </div>
 
-            {/* ── Sub-tab content ───────────────────────────── */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+            {/* ── Sub-tab content ─────────────────────────────
+                Latest Action Step manages its own scrolling: the filters and
+                the table header stay fixed while only the rows move, which
+                needs the scroll container to be INSIDE the section rather
+                than wrapped around it. Every other sub-tab scrolls whole. */}
+            <div className={
+              interventionTab === "latestActionSteps"
+                ? "flex-1 min-h-0 flex flex-col overflow-hidden px-4 sm:px-6 py-6"
+                : "flex-1 overflow-y-auto px-4 sm:px-6 py-6"
+            }>
 
               {/* RESCORE QUEUE */}
               {interventionTab === "rescore" && (
@@ -1810,8 +1818,8 @@ export default function ActionCenterPage() {
                   listed a row per overdue step and could not show you a teacher
                   who has no step at all, which is the case worth seeing. */}
               {interventionTab === "latestActionSteps" && (
-                <section>
-                  <div className="mb-4">
+                <section className="flex-1 min-h-0 flex flex-col">
+                  <div className="mb-4 shrink-0">
                     <h2 className="text-2xl font-bold uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, letterSpacing: "0.04em" }}>
                       Latest Action Step
                     </h2>
@@ -1821,8 +1829,9 @@ export default function ActionCenterPage() {
                     </p>
                   </div>
 
-                  {/* ── Filters ─────────────────────────────── */}
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                  {/* ── Filters ───────────────────────────────
+                      shrink-0 keeps these out of the scrolling region. */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
                     <FilterMultiSelect label="Grade"      values={stepGradeFilter} onChange={setStepGradeFilter} options={availableStepGrades} />
                     <FilterMultiSelect label="Department" values={stepDeptFilter}  onChange={setStepDeptFilter}  options={availableStepDepts} />
                     <button
@@ -1878,16 +1887,43 @@ export default function ActionCenterPage() {
                       </div>
                     </Card>
                   ) : (
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                    <div className="bg-white rounded-xl shadow-sm flex-1 min-h-0 flex flex-col" style={{ border: "1px solid #dde3f0" }}>
+                      <div className="overflow-auto flex-1 min-h-0 rounded-xl">
+                        <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: 1100 }}>
                           <thead>
-                            <tr style={{ backgroundColor: NAVY }}>
-                              {["Teacher", "Subject / Grade", "Action Step", "Assigned", "Due", "Status", "Assigned By"].map((h, i) => (
-                                <th key={i} className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>{h}</th>
+                            {/* Pinned while the rows scroll underneath.
+                                The yellow rule is an inset shadow on the cells
+                                rather than the separate 3px <tr> its sibling
+                                tables use — a second row would need its own
+                                sticky offset and drift out of place. Same
+                                look, one sticky row. */}
+                            <tr>
+                              {[
+                                { h: "Teacher",         w: "13%",  min: 140 },
+                                { h: "Subject / Grade", w: "12%",  min: 130 },
+                                /* The step text is the content of this table
+                                   and can run long, so it takes the space the
+                                   date columns do not need. */
+                                { h: "Action Step",     w: "34%",  min: 320 },
+                                { h: "Assigned",        w: "10%",  min: 115 },
+                                { h: "Due",             w: "14%",  min: 155 },
+                                { h: "Status",          w: "10%",  min: 125 },
+                                { h: "Assigned By",     w: "7%",   min: 115 },
+                              ].map(({ h, w, min }) => (
+                                <th
+                                  key={h}
+                                  className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base sticky top-0 z-10"
+                                  style={{
+                                    fontFamily:      "'Bebas Neue', sans-serif",
+                                    letterSpacing:   "0.04em",
+                                    backgroundColor: NAVY,
+                                    width:           w,
+                                    minWidth:        min,
+                                    boxShadow:       `inset 0 -3px 0 ${YELLOW}`,
+                                  }}
+                                >{h}</th>
                               ))}
                             </tr>
-                            <tr style={{ height: 3, backgroundColor: YELLOW }}><td colSpan={7} style={{ padding: 0, height: 3 }} /></tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {filteredActionStepRows.map((row) => {
@@ -1912,8 +1948,12 @@ export default function ActionCenterPage() {
                                     </td>
                                   ) : (
                                     <>
-                                      <td className="px-4 py-3 text-slate-700 max-w-xs">
-                                        <p className="line-clamp-2 leading-snug">{step.text}</p>
+                                      {/* Up to three lines, then clipped —
+                                          the full text is on hover, since a
+                                          long step must not push every other
+                                          row off the screen. */}
+                                      <td className="px-4 py-3 text-slate-700">
+                                        <p className="line-clamp-3 leading-snug" title={step.text}>{step.text}</p>
                                       </td>
                                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatStepDate(step.assignedDate)}</td>
                                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
