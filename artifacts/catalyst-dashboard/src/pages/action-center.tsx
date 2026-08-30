@@ -1898,27 +1898,33 @@ export default function ActionCenterPage() {
                                 sticky offset and drift out of place. Same
                                 look, one sticky row. */}
                             <tr>
+                              {/* Percentages, not min-widths: table-layout is
+                                  fixed, which ignores a min-width on a cell.
+                                  The table's own minWidth below is what stops
+                                  the columns being squeezed. They total 100. */}
                               {[
-                                { h: "Teacher",         w: "13%",  min: 140 },
-                                { h: "Subject / Grade", w: "12%",  min: 130 },
+                                { h: "Teacher",         w: "13%" },
+                                { h: "Subject / Grade", w: "12%" },
                                 /* The step text is the content of this table
                                    and can run long, so it takes the space the
                                    date columns do not need. */
-                                { h: "Action Step",     w: "34%",  min: 320 },
-                                { h: "Assigned",        w: "10%",  min: 115 },
-                                { h: "Due",             w: "14%",  min: 155 },
-                                { h: "Status",          w: "10%",  min: 125 },
-                                { h: "Assigned By",     w: "7%",   min: 115 },
-                              ].map(({ h, w, min }) => (
+                                { h: "Action Step",     w: "30%" },
+                                { h: "Assigned",        w: "10%" },
+                                { h: "Due",             w: "14%" },
+                                { h: "Status",          w: "10%" },
+                                /* 11% leaves "Assigned By" comfortably on one
+                                   line — it wrapped at 7%. nowrap holds it
+                                   there whatever the column ends up at. */
+                                { h: "Assigned By",     w: "11%" },
+                              ].map(({ h, w }) => (
                                 <th
                                   key={h}
-                                  className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base sticky top-0 z-10"
+                                  className="text-left px-4 py-3 text-white font-bold uppercase tracking-wider text-base sticky top-0 z-10 whitespace-nowrap"
                                   style={{
                                     fontFamily:      "'Bebas Neue', sans-serif",
                                     letterSpacing:   "0.04em",
                                     backgroundColor: NAVY,
                                     width:           w,
-                                    minWidth:        min,
                                     boxShadow:       `inset 0 -3px 0 ${YELLOW}`,
                                   }}
                                 >{h}</th>
