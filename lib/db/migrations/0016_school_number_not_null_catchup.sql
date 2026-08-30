@@ -1,0 +1,34 @@
+-- schools.school_number: apply the constraint 0006 was credited with.
+--
+-- NOT a new decision. Migration 0006 made this column NOT NULL in July, and
+-- the form validator has required it for longer than that. This migration
+-- exists because on some databases 0006's constraint was never actually
+-- applied, while the tracking table says it was.
+--
+-- How that happened, since it is worth understanding before trusting it:
+--
+--   1. 0006 was hand-written, so `drizzle-kit generate` never ran for it and
+--      no snapshot ever learned about the constraint. All ten snapshots since
+--      have said this column is nullable.
+--   2. The Drizzle declaration was never given .notNull() either — the same
+--      omission, in the other file.
+--   3. Databases built with `push` get the DECLARED schema, and the
+--      declaration said nullable. So push made it nullable.
+--   4. backfill-drizzle-migrations-table.ts then marked 0006 applied on those
+--      databases so `migrate` would stop colliding — which also means migrate
+--      will never apply 0006's constraint there. Ever.
+--
+-- That is exactly the failure that script's own header warns about: a
+-- migration marked applied when it is not, so the change is skipped forever
+-- and the app boots happily against a schema missing it.
+--
+-- This is a NEW tag, absent from that baseline, so migrate applies it
+-- normally and the gap closes on every environment.
+--
+-- IF THIS FAILS, it will be 23502 (not-null violation) and it means that
+-- database holds a school with no number. Do not weaken this migration to get
+-- past it — find those rows and give them their numbers:
+--     SELECT id, abbreviation, display_name FROM schools WHERE school_number IS NULL;
+-- Checked before writing this: dev had 0 of 55.
+
+ALTER TABLE "schools" ALTER COLUMN "school_number" SET NOT NULL;
