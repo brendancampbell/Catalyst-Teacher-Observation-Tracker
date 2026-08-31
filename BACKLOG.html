@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 30 August 2026 &middot; d80471b</p>
+    <p class="eyebrow">Live list &middot; updated 30 August 2026 &middot; 5067a8e</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>8</b> open &middot; <b>3</b> deferred &middot; <b>7</b> unranked</span>
+      <span><b>8</b> open &middot; <b>3</b> deferred &middot; <b>9</b> unranked</span>
       <span><b>409</b> server &middot; <b>317</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -682,7 +682,7 @@
     <div class="sec-head">
       <h2>Not yet ranked</h2>
       <p class="sec-note">
-        Added 23 August, to be captured rather than started. They hold permanent
+        Captured rather than started, and dated where it matters. They hold permanent
         <strong>#</strong> numbers but no <strong>P</strong> &mdash; they join the running order
         above only when you place them. <strong>Size</strong> is a rough shape, not an estimate.
       </p>
@@ -922,6 +922,114 @@
             </td>
             <td class="cat">Feedback</td>
             <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">45</td>
+            <td>
+              <div class="task">
+                <h3>Own the production database account directly</h3>
+                <p class="lineage">Added 30 Aug, out of a review of how much of Catalyst depends on Replit. Pairs with #46. Neither is a move off Replit.</p>
+                <p class="why">
+                  The real data lives in a PostgreSQL database called <code>neondb</code>. Neon is a
+                  separate company from Replit &mdash; Replit sets the database up on your behalf,
+                  which usually means the account holding it is Replit&rsquo;s, not yours. Worth
+                  knowing which, because two things follow from it.
+                </p>
+                <details>
+                  <summary>What it costs you today, and what owning it would fix</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Production cannot be reached from a shell.</strong> A comment in
+                      <code>artifacts/api-server/.replit-artifact/artifact.toml</code> puts it
+                      plainly: the deploy is &ldquo;the only place its credentials exist.&rdquo; That
+                      is why a one-off repair to 158 people&rsquo;s grade levels now runs on
+                      <em>every single deploy</em> &mdash; there was nowhere else to run it. Any
+                      future data fix faces the same problem and gets solved the same wrong way.
+                    </p>
+                    <p>
+                      <strong>If Catalyst ever leaves Replit, the database leaves with Replit</strong>
+                      unless the account is yours. That turns a config change into a data migration
+                      of real staff records, at the worst possible moment.
+                    </p>
+                    <p>
+                      <strong>The first step is a question, not a change.</strong> Find out whose
+                      account holds <code>neondb</code>. If it already sits under a Neon account in
+                      your name, most of this item is already done and the rest is just writing down
+                      how to sign in to it.
+                    </p>
+                    <p>
+                      <strong>If it is Replit&rsquo;s:</strong> the move is an export into a Neon
+                      project you own, then repointing <code>DATABASE_URL</code>. That is a one-way
+                      copy of live staff data, and it needs a window with the app switched off so
+                      nothing is written to the version being left behind. An evening or a weekend,
+                      never mid-week with leaders observing.
+                    </p>
+                    <p>
+                      <strong>What it buys:</strong> a console into production, so the next data fix
+                      runs once instead of living in the deploy forever; backups you control and can
+                      restore from; and a future host change that is config only.
+                      <strong>What it changes for users:</strong> nothing. Same app, same address,
+                      same login.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">46</td>
+            <td>
+              <div class="task">
+                <h3>Pin the Google sign-in return address in production</h3>
+                <p class="lineage">Added 30 Aug, same review as #45. Small, and the safer of the two to do first.</p>
+                <p class="why">
+                  Signing in sends a leader to Google and Google sends them back to one exact
+                  address. Catalyst works that address out as it starts up, and when nothing tells it
+                  otherwise it falls back to a domain name that Replit supplies. So a Replit-side
+                  change to that domain would break sign-in for everybody at once, with no warning
+                  and nothing in the app to explain it.
+                </p>
+                <details>
+                  <summary>The change, and why it needs care rather than effort</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Where it lives:</strong> <code>buildCallbackURL()</code> in
+                      <code>artifacts/api-server/src/lib/passport.ts</code> already prefers a setting
+                      called <code>GOOGLE_CALLBACK_URL</code> and only falls back to the Replit
+                      domain when that setting is empty. The same Replit domain also builds the list
+                      of addresses the API will accept requests from, in
+                      <code>artifacts/api-server/src/app.ts</code>. So one missing setting quietly
+                      controls two things.
+                    </p>
+                    <p>
+                      <strong>The work is two lines and one check.</strong> Set
+                      <code>GOOGLE_CALLBACK_URL</code> to the real production address in the
+                      deployment&rsquo;s secrets, then confirm that the exact same address is listed
+                      in the Google Cloud console as an authorised redirect. The fallback then only
+                      ever applies in the Replit workspace, which is where it belongs.
+                    </p>
+                    <p>
+                      <strong>Sign-in is all or nothing</strong> &mdash; if the setting and the
+                      Google console disagree by even a trailing slash, every leader gets
+                      &ldquo;redirect_uri_mismatch&rdquo; and none of them can get in. That is what
+                      makes this a careful change rather than a hard one: do it when there is time to
+                      test a real sign-in straight afterwards, not last thing on a Friday.
+                    </p>
+                    <p>
+                      <strong>What it buys:</strong> a known-good return address that Replit cannot
+                      change out from under you, and one fewer place where the app assumes it is
+                      running on Replit.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-low">Small</span></td>
           </tr>
 
         </tbody>
