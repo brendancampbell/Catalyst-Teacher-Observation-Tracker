@@ -365,80 +365,6 @@
 
           <tr>
             <td class="p">1</td>
-            <td class="idcell">48</td>
-            <td>
-              <div class="task">
-                <h3>The observation form files against whoever it opened on</h3>
-                <p class="lineage">Found 31 Aug, from a report that a Washington Park HS observation had vanished. It had not vanished &mdash; it was filed on the wrong person, four times in one day.</p>
-                <p class="why">
-                  The New Observation form opens with a teacher already chosen. Not a blank
-                  &ldquo;pick somebody&rdquo; box &mdash; a real name, the first in the school
-                  alphabetically. Open the form from the toolbar rather than from a teacher&rsquo;s
-                  row, fill it in, submit, and it files against that person. The form looks complete
-                  and correct the whole way through, because it is complete. It is just about
-                  somebody else.
-                </p>
-                <details>
-                  <summary>What happened, where the line is, and why the cleanup is the bigger half</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>What happened on 31 Aug.</strong> A school leader observed a coach and
-                      filed it four times &mdash; three submissions inside 70 seconds, then a fourth
-                      two hours later. All four landed on a different member of staff. The repeats
-                      are the tell: nothing appeared on the person she had observed, so she did it
-                      again. Every attempt saved perfectly and none of them went where she meant.
-                    </p>
-                    <p>
-                      <strong>Where it lives:</strong>
-                      <code>artifacts/catalyst-dashboard/src/components/NewObservationModal.tsx:216</code>
-                      &mdash; <code>defaultTeacherId ?? filteredTeachers[0]?.id ?? ""</code>. When
-                      the form is opened without a teacher in mind there is no
-                      <code>defaultTeacherId</code>, so it falls back to the first entry in a list
-                      sorted by full name. There is no placeholder option and nothing refuses a
-                      submit, because from the code&rsquo;s point of view a teacher was always
-                      selected.
-                    </p>
-                    <p>
-                      <strong>The fix is small.</strong> Open with an empty &ldquo;Select a
-                      teacher&hellip;&rdquo; option, and refuse to submit until one is chosen.
-                      Opening from a teacher&rsquo;s row should still pre-fill that teacher &mdash;
-                      that path is deliberate and works. Only the no-teacher-in-mind path should
-                      start blank.
-                    </p>
-                    <p>
-                      <strong>The cleanup is the bigger half, and it is not optional.</strong>
-                      Wrong observations are sitting on a real person&rsquo;s evaluation record
-                      right now, and this has been the behaviour for as long as the form has looked
-                      like this &mdash; so 31 Aug is unlikely to be the only day it happened. Before
-                      fixing the form, work out how many observations network-wide sit on the
-                      alphabetically-first person at their school and look misfiled. The edit route
-                      already allows moving an observation to another person in the same school, so
-                      the repair needs no new code &mdash; but deciding which rows are genuinely
-                      wrong needs a human who knows the schools, not a query.
-                    </p>
-                    <p>
-                      <strong>Why this is ranked first.</strong> Everything else in this list either
-                      prevents a future failure or improves something that works. This one is
-                      writing wrong data into staff evaluation records today, silently, and the
-                      person filing has no way to notice.
-                    </p>
-                    <p>
-                      <strong>Still unconfirmed at the time of writing:</strong> whether the
-                      observed coach was in that dropdown at all. If the rubric&rsquo;s subject
-                      audience excluded her, the leader could not have selected the right person
-                      even by being careful &mdash; a second and worse fault behind this one. Check
-                      before assuming the placeholder fixes everything.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-high">Live data loss</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -464,7 +390,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -489,7 +415,7 @@
             <td><span class="chip u-low">Low</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -502,7 +428,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -518,7 +444,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr class="deferred">
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -535,7 +461,7 @@
             <td><span class="chip u-defer">Deferred</span></td>
           </tr>
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -629,7 +555,7 @@
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -678,7 +604,7 @@
             <td><span class="chip u-med">Medium</span></td>
           </tr>
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -1331,6 +1257,73 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">48</td>
+            <td>
+              <div class="task">
+                <h3>The observation form filed against whoever it opened on</h3>
+                <p class="lineage"><code>4efa171</code> &rarr; <code>f9a443d</code>, merged <code>82f9ae2</code> &mdash; 13 front-end unit tests</p>
+                <p class="why">
+                  The New Observation form opened with a teacher already chosen &mdash; the first
+                  name at the school alphabetically &mdash; whenever it was opened from the toolbar
+                  rather than from a teacher&rsquo;s row. Filled in and submitted, it filed against
+                  that person. It now opens on &ldquo;Select a teacher&hellip;&rdquo; and refuses to
+                  submit until one is picked. Opening from a teacher&rsquo;s row still pre-fills
+                  that teacher; that path was deliberate and is untouched.
+                </p>
+                <details>
+                  <summary>What else had to move, and the half that was dropped</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Two messages, both where the eye already is.</strong> The refusal sits
+                      directly above the Submit button rather than beside the dropdown at the top of
+                      a scrolled form. And with no teacher chosen nothing autosaves &mdash; a draft
+                      has to belong to somebody &mdash; so the footer says &ldquo;Not saving &mdash;
+                      no teacher selected&rdquo; in the place that otherwise reports
+                      &ldquo;Saved 09:14&rdquo;. Silence there is not something anyone reads.
+                    </p>
+                    <p>
+                      <strong>Switching teacher no longer clears the form.</strong> Found in review,
+                      not in the original report. Scores, glows, grows, the date and a new action
+                      step describe the lesson watched, not the person the form points at, so
+                      correcting the name keeps them. Only what belonged to the other person resets:
+                      their open action step and any decision made about it.
+                    </p>
+                    <p>
+                      <strong>The draft cannot follow that switch.</strong>
+                      <code>observationUpdatePayload</code> carries no teacher, so saving again into
+                      the previous person&rsquo;s draft would leave it filed against them while the
+                      form said otherwise &mdash; this same bug, in draft form. The next autosave
+                      starts a fresh draft for the new person instead, and the earlier one stays on
+                      the Drafts page rather than being deleted unasked. For the same reason a
+                      draft belonging to the newly chosen teacher is no longer auto-loaded over the
+                      top of something already written.
+                    </p>
+                    <p>
+                      <strong>The cleanup half was dropped by decision on 31 Aug,</strong> after the
+                      form fix merged. This item originally carried a second and larger half:
+                      finding the observations network-wide that already sit on the
+                      alphabetically-first person at their school and moving them back. That was
+                      not done and is not tracked anywhere else. Those rows are still on the wrong
+                      people&rsquo;s records; the edit route can move an observation to another
+                      person in the same school if it is ever picked up.
+                    </p>
+                    <p>
+                      <strong>Left unconfirmed.</strong> Whether the coach observed on 31 Aug was in
+                      that dropdown at all. <code>teacherMatchesAudience</code> removes anyone whose
+                      subject does not classify to the rubric&rsquo;s audience, so a rubric that is
+                      not set to All can leave the intended person out of the list entirely &mdash;
+                      a separate fault, and a worse one. It is a question for the database rather
+                      than the code, and nothing here answers it.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">31 Aug</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">44</td>
