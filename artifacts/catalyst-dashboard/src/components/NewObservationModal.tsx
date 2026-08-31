@@ -83,7 +83,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     [allTeachers, rubricSetAudience],
   );
 
-  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
+  /* No fallback to the first teacher in the list. Opening the form without a
+     teacher in mind used to select whoever sorted first alphabetically, and
+     the observation filed against them — the form looked complete because it
+     was, just about somebody else. Blank until a person is chosen. */
+  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? "");
   const [date, setDate] = useState(todayIso);
   const [time, setTime] = useState(nowTime);
   const [course, setCourse] = useState("");
@@ -102,6 +106,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const autoSaveTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftJustLoaded   = useRef(false);
   const isSubmittingRef   = useRef(false);
+  const previousTeacherId = useRef("");
   const draftIdRef        = useRef<string | null>(null);
   /* Just a flag now: the panel builds the email itself from the same source
      the form would have used, so there is nothing to hand it but that. */
@@ -129,6 +134,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const [extendDueDate, setExtendDueDate]     = useState("");
   const [extendNote, setExtendNote]           = useState("");
   const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
+  const [teacherError, setTeacherError] = useState<string | null>(null);
 
   /* Keep draftIdRef in sync so setTimeout callbacks always see latest value */
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
@@ -212,8 +218,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   /* On modal open: reset state, then optionally load a draft ───────── */
   useEffect(() => {
     if (open) {
-      const tid = defaultTeacherId ?? filteredTeachers[0]?.id ?? "";
+      const tid = defaultTeacherId ?? "";
       isSubmittingRef.current = false;
+      previousTeacherId.current = tid;
       setTeacherId(tid);
       setDate(todayIso);
       setTime(nowTime());
@@ -235,6 +242,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       setExtendDueDate("");
       setExtendNote("");
       setActionStepDueDateError(null);
+      setTeacherError(null);
       if (resumeDraftId) {
         loadDraftById(resumeDraftId);
       } else if (!freshStart) {
@@ -247,6 +255,20 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   /* When teacher selector changes while modal is open: reset + reload ─ */
   useEffect(() => {
     if (!open || !teacherId) return;
+
+    /* Going from nobody to somebody is not a switch. The form now opens with
+       no teacher chosen, so a leader can type glows and grows before picking
+       the person — wiping the fields there would silently throw that away.
+       Only a change from one real teacher to another clears the form, because
+       then what is on screen belongs to the previous person. */
+    const previous = previousTeacherId.current;
+    previousTeacherId.current = teacherId;
+    if (!previous) {
+      if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
+      fetchActionStep(teacherId);
+      return;
+    }
+
     setDate(todayIso);
     setTime(nowTime());
     setCourse("");
@@ -266,6 +288,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setExtendDueDate("");
     setExtendNote("");
     setActionStepDueDateError(null);
+    setTeacherError(null);
     if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
     fetchActionStep(teacherId);
   }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -382,7 +405,8 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
-    setTeacherId(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
+    previousTeacherId.current = defaultTeacherId ?? "";
+    setTeacherId(defaultTeacherId ?? "");
     setDate(todayIso);
     setTime(nowTime());
     setCourse("");
@@ -407,6 +431,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setExtendDueDate("");
     setExtendNote("");
     setActionStepDueDateError(null);
+    setTeacherError(null);
   }
 
 
@@ -414,7 +439,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   async function handleSubmit() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     isSubmittingRef.current = true;
-    if (!teacherId) return;
+    if (!teacherId) {
+      setTeacherError("Choose a teacher before submitting this observation.");
+      isSubmittingRef.current = false;
+      return;
+    }
 
     /* ── Action step validation ── */
     const hasNewStep = newActionStepText.trim().length > 0 || newActionStepDueDate.length > 0;
@@ -625,12 +654,16 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 </label>
                 <select
                   value={teacherId}
-                  onChange={(e) => setTeacherId(e.target.value)}
+                  onChange={(e) => { setTeacherId(e.target.value); setTeacherError(null); }}
                   disabled={filteredTeachers.length === 0}
-                  className={`${inputBase} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`${inputBase} disabled:opacity-50 disabled:cursor-not-allowed ${
+                    teacherError ? "border-red-400 ring-2 ring-red-200" : ""
+                  } ${teacherId ? "" : "text-slate-500"}`}
                 >
-                  {filteredTeachers.length === 0 && (
+                  {filteredTeachers.length === 0 ? (
                     <option value="" disabled>No teachers available</option>
+                  ) : (
+                    <option value="">Select a teacher…</option>
                   )}
                   {filteredTeachers.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -638,6 +671,12 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     </option>
                   ))}
                 </select>
+                {teacherError && (
+                  <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-red-700">
+                    <AlertCircle size={12} className="shrink-0" />
+                    {teacherError}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">

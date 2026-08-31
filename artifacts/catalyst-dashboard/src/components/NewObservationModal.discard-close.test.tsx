@@ -97,6 +97,10 @@ function makeProps(overrides: Record<string, unknown> = {}) {
   return {
     teachers: TEACHERS as never, categories: CATEGORIES, allDomains: ALL_DOMAINS,
     open: true, onOpenChange: vi.fn(), onSubmit: vi.fn().mockResolvedValue("obs-new"),
+    /* The form no longer picks a teacher for you — opened with nobody chosen
+       it writes no draft at all. These tests are about autosave and closing,
+       so they open it the way a teacher's row does, with the person named. */
+    defaultTeacherId: "teacher-1",
     rubricSetId: 7, freshStart: true, ...overrides,
   };
 }
