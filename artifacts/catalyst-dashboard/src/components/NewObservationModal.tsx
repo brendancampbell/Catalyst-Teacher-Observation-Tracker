@@ -83,7 +83,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     [allTeachers, rubricSetAudience],
   );
 
-  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
+  /* No fallback to the first teacher in the list. Opening the form without a
+     teacher in mind used to select whoever sorted first alphabetically, and
+     the observation filed against them — the form looked complete because it
+     was, just about somebody else. Blank until a person is chosen. */
+  const [teacherId, setTeacherId] = useState(defaultTeacherId ?? "");
   const [date, setDate] = useState(todayIso);
   const [time, setTime] = useState(nowTime);
   const [course, setCourse] = useState("");
@@ -129,6 +133,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const [extendDueDate, setExtendDueDate]     = useState("");
   const [extendNote, setExtendNote]           = useState("");
   const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
+  const [teacherError, setTeacherError] = useState<string | null>(null);
 
   /* Keep draftIdRef in sync so setTimeout callbacks always see latest value */
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
@@ -212,7 +217,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   /* On modal open: reset state, then optionally load a draft ───────── */
   useEffect(() => {
     if (open) {
-      const tid = defaultTeacherId ?? filteredTeachers[0]?.id ?? "";
+      const tid = defaultTeacherId ?? "";
       isSubmittingRef.current = false;
       setTeacherId(tid);
       setDate(todayIso);
@@ -235,6 +240,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       setExtendDueDate("");
       setExtendNote("");
       setActionStepDueDateError(null);
+      setTeacherError(null);
       if (resumeDraftId) {
         loadDraftById(resumeDraftId);
       } else if (!freshStart) {
@@ -244,41 +250,59 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
   }, [open, defaultTeacherId, defaultIsWalkthrough]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* When teacher selector changes while modal is open: reset + reload ─ */
+  /* When the chosen teacher changes while the modal is open ──────────
+     What you have written stays. Scores, glows, grows, the date and a new
+     action step describe the lesson you watched, not the person the form is
+     pointed at — picking the right name after typing, or correcting a wrong
+     one, used to wipe the lot.
+
+     What resets is only what belonged to the other person: their open action
+     step, and any decision made about it. */
   useEffect(() => {
     if (!open || !teacherId) return;
-    setDate(todayIso);
-    setTime(nowTime());
-    setCourse("");
-    setScores({});
-    setStrengths("");
-    setGrowthAreas("");
-    setIsWalkthrough(false);
+
+    setLatestActionStep(null);
+    setMarkMastered(false);
+    setExtendingStepId(null);
+    setExtendDueDate("");
+    setExtendNote("");
+    setTeacherError(null);
+
+    /* A draft cannot be moved. The update payload carries no teacher, so
+       saving again into the previous person's draft would leave it filed
+       against them while the form says otherwise — #48 over again, in draft
+       form. Letting go of the id means the next autosave starts a fresh draft
+       for the new person; the earlier one stays on the Drafts page. */
     setDraftId(null);
     setDraftResumedFrom(null);
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
-    setLatestActionStep(null);
-    setMarkMastered(false);
-    setNewActionStepText("");
-    setNewActionStepDueDate("");
-    setExtendingStepId(null);
-    setExtendDueDate("");
-    setExtendNote("");
-    setActionStepDueDateError(null);
-    if (!freshStart && !resumeDraftId) checkForDraft(teacherId);
+
+    /* Only look for their draft when there is nothing to lose. Loading it over
+       the top of what someone has just typed is the same silent loss again. */
+    if (!freshStart && !resumeDraftId && !hasUnsavedContent()) checkForDraft(teacherId);
     fetchActionStep(teacherId);
   }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Strip HTML tags before length-checking text fields.
+     Tiptap emits "<p></p>" for an empty editor, which has .trim().length > 0
+     and would erroneously trigger a draft creation on every modal open. */
+  const textContent = (html: string) =>
+    html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+
+  /* Has anything been written that would be lost? */
+  function hasUnsavedContent(): boolean {
+    return (
+      Object.keys(scores).length > 0 ||
+      textContent(strengths).length > 0 ||
+      textContent(growthAreas).length > 0 ||
+      newActionStepText.trim().length > 0
+    );
+  }
 
   /* Auto-save: debounced upsert 2 s after any form change ─────────── */
   useEffect(() => {
     if (!open || !teacherId || !rubricSetId || isSubmittingRef.current) return;
-
-    /* Strip HTML tags before length-checking text fields.
-       Tiptap emits "<p></p>" for an empty editor, which has .trim().length > 0
-       and would erroneously trigger a draft creation on every modal open. */
-    const textContent = (html: string) =>
-      html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 
     const hasContent =
       Object.keys(scores).length > 0 ||
@@ -382,7 +406,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const scoredCount = allDomains.filter((d) => scores[d.id] !== undefined).length;
 
   function reset() {
-    setTeacherId(defaultTeacherId ?? filteredTeachers[0]?.id ?? "");
+    setTeacherId(defaultTeacherId ?? "");
     setDate(todayIso);
     setTime(nowTime());
     setCourse("");
@@ -407,6 +431,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setExtendDueDate("");
     setExtendNote("");
     setActionStepDueDateError(null);
+    setTeacherError(null);
   }
 
 
@@ -414,7 +439,11 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   async function handleSubmit() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     isSubmittingRef.current = true;
-    if (!teacherId) return;
+    if (!teacherId) {
+      setTeacherError("Choose a teacher before submitting this observation.");
+      isSubmittingRef.current = false;
+      return;
+    }
 
     /* ── Action step validation ── */
     const hasNewStep = newActionStepText.trim().length > 0 || newActionStepDueDate.length > 0;
@@ -625,12 +654,16 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 </label>
                 <select
                   value={teacherId}
-                  onChange={(e) => setTeacherId(e.target.value)}
+                  onChange={(e) => { setTeacherId(e.target.value); setTeacherError(null); }}
                   disabled={filteredTeachers.length === 0}
-                  className={`${inputBase} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`${inputBase} disabled:opacity-50 disabled:cursor-not-allowed ${
+                    teacherError ? "border-red-400 ring-2 ring-red-200" : ""
+                  } ${teacherId ? "" : "text-slate-500"}`}
                 >
-                  {filteredTeachers.length === 0 && (
+                  {filteredTeachers.length === 0 ? (
                     <option value="" disabled>No teachers available</option>
+                  ) : (
+                    <option value="">Select a teacher…</option>
                   )}
                   {filteredTeachers.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -994,7 +1027,14 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
           </div>
 
           {/* ── Footer ───────────────────────────────────── */}
-          <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50">
+          {teacherError && (
+            <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-3 text-xs font-semibold text-red-700">
+              <AlertCircle size={13} className="shrink-0" />
+              {teacherError}
+            </div>
+          )}
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
             <div className="flex items-center gap-3 order-2 sm:order-1 min-w-0">
               <p className="text-xs text-slate-400 truncate">
                 {scoredCount === allDomains.length
@@ -1014,6 +1054,15 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
               )}
               {autoSaveStatus === "error" && (
                 <span className="text-xs text-red-500 shrink-0">⚠ Draft not saved</span>
+              )}
+              {/* Nothing is being autosaved, because a draft has to belong to
+                  somebody. Said here, in the place that otherwise reports the
+                  saving, rather than left to be inferred from its silence. */}
+              {!teacherId && hasUnsavedContent() && (
+                <span className="flex items-center gap-1 text-xs font-semibold text-red-600 shrink-0">
+                  <AlertCircle size={11} className="shrink-0" />
+                  Not saving — no teacher selected
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 order-1 sm:order-2 shrink-0 flex-wrap justify-end">
@@ -1061,6 +1110,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                 {saving ? "Saving…" : "Submit"}
               </button>
             </div>
+          </div>
           </div>
           </>)}
 
