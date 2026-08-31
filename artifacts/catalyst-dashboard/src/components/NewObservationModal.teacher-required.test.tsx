@@ -11,9 +11,12 @@
  * What is pinned here:
  *
  *   1. Opened with nobody in mind, no teacher is selected
- *   2. Submitting without one is refused, and says why
- *   3. Opened from a teacher's row, that teacher is still pre-filled
- *   4. Choosing a teacher after typing keeps what was typed
+ *   2. Submitting without one is refused, and says why, next to Submit
+ *   3. Nothing autosaves without a teacher, and the form says so out loud
+ *   4. Opened from a teacher's row, that teacher is still pre-filled
+ *
+ * And separately: switching the teacher keeps the observation being written.
+ * Scores and feedback describe the lesson, not the person the form points at.
  */
 
 import React from "react";
@@ -159,9 +162,6 @@ describe("Opening with no teacher in mind", () => {
   });
 
   it("keeps what was typed when the teacher is chosen afterwards", async () => {
-    /* Switching between two real teachers still clears the form — what is on
-       screen belongs to the previous person. Going from nobody to somebody is
-       not that, and clearing there would silently bin the leader's notes. */
     const { NewObservationModal } = await import("@/components/NewObservationModal");
     render(React.createElement(NewObservationModal, makeProps()));
 
@@ -171,6 +171,115 @@ describe("Opening with no teacher in mind", () => {
     });
 
     expect((screen.getByTitle("Proficient") as HTMLElement).className).toMatch(/bg-green/);
+  });
+
+  it("warns, where it would report saving, that nothing is being saved", async () => {
+    /* The absence of "Saved 09:14" is not something anyone reads. With no
+       teacher there is nothing to autosave against, so it says so. */
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+    render(React.createElement(NewObservationModal, makeProps()));
+
+    expect(screen.queryByText(/not saving/i)).toBeNull();
+
+    await act(async () => { fireEvent.click(screen.getByTitle("Proficient")); });
+
+    expect(screen.getByText(/not saving — no teacher selected/i)).toBeTruthy();
+  });
+
+  it("drops the warning once a teacher is chosen", async () => {
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+    render(React.createElement(NewObservationModal, makeProps()));
+
+    await act(async () => { fireEvent.click(screen.getByTitle("Proficient")); });
+    await act(async () => {
+      fireEvent.change(teacherSelect(), { target: { value: "teacher-zoe" } });
+    });
+
+    expect(screen.queryByText(/not saving/i)).toBeNull();
+  });
+});
+
+/* ================================================================== */
+/* Switching teacher                                                  */
+/* ================================================================== */
+describe("Switching from one teacher to another", () => {
+  /* Correcting the name should not cost you the observation. Everything that
+     describes the lesson stays; only what belonged to the other person goes. */
+
+  async function renderWithScoreAndFeedback() {
+    const props = makeProps({ defaultTeacherId: "teacher-aaron" });
+    const { NewObservationModal } = await import("@/components/NewObservationModal");
+    render(React.createElement(NewObservationModal, props));
+
+    await act(async () => { fireEvent.click(screen.getByTitle("Proficient")); });
+    const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
+    await act(async () => {
+      fireEvent.change(editors[0]!, { target: { value: "<p>Strong do-now</p>" } });
+    });
+    return props;
+  }
+
+  it("keeps the scores and the written feedback", async () => {
+    await renderWithScoreAndFeedback();
+
+    await act(async () => {
+      fireEvent.change(teacherSelect(), { target: { value: "teacher-zoe" } });
+    });
+
+    expect((screen.getByTitle("Proficient") as HTMLElement).className).toMatch(/bg-green/);
+    const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
+    expect(editors[0]!.value).toBe("<p>Strong do-now</p>");
+  });
+
+  it("files the kept work against the teacher now selected", async () => {
+    const props = await renderWithScoreAndFeedback();
+
+    await act(async () => {
+      fireEvent.change(teacherSelect(), { target: { value: "teacher-zoe" } });
+    });
+    await act(async () => { fireEvent.click(screen.getByText("Submit")); });
+
+    expect((props.onSubmit as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBe("teacher-zoe");
+  });
+
+  it("looks up the newly chosen teacher's own action step", async () => {
+    await renderWithScoreAndFeedback();
+    mockFetchLatestActionStep.mockClear();
+
+    await act(async () => {
+      fireEvent.change(teacherSelect(), { target: { value: "teacher-zoe" } });
+    });
+
+    /* Zoe's open step, not Aaron's — this is about the person, so it reloads. */
+    expect(mockFetchLatestActionStep).toHaveBeenCalledWith("emp-002");
+  });
+
+  it("starts a new draft rather than saving into the other teacher's", async () => {
+    /* The update payload carries no teacher. Saving again into Aaron's draft
+       would leave it filed against Aaron while the form says Zoe. */
+    vi.useFakeTimers();
+    try {
+      const props = makeProps({ defaultTeacherId: "teacher-aaron" });
+      const { NewObservationModal } = await import("@/components/NewObservationModal");
+      render(React.createElement(NewObservationModal, props));
+
+      fireEvent.click(screen.getByTitle("Proficient"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+      expect(mockCreateObservation).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        fireEvent.change(teacherSelect(), { target: { value: "teacher-zoe" } });
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+
+      /* A second create, for Zoe — not an update of Aaron's draft. */
+      expect(mockUpdateObservation).not.toHaveBeenCalled();
+      expect(mockCreateObservation).toHaveBeenCalledTimes(2);
+      const second = mockCreateObservation.mock.calls[1]![0] as Record<string, unknown>;
+      expect(second.observedEmployeeId ?? second.teacherId).toBe("teacher-zoe");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
