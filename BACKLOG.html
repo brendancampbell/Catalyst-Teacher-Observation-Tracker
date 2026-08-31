@@ -1194,7 +1194,7 @@
             <td>
               <div class="task">
                 <h3>A teacher has two different pages</h3>
-                <p class="lineage"><code>c1a5fba</code> &mdash; typecheck clean; 119 server &middot; 330 front-end passing locally, integration tier left to CI</p>
+                <p class="lineage"><code>c1a5fba</code> &rarr; <code>PENDING</code> &mdash; typecheck clean; 119 server &middot; 332 front-end passing locally, integration tier left to CI</p>
                 <p class="why">
                   There is one teacher page now. The thin second one &mdash; action steps, no
                   observation history &mdash; is gone, and the Action Center link that was supposed
@@ -1205,14 +1205,28 @@
                   <summary>The half nobody had reported, and the half that closed itself</summary>
                   <div class="detail">
                     <p>
-                      <strong>The link was broken, not just ambiguous.</strong> Both Action Center
-                      tabs link with <code>?teacher=&lt;employeeId&gt;</code>, but the dashboard
-                      resolved that parameter against <code>t.id</code> &mdash; a different field on
-                      the same record. The lookup found nothing and the profile never opened, so
-                      the click left you on a plain dashboard. A working dashboard looks like a
-                      page rather than a failure, which is why this read as &ldquo;the link goes to
-                      the dashboard&rdquo; and not as a bug. It matches <code>id</code> first now,
-                      then <code>employeeId</code>.
+                      <strong>The link was broken, and the first diagnosis of it was wrong.</strong>
+                      It looked like an id mismatch &mdash; the link passes an employee id, the
+                      dashboard looked up <code>t.id</code>. Those are the same value: the dashboard
+                      route maps <code>id: p.employeeId</code>. Matching both fields shipped in
+                      <code>c1a5fba</code> and changed nothing, which is how the real cause surfaced
+                      &mdash; the branch was previewed and behaved exactly as before.
+                    </p>
+                    <p>
+                      <strong>Two effects race, and the URL loses.</strong> The dashboard keeps the
+                      address bar in sync with what you are looking at, rebuilding the whole query
+                      string from state. That effect runs on mount, before the teacher data arrives,
+                      when no teacher is selected &mdash; so it rewrote the URL without
+                      <code>?teacher=</code> and the id was gone before anything could use it. The
+                      auto-open was waiting for the teacher list, and by then there was nothing left
+                      to open. It captures the id on mount now.
+                    </p>
+                    <p>
+                      <strong>Why only from the Action Center.</strong> Clicking around inside the
+                      app leaves the teacher list already cached, and with it present both effects
+                      run in the same pass &mdash; the auto-open one first. It only fails on a cold
+                      page load, which is exactly what an Action Center link is. That is also why a
+                      dashboard, not an error, is what you land on: nothing failed loudly.
                     </p>
                     <p>
                       <strong>The second page had already been orphaned.</strong>
@@ -1233,11 +1247,18 @@
                       it guarded is covered by <code>TeacherProfile.masterStep.test.tsx</code>.
                     </p>
                     <p>
-                      <strong>The drift this item warned about is not fully settled.</strong> One
-                      page means nothing can silently diverge from it today, which was the point.
-                      But the reason it went unnoticed for four days is that no test asserts a
-                      teacher link opens a profile &mdash; the deep link is checked by nothing.
-                      Worth a test the next time this area is opened.
+                      <strong>Now guarded.</strong> <code>Dashboard.teacherDeepLink.test.tsx</code>
+                      loads the dashboard cold with <code>?teacher=</code> set and asserts both that
+                      the parameter survives and that the right person's profile opens. It fails on
+                      the old code. The mock reads the live URL rather than a fixed string, which
+                      matters: the component under test is the one rewriting the URL, so a static
+                      mock cannot see this class of bug at all.
+                    </p>
+                    <p>
+                      <strong>The general trap is still there.</strong> Any future parameter read
+                      into state has the same race &mdash; the URL-sync effect deletes what it does
+                      not know about. Noted in <code>replit.md</code> and in
+                      <code>.agents/memory/</code> rather than fixed structurally here.
                     </p>
                   </div>
                 </details>

@@ -1,34 +1,46 @@
 # Deep-linking to a teacher's profile
 
 The profile is **not a route**. It is `TeacherScoreOverlay`, rendered over the
-dashboard by `components/Dashboard.tsx` when `profileTeacher` resolves. The
-only deep link into it is `/?teacher=<id>`.
+dashboard by `components/Dashboard.tsx` when `profileTeacher` resolves. The only
+deep link into it is `/?teacher=<id>`, and every teacher link in the Action
+Center is one.
 
-## Two different ids arrive in that one parameter
+`<id>` is the employee id. The dashboard route maps `id: p.employeeId`, so
+`Teacher.id` and `Teacher.employeeId` carry the **same value** — a lookup on
+either works. Do not "fix" a profile-not-opening bug by matching both fields;
+that changes nothing. This was tried on 31 Aug 2026 and was a no-op.
 
-`Teacher` carries both `id` (internal) and `employeeId` — they are different
-values.
+## Two effects race, and the URL loses
 
-- The dashboard's own links pass `t.id`; `Dashboard.tsx` also writes
-  `?teacher=<teacherProfileId>` back into the URL from that same field.
-- **The Action Center rows only carry `employeeId`.** The rescore queue and the
-  Latest Action Step tab both link with it.
+`Dashboard.tsx` has a "sync view state → URL" effect that rebuilds the whole
+query string from component state and calls `replaceState`. It runs on mount,
+**before** the dashboard query resolves, when `teacherProfileId` is still null —
+so it writes a URL with no `teacher` parameter and the id is gone.
 
-`profileTeacher` originally matched on `t.id` alone, so every Action Center
-teacher link found nothing and fell through to the plain dashboard — a silent
-failure, since a dashboard is a plausible-looking page to land on. It now tries
-`id` first, then `employeeId`. Keep that order: `id` is what the app writes, and
-matching `employeeId` first would let a collision win.
+The auto-open effect used to wait for `teachers.length > 0`. On a cold load the
+teacher list arrives after the URL has already been rewritten, so it never saw
+both conditions true and the profile silently never opened. You landed on a
+working-looking dashboard with nothing to say anything had failed.
 
-If a new caller has neither id to hand, add the id to its payload rather than
-introducing a third thing this parameter accepts.
+A warm react-query cache hid it completely: with teachers already present both
+effects run in the same commit and the auto-open one is declared first. So it
+worked when clicking around inside the app and failed from the Action Center,
+which is a full page load.
+
+The fix is to capture `urlTeacherId` on mount without waiting for data.
+`profileTeacher` stays null until the list resolves, so holding the id early
+renders nothing. Guarded by `Dashboard.teacherDeepLink.test.tsx`, which mocks
+`useSearch` against the live URL — a static-string mock cannot see this bug,
+because the component under test is the one rewriting the URL.
+
+**Anything new that reads a URL parameter into state has this same race.** The
+URL-sync effect will delete a parameter it does not know about.
 
 ## The page that used to exist
 
 `pages/TeacherProfile.tsx` at `/teacher/:employeeId` was a second, thinner
 teacher page — action steps only, no observation history — added 13 Jul 2026
-(`117b685`). Backlog #40 was opened because landing on it looked like the app
-had lost features. It was retired on 31 Aug 2026 once the profile overlay
-covered action steps (`ActionStepsCard` + `ActionStepsDrawer`) and nothing
-linked to it any more. Do not reintroduce a separate teacher route; extend the
-overlay.
+(`117b685`). Backlog #40 was opened because landing on it looked like the app had
+lost features. Retired 31 Aug 2026 once the profile overlay covered action steps
+(`ActionStepsCard`, `ActionStepsDrawer`) and nothing linked to it. Do not
+reintroduce a separate teacher route; extend the overlay.

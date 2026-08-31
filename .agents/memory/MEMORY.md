@@ -4,4 +4,4 @@
 - [Assignments school-year scoping](assignments-school-year-scoping.md) — assignments.school_year_id gates access; activeThisYear check skips users with no prior assignments
 - [Rubric slug endpoints need year filter](rubric-slug-year-filter.md) — GET /:setSlug, PATCH /sets/:slug, POST /:setSlug/categories must AND with schoolYearId=activeYearId or they return the oldest year's copy
 - [Migration 0005 schema hardening](migration-0005-schema-hardening.md) — migration renames edited_at→updated_at, drops observer/observer_email, changes rubric_set FK to RESTRICT; force-delete route must delete observations first
-- [Deep-linking to a teacher's profile](teacher-profile-deep-link.md) — profile is an overlay, not a route; `/?teacher=` takes either internal id or employeeId, and matching only `id` silently dumped Action Center links on the dashboard
+- [Deep-linking to a teacher's profile](teacher-profile-deep-link.md) — profile is an overlay, not a route; the URL-sync effect strips `?teacher=` before the data lands on a cold load, and `Teacher.id` already IS the employeeId
