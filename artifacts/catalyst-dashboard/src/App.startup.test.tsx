@@ -44,7 +44,6 @@ vi.mock("@/pages/action-center", () => ({ default: () => null }));
 vi.mock("@/pages/drafts", () => ({ default: () => null }));
 vi.mock("@/pages/login", () => ({ default: () => null }));
 vi.mock("@/pages/access-denied", () => ({ default: () => null }));
-vi.mock("@/pages/TeacherProfile", () => ({ default: () => null }));
 vi.mock("@/context/UserContext", () => ({
   UserProvider: ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children),

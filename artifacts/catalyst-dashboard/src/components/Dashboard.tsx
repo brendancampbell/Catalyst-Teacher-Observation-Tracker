@@ -590,8 +590,15 @@ export default function Dashboard() {
     setDrillDown({ teacherId: teacher.id, domainId, domainLabel });
   }
 
+  /* Matched on the internal id first, then on employeeId. The Action Center
+     only carries employeeId on its rows, so its teacher links arrive as
+     ?teacher=<employeeId> while the dashboard's own links use t.id. Matching
+     one and not the other is why an Action Center name landed on the plain
+     dashboard: find() returned nothing and the overlay never opened. */
   const profileTeacher = teacherProfileId
-    ? (teachers.find((t) => t.id === teacherProfileId) ?? null)
+    ? (teachers.find((t) => t.id === teacherProfileId)
+        ?? teachers.find((t) => t.employeeId === teacherProfileId)
+        ?? null)
     : null;
 
   /* ── Label helpers ─────────────────────────────────── */
