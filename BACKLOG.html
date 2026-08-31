@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 30 August 2026 &middot; 1fa821b</p>
+    <p class="eyebrow">Live list &middot; updated 31 August 2026 &middot; 1fa821b</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>8</b> open &middot; <b>3</b> deferred &middot; <b>9</b> unranked</span>
+      <span><b>8</b> open &middot; <b>3</b> deferred &middot; <b>10</b> unranked</span>
       <span><b>409</b> server &middot; <b>317</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -1029,6 +1029,63 @@
               </div>
             </td>
             <td class="cat">Tooling</td>
+            <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">47</td>
+            <td>
+              <div class="task">
+                <h3>One teacher lookup still reads the wrong year&rsquo;s rubric</h3>
+                <p class="lineage">Found 31 Aug while investigating an observation at Washington Park HS that displayed nowhere. It was <em>not</em> the cause of that &mdash; recorded so it is not lost behind it.</p>
+                <p class="why">
+                  Rubric sets are copied forward each year and keep the same short name, so
+                  &ldquo;Q1&rdquo; exists once for 2025&ndash;2026 and again for 2026&ndash;2027. One
+                  route asks for &ldquo;Q1&rdquo; without saying which year it means, and gets the
+                  oldest copy &mdash; then looks for observations scored against it and finds none.
+                  A teacher with a full year of observations comes back empty.
+                </p>
+                <details>
+                  <summary>Where it is, why it is not biting yet, and why that is the reason to fix it</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Where it lives:</strong>
+                      <code>artifacts/api-server/src/routes/teachers.ts:46</code> &mdash;
+                      <code>GET /api/teachers/:id</code> resolves the rubric set from the
+                      <code>?quarter=</code> name alone. Every other rubric lookup in the API pairs
+                      the name with the active school year. This is the only one left that does not.
+                    </p>
+                    <p>
+                      <strong>This exact mistake has been fixed here before.</strong>
+                      <code>.agents/memory/rubric-slug-year-filter.md</code> was written after the
+                      same bug was found in the AI and rubric routes, and it says plainly that any
+                      lookup by name must be paired with the year. This route was missed at the
+                      time. The note is now accurate everywhere except here.
+                    </p>
+                    <p>
+                      <strong>Nothing calls it today.</strong> No screen in the dashboard or the
+                      mobile app uses this endpoint &mdash; which is the only reason it has not
+                      caused an incident. It fails silently rather than loudly: no error, no empty
+                      state, just a teacher who appears never to have been observed. Whoever wires
+                      up the next screen to it inherits that, and will have no reason to suspect the
+                      endpoint rather than the data.
+                    </p>
+                    <p>
+                      <strong>The fix is one line</strong> &mdash; add the active school year to the
+                      lookup, the way the other routes already do &mdash; plus a test that a
+                      teacher&rsquo;s observations still come back after a year has rolled over.
+                      The test is the part worth having: the one-line change is easy to make again
+                      and easy to lose again.
+                    </p>
+                    <p>
+                      <strong>What it changes for users:</strong> nothing today, because nothing
+                      reaches it. It removes a trap rather than fixing a visible fault.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
             <td><span class="chip u-low">Small</span></td>
           </tr>
 
