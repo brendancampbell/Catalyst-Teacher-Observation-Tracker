@@ -318,7 +318,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 31 August 2026 &middot; e1eda9c</p>
+    <p class="eyebrow">Live list &middot; updated 1 September 2026 &middot; e1eda9c</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>7</b> open &middot; <b>3</b> deferred &middot; <b>10</b> unranked</span>
+      <span><b>7</b> open &middot; <b>3</b> deferred &middot; <b>15</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -1020,6 +1020,187 @@
             <td><span class="chip u-low">Small</span></td>
           </tr>
 
+
+          <tr>
+            <td class="idcell">49</td>
+            <td>
+              <div class="task">
+                <h3>Coach profile pages</h3>
+                <p class="lineage">Captured 1 Sep. Very low priority &mdash; wanted, not waited on.</p>
+                <p class="why">
+                  Teachers have a profile; coaches do not. Everything about a coach is currently read
+                  sideways &mdash; through the Usage table, or through the observations they signed.
+                  A page of their own would put a coach&rsquo;s caseload, their observation load and
+                  the action steps they have assigned in one place.
+                </p>
+                <details>
+                  <summary>What it depends on</summary>
+                  <div class="detail">
+                    <p>
+                      Most of what such a page would want to show is <em>who this coach works with</em>,
+                      and that relationship does not exist yet &mdash; it is #17. Without it the page
+                      can only show what a coach has done, not who they are responsible for.
+                    </p>
+                    <p>
+                      Also needs a scoping decision: a school leader seeing their own school&rsquo;s
+                      coaches is straightforward, a network leader seeing everyone is straightforward,
+                      a coach seeing another coach is not.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">50</td>
+            <td>
+              <div class="task">
+                <h3>Let the teacher profile&rsquo;s top summary be switched between views</h3>
+                <p class="lineage">Captured 1 Sep. Pairs naturally with #51 &mdash; same screen.</p>
+                <p class="why">
+                  The header of a teacher&rsquo;s profile shows one fixed thing: Current Avg,
+                  observation count and days since last observed, with the domain breakdown under it.
+                  What a user wants there varies &mdash; sometimes the most recent observation on its
+                  own, sometimes walkthroughs only, sometimes a particular rubric. Today it is one
+                  view and no choice.
+                </p>
+                <details>
+                  <summary>The three views asked for, and the question underneath them</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Most recent</strong> &mdash; the last observation alone, rather than an
+                      average over all of them. <strong>Walkthrough</strong> &mdash; separate the quick
+                      walkthroughs from full observations, which currently blend into the same number.
+                      <strong>Rubric</strong> &mdash; a rubric-set switcher already exists in the
+                      header when more than one applies; this would extend that idea to the summary
+                      itself.
+                    </p>
+                    <p>
+                      The real question is whether the switch changes <em>only</em> the top cards or
+                      the domain breakdown and the history below them too. Worth deciding before any
+                      code &mdash; it is the difference between a display toggle and a filter over the
+                      whole page.
+                    </p>
+                    <p>
+                      Lives in <code>artifacts/catalyst-dashboard/src/components/TeacherScoreOverlay.tsx</code>.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">51</td>
+            <td>
+              <div class="task">
+                <h3>Simplify past observations on the teacher profile</h3>
+                <p class="lineage">Captured 1 Sep. Pairs naturally with #50 &mdash; same screen.</p>
+                <p class="why">
+                  Observation History renders every past observation as a full card. For a teacher
+                  observed often, that is a long scroll of near-identical blocks, and finding a
+                  particular one means reading all of them. A compact row that opens on click would
+                  make the history scannable.
+                </p>
+                <details>
+                  <summary>What &ldquo;simpler&rdquo; needs to mean</summary>
+                  <div class="detail">
+                    <p>
+                      Needs a decision on what stays visible in the collapsed row &mdash; date,
+                      observer, score, whether it was a walkthrough &mdash; and what moves behind the
+                      click. The detail modal already exists, so the click target is not new work.
+                    </p>
+                    <p>
+                      Same file as #50; doing them together avoids laying out the same screen twice.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">52</td>
+            <td>
+              <div class="task">
+                <h3>One observation covering several teachers</h3>
+                <p class="lineage">Captured 1 Sep. Very low priority.</p>
+                <p class="why">
+                  Co-taught classrooms are observed once but have to be recorded twice, because an
+                  observation belongs to exactly one teacher. The observer types the same notes into
+                  two forms.
+                </p>
+                <details>
+                  <summary>Why this is larger than &ldquo;add a second name&rdquo;</summary>
+                  <div class="detail">
+                    <p>
+                      One observation to one teacher is an assumption threaded through the whole app
+                      &mdash; the profile, the averages, the action steps, every count on the action
+                      center. Anything that says &ldquo;this teacher&rsquo;s observations&rdquo; would
+                      need to keep working.
+                    </p>
+                    <p>
+                      And the scores are the hard part, not the notes. Do co-teachers share one set of
+                      scores, or does each get their own against the same visit? Action steps are the
+                      same question again &mdash; one step for both, or one each. Until those are
+                      answered this is not shaped enough to start.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Large</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">53</td>
+            <td>
+              <div class="task">
+                <h3>Group schools by proficiency band on the network action center</h3>
+                <p class="lineage">Captured 1 Sep.</p>
+                <p class="why">
+                  The network summary marks a school Proficient or Not Proficient &mdash; one line at
+                  0.7, and everything below it looks the same. A school at 0.68 and a school at 0.3
+                  need different responses, and the page does not distinguish them. Three bands
+                  &mdash; proficient, working towards, needs improvement &mdash; would say which
+                  schools to go to first.
+                </p>
+                <details>
+                  <summary>What already exists, and the part that is undecided</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The middle band is already there, one level down.</strong> The school
+                      action center&rsquo;s domain bars use two thresholds, 0.7 and 0.5, in three
+                      colours. The network page uses only the first. Reusing both is the obvious
+                      starting point &mdash; but whether 0.5 is the right line for a whole school, as
+                      opposed to a single domain, is a judgement call and not a technical one.
+                    </p>
+                    <p>
+                      <strong>Splitting the bands by domain is unresolved.</strong> The user&rsquo;s
+                      own note says &ldquo;maybe &mdash; unclear&rdquo;. A school is rarely weak
+                      everywhere, so a per-domain view would be more useful and much busier; it is a
+                      second piece of work, not part of this one. Decide the school-level bands first
+                      and see whether the domain question is still live.
+                    </p>
+                    <p>
+                      Lives in <code>artifacts/catalyst-dashboard/src/pages/network-action-center.tsx</code>;
+                      the thresholds are in <code>action-center.tsx</code>.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
