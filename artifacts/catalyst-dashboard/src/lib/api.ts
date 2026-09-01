@@ -750,6 +750,26 @@ export async function unmasterActionStep(id: number): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/action-steps/${id}/unmaster`, { method: "PATCH" });
 }
 
+/**
+ * Correct the wording or the due date of an action step already assigned.
+ *
+ * Send only what changed. That is not tidiness: the server refuses a dueDate
+ * in the past, so re-sending an overdue step's own date would fail an edit
+ * that only touched the text.
+ *
+ * The server refuses a step that is already mastered, or one belonging to
+ * another school. Callers surface whatever it says.
+ */
+export async function updateActionStep(
+  id: number,
+  changes: { text?: string; dueDate?: string },
+): Promise<{ ok: boolean; actionStep: ActionStep }> {
+  return apiFetch<{ ok: boolean; actionStep: ActionStep }>(`/action-steps/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  });
+}
+
 export async function fetchUsage(schoolId?: number | null): Promise<UsageReport> {
   const qs = schoolId != null ? `?schoolId=${schoolId}` : "";
   return apiFetch<UsageReport>(`/usage${qs}`);
