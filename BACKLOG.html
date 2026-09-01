@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>8</b> open &middot; <b>3</b> deferred &middot; <b>10</b> unranked</span>
+      <span><b>7</b> open &middot; <b>3</b> deferred &middot; <b>10</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -601,75 +601,6 @@
               </div>
             </td>
             <td class="cat">Rescore</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-          <tr>
-            <td class="p">8</td>
-            <td class="idcell">40</td>
-            <td>
-              <div class="task">
-                <h3>A teacher has two different pages</h3>
-                <p class="lineage">New, 27 Aug. Found by landing on the wrong one and assuming the app had broken.</p>
-                <p class="why">
-                  Clicking a teacher's name in the <strong>Action Center</strong> and clicking one on
-                  the <strong>dashboard</strong> lead to different pages. Both are &ldquo;the
-                  teacher's page&rdquo; to anybody using them, and nothing on screen says which one
-                  you are on.
-                </p>
-                <details>
-                  <summary>What each one is, and why this keeps costing something</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>The profile</strong> &mdash; dashboard, click a teacher. Observation
-                      history, scores, the detail modal, editing, the walkthrough tag. This is the
-                      one everything gets built into.
-                    </p>
-                    <p>
-                      <strong>The action steps page</strong> &mdash;
-                      <code>/teacher/:employeeId</code>, reached from the Action Center. Open and
-                      Mastered action steps, and a button to add an observation. No observation
-                      history at all. Added 13 Jul as &ldquo;Add Action Step UI&rdquo;
-                      (<code>117b685</code>) for working through somebody's overdue steps, and it
-                      has never shown observations.
-                    </p>
-                    <p>
-                      <strong>How it surfaced.</strong> Arriving from the Action Center on 27 Aug it
-                      looked as though the walkthrough tag and the observation editing had
-                      disappeared. Nothing was broken &mdash; that page has no observation boxes to
-                      put them on. But the page gives no clue that it is a different thing, so the
-                      reasonable conclusion was that the app had lost a feature.
-                    </p>
-                    <p>
-                      <strong>Why it will keep happening.</strong> Everything added to observations
-                      lands on the profile only. Today that is the walkthrough tag and the date,
-                      time and teacher editing; next time it will be something else. Nothing forces
-                      the two to agree, and only one of them is ever remembered.
-                    </p>
-                    <p>
-                      <strong>The decision.</strong> Not a refactor to schedule but a question to
-                      answer: should a teacher have one page? Roughly:
-                    </p>
-                    <ul>
-                      <li><strong>One page.</strong> The Action Center links to the profile, which
-                        grows an action-steps section. Everything about a teacher in one place, and
-                        the drift ends. Most work, and the profile is already long.</li>
-                      <li><strong>Keep both, make them obviously different.</strong> Retitle the
-                        action steps page so it does not read as the teacher's profile, and link to
-                        the full profile from it. Cheap, and honest about what it is.</li>
-                      <li><strong>Fold action steps into the profile and retire the route.</strong>
-                        The Action Center deep-links to the profile with the action steps section
-                        opened. One page, one URL, and the deep link still lands where it should.</li>
-                    </ul>
-                    <p>
-                      Same shape as the department classifier and the two rubric copy paths &mdash;
-                      one idea implemented twice, drifting because nothing holds them together.
-                      Worse here because it is the part people see.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Navigation</td>
             <td><span class="chip u-med">Medium</span></td>
           </tr>
 
@@ -1257,6 +1188,105 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">40</td>
+            <td>
+              <div class="task">
+                <h3>A teacher has two different pages</h3>
+                <p class="lineage"><code>c1a5fba</code> &rarr; <code>f60e4e9</code> &rarr; <code>b5571a2</code> &mdash; typecheck clean; 119 server &middot; 342 front-end passing locally, integration tier left to CI</p>
+                <p class="why">
+                  There is one teacher page now. The thin second one &mdash; action steps, no
+                  observation history &mdash; is gone, and the Action Center link that was supposed
+                  to open the real profile now actually opens it. It had been landing on the
+                  dashboard instead.
+                </p>
+                <details>
+                  <summary>The half nobody had reported, and the half that closed itself</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The link was broken, and the first diagnosis of it was wrong.</strong>
+                      It looked like an id mismatch &mdash; the link passes an employee id, the
+                      dashboard looked up <code>t.id</code>. Those are the same value: the dashboard
+                      route maps <code>id: p.employeeId</code>. Matching both fields shipped in
+                      <code>c1a5fba</code> and changed nothing, which is how the real cause surfaced
+                      &mdash; the branch was previewed and behaved exactly as before.
+                    </p>
+                    <p>
+                      <strong>Two effects race, and the URL loses.</strong> The dashboard keeps the
+                      address bar in sync with what you are looking at, rebuilding the whole query
+                      string from state. That effect runs on mount, before the teacher data arrives,
+                      when no teacher is selected &mdash; so it rewrote the URL without
+                      <code>?teacher=</code> and the id was gone before anything could use it. The
+                      auto-open was waiting for the teacher list, and by then there was nothing left
+                      to open. It captures the id on mount now.
+                    </p>
+                    <p>
+                      <strong>And underneath it, a second failure with the same symptom.</strong>
+                      The dashboard sends a network admin to the DISTRICT view whenever the URL
+                      carries no school, and it returns there before any teacher is looked at &mdash;
+                      so a bare <code>?teacher=</code> link was not ignored so much as never
+                      reached. A school leader never saw this: their own school fills in as a
+                      fallback. Which is also why the first two attempts looked right and were not
+                      &mdash; both were checked signed in as a school leader. The links now use
+                      <code>teacherProfileHref</code>, which carries the school across, and
+                      <code>lib/school-context.ts</code> had been documenting this exact trap for
+                      other links all along.
+                    </p>
+                    <p>
+                      <strong>Why only from the Action Center.</strong> Clicking around inside the
+                      app leaves the teacher list already cached, and with it present both effects
+                      run in the same pass &mdash; the auto-open one first. It only fails on a cold
+                      page load, which is exactly what an Action Center link is. That is also why a
+                      dashboard, not an error, is what you land on: nothing failed loudly.
+                    </p>
+                    <p>
+                      <strong>The second page had already been orphaned.</strong>
+                      <code>e0508b3</code> replaced the Overdue Action Steps tab on 30 Aug and
+                      pointed its teacher links at the profile, which left
+                      <code>/teacher/:employeeId</code> with nothing in the app linking to it &mdash;
+                      reachable only by typing the URL. It is removed, with its route and wrapper.
+                      The profile overlay has carried action steps for a while
+                      (<code>ActionStepsCard</code>, <code>ActionStepsDrawer</code>), so nothing was
+                      lost with it. Effectively the third option this item offered, arrived at in
+                      two steps.
+                    </p>
+                    <p>
+                      <strong>A dead test went with it.</strong>
+                      <code>e2e/action-center-overdue-clear.spec.ts</code> drove the retired sub-tab
+                      and navigated to <code>/teacher/DEMO-T-007</code>. It had been failing since
+                      <code>e0508b3</code> and nobody noticed, because Playwright is not in CI. What
+                      it guarded is covered by <code>TeacherProfile.masterStep.test.tsx</code>.
+                    </p>
+                    <p>
+                      <strong>Now guarded.</strong> <code>Dashboard.teacherDeepLink.test.tsx</code>
+                      loads the dashboard cold with <code>?teacher=</code> set and asserts both that
+                      the parameter survives and that the right person's profile opens. It fails on
+                      the old code. The mock reads the live URL rather than a fixed string, which
+                      matters: the component under test is the one rewriting the URL, so a static
+                      mock cannot see this class of bug at all.
+                    </p>
+                    <p>
+                      <strong>And guarded as a network admin, which is the part that was missing.</strong>
+                      <code>action-center.teacherLink.test.tsx</code> renders the real page signed in
+                      as one and asserts the school survives on the rendered link in both tabs;
+                      <code>school-context.test.ts</code> covers the helper. The deep-link test now
+                      runs the network role too, including the case that proves why the school is
+                      needed. Every one of them fails on the previous code.
+                    </p>
+                    <p>
+                      <strong>The general trap is still there.</strong> Any future parameter read
+                      into state has the same race &mdash; the URL-sync effect deletes what it does
+                      not know about. Noted in <code>replit.md</code> and in
+                      <code>.agents/memory/</code> rather than fixed structurally here.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Navigation</td>
+            <td>31 Aug 2026</td>
+          </tr>
 
           <tr>
             <td class="idcell">48</td>

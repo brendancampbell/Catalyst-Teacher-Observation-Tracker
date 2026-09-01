@@ -45,9 +45,16 @@ A principal observation tracker for Uncommon Schools. Leaders log classroom obse
 
 - `/` — Main dashboard grid (observation tracker)
 - `/admin` — Admin settings (tabs are role-gated; COACH is blocked entirely)
-- `/action-center` — Rescore queue, overdue observations, overdue action steps
+- `/action-center` — Rescore queue, overdue observations, latest action step
 - `/drafts` — The current user's unpublished observation drafts
-- `/teacher/:employeeId` — Individual profile with score history
+
+A teacher's profile is not a route. It opens over the dashboard, and
+`/?teacher=<employeeId>` deep-links to it. Build those links with
+`teacherProfileHref` (`lib/school-context.ts`), never by hand: for a network
+role, `/` with no `schoolId` is the DISTRICT dashboard, which returns before any
+teacher is looked at. Note also that anything reading a URL parameter into state
+must capture it on mount — the dashboard's URL-sync effect rebuilds the query
+string from state and drops a parameter nothing has claimed yet.
 
 ### Features
 

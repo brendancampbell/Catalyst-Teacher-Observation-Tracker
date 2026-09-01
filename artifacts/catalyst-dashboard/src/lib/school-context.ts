@@ -38,3 +38,26 @@ export function actionCenterHref(
   params.set("returnTo", returnTo);
   return `${basePath}/action-center?${params.toString()}`;
 }
+
+/**
+ * A dashboard link that opens one teacher's profile.
+ *
+ * The profile is not a route — it is an overlay the dashboard renders when
+ * `?teacher=` names somebody it can find. Reaching it therefore means landing
+ * on the right dashboard first, and for a network admin `/` with no `schoolId`
+ * is the DISTRICT dashboard, which returns before any teacher is looked at.
+ * The teacher parameter is not ignored there so much as never reached, so the
+ * click looked like it simply went to the dashboard.
+ *
+ * Hence the school context: the same parameters the Action Center itself was
+ * opened with, plus the teacher.
+ */
+export function teacherProfileHref(
+  basePath: string,
+  employeeId: string,
+  fallbackSchoolId?: number | null,
+): string {
+  const params = schoolContextParams(fallbackSchoolId);
+  params.set("teacher", employeeId);
+  return `${basePath}/?${params.toString()}`;
+}

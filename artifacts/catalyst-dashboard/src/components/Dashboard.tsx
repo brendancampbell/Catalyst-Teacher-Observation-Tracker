@@ -324,12 +324,21 @@ export default function Dashboard() {
   /* ── Teacher profile ───────────────────────────────── */
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
 
-  /* Auto-open profile when ?teacher=<id> is present and data has loaded */
+  /* Auto-open profile when ?teacher=<id> is present.
+
+     Captured on mount rather than after the teacher list arrives. The
+     "sync view state → URL" effect below also runs on mount, and it rebuilds
+     the query string from state in which teacherProfileId is still null — so
+     on a cold load it stripped ?teacher= before the data landed, and waiting
+     for teachers.length meant this never saw the id at all. That is every
+     arrival from the Action Center, which is a full page load.
+
+     Holding the id early costs nothing: profileTeacher stays null until the
+     list resolves, so the plain dashboard renders until there is someone to
+     show. */
   useEffect(() => {
-    if (urlTeacherId && teachers.length > 0) {
-      setTeacherProfileId(urlTeacherId);
-    }
-  }, [urlTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (urlTeacherId) setTeacherProfileId(urlTeacherId);
+  }, [urlTeacherId]);
 
   /* Auto-open observation modal when ?draft=<teacherId> param is present
      (set by the Drafts page Resume button). The modal's checkForDraft

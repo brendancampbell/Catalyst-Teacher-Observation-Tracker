@@ -10,6 +10,7 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { toast } from "@/hooks/use-toast";
 import { safeReturnTo } from "@/lib/safeReturnTo";
+import { teacherProfileHref } from "@/lib/school-context";
 import {
   fetchRescoreQueue,
   fetchOverdueObservations,
@@ -1720,7 +1721,7 @@ export default function ActionCenterPage() {
                               return (
                                 <tr key={item.employeeId} className="hover:bg-slate-50 transition-colors">
                                   <td className="px-4 py-3 font-semibold">
-                                    <a href={`${baseUrl}/?teacher=${item.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
+                                    <a href={teacherProfileHref(baseUrl, item.employeeId, currentUser?.schoolId)} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
                                   <td className="px-4 py-3 text-slate-600">
@@ -1889,7 +1890,7 @@ export default function ActionCenterPage() {
                   ) : (
                     <div className="bg-white rounded-xl shadow-sm flex-1 min-h-0 flex flex-col" style={{ border: "1px solid #dde3f0" }}>
                       <div className="overflow-auto flex-1 min-h-0 rounded-xl">
-                        <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: 1100 }}>
+                        <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: 1200 }}>
                           <thead>
                             {/* Pinned while the rows scroll underneath.
                                 The yellow rule is an inset shadow on the cells
@@ -1904,18 +1905,24 @@ export default function ActionCenterPage() {
                                   the columns being squeezed. They total 100. */}
                               {[
                                 { h: "Teacher",         w: "13%" },
-                                { h: "Subject / Grade", w: "12%" },
+                                /* A teacher in four grades reads "Physical
+                                   Education · Gr. 9, 10, 11, 12". Held on one
+                                   line it ran straight over the Action Step
+                                   column, so the cell wraps and the column is
+                                   wide enough for the wrap to be two lines. */
+                                { h: "Subject / Grade", w: "14%" },
                                 /* The step text is the content of this table
                                    and can run long, so it takes the space the
                                    date columns do not need. */
-                                { h: "Action Step",     w: "30%" },
-                                { h: "Assigned",        w: "10%" },
-                                { h: "Due",             w: "14%" },
-                                { h: "Status",          w: "10%" },
-                                /* 11% leaves "Assigned By" comfortably on one
-                                   line — it wrapped at 7%. nowrap holds it
-                                   there whatever the column ends up at. */
-                                { h: "Assigned By",     w: "11%" },
+                                { h: "Action Step",     w: "25%" },
+                                { h: "Assigned",        w: "11%" },
+                                { h: "Due",             w: "12%" },
+                                { h: "Status",          w: "13%" },
+                                /* Sized for the header; the name below it
+                                   wraps, since "Tabrikah Abdul-Latif" does not
+                                   fit on one line at any width this column can
+                                   be given without starving the step text. */
+                                { h: "Assigned By",     w: "12%" },
                               ].map(({ h, w }) => (
                                 <th
                                   key={h}
@@ -1937,13 +1944,16 @@ export default function ActionCenterPage() {
                               return (
                                 <tr key={row.employeeId} className="hover:bg-slate-50 transition-colors align-top">
                                   <td className="px-4 py-3 font-semibold">
-                                    <a href={`${baseUrl}/?teacher=${row.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{row.teacherName}</a>
+                                    <a href={teacherProfileHref(baseUrl, row.employeeId, currentUser?.schoolId)} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{row.teacherName}</a>
                                   </td>
-                                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                                    {row.department ?? "—"}
-                                    <span className="text-slate-400 ml-1.5">
-                                      {row.gradeLevel.length > 0 ? `· Gr. ${row.gradeLevel.join(", ")}` : ""}
-                                    </span>
+                                  <td className="px-4 py-3 text-slate-600">
+                                    <span className="break-words">{row.department ?? "—"}</span>
+                                    {row.gradeLevel.length > 0 && (
+                                      /* Non-breaking after "Gr." so a wrap can
+                                         only fall between grades, never between
+                                         the label and the first number. */
+                                      <span className="text-slate-400 ml-1.5">{`· Gr.\u00A0${row.gradeLevel.join(", ")}`}</span>
+                                    )}
                                   </td>
 
                                   {step === null ? (
@@ -1962,15 +1972,15 @@ export default function ActionCenterPage() {
                                         <p className="line-clamp-3 leading-snug" title={step.text}>{step.text}</p>
                                       </td>
                                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatStepDate(step.assignedDate)}</td>
-                                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                                        {formatStepDate(step.dueDate)}
+                                      <td className="px-4 py-3 text-slate-600">
+                                        <span className="whitespace-nowrap">{formatStepDate(step.dueDate)}</span>
                                         {step.extensionCount > 0 && (
                                           /* Pushed back and still not done is a
                                              different situation from late once —
                                              that teacher is stuck. Carried over
                                              from the tab this one replaced. */
                                           <span
-                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5"
+                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5 whitespace-nowrap"
                                             style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}
                                             title={`Originally due ${formatStepDate(step.originalDueDate)}`}
                                           >
@@ -1978,17 +1988,17 @@ export default function ActionCenterPage() {
                                           </span>
                                         )}
                                       </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
+                                      <td className="px-4 py-3">
                                         {step.mastered ? (
-                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#F0FDF4", color: "#15803D" }}>
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs whitespace-nowrap" style={{ backgroundColor: "#F0FDF4", color: "#15803D" }}>
                                             <CheckCircle2 size={12} /> Mastered
                                           </span>
                                         ) : step.isOverdue ? (
-                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs whitespace-nowrap" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>
                                             <Clock size={12} /> {step.daysOverdue}d overdue
                                           </span>
                                         ) : (
-                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: "#F1F5F9", color: "#475569" }}>
+                                          <span className="inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-full text-xs whitespace-nowrap" style={{ backgroundColor: "#F1F5F9", color: "#475569" }}>
                                             Open
                                           </span>
                                         )}
@@ -1999,7 +2009,7 @@ export default function ActionCenterPage() {
                                             matches but shows nothing red. */}
                                         {!step.isOverdue && row.hasOverdueStep && (
                                           <span
-                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5"
+                                            className="inline-flex items-center font-bold px-2 py-0.5 rounded-full text-xs ml-1.5 mt-1 whitespace-nowrap"
                                             style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}
                                             title="An earlier action step for this teacher is still open and past due"
                                           >
@@ -2007,7 +2017,7 @@ export default function ActionCenterPage() {
                                           </span>
                                         )}
                                       </td>
-                                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{step.assignerName ?? "—"}</td>
+                                      <td className="px-4 py-3 text-slate-600 break-words">{step.assignerName ?? "—"}</td>
                                     </>
                                   )}
                                 </tr>

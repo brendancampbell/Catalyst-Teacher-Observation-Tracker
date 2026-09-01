@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, useLocation, useParams } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,6 @@ import AdminPage from "@/pages/admin";
 import ActionCenterPage from "@/pages/action-center";
 import LoginPage from "@/pages/login";
 import AccessDeniedPage from "@/pages/access-denied";
-import TeacherProfilePage from "@/pages/TeacherProfile";
 import SupportPage from "@/pages/SupportPage";
 import NetworkActionCenterPage from "@/pages/network-action-center";
 import { UserProvider, useUser } from "@/context/UserContext";
@@ -19,12 +18,6 @@ import { cleanupStaleLocalStorageKeys } from "@/lib/localStorageCleanup";
 import { type ReactNode, useEffect } from "react";
 
 cleanupStaleLocalStorageKeys();
-
-function TeacherProfileRoute() {
-  const { employeeId } = useParams<{ employeeId: string }>();
-  const teacherName = new URLSearchParams(window.location.search).get("name") ?? undefined;
-  return <TeacherProfilePage employeeId={employeeId ?? ""} teacherName={teacherName} />;
-}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,9 +81,6 @@ function Router() {
       </Route>
       <Route path="/support">
         <ProtectedRoute><SupportPage /></ProtectedRoute>
-      </Route>
-      <Route path="/teacher/:employeeId">
-        <ProtectedRoute><TeacherProfileRoute /></ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
