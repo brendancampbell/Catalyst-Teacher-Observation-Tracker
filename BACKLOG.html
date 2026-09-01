@@ -1194,7 +1194,7 @@
             <td>
               <div class="task">
                 <h3>A teacher has two different pages</h3>
-                <p class="lineage"><code>c1a5fba</code> &rarr; <code>f60e4e9</code> &mdash; typecheck clean; 119 server &middot; 332 front-end passing locally, integration tier left to CI</p>
+                <p class="lineage"><code>c1a5fba</code> &rarr; <code>f60e4e9</code> &rarr; <code>b5571a2</code> &mdash; typecheck clean; 119 server &middot; 342 front-end passing locally, integration tier left to CI</p>
                 <p class="why">
                   There is one teacher page now. The thin second one &mdash; action steps, no
                   observation history &mdash; is gone, and the Action Center link that was supposed
@@ -1220,6 +1220,18 @@
                       <code>?teacher=</code> and the id was gone before anything could use it. The
                       auto-open was waiting for the teacher list, and by then there was nothing left
                       to open. It captures the id on mount now.
+                    </p>
+                    <p>
+                      <strong>And underneath it, a second failure with the same symptom.</strong>
+                      The dashboard sends a network admin to the DISTRICT view whenever the URL
+                      carries no school, and it returns there before any teacher is looked at &mdash;
+                      so a bare <code>?teacher=</code> link was not ignored so much as never
+                      reached. A school leader never saw this: their own school fills in as a
+                      fallback. Which is also why the first two attempts looked right and were not
+                      &mdash; both were checked signed in as a school leader. The links now use
+                      <code>teacherProfileHref</code>, which carries the school across, and
+                      <code>lib/school-context.ts</code> had been documenting this exact trap for
+                      other links all along.
                     </p>
                     <p>
                       <strong>Why only from the Action Center.</strong> Clicking around inside the
@@ -1253,6 +1265,14 @@
                       the old code. The mock reads the live URL rather than a fixed string, which
                       matters: the component under test is the one rewriting the URL, so a static
                       mock cannot see this class of bug at all.
+                    </p>
+                    <p>
+                      <strong>And guarded as a network admin, which is the part that was missing.</strong>
+                      <code>action-center.teacherLink.test.tsx</code> renders the real page signed in
+                      as one and asserts the school survives on the rendered link in both tabs;
+                      <code>school-context.test.ts</code> covers the helper. The deep-link test now
+                      runs the network role too, including the case that proves why the school is
+                      needed. Every one of them fails on the previous code.
                     </p>
                     <p>
                       <strong>The general trap is still there.</strong> Any future parameter read
