@@ -1000,6 +1000,12 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
        picking the wrong name from one school's list. So the correction is
        allowed and the boundary is not. */
     let reassignedFrom: string | null = null;
+    /* Who it moved TO, and their role to re-freeze onto the action steps that
+       follow them. Both null when nothing is being reassigned — one variable
+       decides whether the move below runs, so it cannot drift from the guards
+       that allowed it. */
+    let reassignedTo: string | null = null;
+    let reassignedToRole: string | null = null;
     if (newObservedId !== undefined && newObservedId !== existing.observedEmployeeId) {
       if (existing.target !== "TEACHER") {
         res.status(400).json({ error: "A school-wide observation has no observed teacher" });
@@ -1018,7 +1024,68 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
         });
         return;
       }
-      reassignedFrom = existing.observedEmployeeId;
+      reassignedFrom   = existing.observedEmployeeId;
+      reassignedTo     = String(newObservedId);
+      reassignedToRole = nextTeacher.role ?? null;
+
+      /* ── Mastery stops the move ───────────────────────────────────
+         Everything this observation did to an action step was written
+         against the observed teacher, and checked against them at the time —
+         see the three "belongs to a different teacher" guards on this route
+         and the create path. Moving the observation to somebody else has to
+         take that work along, or leave records contradicting the rule they
+         were written under.
+
+         Mastery is where taking it along stops. It is a finished piece of
+         one teacher's history, and both ways out are wrong: carrying it over
+         credits the new teacher with work they did not do, and quietly
+         undoing it erases work the old teacher did. So the move is refused
+         and says what to undo first. The person correcting the record
+         decides which it was; the server does not guess. */
+      const stepsFromThisObs = await db
+        .select({ status: actionSteps.status })
+        .from(actionSteps)
+        .where(eq(actionSteps.assignedDuringObservationId, obsId));
+      if (stepsFromThisObs.some((s) => s.status === "mastered")) {
+        res.status(400).json({
+          error:
+            "This observation assigned an action step that has since been marked mastered. "
+            + "A mastered step cannot be moved to another teacher. Undo the mastery on the "
+            + "teacher's profile first, then reassign the observation.",
+        });
+        return;
+      }
+
+      /* The other direction: a step this observation marked mastered. That
+         step was assigned during a different, real visit to the old teacher,
+         so it stays with them — but the mastery came from a visit now
+         recorded as somebody else's. */
+      const [masteredHere] = await db
+        .select({ id: actionSteps.id })
+        .from(actionSteps)
+        .where(eq(actionSteps.masteredDuringObservationId, obsId))
+        .limit(1);
+      if (masteredHere) {
+        res.status(400).json({
+          error:
+            "This observation marked an action step mastered. That mastery belongs to the "
+            + "teacher it was recorded for and cannot be moved. Undo the mastery on their "
+            + "profile first, then reassign the observation.",
+        });
+        return;
+      }
+
+      /* Doing both in one request would write the new mastery against the
+         teacher being moved away from. Same answer: one at a time. Not
+         reachable from the app — no screen sends both — but the route is. */
+      if (masterActionStepId !== undefined) {
+        res.status(400).json({
+          error:
+            "An observation cannot be reassigned and mark an action step mastered in the same "
+            + "save. Reassign it first, then record the mastery.",
+        });
+        return;
+      }
     }
 
     /* ── Score validation BEFORE any write ──────────────────────── */
@@ -1270,6 +1337,38 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             snapshotRole:                snapshotRolePut,
           });
         }
+      }
+
+      /* ── The action steps follow the observation ──────────────────
+         An observation put on the wrong teacher assigns its action step to
+         the wrong teacher too. Correcting the observation alone left the
+         step behind: still open, still counted against somebody who was
+         never observed, and still owed by them.
+
+         Last in the transaction on purpose. The insert above writes the
+         step against `existing.observedEmployeeId` — the teacher as they
+         were before this request — so a save that reassigns AND adds a step
+         at once would otherwise leave the new step on the old teacher.
+         Sweeping every step tied to this observation at the end catches
+         that one as well.
+
+         Mastered steps never reach here: the guard above refuses the whole
+         reassignment while one exists.
+
+         The school frozen on the step is left alone deliberately. A
+         reassignment cannot cross schools, so snapshotSchoolId and
+         snapshotGradeSpan are still true — and they are what school
+         scoping reads, so rewriting them is how a step would go missing
+         from the school that owns it. The role is the teacher's own, and
+         this is a different teacher, so that one is re-frozen. */
+      if (reassignedTo !== null) {
+        await tx.update(actionSteps)
+          .set({
+            teacherEmployeeId: reassignedTo,
+            ...(reassignedToRole !== null ? { snapshotRole: reassignedToRole } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(actionSteps.assignedDuringObservationId, obsId));
       }
 
       return [updated!];

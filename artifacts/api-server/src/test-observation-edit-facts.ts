@@ -24,13 +24,25 @@
  *   6. Reassigning clears the old teacher's queue entry and flags the new one
  *   7. Reassigning across schools is refused
  *   8. Editing only the wording leaves the queue alone
+ *
+ * Action steps were the half left behind. An observation put on the wrong
+ * teacher assigns its action step to the wrong teacher too, and correcting the
+ * observation alone used to leave that step sitting on somebody who was never
+ * observed — open, owed and counted against them.
+ *
+ *   9. The action step follows the observation to the new teacher
+ *  10. The school frozen on the step does NOT follow — it is what scoping reads
+ *  11. A step assigned here and since mastered refuses the whole move
+ *  12. A step this observation marked mastered refuses it too
+ *  13. Reassigning and adding a step at once puts the step on the new teacher
+ *  14. Reassigning and mastering at once is refused
  */
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { db, pool } from "@workspace/db";
 import {
-  people, schools, schoolYears, observations,
+  people, schools, schoolYears, observations, actionSteps,
   rubricSets, rubricCategories, rubricDomains,
 } from "@workspace/db/schema";
 import { eq, inArray, asc, and, ne } from "drizzle-orm";
@@ -86,6 +98,32 @@ async function makeObservation(teacher: string, date: string, score: number, wal
   assert.ok(res.status === 200 || res.status === 201, JSON.stringify(res.body));
   return Number(res.body.id);
 }
+
+/* Action step due dates are refused in the past, so this is computed rather
+   than written down like the observation dates above. */
+const FUTURE = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split("T")[0]!;
+})();
+
+async function makeObservationWithStep(teacher: string, date: string, text: string) {
+  const res = await request("POST", "/observations", {
+    teacherId: teacher, rubricSetId, date, scores: { [domainSlug]: ABOVE },
+    strengths: "s", growthAreas: "g", isWalkthrough: false, status: "published",
+    newActionStep: { text, dueDate: FUTURE },
+  }, adminJar);
+  assert.ok(res.status === 200 || res.status === 201, JSON.stringify(res.body));
+  return Number(res.body.id);
+}
+
+const stepsAssignedDuring = async (obsId: number) =>
+  db.select({
+    id:       actionSteps.id,
+    teacher:  actionSteps.teacherEmployeeId,
+    status:   actionSteps.status,
+    school:   actionSteps.snapshotSchoolId,
+  }).from(actionSteps).where(eq(actionSteps.assignedDuringObservationId, obsId));
 
 let adminJar: Jar;
 let schoolId: number;
@@ -271,5 +309,111 @@ describe("Correcting the facts of an observation", () => {
     const after = await rescoreOf(TEACHER_B);
     assert.equal(String(after.dueDate), String(before.dueDate),
       "a wording change is not a reason to recompute anybody's deadline");
+  });
+
+  test("9 — the action step follows the observation to the new teacher", async () => {
+    const obsId = await makeObservationWithStep(TEACHER_A, "2026-12-15", "Cold call three times");
+
+    const before = await stepsAssignedDuring(obsId);
+    assert.equal(before.length, 1, "the observation should have assigned one step");
+    assert.equal(before[0]!.teacher, TEACHER_A);
+
+    const res = await request("PUT", `/observations/${obsId}`,
+      { observedEmployeeId: TEACHER_B }, adminJar);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+
+    const after = await stepsAssignedDuring(obsId);
+    assert.equal(after.length, 1, "and still exactly one afterwards");
+    assert.equal(after[0]!.teacher, TEACHER_B,
+      "the step should be owed by the teacher the observation now belongs to");
+    assert.equal(after[0]!.id, before[0]!.id,
+      "the same step moved — not deleted and rewritten, which would lose its history");
+  });
+
+  test("10 — the school frozen on the step does not move with it", async () => {
+    /* snapshotSchoolId is what school scoping reads. A reassignment cannot
+       cross schools, so it is still true after the move; rewriting it is how a
+       step would vanish from the school that owns it. */
+    const obsId = await makeObservationWithStep(TEACHER_A, "2026-12-16", "Tighten the exit ticket");
+
+    const res = await request("PUT", `/observations/${obsId}`,
+      { observedEmployeeId: TEACHER_B }, adminJar);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+
+    const [step] = await stepsAssignedDuring(obsId);
+    assert.equal(step!.school, schoolId, "the step still belongs to the school it was written in");
+  });
+
+  test("11 — a step assigned here and since mastered refuses the whole move", async () => {
+    const obsId = await makeObservationWithStep(TEACHER_A, "2026-12-17", "Narrate the positive");
+    const [step] = await stepsAssignedDuring(obsId);
+
+    const mastered = await request("PATCH", `/action-steps/${step!.id}/master`, undefined, adminJar);
+    assert.equal(mastered.status, 200, JSON.stringify(mastered.body));
+
+    const res = await request("PUT", `/observations/${obsId}`,
+      { observedEmployeeId: TEACHER_B }, adminJar);
+    assert.equal(res.status, 400, JSON.stringify(res.body));
+    assert.match(String(res.body.error), /mastered/i);
+
+    /* Nothing at all moved — the observation included. */
+    const [row] = await db.select({ observed: observations.observedEmployeeId })
+      .from(observations).where(eq(observations.id, obsId)).limit(1);
+    assert.equal(row!.observed, TEACHER_A, "the observation should be untouched");
+    const [afterStep] = await stepsAssignedDuring(obsId);
+    assert.equal(afterStep!.teacher, TEACHER_A, "and so should the step");
+  });
+
+  test("12 — a step this observation marked mastered refuses it too", async () => {
+    /* The other direction. The step belongs to a real earlier visit to Teacher
+       A; only the mastery came from the observation being moved. */
+    const firstObs = await makeObservationWithStep(TEACHER_A, "2026-12-18", "Wait time");
+    const [step] = await stepsAssignedDuring(firstObs);
+
+    const secondObs = await request("POST", "/observations", {
+      teacherId: TEACHER_A, rubricSetId, date: "2026-12-19", scores: { [domainSlug]: ABOVE },
+      strengths: "s", growthAreas: "g", isWalkthrough: false, status: "published",
+      masterActionStepId: step!.id,
+    }, adminJar);
+    assert.ok(secondObs.status === 200 || secondObs.status === 201, JSON.stringify(secondObs.body));
+
+    const res = await request("PUT", `/observations/${Number(secondObs.body.id)}`,
+      { observedEmployeeId: TEACHER_B }, adminJar);
+    assert.equal(res.status, 400, JSON.stringify(res.body));
+    assert.match(String(res.body.error), /mastered/i);
+  });
+
+  test("13 — reassigning and adding a step at once puts the step on the new teacher", async () => {
+    /* The step is written against the teacher as they were before the request,
+       so a save doing both at once would strand the new step on the old
+       teacher unless the move runs last. */
+    const obsId = await makeObservation(TEACHER_A, "2026-12-20", ABOVE, false);
+    assert.equal((await stepsAssignedDuring(obsId)).length, 0, "no step yet");
+
+    const res = await request("PUT", `/observations/${obsId}`, {
+      observedEmployeeId: TEACHER_B,
+      newActionStep: { text: "Added in the same save", dueDate: FUTURE },
+    }, adminJar);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+
+    const [step] = await stepsAssignedDuring(obsId);
+    assert.ok(step, "the step should have been created");
+    assert.equal(step!.teacher, TEACHER_B,
+      "and land on the teacher the observation was moved to, not the one it left");
+  });
+
+  test("14 — reassigning and mastering at once is refused", async () => {
+    const firstObs = await makeObservationWithStep(TEACHER_A, "2026-12-21", "Check for understanding");
+    const [step] = await stepsAssignedDuring(firstObs);
+
+    const secondObs = await makeObservation(TEACHER_A, "2026-12-22", ABOVE, false);
+    const res = await request("PUT", `/observations/${secondObs}`,
+      { observedEmployeeId: TEACHER_B, masterActionStepId: step!.id }, adminJar);
+    assert.equal(res.status, 400, JSON.stringify(res.body));
+    assert.match(String(res.body.error), /same save/i);
+
+    const [after] = await db.select({ status: actionSteps.status })
+      .from(actionSteps).where(eq(actionSteps.id, step!.id)).limit(1);
+    assert.equal(after!.status, "open", "and the mastery should not have been recorded");
   });
 });
