@@ -7,7 +7,9 @@ import { defaultIntro, type EmailSource } from "@/lib/observation-email";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { type Observation, type Score } from "@/data/dummy";
 import { type CategoryEntry, type ActionStep, type ObservationStepImpact,
-         fetchActionSteps, fetchDeleteImpact, HttpError } from "@/lib/api";
+         fetchActionSteps, fetchDeleteImpact, updateActionStep, HttpError } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { getScoreColorExact } from "@/components/ScoreCell";
 import { buildObservationDeleteHeading } from "@/lib/observation-delete-warning";
 import {
@@ -143,6 +145,16 @@ export function ObservationDetailModal({
   const [assignedSteps, setAssignedSteps] = useState<ActionStep[]>([]);
   const [masteredSteps, setMasteredSteps] = useState<ActionStep[]>([]);
 
+  /* The action step this observation assigned, correctable alongside the rest
+     of it. A mastered step is not offered: the teacher has finished the work,
+     and the server refuses to rewrite it either way. */
+  const editableStep = assignedSteps.find((s) => s.status === "open") ?? null;
+  const [draftStepText, setDraftStepText]       = useState("");
+  const [draftStepDueDate, setDraftStepDueDate] = useState("");
+
+  const queryClient = useQueryClient();
+  const todayIso = new Date().toISOString().split("T")[0]!;
+
   useEffect(() => {
     if (!open || !teacher.employeeId) {
       setAssignedSteps([]);
@@ -159,6 +171,17 @@ export function ObservationDetailModal({
     });
     return () => { cancelled = true; };
   }, [open, teacher.employeeId, observation.id]);
+
+  /* The steps arrive from a fetch, which can land after Edit has been pressed.
+     Seeding them in startEdit alone would leave the boxes empty in that case,
+     and an empty box reads as "this step has no wording" — then saving would be
+     refused as blank. Keyed on the step's identity, so it seeds when the step
+     appears or changes and never clobbers what is being typed. */
+  useEffect(() => {
+    setDraftStepText(editableStep?.text ?? "");
+    setDraftStepDueDate(editableStep?.dueDate ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editableStep?.id]);
 
   const [emailOpen, setEmailOpen] = useState(false);
 
@@ -229,6 +252,8 @@ export function ObservationDetailModal({
     setDraftWalkthrough(!!observation.isWalkthrough);
     setDraftTeacherId(teacher.employeeId ?? "");
     setDraftSchoolId(currentSchoolId);
+    setDraftStepText(editableStep?.text ?? "");
+    setDraftStepDueDate(editableStep?.dueDate ?? "");
     setSaveError(null);
     setEditing(true);
   }
@@ -241,6 +266,62 @@ export function ObservationDetailModal({
   async function saveEdit() {
     setSaving(true);
     setSaveError(null);
+
+    /* The action step is saved first, and on its own request.
+       It is a separate record with its own rules — a due date cannot be moved
+       into the past, and a mastered step cannot be rewritten at all — so it is
+       the half of this save most likely to be refused. Doing it first means a
+       refusal leaves everything untouched and says why, rather than half-saving
+       the observation and then failing. Both halves are idempotent, so pressing
+       Save again after a failure is safe. */
+    if (editableStep) {
+      const nextText   = draftStepText.trim();
+      const textChanged = nextText !== editableStep.text;
+      /* Only what actually changed goes to the server. An overdue step whose
+         wording is being fixed must not carry its own past due date along, or
+         the server would reject the edit for a date the user never touched. */
+      const dueChanged  = draftStepDueDate !== "" && draftStepDueDate !== editableStep.dueDate;
+
+      if (textChanged && nextText === "") {
+        setSaveError("An action step cannot be blank.");
+        setSaving(false);
+        return;
+      }
+      if (dueChanged && draftStepDueDate < todayIso) {
+        setSaveError("An action step due date must be today or later.");
+        setSaving(false);
+        return;
+      }
+
+      if (textChanged || dueChanged) {
+        const changes = {
+          ...(textChanged ? { text: nextText } : {}),
+          ...(dueChanged  ? { dueDate: draftStepDueDate } : {}),
+        };
+        try {
+          await updateActionStep(editableStep.id, changes);
+          setAssignedSteps((prev) =>
+            prev.map((s) => (s.id === editableStep.id ? { ...s, ...changes } : s)),
+          );
+          /* The step shows up on the teacher's profile and in the Action
+             Center too; neither would notice this edit on its own. */
+          if (teacher.employeeId) {
+            queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
+          }
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
+        } catch (err) {
+          const reason = err instanceof HttpError ? err.message : (err as Error)?.message;
+          setSaveError(
+            reason
+              ? `Could not save the action step: ${reason}`
+              : "Could not save the action step — please try again.",
+          );
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
     try {
       await onSave({
         ...observation,
@@ -546,14 +627,71 @@ export function ObservationDetailModal({
                 {assignedSteps.map((step) => (
                   <div key={step.id} className="space-y-1">
                     <p className="text-xs font-semibold" style={{ color: "#C2410C" }}>↻ New Action Step Assigned</p>
-                    <p className="text-sm text-slate-800 font-semibold leading-snug">{step.text}</p>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                      <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
-                      {step.status === "mastered" && <span className="text-green-600 font-semibold">Mastered</span>}
-                      {step.status === "open" && step.dueDate < new Date().toISOString().split("T")[0]! && (
-                        <span className="font-semibold text-red-600">Overdue</span>
-                      )}
-                    </div>
+                    {editing && step.status === "open" ? (
+                      <div className="flex gap-3 items-start flex-wrap pt-0.5">
+                        <div className="flex-1 min-w-[14rem]">
+                          <label
+                            htmlFor={`action-step-text-${step.id}`}
+                            className="block text-xs font-semibold text-slate-500 mb-1"
+                          >
+                            Action Step
+                          </label>
+                          <textarea
+                            id={`action-step-text-${step.id}`}
+                            value={draftStepText}
+                            onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
+                            rows={3}
+                            placeholder="Describe the specific action step for this teacher…"
+                            className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
+                            style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                          />
+                        </div>
+                        <div className="shrink-0" style={{ width: 148 }}>
+                          <label
+                            htmlFor={`action-step-due-${step.id}`}
+                            className="block text-xs font-semibold text-slate-500 mb-1"
+                          >
+                            Due Date
+                          </label>
+                          <input
+                            id={`action-step-due-${step.id}`}
+                            type="date"
+                            value={draftStepDueDate}
+                            min={todayIso}
+                            onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
+                            className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                            style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                          />
+                          {/* An overdue step is the common case for editing one,
+                              and its own date is no longer a date it can be
+                              given. Say so before the server does. */}
+                          {step.dueDate < todayIso && (
+                            <p className="text-xs text-slate-400 mt-1 leading-snug">
+                              Overdue — a new date must be today or later.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-800 font-semibold leading-snug">{step.text}</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                          <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
+                          {step.status === "mastered" && <span className="text-green-600 font-semibold">Mastered</span>}
+                          {step.status === "open" && step.dueDate < todayIso && (
+                            <span className="font-semibold text-red-600">Overdue</span>
+                          )}
+                        </div>
+                        {/* Only while editing is the absence of a box worth
+                            explaining. */}
+                        {editing && step.status === "mastered" && (
+                          <p className="text-xs text-slate-400 leading-snug">
+                            Already mastered, so it can no longer be edited. Undo the mastery on the
+                            teacher's profile first.
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
