@@ -10,6 +10,7 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { toast } from "@/hooks/use-toast";
 import { safeReturnTo } from "@/lib/safeReturnTo";
+import { teacherProfileHref } from "@/lib/school-context";
 import {
   fetchRescoreQueue,
   fetchOverdueObservations,
@@ -1720,7 +1721,7 @@ export default function ActionCenterPage() {
                               return (
                                 <tr key={item.employeeId} className="hover:bg-slate-50 transition-colors">
                                   <td className="px-4 py-3 font-semibold">
-                                    <a href={`${baseUrl}/?teacher=${item.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
+                                    <a href={teacherProfileHref(baseUrl, item.employeeId, currentUser?.schoolId)} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{item.teacherName}</a>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">{item.schoolName ?? "—"}</td>
                                   <td className="px-4 py-3 text-slate-600">
@@ -1943,7 +1944,7 @@ export default function ActionCenterPage() {
                               return (
                                 <tr key={row.employeeId} className="hover:bg-slate-50 transition-colors align-top">
                                   <td className="px-4 py-3 font-semibold">
-                                    <a href={`${baseUrl}/?teacher=${row.employeeId}`} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{row.teacherName}</a>
+                                    <a href={teacherProfileHref(baseUrl, row.employeeId, currentUser?.schoolId)} className="hover:underline underline-offset-2" style={{ color: NAVY }}>{row.teacherName}</a>
                                   </td>
                                   <td className="px-4 py-3 text-slate-600">
                                     <span className="break-words">{row.department ?? "—"}</span>

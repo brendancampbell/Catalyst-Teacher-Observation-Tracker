@@ -49,10 +49,12 @@ A principal observation tracker for Uncommon Schools. Leaders log classroom obse
 - `/drafts` — The current user's unpublished observation drafts
 
 A teacher's profile is not a route. It opens over the dashboard, and
-`/?teacher=<employeeId>` deep-links to it — that is what every teacher link in
-the Action Center uses. Note that anything reading a URL parameter into state
-must capture it on mount: the dashboard's URL-sync effect rebuilds the query
-string from state and will drop a parameter nothing has claimed yet.
+`/?teacher=<employeeId>` deep-links to it. Build those links with
+`teacherProfileHref` (`lib/school-context.ts`), never by hand: for a network
+role, `/` with no `schoolId` is the DISTRICT dashboard, which returns before any
+teacher is looked at. Note also that anything reading a URL parameter into state
+must capture it on mount — the dashboard's URL-sync effect rebuilds the query
+string from state and drops a parameter nothing has claimed yet.
 
 ### Features
 

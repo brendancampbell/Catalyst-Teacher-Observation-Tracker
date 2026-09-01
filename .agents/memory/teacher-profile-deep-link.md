@@ -36,6 +36,27 @@ because the component under test is the one rewriting the URL.
 **Anything new that reads a URL parameter into state has this same race.** The
 URL-sync effect will delete a parameter it does not know about.
 
+## The school has to travel with the link
+
+There were **two** failures behind "clicking a teacher goes to the dashboard",
+and fixing the race above only fixed it for school leaders.
+
+`Dashboard.tsx` computes `isDistrictHome = isNetworkRole && schoolId == null`
+and returns `<DistrictDashboard>` at that point — **before** `profileTeacher` is
+ever looked at, and with the dashboard query disabled (`enabled: !isDistrictHome`)
+so no teacher ever loads. For a NETWORK_ADMIN or NETWORK_LEADER, a bare
+`/?teacher=<id>` is therefore the district view and the teacher parameter is not
+so much ignored as never reached.
+
+School leaders never saw this half: their own `schoolId` fills in as a fallback.
+Any test signed in as a school leader is blind to it, which is exactly how the
+first fix shipped looking correct.
+
+Links into the dashboard must be built with `teacherProfileHref` (in
+`lib/school-context.ts`), which carries the school the current page was opened
+with. The module docstring there already described this class of bug for the
+Action Center; the teacher links simply were not using it.
+
 ## The page that used to exist
 
 `pages/TeacherProfile.tsx` at `/teacher/:employeeId` was a second, thinner

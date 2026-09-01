@@ -43,7 +43,7 @@ vi.mock("@/components/AppHeader",           () => ({ default: () => null }));
 vi.mock("@/components/FilterMultiSelect",   () => ({ FilterMultiSelect: () => null }));
 vi.mock("@/components/NewObservationModal", () => ({ NewObservationModal: () => null }));
 vi.mock("@/components/DrillDownModal",      () => ({ DrillDownModal: () => null }));
-vi.mock("@/components/DistrictDashboard",   () => ({ default: () => null }));
+vi.mock("@/components/DistrictDashboard",   () => ({ default: () => <div data-testid="district-dashboard" /> }));
 vi.mock("@/components/ImpersonationBanner", () => ({ default: () => null }));
 
 /* The overlay IS the profile. Stubbed to name the teacher it opened on, so the
@@ -54,12 +54,19 @@ vi.mock("@/components/TeacherScoreOverlay", () => ({
   ),
 }));
 
+const { userState } = vi.hoisted(() => ({
+  userState: {
+    current: {
+      id: 1, email: "leader@school.edu", name: "Test Leader",
+      role: "SCHOOL_LEADER" as string, schoolId: null as number | null,
+      schoolName: null, schoolAbbreviation: null,
+    },
+  },
+}));
+
 vi.mock("@/context/UserContext", () => ({
   useUser: () => ({
-    currentUser: {
-      id: 1, email: "leader@school.edu", name: "Test Leader",
-      role: "SCHOOL_LEADER", schoolId: null, schoolName: null, schoolAbbreviation: null,
-    },
+    currentUser: userState.current,
     isLoading: false, refetch: async () => {}, isImpersonating: false, realUser: null,
   }),
   UserContext: {},
@@ -128,6 +135,12 @@ describe("Dashboard — /?teacher= deep link", () => {
       window.dispatchEvent(new Event("catalyst:test-navigate"));
     }) as typeof window.history.replaceState;
 
+    userState.current = {
+      id: 1, email: "leader@school.edu", name: "Test Leader",
+      role: "SCHOOL_LEADER", schoolId: null,
+      schoolName: null, schoolAbbreviation: null,
+    };
+
     mockFetchRubricSets.mockResolvedValue(MOCK_RUBRIC_SETS);
     mockFetchMyLatestRubricSlug.mockResolvedValue(RUBRIC_SLUG);
   });
@@ -183,5 +196,63 @@ describe("Dashboard — /?teacher= deep link", () => {
        bug: nothing downstream can recover an id that is no longer anywhere. */
     await waitFor(() => expect(mockFetchDashboard).toHaveBeenCalled());
     expect(window.location.search).toContain(`teacher=${EMPLOYEE_ID}`);
+  });
+
+  it("opens the profile for a network admin when the link carries schoolId", async () => {
+    /* A network admin's own school is Home Office, so `/` with no schoolId is
+       the DISTRICT dashboard — it returns before any teacher is looked up. The
+       school context on the link is what keeps this on a school dashboard,
+       where a teacher exists to open. */
+    userState.current = {
+      id: 2, email: "admin@network.org", name: "Test Admin",
+      role: "NETWORK_ADMIN", schoolId: null,
+      schoolName: null, schoolAbbreviation: null,
+    };
+
+    mockFetchDashboard.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 50)),
+    );
+
+    setUrl(`?teacher=${EMPLOYEE_ID}&schoolId=7`);
+
+    const Dashboard = (await import("@/components/Dashboard")).default;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+
+    render(
+      <QueryClientProvider client={qc}>
+        <Dashboard />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(
+      () => expect(screen.getByTestId("profile-overlay").textContent).toBe("Samra Djokovic"),
+      { timeout: 4000 },
+    );
+  });
+
+  it("shows a network admin the district dashboard when the link drops schoolId", async () => {
+    /* Documents the constraint the link helper exists to satisfy: without the
+       school, this is the district view and ?teacher= is never reached. This is
+       what "clicking a teacher went back to the dashboard" actually was. */
+    userState.current = {
+      id: 2, email: "admin@network.org", name: "Test Admin",
+      role: "NETWORK_ADMIN", schoolId: null,
+      schoolName: null, schoolAbbreviation: null,
+    };
+
+    mockFetchDashboard.mockResolvedValue(MOCK_DASHBOARD_DATA);
+    setUrl(`?teacher=${EMPLOYEE_ID}`);
+
+    const Dashboard = (await import("@/components/Dashboard")).default;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+
+    render(
+      <QueryClientProvider client={qc}>
+        <Dashboard />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("district-dashboard")).toBeTruthy());
+    expect(screen.queryByTestId("profile-overlay")).toBeNull();
   });
 });
