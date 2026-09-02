@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
+      <span><b>21</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -364,59 +364,6 @@
         <tbody>
           <tr>
             <td class="p">1</td>
-            <td class="idcell">46</td>
-            <td>
-              <div class="task">
-                <h3>Pin the Google sign-in return address in production</h3>
-                <p class="lineage">Added 30 Aug, same review as #45. Small, and the safer of the two to do first.</p>
-                <p class="why">
-                  Signing in sends a leader to Google and Google sends them back to one exact
-                  address. Catalyst works that address out as it starts up, and when nothing tells it
-                  otherwise it falls back to a domain name that Replit supplies. So a Replit-side
-                  change to that domain would break sign-in for everybody at once, with no warning
-                  and nothing in the app to explain it.
-                </p>
-                <details>
-                  <summary>The change, and why it needs care rather than effort</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Where it lives:</strong> <code>buildCallbackURL()</code> in
-                      <code>artifacts/api-server/src/lib/passport.ts</code> already prefers a setting
-                      called <code>GOOGLE_CALLBACK_URL</code> and only falls back to the Replit
-                      domain when that setting is empty. The same Replit domain also builds the list
-                      of addresses the API will accept requests from, in
-                      <code>artifacts/api-server/src/app.ts</code>. So one missing setting quietly
-                      controls two things.
-                    </p>
-                    <p>
-                      <strong>The work is two lines and one check.</strong> Set
-                      <code>GOOGLE_CALLBACK_URL</code> to the real production address in the
-                      deployment&rsquo;s secrets, then confirm that the exact same address is listed
-                      in the Google Cloud console as an authorised redirect. The fallback then only
-                      ever applies in the Replit workspace, which is where it belongs.
-                    </p>
-                    <p>
-                      <strong>Sign-in is all or nothing</strong> &mdash; if the setting and the
-                      Google console disagree by even a trailing slash, every leader gets
-                      &ldquo;redirect_uri_mismatch&rdquo; and none of them can get in. That is what
-                      makes this a careful change rather than a hard one: do it when there is time to
-                      test a real sign-in straight afterwards, not last thing on a Friday.
-                    </p>
-                    <p>
-                      <strong>What it buys:</strong> a known-good return address that Replit cannot
-                      change out from under you, and one fewer place where the app assumes it is
-                      running on Replit.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Tooling</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -511,7 +458,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">47</td>
             <td>
               <div class="task">
@@ -569,7 +516,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">45</td>
             <td>
               <div class="task">
@@ -626,7 +573,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -669,7 +616,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -701,7 +648,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -743,7 +690,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -776,7 +723,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -826,7 +773,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -860,7 +807,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -893,7 +840,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -926,7 +873,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -953,7 +900,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -979,7 +926,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -1013,7 +960,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -1051,7 +998,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -1081,7 +1028,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1116,7 +1063,7 @@
           </tr>
 
           <tr>
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1151,7 +1098,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1165,7 +1112,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">20</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1182,7 +1129,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">22</td>
+            <td class="p">21</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -3005,6 +2952,62 @@
             </td>
             <td class="cat">Mixed</td>
             <td><span class="chip u-done">16&ndash;18 Aug</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">46</td>
+            <td>
+              <div class="task">
+                <h3>Pin the Google sign-in return address in production</h3>
+                <p class="lineage"><code>502ff41</code> &rarr; <code>47bd2f8</code> (PR&nbsp;#80) &mdash; shipped 11 Jun, three months before this item was written. Closed 1 Sep with no code change, after checking production rather than the source.</p>
+                <p class="why">
+                  Production already pins the return address. Signing in sends a leader to
+                  <code>catalyst.uncommonschools.org</code> and back again &mdash; not to a Replit
+                  domain that Replit could change out from under it. Nothing needed building.
+                </p>
+                <details>
+                  <summary>Why the item existed, and how it was closed without a change</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>It was written from the source, not from the running app.</strong>
+                      <code>buildCallbackURL()</code> in
+                      <code>artifacts/api-server/src/lib/passport.ts</code> really does fall back to
+                      the Replit domain when <code>GOOGLE_CALLBACK_URL</code> is empty, which is what
+                      the 30 Aug review saw. What it did not check was whether the setting is
+                      actually empty. It is not &mdash; <code>.replit</code> has set it under
+                      <code>[userenv.production]</code> since 11 Jun.
+                    </p>
+                    <p>
+                      <strong>Both halves were verified against production rather than assumed.</strong>
+                      An ordinary request to <code>/api/auth/google</code> returns the redirect
+                      Catalyst hands Google, and it carries
+                      <code>redirect_uri=https://catalyst.uncommonschools.org/api/auth/google/callback</code>.
+                      That is the pinned value: the fallback would have produced a
+                      <code>.replit.dev</code> address instead. Following that redirect on to Google
+                      returns the ordinary sign-in page rather than
+                      <code>redirect_uri_mismatch</code>, which is what shows the Google Cloud
+                      console holds the identical address, trailing slash and all. Neither check
+                      signs anybody in or sends a credential.
+                    </p>
+                    <p>
+                      <strong>The quiet second half is covered too.</strong>
+                      <code>artifacts/api-server/src/app.ts</code> builds the production CORS origin
+                      from the same setting, so pinning it fills the allowlist as well. That was the
+                      &ldquo;one missing setting controls two things&rdquo; worry, and it does not
+                      apply while the setting is present.
+                    </p>
+                    <p>
+                      <strong>What remains is the fallback itself</strong>, which now only ever
+                      applies in the Replit workspace and at localhost &mdash; where this item agreed
+                      it belongs. The wider question of how much else assumes Replit is #45, and it
+                      is untouched by this.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-done">11 Jun</span></td>
           </tr>
 
         </tbody>
