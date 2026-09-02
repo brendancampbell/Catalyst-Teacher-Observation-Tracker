@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>21</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
+      <span><b>20</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -459,64 +459,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">47</td>
-            <td>
-              <div class="task">
-                <h3>One teacher lookup still reads the wrong year&rsquo;s rubric</h3>
-                <p class="lineage">Found 31 Aug while investigating an observation at Washington Park HS that displayed nowhere. It was <em>not</em> the cause of that &mdash; recorded so it is not lost behind it.</p>
-                <p class="why">
-                  Rubric sets are copied forward each year and keep the same short name, so
-                  &ldquo;Q1&rdquo; exists once for 2025&ndash;2026 and again for 2026&ndash;2027. One
-                  route asks for &ldquo;Q1&rdquo; without saying which year it means, and gets the
-                  oldest copy &mdash; then looks for observations scored against it and finds none.
-                  A teacher with a full year of observations comes back empty.
-                </p>
-                <details>
-                  <summary>Where it is, why it is not biting yet, and why that is the reason to fix it</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Where it lives:</strong>
-                      <code>artifacts/api-server/src/routes/teachers.ts:46</code> &mdash;
-                      <code>GET /api/teachers/:id</code> resolves the rubric set from the
-                      <code>?quarter=</code> name alone. Every other rubric lookup in the API pairs
-                      the name with the active school year. This is the only one left that does not.
-                    </p>
-                    <p>
-                      <strong>This exact mistake has been fixed here before.</strong>
-                      <code>.agents/memory/rubric-slug-year-filter.md</code> was written after the
-                      same bug was found in the AI and rubric routes, and it says plainly that any
-                      lookup by name must be paired with the year. This route was missed at the
-                      time. The note is now accurate everywhere except here.
-                    </p>
-                    <p>
-                      <strong>Nothing calls it today.</strong> No screen in the dashboard or the
-                      mobile app uses this endpoint &mdash; which is the only reason it has not
-                      caused an incident. It fails silently rather than loudly: no error, no empty
-                      state, just a teacher who appears never to have been observed. Whoever wires
-                      up the next screen to it inherits that, and will have no reason to suspect the
-                      endpoint rather than the data.
-                    </p>
-                    <p>
-                      <strong>The fix is one line</strong> &mdash; add the active school year to the
-                      lookup, the way the other routes already do &mdash; plus a test that a
-                      teacher&rsquo;s observations still come back after a year has rolled over.
-                      The test is the part worth having: the one-line change is easy to make again
-                      and easy to lose again.
-                    </p>
-                    <p>
-                      <strong>What it changes for users:</strong> nothing today, because nothing
-                      reaches it. It removes a trap rather than fixing a visible fault.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Rollover</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">45</td>
             <td>
               <div class="task">
@@ -573,7 +515,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -616,7 +558,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -648,7 +590,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -690,7 +632,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -723,7 +665,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -773,7 +715,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -807,7 +749,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -840,7 +782,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -873,7 +815,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -900,7 +842,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -926,7 +868,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -960,7 +902,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -998,7 +940,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -1028,7 +970,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1063,7 +1005,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1098,7 +1040,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1112,7 +1054,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1129,7 +1071,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">20</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -3008,6 +2950,70 @@
             </td>
             <td class="cat">Tooling</td>
             <td><span class="chip u-done">11 Jun</span></td>
+          </tr>
+
+          <tr>
+            <td class="idcell">47</td>
+            <td>
+              <div class="task">
+                <h3>One teacher lookup still reads the wrong year&rsquo;s rubric</h3>
+                <p class="lineage"><code>0702ec8</code> &rarr; <code>aaa8af2</code> (PR&nbsp;#8) &mdash; merged 1 Sep. One line in the route; the regression test is the part worth having.</p>
+                <p class="why">
+                  The lookup now says which year it means. Nothing users can see changed &mdash; no
+                  screen calls this endpoint, which is why it had never caused an incident and why
+                  it was worth fixing before one did.
+                </p>
+                <details>
+                  <summary>What it was, and why the test matters more than the fix</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>What was wrong.</strong> Rubric sets are copied forward each year and
+                      keep the same short name, so &ldquo;Q1&rdquo; exists once per year.
+                      <code>GET /api/teachers/:id</code> asked for &ldquo;Q1&rdquo; without saying
+                      which year, got the oldest copy, then looked for observations scored against
+                      it and found none. A teacher with a full year of observations came back empty.
+                      It now pairs the name with the active school year, the way every other rubric
+                      lookup in the API already did.
+                    </p>
+                    <p>
+                      <strong>The test is the deliverable.</strong> The one-line filter is easy to
+                      make again and easy to lose again, and it fails silently &mdash; no error, no
+                      empty state, just a teacher who appears never to have been observed. So
+                      <code>test-teacher-rubric-year-scoping.ts</code> builds two rubric sets
+                      sharing a slug, one in an inactive year and one in the active year, and
+                      insists a teacher observed this year still comes back with that observation.
+                      It is modelled on the test written for the same bug class in the AI routes.
+                    </p>
+                    <p>
+                      <strong>An existing guard caught a second problem.</strong> The new test
+                      creates a throwaway school year, and
+                      <code>test-school-year-name-patterns.ts</code> failed the build because
+                      <code>cleanup-test-school-years.ts</code> could not have recognised the name
+                      &mdash; it would have left a stray year behind in the dev database on every
+                      run. The name is now registered in
+                      <code>lib/db/src/test-year-patterns.ts</code>. That guard exists because
+                      fourteen copies of one name once accumulated before anyone noticed.
+                    </p>
+                    <p>
+                      <strong>What was not done, on purpose.</strong> The test passes in CI, but it
+                      was never demonstrated to <em>fail</em> without the fix &mdash; proving that
+                      needs a throwaway pull request, since CI only runs on pull requests and on
+                      pushes to <code>main</code>, and that was judged not worth nine minutes. So it
+                      is a test that passes, not yet a test proven to bite. Worth knowing if it ever
+                      goes quiet.
+                    </p>
+                    <p>
+                      <strong>The note that flagged this route is now accurate.</strong>
+                      <code>.agents/memory/rubric-slug-year-filter.md</code> was written after the
+                      same bug was found in the AI and rubric routes and said any lookup by name
+                      must be paired with the year. This route was the one it had missed.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
+            <td><span class="chip u-done">1 Sep</span></td>
           </tr>
 
         </tbody>
