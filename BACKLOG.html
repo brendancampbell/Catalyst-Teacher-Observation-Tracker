@@ -1256,6 +1256,70 @@
         <tbody>
 
           <tr>
+            <td class="idcell">47</td>
+            <td>
+              <div class="task">
+                <h3>One teacher lookup still reads the wrong year&rsquo;s rubric</h3>
+                <p class="lineage"><code>0702ec8</code> &rarr; <code>aaa8af2</code> (PR&nbsp;#8) &mdash; merged 1 Sep. One line in the route; the regression test is the part worth having.</p>
+                <p class="why">
+                  The lookup now says which year it means. Nothing users can see changed &mdash; no
+                  screen calls this endpoint, which is why it had never caused an incident and why
+                  it was worth fixing before one did.
+                </p>
+                <details>
+                  <summary>What it was, and why the test matters more than the fix</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>What was wrong.</strong> Rubric sets are copied forward each year and
+                      keep the same short name, so &ldquo;Q1&rdquo; exists once per year.
+                      <code>GET /api/teachers/:id</code> asked for &ldquo;Q1&rdquo; without saying
+                      which year, got the oldest copy, then looked for observations scored against
+                      it and found none. A teacher with a full year of observations came back empty.
+                      It now pairs the name with the active school year, the way every other rubric
+                      lookup in the API already did.
+                    </p>
+                    <p>
+                      <strong>The test is the deliverable.</strong> The one-line filter is easy to
+                      make again and easy to lose again, and it fails silently &mdash; no error, no
+                      empty state, just a teacher who appears never to have been observed. So
+                      <code>test-teacher-rubric-year-scoping.ts</code> builds two rubric sets
+                      sharing a slug, one in an inactive year and one in the active year, and
+                      insists a teacher observed this year still comes back with that observation.
+                      It is modelled on the test written for the same bug class in the AI routes.
+                    </p>
+                    <p>
+                      <strong>An existing guard caught a second problem.</strong> The new test
+                      creates a throwaway school year, and
+                      <code>test-school-year-name-patterns.ts</code> failed the build because
+                      <code>cleanup-test-school-years.ts</code> could not have recognised the name
+                      &mdash; it would have left a stray year behind in the dev database on every
+                      run. The name is now registered in
+                      <code>lib/db/src/test-year-patterns.ts</code>. That guard exists because
+                      fourteen copies of one name once accumulated before anyone noticed.
+                    </p>
+                    <p>
+                      <strong>What was not done, on purpose.</strong> The test passes in CI, but it
+                      was never demonstrated to <em>fail</em> without the fix &mdash; proving that
+                      needs a throwaway pull request, since CI only runs on pull requests and on
+                      pushes to <code>main</code>, and that was judged not worth nine minutes. So it
+                      is a test that passes, not yet a test proven to bite. Worth knowing if it ever
+                      goes quiet.
+                    </p>
+                    <p>
+                      <strong>The note that flagged this route is now accurate.</strong>
+                      <code>.agents/memory/rubric-slug-year-filter.md</code> was written after the
+                      same bug was found in the AI and rubric routes and said any lookup by name
+                      must be paired with the year. This route was the one it had missed.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
+            <td><span class="chip u-done">1 Sep</span></td>
+          </tr>
+
+          <tr>
             <td class="idcell">40</td>
             <td>
               <div class="task">
@@ -2950,70 +3014,6 @@
             </td>
             <td class="cat">Tooling</td>
             <td><span class="chip u-done">11 Jun</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">47</td>
-            <td>
-              <div class="task">
-                <h3>One teacher lookup still reads the wrong year&rsquo;s rubric</h3>
-                <p class="lineage"><code>0702ec8</code> &rarr; <code>aaa8af2</code> (PR&nbsp;#8) &mdash; merged 1 Sep. One line in the route; the regression test is the part worth having.</p>
-                <p class="why">
-                  The lookup now says which year it means. Nothing users can see changed &mdash; no
-                  screen calls this endpoint, which is why it had never caused an incident and why
-                  it was worth fixing before one did.
-                </p>
-                <details>
-                  <summary>What it was, and why the test matters more than the fix</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>What was wrong.</strong> Rubric sets are copied forward each year and
-                      keep the same short name, so &ldquo;Q1&rdquo; exists once per year.
-                      <code>GET /api/teachers/:id</code> asked for &ldquo;Q1&rdquo; without saying
-                      which year, got the oldest copy, then looked for observations scored against
-                      it and found none. A teacher with a full year of observations came back empty.
-                      It now pairs the name with the active school year, the way every other rubric
-                      lookup in the API already did.
-                    </p>
-                    <p>
-                      <strong>The test is the deliverable.</strong> The one-line filter is easy to
-                      make again and easy to lose again, and it fails silently &mdash; no error, no
-                      empty state, just a teacher who appears never to have been observed. So
-                      <code>test-teacher-rubric-year-scoping.ts</code> builds two rubric sets
-                      sharing a slug, one in an inactive year and one in the active year, and
-                      insists a teacher observed this year still comes back with that observation.
-                      It is modelled on the test written for the same bug class in the AI routes.
-                    </p>
-                    <p>
-                      <strong>An existing guard caught a second problem.</strong> The new test
-                      creates a throwaway school year, and
-                      <code>test-school-year-name-patterns.ts</code> failed the build because
-                      <code>cleanup-test-school-years.ts</code> could not have recognised the name
-                      &mdash; it would have left a stray year behind in the dev database on every
-                      run. The name is now registered in
-                      <code>lib/db/src/test-year-patterns.ts</code>. That guard exists because
-                      fourteen copies of one name once accumulated before anyone noticed.
-                    </p>
-                    <p>
-                      <strong>What was not done, on purpose.</strong> The test passes in CI, but it
-                      was never demonstrated to <em>fail</em> without the fix &mdash; proving that
-                      needs a throwaway pull request, since CI only runs on pull requests and on
-                      pushes to <code>main</code>, and that was judged not worth nine minutes. So it
-                      is a test that passes, not yet a test proven to bite. Worth knowing if it ever
-                      goes quiet.
-                    </p>
-                    <p>
-                      <strong>The note that flagged this route is now accurate.</strong>
-                      <code>.agents/memory/rubric-slug-year-filter.md</code> was written after the
-                      same bug was found in the AI and rubric routes and said any lookup by name
-                      must be paired with the year. This route was the one it had missed.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Rollover</td>
-            <td><span class="chip u-done">1 Sep</span></td>
           </tr>
 
         </tbody>
