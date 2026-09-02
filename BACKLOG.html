@@ -332,7 +332,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>7</b> open &middot; <b>3</b> deferred &middot; <b>15</b> unranked</span>
+      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -341,8 +341,12 @@
     <div class="sec-head">
       <h2>The list</h2>
       <p class="sec-note">
-        Sequenced by how much failure each prevents, then by user value, then by size. Deferred
-        items keep a place in the order so they can be picked up by name.
+        Sequenced by how much failure each prevents, then by user value, then by size. Everything
+        is ranked &mdash; there is no longer a holding pen below this table. Deferred items keep a
+        place in the order so they can be picked up by name.
+        The last column is <strong>size</strong>, a rough shape rather than an estimate, except
+        where something more useful applies: an item that is deferred, one that needs defining
+        before it can be sized, or the annual deadline.
       </p>
     </div>
 
@@ -354,114 +358,65 @@
             <th class="col-id">ID</th>
             <th>Task</th>
             <th class="col-cat">Category</th>
-            <th class="col-urg">Urgency</th>
+            <th class="col-urg">Size</th>
           </tr>
         </thead>
         <tbody>
-
-
-
-
-
           <tr>
             <td class="p">1</td>
-            <td class="idcell">17</td>
+            <td class="idcell">46</td>
             <td>
               <div class="task">
-                <h3>Tag coaches to teachers</h3>
-                <p class="lineage">Long term. Design alongside #18.</p>
+                <h3>Pin the Google sign-in return address in production</h3>
+                <p class="lineage">Added 30 Aug, same review as #45. Small, and the safer of the two to do first.</p>
                 <p class="why">
-                  There is no coach&nbsp;&rarr;&nbsp;teacher relationship today. Assignments link a
-                  person to a <em>school</em> and a year, not to each other.
+                  Signing in sends a leader to Google and Google sends them back to one exact
+                  address. Catalyst works that address out as it starts up, and when nothing tells it
+                  otherwise it falls back to a domain name that Replit supplies. So a Replit-side
+                  change to that domain would break sign-in for everybody at once, with no warning
+                  and nothing in the app to explain it.
                 </p>
                 <details>
-                  <summary>Why this one is larger than it looks</summary>
+                  <summary>The change, and why it needs care rather than effort</summary>
                   <div class="detail">
                     <p>
-                      A new relationship that almost certainly needs to be year-scoped, like
-                      assignments &mdash; a coach&rsquo;s caseload changes each August, and the
-                      rollover would need to carry it forward or ask for it in the roster.
+                      <strong>Where it lives:</strong> <code>buildCallbackURL()</code> in
+                      <code>artifacts/api-server/src/lib/passport.ts</code> already prefers a setting
+                      called <code>GOOGLE_CALLBACK_URL</code> and only falls back to the Replit
+                      domain when that setting is empty. The same Replit domain also builds the list
+                      of addresses the API will accept requests from, in
+                      <code>artifacts/api-server/src/app.ts</code>. So one missing setting quietly
+                      controls two things.
+                    </p>
+                    <p>
+                      <strong>The work is two lines and one check.</strong> Set
+                      <code>GOOGLE_CALLBACK_URL</code> to the real production address in the
+                      deployment&rsquo;s secrets, then confirm that the exact same address is listed
+                      in the Google Cloud console as an authorised redirect. The fallback then only
+                      ever applies in the Replit workspace, which is where it belongs.
+                    </p>
+                    <p>
+                      <strong>Sign-in is all or nothing</strong> &mdash; if the setting and the
+                      Google console disagree by even a trailing slash, every leader gets
+                      &ldquo;redirect_uri_mismatch&rdquo; and none of them can get in. That is what
+                      makes this a careful change rather than a hard one: do it when there is time to
+                      test a real sign-in straight afterwards, not last thing on a Friday.
+                    </p>
+                    <p>
+                      <strong>What it buys:</strong> a known-good return address that Replit cannot
+                      change out from under you, and one fewer place where the app assumes it is
+                      running on Replit.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-low">Low</span></td>
+            <td class="cat">Tooling</td>
+            <td><span class="chip u-low">Small</span></td>
           </tr>
+
           <tr>
             <td class="p">2</td>
-            <td class="idcell">18</td>
-            <td>
-              <div class="task">
-                <h3>Custom groups of teachers for filtering</h3>
-                <p class="lineage">Long term. Design alongside #17.</p>
-                <p class="why">
-                  Filtering is currently by school, department, grade and rubric audience. Ad-hoc
-                  groupings (a cohort, a PD group) have nowhere to live.
-                </p>
-                <details>
-                  <summary>Open question</summary>
-                  <div class="detail">
-                    <p>
-                      Same year-scoping question as #17: does a group persist across a rollover, and
-                      what happens to a group whose members have departed?
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-low">Low</span></td>
-          </tr>
-          <tr class="deferred">
-            <td class="p">3</td>
-            <td class="idcell">10</td>
-            <td>
-              <div class="task">
-                <h3>Performance micro-optimisations</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review findings #21 and #22.</p>
-                <p class="why">Meaningless at current data size. Revisit if query times become visible.</p>
-              </div>
-            </td>
-            <td class="cat">Performance</td>
-            <td><span class="chip u-defer">Deferred</span></td>
-          </tr>
-          <tr class="deferred">
-            <td class="p">4</td>
-            <td class="idcell">11</td>
-            <td>
-              <div class="task">
-                <h3>Split the two large page components</h3>
-                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #23.</p>
-                <p class="why">
-                  <code>admin.tsx</code> is ~3.9k lines and <code>action-center.tsx</code> ~2.5k.
-                  Real, and not urgent.
-                </p>
-              </div>
-            </td>
-            <td class="cat">Code structure</td>
-            <td><span class="chip u-defer">Deferred</span></td>
-          </tr>
-          <tr class="deferred">
-            <td class="p">5</td>
-            <td class="idcell">13</td>
-            <td>
-              <div class="task">
-                <h3>Enforce the roster dry run server-side</h3>
-                <p class="lineage">Raised and deferred 19 Aug.</p>
-                <p class="why">
-                  The mandatory preview is enforced in the UI, not the API &mdash; a direct call can
-                  still skip it. Worth building only if something ever scripts against
-                  <code>/people/bulk</code>.
-                </p>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-defer">Deferred</span></td>
-          </tr>
-          <tr>
-            <td class="p">6</td>
             <td class="idcell">38</td>
             <td>
               <div class="task">
@@ -554,416 +509,9 @@
             <td class="cat">Rollover</td>
             <td><span class="chip u-high">Annual deadline</span></td>
           </tr>
-          <tr>
-            <td class="p">7</td>
-            <td class="idcell">39</td>
-            <td>
-              <div class="task">
-                <h3>Make the 0.7 proficiency threshold a setting too</h3>
-                <p class="lineage">New, 27 Aug. The other half of the rescore rule, deliberately left out of #38's sibling work.</p>
-                <p class="why">
-                  The rescore <em>deadline</em> is now a setting. The score that puts somebody in
-                  the queue at all is still <code>0.7</code>, hardcoded in about a dozen places.
-                </p>
-                <details>
-                  <summary>Why this is a bigger change than the windows were</summary>
-                  <div class="detail">
-                    <p>
-                      A deadline change moves dates. A threshold change alters <strong>who is
-                      flagged at all</strong> &mdash; raise it and teachers who were fine are
-                      suddenly in the queue; lower it and people leave it. It also decides the
-                      red/green colouring across the Action Center and the district view, so it is
-                      not confined to one feature.
-                    </p>
-                    <p>
-                      <strong>Where it lives.</strong> Server:
-                      <code>routes/observations.ts</code> (both rescore branches),
-                      <code>routes/ai.ts</code> (three), <code>services/ai-service.ts</code> (five,
-                      including the assistant's own system prompt, which states the number to
-                      users). Client: <code>PROFICIENCY_THRESHOLD</code> in
-                      <code>action-center.tsx</code>, used in several places, plus the
-                      district dashboard.
-                    </p>
-                    <p>
-                      <strong>The infrastructure already exists.</strong>
-                      <code>system_settings</code> is a single network-wide row with an audit
-                      trail, and the AI prompt already substitutes a live value for the rescore
-                      window &mdash; the same mechanism would carry the threshold. The work is
-                      finding all dozen sites and deciding what happens to people already in the
-                      queue when it moves, which is the same question the windows raised.
-                    </p>
-                    <p>
-                      Worth doing deliberately rather than riding along on a deadline change, which
-                      is why it was split out on 27 Aug.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Rescore</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-head">
-      <h2>Not yet ranked</h2>
-      <p class="sec-note">
-        Captured rather than started, and dated where it matters. They hold permanent
-        <strong>#</strong> numbers but no <strong>P</strong> &mdash; they join the running order
-        above only when you place them. <strong>Size</strong> is a rough shape, not an estimate.
-      </p>
-    </div>
-    <div class="scroller">
-      <table>
-        <thead>
-          <tr><th class="col-p">ID</th><th>Task</th><th class="col-cat">Category</th><th class="col-urg">Size</th></tr>
-        </thead>
-        <tbody>
-
 
           <tr>
-            <td class="idcell">27</td>
-            <td>
-              <div class="task">
-                <h3>A teacher-facing view of their own observations</h3>
-                <p class="why">
-                  Every role in Catalyst today is an <em>observer</em>. The only state a teacher can
-                  hold is <code>NO_ACCESS</code>, which is blocked at login outright &mdash; so
-                  there is no such thing as a person who can sign in and see only themselves.
-                </p>
-                <details>
-                  <summary>The decisions this needs before any code</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>It is a new role, not a filter.</strong> Every authorization path
-                      assumes the signed-in person is looking <em>at</em> somebody. A teacher role
-                      needs its own scoping rule &mdash; your own records, nobody else&rsquo;s
-                      &mdash; applied to observations, action steps and anything that aggregates.
-                    </p>
-                    <p>
-                      <strong>What may a teacher see?</strong> Scores as numbers, or only the
-                      written feedback? Drafts, or published only? Their action steps, including
-                      overdue ones? An observation a coach has written but not shared? These are
-                      policy questions, and each one changes the shape of the work.
-                    </p>
-                    <p>
-                      This is the largest item on the list. Worth splitting once those answers
-                      exist.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Access</td>
-            <td><span class="chip u-med">Large</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">28</td>
-            <td>
-              <div class="task">
-                <h3>More action step analytics</h3>
-                <p class="why">
-                  Action steps are counted but never analysed. The Usage tab (#20 / #14) reports how
-                  many a coach assigned; nothing says whether they land.
-                </p>
-                <details>
-                  <summary>What the data can now answer</summary>
-                  <div class="detail">
-                    <p>
-                      <code>action_step_extensions</code> is new as of #16, so
-                      <em>how often steps get pushed back, and by how long</em> is answerable for the
-                      first time &mdash; it was invisible before, because extending used to create a
-                      duplicate step.
-                    </p>
-                    <p>
-                      Also reachable without new tables: time from assigned to mastered, how many
-                      are never mastered at all, whether particular rubric domains produce steps
-                      that stall. Needs a conversation about which questions actually change what a
-                      coach does.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Analytics</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">29</td>
-            <td>
-              <div class="task">
-                <h3>Improve network-wide action center</h3>
-                <p class="why">
-                  A limited one now exists &mdash; summary and usage, shipped with #43. What is left
-                  is everything the school version has that did not come with it: the intervention
-                  work. Every one of those endpoints still scopes to a single school, so a network
-                  user picks one school at a time to see a rescore queue or an overdue list.
-                </p>
-                <details>
-                  <summary>Why it is more than removing a filter</summary>
-                  <div class="detail">
-                    <p>
-                      The scoping is deliberate and load-bearing: a school leader must never see
-                      another school, and a regional admin only their region. A network-wide view
-                      needs its own aggregation that respects those same limits rather than
-                      bypassing them, and needs to stay fast across every school at once.
-                    </p>
-                    <p>
-                      Also a design question: a rescore queue for one school is a list of names. For
-                      forty schools it is a list nobody reads, so it probably wants to be
-                      school-level totals that open into the existing per-school view.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Analytics</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">30</td>
-            <td>
-              <div class="task">
-                <h3>Allow uploads into the AI chat</h3>
-                <p class="why">
-                  The chat takes typed text only. Nothing in the AI routes accepts a file.
-                </p>
-                <details>
-                  <summary>What it drags in</summary>
-                  <div class="detail">
-                    <p>
-                      Somewhere to put the file, a size and type limit, and a decision about how long
-                      it is kept. An uploaded file is also sent to the model, so it needs the same
-                      school-scoping care as everything else &mdash; a coach must not be able to
-                      widen what the model sees by attaching a spreadsheet of another school.
-                    </p>
-                    <p>
-                      Worth pinning down what people actually want to attach before building it. A
-                      roster spreadsheet and a lesson plan are different features.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">AI</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">31</td>
-            <td>
-              <div class="task">
-                <h3>Build out the AI chat &mdash; perfecting it</h3>
-                <p class="lineage">Too broad to rank as written.</p>
-                <p class="why">
-                  This needs breaking into named pieces before it can be sized or scheduled, because
-                  &ldquo;better&rdquo; could mean any of several unrelated jobs.
-                </p>
-                <details>
-                  <summary>The pieces this probably splits into</summary>
-                  <div class="detail">
-                    <p>
-                      What it knows (how much observation context is fed in, and how far back), how
-                      it answers (length, tone, whether it cites the observations it drew on),
-                      what it can do (read-only, or acting on your behalf), and what it costs
-                      &mdash; there is already a quota and a rate limiter, so usage has a ceiling
-                      that any expansion runs into.
-                    </p>
-                    <p>
-                      Best approached by naming the two or three things that annoy you most in
-                      practice, rather than as one project.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">AI</td>
-            <td><span class="chip u-defer">Needs defining</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">32</td>
-            <td>
-              <div class="task">
-                <h3>Build the Walkthrough Report Generator</h3>
-                <p class="why">
-                  The tab already exists for network admins and says
-                  &ldquo;This feature is coming soon.&rdquo; It is a placeholder with an icon and
-                  nothing behind it.
-                </p>
-                <details>
-                  <summary>The clearest-shaped item here</summary>
-                  <div class="detail">
-                    <p>
-                      The placeholder states the intent: school-wide walkthrough summaries to share
-                      with principals and leadership teams. The data is all present &mdash;
-                      <code>observations.isWalkthrough</code> marks them, and the rescore
-                      threshold logic already knows what a weak walkthrough looks like.
-                    </p>
-                    <p>
-                      What is missing is the output: what a report contains, and how it leaves the
-                      system. Given #26, a copy-and-paste block into an email is more likely to fit
-                      how these actually get shared than a PDF.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Reporting</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">33</td>
-            <td>
-              <div class="task">
-                <h3>A dropdown of GBF action steps</h3>
-                <p class="lineage">Flagged as uncertain when raised &mdash; recorded, not endorsed.</p>
-                <p class="why">
-                  I do not know what a GBF action step is. The only trace of GBF in the codebase is
-                  the app&rsquo;s former name: a legacy redirect sends
-                  <code>/gbf-mobile/*</code> to <code>/catalyst-mobile/*</code>. Nothing in the data
-                  model relates to it.
-                </p>
-                <details>
-                  <summary>What would make this rankable</summary>
-                  <div class="detail">
-                    <p>
-                      A source. If GBF action steps are a fixed published list, this is a
-                      pick-from-a-menu change with a decision about whether coaches may still write
-                      their own. If it is a set of examples, it may be closer to suggested text than
-                      a dropdown.
-                    </p>
-                    <p>
-                      Worth noting the tension you already sensed: a fixed menu makes steps
-                      comparable across coaches, which is what makes #28 meaningful &mdash; and it
-                      also constrains a coach who sees something the list does not cover.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Feedback</td>
-            <td><span class="chip u-defer">Needs defining</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">45</td>
-            <td>
-              <div class="task">
-                <h3>Own the production database account directly</h3>
-                <p class="lineage">Added 30 Aug, out of a review of how much of Catalyst depends on Replit. Pairs with #46. Neither is a move off Replit.</p>
-                <p class="why">
-                  The real data lives in a PostgreSQL database called <code>neondb</code>. Neon is a
-                  separate company from Replit &mdash; Replit sets the database up on your behalf,
-                  which usually means the account holding it is Replit&rsquo;s, not yours. Worth
-                  knowing which, because two things follow from it.
-                </p>
-                <details>
-                  <summary>What it costs you today, and what owning it would fix</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Production cannot be reached from a shell.</strong> A comment in
-                      <code>artifacts/api-server/.replit-artifact/artifact.toml</code> puts it
-                      plainly: the deploy is &ldquo;the only place its credentials exist.&rdquo; That
-                      is why a one-off repair to 158 people&rsquo;s grade levels now runs on
-                      <em>every single deploy</em> &mdash; there was nowhere else to run it. Any
-                      future data fix faces the same problem and gets solved the same wrong way.
-                    </p>
-                    <p>
-                      <strong>If Catalyst ever leaves Replit, the database leaves with Replit</strong>
-                      unless the account is yours. That turns a config change into a data migration
-                      of real staff records, at the worst possible moment.
-                    </p>
-                    <p>
-                      <strong>The first step is a question, not a change.</strong> Find out whose
-                      account holds <code>neondb</code>. If it already sits under a Neon account in
-                      your name, most of this item is already done and the rest is just writing down
-                      how to sign in to it.
-                    </p>
-                    <p>
-                      <strong>If it is Replit&rsquo;s:</strong> the move is an export into a Neon
-                      project you own, then repointing <code>DATABASE_URL</code>. That is a one-way
-                      copy of live staff data, and it needs a window with the app switched off so
-                      nothing is written to the version being left behind. An evening or a weekend,
-                      never mid-week with leaders observing.
-                    </p>
-                    <p>
-                      <strong>What it buys:</strong> a console into production, so the next data fix
-                      runs once instead of living in the deploy forever; backups you control and can
-                      restore from; and a future host change that is config only.
-                      <strong>What it changes for users:</strong> nothing. Same app, same address,
-                      same login.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="idcell">46</td>
-            <td>
-              <div class="task">
-                <h3>Pin the Google sign-in return address in production</h3>
-                <p class="lineage">Added 30 Aug, same review as #45. Small, and the safer of the two to do first.</p>
-                <p class="why">
-                  Signing in sends a leader to Google and Google sends them back to one exact
-                  address. Catalyst works that address out as it starts up, and when nothing tells it
-                  otherwise it falls back to a domain name that Replit supplies. So a Replit-side
-                  change to that domain would break sign-in for everybody at once, with no warning
-                  and nothing in the app to explain it.
-                </p>
-                <details>
-                  <summary>The change, and why it needs care rather than effort</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Where it lives:</strong> <code>buildCallbackURL()</code> in
-                      <code>artifacts/api-server/src/lib/passport.ts</code> already prefers a setting
-                      called <code>GOOGLE_CALLBACK_URL</code> and only falls back to the Replit
-                      domain when that setting is empty. The same Replit domain also builds the list
-                      of addresses the API will accept requests from, in
-                      <code>artifacts/api-server/src/app.ts</code>. So one missing setting quietly
-                      controls two things.
-                    </p>
-                    <p>
-                      <strong>The work is two lines and one check.</strong> Set
-                      <code>GOOGLE_CALLBACK_URL</code> to the real production address in the
-                      deployment&rsquo;s secrets, then confirm that the exact same address is listed
-                      in the Google Cloud console as an authorised redirect. The fallback then only
-                      ever applies in the Replit workspace, which is where it belongs.
-                    </p>
-                    <p>
-                      <strong>Sign-in is all or nothing</strong> &mdash; if the setting and the
-                      Google console disagree by even a trailing slash, every leader gets
-                      &ldquo;redirect_uri_mismatch&rdquo; and none of them can get in. That is what
-                      makes this a careful change rather than a hard one: do it when there is time to
-                      test a real sign-in straight afterwards, not last thing on a Friday.
-                    </p>
-                    <p>
-                      <strong>What it buys:</strong> a known-good return address that Replit cannot
-                      change out from under you, and one fewer place where the app assumes it is
-                      running on Replit.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Tooling</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-
-          <tr>
+            <td class="p">3</td>
             <td class="idcell">47</td>
             <td>
               <div class="task">
@@ -1020,41 +568,140 @@
             <td><span class="chip u-low">Small</span></td>
           </tr>
 
-
           <tr>
-            <td class="idcell">49</td>
+            <td class="p">4</td>
+            <td class="idcell">45</td>
             <td>
               <div class="task">
-                <h3>Coach profile pages</h3>
-                <p class="lineage">Captured 1 Sep. Very low priority &mdash; wanted, not waited on.</p>
+                <h3>Own the production database account directly</h3>
+                <p class="lineage">Added 30 Aug, out of a review of how much of Catalyst depends on Replit. Pairs with #46. Neither is a move off Replit.</p>
                 <p class="why">
-                  Teachers have a profile; coaches do not. Everything about a coach is currently read
-                  sideways &mdash; through the Usage table, or through the observations they signed.
-                  A page of their own would put a coach&rsquo;s caseload, their observation load and
-                  the action steps they have assigned in one place.
+                  The real data lives in a PostgreSQL database called <code>neondb</code>. Neon is a
+                  separate company from Replit &mdash; Replit sets the database up on your behalf,
+                  which usually means the account holding it is Replit&rsquo;s, not yours. Worth
+                  knowing which, because two things follow from it.
                 </p>
                 <details>
-                  <summary>What it depends on</summary>
+                  <summary>What it costs you today, and what owning it would fix</summary>
                   <div class="detail">
                     <p>
-                      Most of what such a page would want to show is <em>who this coach works with</em>,
-                      and that relationship does not exist yet &mdash; it is #17. Without it the page
-                      can only show what a coach has done, not who they are responsible for.
+                      <strong>Production cannot be reached from a shell.</strong> A comment in
+                      <code>artifacts/api-server/.replit-artifact/artifact.toml</code> puts it
+                      plainly: the deploy is &ldquo;the only place its credentials exist.&rdquo; That
+                      is why a one-off repair to 158 people&rsquo;s grade levels now runs on
+                      <em>every single deploy</em> &mdash; there was nowhere else to run it. Any
+                      future data fix faces the same problem and gets solved the same wrong way.
                     </p>
                     <p>
-                      Also needs a scoping decision: a school leader seeing their own school&rsquo;s
-                      coaches is straightforward, a network leader seeing everyone is straightforward,
-                      a coach seeing another coach is not.
+                      <strong>If Catalyst ever leaves Replit, the database leaves with Replit</strong>
+                      unless the account is yours. That turns a config change into a data migration
+                      of real staff records, at the worst possible moment.
+                    </p>
+                    <p>
+                      <strong>The first step is a question, not a change.</strong> Find out whose
+                      account holds <code>neondb</code>. If it already sits under a Neon account in
+                      your name, most of this item is already done and the rest is just writing down
+                      how to sign in to it.
+                    </p>
+                    <p>
+                      <strong>If it is Replit&rsquo;s:</strong> the move is an export into a Neon
+                      project you own, then repointing <code>DATABASE_URL</code>. That is a one-way
+                      copy of live staff data, and it needs a window with the app switched off so
+                      nothing is written to the version being left behind. An evening or a weekend,
+                      never mid-week with leaders observing.
+                    </p>
+                    <p>
+                      <strong>What it buys:</strong> a console into production, so the next data fix
+                      runs once instead of living in the deploy forever; backups you control and can
+                      restore from; and a future host change that is config only.
+                      <strong>What it changes for users:</strong> nothing. Same app, same address,
+                      same login.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">5</td>
+            <td class="idcell">53</td>
+            <td>
+              <div class="task">
+                <h3>Group schools by proficiency band on the network action center</h3>
+                <p class="lineage">Captured 1 Sep.</p>
+                <p class="why">
+                  The network summary marks a school Proficient or Not Proficient &mdash; one line at
+                  0.7, and everything below it looks the same. A school at 0.68 and a school at 0.3
+                  need different responses, and the page does not distinguish them. Three bands
+                  &mdash; proficient, working towards, needs improvement &mdash; would say which
+                  schools to go to first.
+                </p>
+                <details>
+                  <summary>What already exists, and the part that is undecided</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The middle band is already there, one level down.</strong> The school
+                      action center&rsquo;s domain bars use two thresholds, 0.7 and 0.5, in three
+                      colours. The network page uses only the first. Reusing both is the obvious
+                      starting point &mdash; but whether 0.5 is the right line for a whole school, as
+                      opposed to a single domain, is a judgement call and not a technical one.
+                    </p>
+                    <p>
+                      <strong>Splitting the bands by domain is unresolved.</strong> The user&rsquo;s
+                      own note says &ldquo;maybe &mdash; unclear&rdquo;. A school is rarely weak
+                      everywhere, so a per-domain view would be more useful and much busier; it is a
+                      second piece of work, not part of this one. Decide the school-level bands first
+                      and see whether the domain question is still live.
+                    </p>
+                    <p>
+                      Lives in <code>artifacts/catalyst-dashboard/src/pages/network-action-center.tsx</code>;
+                      the thresholds are in <code>action-center.tsx</code>.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">6</td>
+            <td class="idcell">51</td>
+            <td>
+              <div class="task">
+                <h3>Simplify past observations on the teacher profile</h3>
+                <p class="lineage">Captured 1 Sep. Pairs naturally with #50 &mdash; same screen.</p>
+                <p class="why">
+                  Observation History renders every past observation as a full card. For a teacher
+                  observed often, that is a long scroll of near-identical blocks, and finding a
+                  particular one means reading all of them. A compact row that opens on click would
+                  make the history scannable.
+                </p>
+                <details>
+                  <summary>What &ldquo;simpler&rdquo; needs to mean</summary>
+                  <div class="detail">
+                    <p>
+                      Needs a decision on what stays visible in the collapsed row &mdash; date,
+                      observer, score, whether it was a walkthrough &mdash; and what moves behind the
+                      click. The detail modal already exists, so the click target is not new work.
+                    </p>
+                    <p>
+                      Same file as #50; doing them together avoids laying out the same screen twice.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
             <td class="cat">Product</td>
-            <td><span class="chip u-med">Medium</span></td>
+            <td><span class="chip u-low">Small</span></td>
           </tr>
 
           <tr>
+            <td class="p">7</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -1096,37 +743,345 @@
           </tr>
 
           <tr>
-            <td class="idcell">51</td>
+            <td class="p">8</td>
+            <td class="idcell">32</td>
             <td>
               <div class="task">
-                <h3>Simplify past observations on the teacher profile</h3>
-                <p class="lineage">Captured 1 Sep. Pairs naturally with #50 &mdash; same screen.</p>
+                <h3>Build the Walkthrough Report Generator</h3>
                 <p class="why">
-                  Observation History renders every past observation as a full card. For a teacher
-                  observed often, that is a long scroll of near-identical blocks, and finding a
-                  particular one means reading all of them. A compact row that opens on click would
-                  make the history scannable.
+                  The tab already exists for network admins and says
+                  &ldquo;This feature is coming soon.&rdquo; It is a placeholder with an icon and
+                  nothing behind it.
                 </p>
                 <details>
-                  <summary>What &ldquo;simpler&rdquo; needs to mean</summary>
+                  <summary>The clearest-shaped item here</summary>
                   <div class="detail">
                     <p>
-                      Needs a decision on what stays visible in the collapsed row &mdash; date,
-                      observer, score, whether it was a walkthrough &mdash; and what moves behind the
-                      click. The detail modal already exists, so the click target is not new work.
+                      The placeholder states the intent: school-wide walkthrough summaries to share
+                      with principals and leadership teams. The data is all present &mdash;
+                      <code>observations.isWalkthrough</code> marks them, and the rescore
+                      threshold logic already knows what a weak walkthrough looks like.
                     </p>
                     <p>
-                      Same file as #50; doing them together avoids laying out the same screen twice.
+                      What is missing is the output: what a report contains, and how it leaves the
+                      system. Given #26, a copy-and-paste block into an email is more likely to fit
+                      how these actually get shared than a PDF.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Reporting</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">9</td>
+            <td class="idcell">39</td>
+            <td>
+              <div class="task">
+                <h3>Make the 0.7 proficiency threshold a setting too</h3>
+                <p class="lineage">New, 27 Aug. The other half of the rescore rule, deliberately left out of #38's sibling work.</p>
+                <p class="why">
+                  The rescore <em>deadline</em> is now a setting. The score that puts somebody in
+                  the queue at all is still <code>0.7</code>, hardcoded in about a dozen places.
+                </p>
+                <details>
+                  <summary>Why this is a bigger change than the windows were</summary>
+                  <div class="detail">
+                    <p>
+                      A deadline change moves dates. A threshold change alters <strong>who is
+                      flagged at all</strong> &mdash; raise it and teachers who were fine are
+                      suddenly in the queue; lower it and people leave it. It also decides the
+                      red/green colouring across the Action Center and the district view, so it is
+                      not confined to one feature.
+                    </p>
+                    <p>
+                      <strong>Where it lives.</strong> Server:
+                      <code>routes/observations.ts</code> (both rescore branches),
+                      <code>routes/ai.ts</code> (three), <code>services/ai-service.ts</code> (five,
+                      including the assistant's own system prompt, which states the number to
+                      users). Client: <code>PROFICIENCY_THRESHOLD</code> in
+                      <code>action-center.tsx</code>, used in several places, plus the
+                      district dashboard.
+                    </p>
+                    <p>
+                      <strong>The infrastructure already exists.</strong>
+                      <code>system_settings</code> is a single network-wide row with an audit
+                      trail, and the AI prompt already substitutes a live value for the rescore
+                      window &mdash; the same mechanism would carry the threshold. The work is
+                      finding all dozen sites and deciding what happens to people already in the
+                      queue when it moves, which is the same question the windows raised.
+                    </p>
+                    <p>
+                      Worth doing deliberately rather than riding along on a deadline change, which
+                      is why it was split out on 27 Aug.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rescore</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">10</td>
+            <td class="idcell">29</td>
+            <td>
+              <div class="task">
+                <h3>Improve network-wide action center</h3>
+                <p class="why">
+                  A limited one now exists &mdash; summary and usage, shipped with #43. What is left
+                  is everything the school version has that did not come with it: the intervention
+                  work. Every one of those endpoints still scopes to a single school, so a network
+                  user picks one school at a time to see a rescore queue or an overdue list.
+                </p>
+                <details>
+                  <summary>Why it is more than removing a filter</summary>
+                  <div class="detail">
+                    <p>
+                      The scoping is deliberate and load-bearing: a school leader must never see
+                      another school, and a regional admin only their region. A network-wide view
+                      needs its own aggregation that respects those same limits rather than
+                      bypassing them, and needs to stay fast across every school at once.
+                    </p>
+                    <p>
+                      Also a design question: a rescore queue for one school is a list of names. For
+                      forty schools it is a list nobody reads, so it probably wants to be
+                      school-level totals that open into the existing per-school view.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">11</td>
+            <td class="idcell">28</td>
+            <td>
+              <div class="task">
+                <h3>More action step analytics</h3>
+                <p class="why">
+                  Action steps are counted but never analysed. The Usage tab (#20 / #14) reports how
+                  many a coach assigned; nothing says whether they land.
+                </p>
+                <details>
+                  <summary>What the data can now answer</summary>
+                  <div class="detail">
+                    <p>
+                      <code>action_step_extensions</code> is new as of #16, so
+                      <em>how often steps get pushed back, and by how long</em> is answerable for the
+                      first time &mdash; it was invisible before, because extending used to create a
+                      duplicate step.
+                    </p>
+                    <p>
+                      Also reachable without new tables: time from assigned to mastered, how many
+                      are never mastered at all, whether particular rubric domains produce steps
+                      that stall. Needs a conversation about which questions actually change what a
+                      coach does.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">12</td>
+            <td class="idcell">31</td>
+            <td>
+              <div class="task">
+                <h3>Build out the AI chat &mdash; perfecting it</h3>
+                <p class="lineage">Placed here by size and dependency, but too broad to start as written.</p>
+                <p class="why">
+                  This needs breaking into named pieces before it can be sized or scheduled, because
+                  &ldquo;better&rdquo; could mean any of several unrelated jobs.
+                </p>
+                <details>
+                  <summary>The pieces this probably splits into</summary>
+                  <div class="detail">
+                    <p>
+                      What it knows (how much observation context is fed in, and how far back), how
+                      it answers (length, tone, whether it cites the observations it drew on),
+                      what it can do (read-only, or acting on your behalf), and what it costs
+                      &mdash; there is already a quota and a rate limiter, so usage has a ceiling
+                      that any expansion runs into.
+                    </p>
+                    <p>
+                      Best approached by naming the two or three things that annoy you most in
+                      practice, rather than as one project.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">AI</td>
+            <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">13</td>
+            <td class="idcell">17</td>
+            <td>
+              <div class="task">
+                <h3>Tag coaches to teachers</h3>
+                <p class="lineage">Long term. Design alongside #18.</p>
+                <p class="why">
+                  There is no coach&nbsp;&rarr;&nbsp;teacher relationship today. Assignments link a
+                  person to a <em>school</em> and a year, not to each other.
+                </p>
+                <details>
+                  <summary>Why this one is larger than it looks</summary>
+                  <div class="detail">
+                    <p>
+                      A new relationship that almost certainly needs to be year-scoped, like
+                      assignments &mdash; a coach&rsquo;s caseload changes each August, and the
+                      rollover would need to carry it forward or ask for it in the roster.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
             <td class="cat">Product</td>
-            <td><span class="chip u-low">Small</span></td>
+            <td><span class="chip u-med">Large</span></td>
           </tr>
 
           <tr>
+            <td class="p">14</td>
+            <td class="idcell">18</td>
+            <td>
+              <div class="task">
+                <h3>Custom groups of teachers for filtering</h3>
+                <p class="lineage">Long term. Design alongside #17.</p>
+                <p class="why">
+                  Filtering is currently by school, department, grade and rubric audience. Ad-hoc
+                  groupings (a cohort, a PD group) have nowhere to live.
+                </p>
+                <details>
+                  <summary>Open question</summary>
+                  <div class="detail">
+                    <p>
+                      Same year-scoping question as #17: does a group persist across a rollover, and
+                      what happens to a group whose members have departed?
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Large</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">15</td>
+            <td class="idcell">49</td>
+            <td>
+              <div class="task">
+                <h3>Coach profile pages</h3>
+                <p class="lineage">Captured 1 Sep. Very low priority &mdash; wanted, not waited on.</p>
+                <p class="why">
+                  Teachers have a profile; coaches do not. Everything about a coach is currently read
+                  sideways &mdash; through the Usage table, or through the observations they signed.
+                  A page of their own would put a coach&rsquo;s caseload, their observation load and
+                  the action steps they have assigned in one place.
+                </p>
+                <details>
+                  <summary>What it depends on</summary>
+                  <div class="detail">
+                    <p>
+                      Most of what such a page would want to show is <em>who this coach works with</em>,
+                      and that relationship does not exist yet &mdash; it is #17. Without it the page
+                      can only show what a coach has done, not who they are responsible for.
+                    </p>
+                    <p>
+                      Also needs a scoping decision: a school leader seeing their own school&rsquo;s
+                      coaches is straightforward, a network leader seeing everyone is straightforward,
+                      a coach seeing another coach is not.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">16</td>
+            <td class="idcell">27</td>
+            <td>
+              <div class="task">
+                <h3>A teacher-facing view of their own observations</h3>
+                <p class="why">
+                  Every role in Catalyst today is an <em>observer</em>. The only state a teacher can
+                  hold is <code>NO_ACCESS</code>, which is blocked at login outright &mdash; so
+                  there is no such thing as a person who can sign in and see only themselves.
+                </p>
+                <details>
+                  <summary>The decisions this needs before any code</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>It is a new role, not a filter.</strong> Every authorization path
+                      assumes the signed-in person is looking <em>at</em> somebody. A teacher role
+                      needs its own scoping rule &mdash; your own records, nobody else&rsquo;s
+                      &mdash; applied to observations, action steps and anything that aggregates.
+                    </p>
+                    <p>
+                      <strong>What may a teacher see?</strong> Scores as numbers, or only the
+                      written feedback? Drafts, or published only? Their action steps, including
+                      overdue ones? An observation a coach has written but not shared? These are
+                      policy questions, and each one changes the shape of the work.
+                    </p>
+                    <p>
+                      This is the largest item on the list. Worth splitting once those answers
+                      exist.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Access</td>
+            <td><span class="chip u-med">Large</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">17</td>
+            <td class="idcell">30</td>
+            <td>
+              <div class="task">
+                <h3>Allow uploads into the AI chat</h3>
+                <p class="why">
+                  The chat takes typed text only. Nothing in the AI routes accepts a file.
+                </p>
+                <details>
+                  <summary>What it drags in</summary>
+                  <div class="detail">
+                    <p>
+                      Somewhere to put the file, a size and type limit, and a decision about how long
+                      it is kept. An uploaded file is also sent to the model, so it needs the same
+                      school-scoping care as everything else &mdash; a coach must not be able to
+                      widen what the model sees by attaching a spreadsheet of another school.
+                    </p>
+                    <p>
+                      Worth pinning down what people actually want to attach before building it. A
+                      roster spreadsheet and a lesson plan are different features.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">AI</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">18</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1161,51 +1116,92 @@
           </tr>
 
           <tr>
-            <td class="idcell">53</td>
+            <td class="p">19</td>
+            <td class="idcell">33</td>
             <td>
               <div class="task">
-                <h3>Group schools by proficiency band on the network action center</h3>
-                <p class="lineage">Captured 1 Sep.</p>
+                <h3>A dropdown of GBF action steps</h3>
+                <p class="lineage">Flagged as uncertain when raised &mdash; recorded, not endorsed.</p>
                 <p class="why">
-                  The network summary marks a school Proficient or Not Proficient &mdash; one line at
-                  0.7, and everything below it looks the same. A school at 0.68 and a school at 0.3
-                  need different responses, and the page does not distinguish them. Three bands
-                  &mdash; proficient, working towards, needs improvement &mdash; would say which
-                  schools to go to first.
+                  I do not know what a GBF action step is. The only trace of GBF in the codebase is
+                  the app&rsquo;s former name: a legacy redirect sends
+                  <code>/gbf-mobile/*</code> to <code>/catalyst-mobile/*</code>. Nothing in the data
+                  model relates to it.
                 </p>
                 <details>
-                  <summary>What already exists, and the part that is undecided</summary>
+                  <summary>What would make this actionable</summary>
                   <div class="detail">
                     <p>
-                      <strong>The middle band is already there, one level down.</strong> The school
-                      action center&rsquo;s domain bars use two thresholds, 0.7 and 0.5, in three
-                      colours. The network page uses only the first. Reusing both is the obvious
-                      starting point &mdash; but whether 0.5 is the right line for a whole school, as
-                      opposed to a single domain, is a judgement call and not a technical one.
+                      A source. If GBF action steps are a fixed published list, this is a
+                      pick-from-a-menu change with a decision about whether coaches may still write
+                      their own. If it is a set of examples, it may be closer to suggested text than
+                      a dropdown.
                     </p>
                     <p>
-                      <strong>Splitting the bands by domain is unresolved.</strong> The user&rsquo;s
-                      own note says &ldquo;maybe &mdash; unclear&rdquo;. A school is rarely weak
-                      everywhere, so a per-domain view would be more useful and much busier; it is a
-                      second piece of work, not part of this one. Decide the school-level bands first
-                      and see whether the domain question is still live.
-                    </p>
-                    <p>
-                      Lives in <code>artifacts/catalyst-dashboard/src/pages/network-action-center.tsx</code>;
-                      the thresholds are in <code>action-center.tsx</code>.
+                      Worth noting the tension you already sensed: a fixed menu makes steps
+                      comparable across coaches, which is what makes #28 meaningful &mdash; and it
+                      also constrains a coach who sees something the list does not cover.
                     </p>
                   </div>
                 </details>
               </div>
             </td>
-            <td class="cat">Analytics</td>
-            <td><span class="chip u-med">Medium</span></td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-defer">Needs defining</span></td>
           </tr>
-        </tbody>
+
+          <tr class="deferred">
+            <td class="p">20</td>
+            <td class="idcell">10</td>
+            <td>
+              <div class="task">
+                <h3>Performance micro-optimisations</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review findings #21 and #22.</p>
+                <p class="why">Meaningless at current data size. Revisit if query times become visible.</p>
+              </div>
+            </td>
+            <td class="cat">Performance</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">21</td>
+            <td class="idcell">11</td>
+            <td>
+              <div class="task">
+                <h3>Split the two large page components</h3>
+                <p class="lineage">Was &ldquo;Bundle 4&rdquo; &mdash; review finding #23.</p>
+                <p class="why">
+                  <code>admin.tsx</code> is ~3.9k lines and <code>action-center.tsx</code> ~2.5k.
+                  Real, and not urgent.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Code structure</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">22</td>
+            <td class="idcell">13</td>
+            <td>
+              <div class="task">
+                <h3>Enforce the roster dry run server-side</h3>
+                <p class="lineage">Raised and deferred 19 Aug.</p>
+                <p class="why">
+                  The mandatory preview is enforced in the UI, not the API &mdash; a direct call can
+                  still skip it. Worth building only if something ever scripts against
+                  <code>/people/bulk</code>.
+                </p>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-defer">Deferred</span></td>
+          </tr>
+</tbody>
       </table>
     </div>
   </section>
-
 
   <section>
     <div class="sec-head">
