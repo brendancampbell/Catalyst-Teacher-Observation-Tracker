@@ -5,6 +5,7 @@ import {
   observations, observationScores,
 } from "@workspace/db/schema";
 import { eq, and, inArray, ne } from "drizzle-orm";
+import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 /* Build a map of employeeId → { name, email } for observer lookups. */
 async function fetchObserverInfo(
@@ -42,8 +43,16 @@ router.get("/:id", async (req, res) => {
       return;
     }
 
+    /* Rubric slugs repeat year over year — pair the slug with the active
+       school year or this resolves to the oldest copy and finds no scores. */
+    const activeYearId = await getActiveSchoolYearId();
+    if (!activeYearId) {
+      res.status(503).json({ error: "No active school year configured." });
+      return;
+    }
+
     const quarter = await db.query.rubricSets.findFirst({
-      where: eq(rubricSets.slug, quarterSlug),
+      where: and(eq(rubricSets.slug, quarterSlug), eq(rubricSets.schoolYearId, activeYearId)),
     });
     if (!quarter) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
