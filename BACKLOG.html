@@ -1258,6 +1258,72 @@
         <tbody>
 
           <tr>
+            <td class="idcell">54</td>
+            <td>
+              <div class="task">
+                <h3>The Usage table pages instead of listing everybody at once</h3>
+                <p class="lineage"><code>586153c</code> &mdash; shipped 1 Sep inside a commit that says it is a backlog stamp edit. Recorded honestly in <code>06609e2</code>. 4 front-end tests, 352 &rarr; 356.</p>
+                <p class="why">
+                  Usage on the network action center listed every person in the network in one
+                  scroll. It now shows 25 at a time, with page buttons and a per-page picker &mdash;
+                  the same controls the Admin&nbsp;&rsaquo;&nbsp;Users table already used, so the two
+                  lists of people in the tool behave identically.
+                </p>
+                <details>
+                  <summary>What it does, and the part worth reading: how it shipped</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The care is in what happens when the list changes underneath you.</strong>
+                      Searching, filtering by role or school, re-sorting, or changing the page size
+                      all return you to page 1. Without that, narrowing a filter while on page 6
+                      shows an empty table rather than the matches &mdash; the list is shorter than
+                      the page you are standing on. The page number is also clamped on every render
+                      rather than trusted, because a refetch can shrink the rows without any click.
+                    </p>
+                    <p>
+                      Page pills show the first page, the last, and the current page&rsquo;s
+                      neighbours, with the gaps collapsed to an ellipsis. Four tests cover it: only
+                      the first page renders, next moves, a narrowing filter resets to page 1, and
+                      the per-page picker is honoured. They were verified to fail without the change
+                      rather than assumed to guard it.
+                    </p>
+                    <p>
+                      <strong>It shipped by accident, and that is the reason this entry exists.</strong>
+                      Two sessions were working this repository at the same time &mdash; which the
+                      working agreements say not to do &mdash; sharing one working tree and one git
+                      index. One finished this work and staged its files. The other staged
+                      <code>BACKLOG.html</code> and committed. <code>git commit</code> commits the
+                      index, not the paths just added, so this change rode along into a commit about
+                      #47 and went to <code>main</code>, which is what Replit deploys.
+                    </p>
+                    <p>
+                      <strong>Staging by name did not prevent it.</strong> That rule protects a
+                      commit from unstaged debris; it does nothing about somebody else&rsquo;s staged
+                      work in a shared tree. What would have caught it is reading the diffstat before
+                      committing rather than after &mdash; the commit reported three files and was
+                      described as one.
+                    </p>
+                    <p>
+                      <strong>Nothing was lost or broken.</strong> Typecheck clean, dashboard suite
+                      356 passing, CI green on the push. What was lost is the process: no branch, no
+                      pull request, no review, and a log that does not say this shipped. Left as it
+                      is rather than rewritten &mdash; <code>586153c</code> is public and splitting
+                      it would rewrite pushed history on the deployment branch.
+                    </p>
+                    <p>
+                      Lives in
+                      <code>artifacts/catalyst-dashboard/src/components/UsageTable.tsx</code>. The
+                      Usage view itself is #20.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">1 Sep</span></td>
+          </tr>
+
+          <tr>
             <td class="idcell">47</td>
             <td>
               <div class="task">
