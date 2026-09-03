@@ -334,7 +334,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>20</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
+      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
       <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
@@ -518,6 +518,97 @@
 
           <tr>
             <td class="p">3</td>
+            <td class="idcell">55</td>
+            <td>
+              <div class="task">
+                <h3>Add an action step to an observation after the fact</h3>
+                <p class="lineage">Captured 3 Sep. Related to #33 &mdash; both are about how a step gets written.</p>
+                <p class="why">
+                  An action step can only be written while the observation is being written. If an
+                  observation is saved without one, there is no way back in &mdash; the Action Steps
+                  block on a saved observation appears only when a step already exists. An observer
+                  who settles on the step after the debrief has to leave it off the record, or log
+                  the observation again.
+                </p>
+                <details>
+                  <summary>Most of this already works on the server</summary>
+                  <div class="detail">
+                    <p>
+                      Saving an observation already accepts a new action step and creates one when
+                      the observation has none &mdash; that is the path a published draft takes. What
+                      is missing is the way in: <code>ObservationDetailModal</code> renders its
+                      Action Steps block only when a step is already there, so editing one is
+                      possible and adding the first one is not.
+                    </p>
+                    <p>
+                      <strong>One decision to make.</strong> A step created this way is filed under
+                      the <em>active</em> school year rather than the year of the observation it
+                      hangs off, so adding one to last year&rsquo;s observation would count against
+                      this year. Either file it against the observation&rsquo;s own year, or refuse
+                      to add a step to an observation from a closed year &mdash; but not silently do
+                      the first thing.
+                    </p>
+                    <p>
+                      Two existing rules carry over and should stay: the due date must be today or
+                      later, and only an observation of a teacher can carry a step &mdash; one logged
+                      against a school cannot.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">4</td>
+            <td class="idcell">56</td>
+            <td>
+              <div class="task">
+                <h3>Let a user cover more than one school without network access</h3>
+                <p class="lineage">Captured 3 Sep, as a walkthrough setting &mdash; some leaders walk buildings that are not their own. Related to #32.</p>
+                <p class="why">
+                  A user belongs to exactly one school, and everything they can see is scoped to it.
+                  There is no way to add a second. The only way to show somebody two schools today is
+                  a network role, which shows them every school in the network &mdash; every teacher,
+                  every observation, every score. What this needs is a per-user list of extra
+                  schools, granted by an admin.
+                </p>
+                <details>
+                  <summary>Why this is a permissions change, not a filter</summary>
+                  <div class="detail">
+                    <p>
+                      One school per person is wired into the scoping rule itself.
+                      <code>effectiveSchoolId</code> hands a coach or school leader their own school
+                      and ignores whichever school the request asked for, and the per-record check
+                      compares against that same single school. Both have to learn about a list
+                      before anything else can.
+                    </p>
+                    <p>
+                      Authorization here is applied by hand, route by route &mdash; nothing applies it
+                      for you. So this is not one change but one per route that returns people,
+                      observations or action steps, each with its own cross-school test. That is
+                      where the size is; the setting itself is small.
+                    </p>
+                    <p>
+                      <strong>Needs deciding before it can be built.</strong> Does a second school
+                      give the full picture &mdash; teachers, history, action steps, dashboards
+                      &mdash; or only the ability to run walkthroughs there? Who grants it? And what
+                      happens at rollover: the roster sets a person&rsquo;s school every year, so an
+                      extra school granted by hand has to either survive the roster or be granted
+                      again.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Access</td>
+            <td><span class="chip u-med">Large</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">5</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -560,7 +651,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">6</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -592,7 +683,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">7</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -634,7 +725,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">8</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -667,7 +758,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">9</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -717,7 +808,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">10</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -751,7 +842,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">11</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -784,7 +875,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">12</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -817,7 +908,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">13</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -844,7 +935,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">14</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -870,7 +961,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">15</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -904,7 +995,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">16</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -942,7 +1033,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">17</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -972,7 +1063,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">18</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1007,7 +1098,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">19</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1042,7 +1133,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">18</td>
+            <td class="p">20</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1056,7 +1147,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">19</td>
+            <td class="p">21</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1073,7 +1164,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">22</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
