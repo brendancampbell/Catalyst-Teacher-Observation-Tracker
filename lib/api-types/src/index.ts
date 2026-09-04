@@ -579,6 +579,14 @@ export interface SchoolYearRow {
   displayOrder: number;
 }
 
+/** One school's worth of people the activation would switch off. */
+export interface ActivationDepartureGroup {
+  schoolId:   number | null;
+  /** "No school recorded" when the outgoing assignment carries no school. */
+  schoolName: string;
+  people:     { employeeId: string; name: string; email: string }[];
+}
+
 export interface SchoolYearActivationPreview {
   openDrafts:            number;
   unresolvedActionSteps: number;
@@ -586,6 +594,14 @@ export interface SchoolYearActivationPreview {
   schoolsAffected:       number;
   activeYearName:        string | null;
   activeYearId:          number | null;
+  /** How many people the flip would deactivate for being absent from the
+      incoming year's roster. Shown BEFORE activating, by name — a count
+      reported afterwards is what let 378 people be switched off unnoticed
+      (BACKLOG #38). */
+  departureCount:        number;
+  /** The same people, grouped by the school they are leaving, largest group
+      first. A school listing its whole staff means a truncated roster file. */
+  departuresBySchool:    ActivationDepartureGroup[];
 }
 
 /* ── AI Quota Grants ─────────────────────────────────────────────── */

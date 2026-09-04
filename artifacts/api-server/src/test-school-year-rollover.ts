@@ -100,6 +100,9 @@ let schoolAId: number;
 let schoolBId: number;
 let schoolAName: string;
 let schoolBName: string;
+/* What the activation dialog named before the flip. Test 7 checks the flip
+   against it — the guard is only worth anything if the two agree. */
+let previewedDepartureIds: string[] = [];
 
 describe("Staged school-year rollover", () => {
   before(async () => {
@@ -311,6 +314,66 @@ describe("Staged school-year rollover", () => {
     assert.equal(created.isActive, false, "a staged hire must not be able to sign in before the flip");
   });
 
+  /* ── The guard ──────────────────────────────────────────────────────── */
+
+  /* BACKLOG #38. The flip used to report a departure count afterwards and
+     nothing before, so 378 people were switched off unnoticed. The dialog
+     now names them, grouped by school — and the only thing that makes that
+     worth showing is that it is the same list the flip will act on. This
+     test pins the list; test 7 pins the flip to it.                       */
+  test("6b — the activation preview names exactly who the flip will switch off", async () => {
+    const r = await request(
+      "GET", `/admin/school-years/${scratchYearId}/activation-preview`, undefined, jar,
+    );
+    assert.equal(r.status, 200, `Expected 200, got ${r.status}: ${JSON.stringify(r.body)}`);
+
+    const groups = r.body.departuresBySchool as {
+      schoolId: number | null;
+      schoolName: string;
+      people: { employeeId: string; name: string; email: string }[];
+    }[];
+    assert.ok(Array.isArray(groups), "departuresBySchool must be an array");
+
+    const named = groups.flatMap((g) => g.people.map((x) => x.employeeId));
+    previewedDepartureIds = named;
+
+    assert.equal(
+      r.body.departureCount, named.length,
+      "the headline count must be the length of the list beneath it",
+    );
+
+    /* The fixture withholds exactly one of its people from the scratch
+       roster, so among the fixture the answer is provably {LEAVE}. Other
+       real people in a shared dev database may legitimately also be
+       departing, which is why this filters to the fixture rather than
+       asserting on the whole list. */
+    const fixtureNamed = named.filter((id) => ALL_EIDS.includes(id));
+    assert.deepEqual(
+      fixtureNamed, [LEAVE_EID],
+      "the preview must name the person left off the roster, and only them",
+    );
+
+    /* An admin is never rostered, so absence from the file says nothing
+       about them. Naming one here would be the dialog asking the admin to
+       confirm their own removal. */
+    assert.ok(
+      !named.includes(ADM_EID),
+      "an admin must never appear in the departure list",
+    );
+
+    /* Grouped under the school they are leaving, with a count that matches. */
+    const leaveGroup = groups.find((g) => g.people.some((x) => x.employeeId === LEAVE_EID));
+    assert.ok(leaveGroup, "the departure must be grouped under a school");
+    assert.equal(
+      leaveGroup.schoolName, schoolAName,
+      "grouped under the school held in the OUTGOING year, which is where they are leaving from",
+    );
+
+    /* Naming somebody is not permission to deactivate them yet. */
+    const leave = await personRow(LEAVE_EID);
+    assert.equal(leave?.isActive, true, "previewing must not switch anyone off");
+  });
+
   /* ── The flip ───────────────────────────────────────────────────────── */
 
   test("7 — activation deactivates the departed, activates the hire, applies the move", async () => {
@@ -336,6 +399,25 @@ describe("Staged school-year rollover", () => {
     assert.equal(admin?.isActive, true, "an admin must never be deactivated for being off a roster");
     const stillWorks = await request("GET", "/admin/school-years", undefined, jar);
     assert.equal(stillWorks.status, 200, "the admin must retain access in the year they just activated");
+
+    /* The anti-drift check, and the whole reason the guard is worth
+       showing: the flip acted on exactly the list the dialog displayed.
+       Restricted to the fixture because a shared dev database holds real
+       people whose state this test does not own. */
+    for (const eid of ALL_EIDS) {
+      const row = await personRow(eid);
+      if (!row) continue;
+      /* A staged hire is switched ON by the same flip, so its inactive
+         state before the flip is not evidence of a departure. */
+      if (eid === NEW_EID) continue;
+      const wasNamed = previewedDepartureIds.includes(eid);
+      assert.equal(
+        row.isActive, !wasNamed,
+        wasNamed
+          ? `${eid} was named in the preview and must be switched off by the flip`
+          : `${eid} was not named in the preview and must not be switched off`,
+      );
+    }
 
     /* The departure's outgoing assignment is closed, not deleted */
     const [closed] = await db.select({ endDate: assignments.endDate })

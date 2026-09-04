@@ -546,6 +546,65 @@ export function AdminSchoolYearsTab({ onGoToUsers }: Props) {
             </div>
 
             <div className="px-5 py-5 flex flex-col gap-4">
+              {/* Who gets switched off.
+
+                  First in the dialog, and before the hidden-data summary,
+                  because it is the consequence that cannot be undone by
+                  switching back the same afternoon. Activating 2026-2027
+                  switched off 378 people still on the roster and said so
+                  only afterwards, as a number (BACKLOG #38). Names grouped
+                  by school are what makes a truncated roster file visible:
+                  a school listing its entire staff did not lose its entire
+                  staff.                                                    */}
+              {!previewQ.isFetching && preview != null && preview.activeYearName && (
+                preview.departureCount > 0 ? (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-4 flex flex-col gap-2">
+                    <p className="text-sm font-semibold text-red-800 flex items-center gap-1.5">
+                      <AlertTriangle size={14} />
+                      <strong>{preview.departureCount}</strong>{" "}
+                      {preview.departureCount === 1 ? "person" : "people"} will be switched off
+                    </p>
+                    <p className="text-xs text-red-700">
+                      They hold a place in {preview.activeYearName} and are absent from the{" "}
+                      {selectedYr.name} roster, so activating reads them as having left. Check
+                      the list before continuing — a school showing all of its staff means the
+                      roster file is missing that school, not that everyone there resigned.
+                    </p>
+                    <div className="max-h-56 overflow-y-auto rounded-md bg-white border border-red-100 divide-y divide-red-100">
+                      {preview.departuresBySchool.map((g) => (
+                        <div key={g.schoolId ?? "none"} className="px-3 py-2">
+                          <p className="text-xs font-semibold text-red-800 flex items-center justify-between gap-2">
+                            <span>{g.schoolName}</span>
+                            <span className="text-red-500 font-normal shrink-0">
+                              {g.people.length}{" "}
+                              {g.people.length === 1 ? "person" : "people"}
+                            </span>
+                          </p>
+                          <ul className="mt-1 flex flex-col gap-0.5">
+                            {g.people.map((person) => (
+                              <li key={person.employeeId} className="text-xs text-slate-600">
+                                {person.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-red-600">
+                      Switching back to {preview.activeYearName} brings them back.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+                    <p className="text-sm text-emerald-800 flex items-center gap-1.5">
+                      <CheckCircle2 size={14} />
+                      Nobody will be switched off &mdash; everyone in {preview.activeYearName} is
+                      on the {selectedYr.name} roster.
+                    </p>
+                  </div>
+                )
+              )}
+
               {/* Impact summary */}
               {previewQ.isFetching ? (
                 <div className="flex items-center gap-2 text-sm text-slate-500">
