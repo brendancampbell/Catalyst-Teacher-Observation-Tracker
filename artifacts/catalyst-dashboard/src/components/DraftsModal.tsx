@@ -267,7 +267,19 @@ export function DraftsModal({ open, onOpenChange }: Props) {
           variant: "destructive",
         });
       }
+      /* Publishing from here changes far more than the drafts list, and used to
+         refresh only the drafts list. The observation and any action step it
+         assigns are read from the dashboard and Action Center caches, so a
+         draft published here vanished from Drafts — correctly — and then did
+         not appear on the teacher's profile until something else happened to
+         refetch. Nothing said so: the toast below reports a successful submit
+         either way, which is what made it read as a save that had not worked.
+         These are the same three keys the dashboard's own submit invalidates
+         (Dashboard.tsx, handleNewObservation); the two must not drift apart. */
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
+      await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
       if (!obs.masteryWarning) toast({ title: "Observation submitted!" });
       return String(obs.id);
     } catch (err) {
