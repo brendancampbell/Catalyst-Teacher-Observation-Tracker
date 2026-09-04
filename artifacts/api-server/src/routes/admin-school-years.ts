@@ -4,7 +4,7 @@ import { schoolYears, rubricSets } from "@workspace/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { requireNetworkAdmin } from "../middleware/auth";
 import { invalidateActiveSchoolYearCache } from "../lib/active-school-year";
-import { yearHasRoster } from "../lib/roster";
+import { yearHasRoster, computeDepartures, loadSchoolLookup } from "../lib/roster";
 import { dashboardCache } from "./dashboard";
 import { districtCache } from "./district";
 import { networkAvgsCache } from "./action-center";
@@ -91,11 +91,33 @@ router.get("/:id/rubric-sets", async (req, res) => {
   }
 });
 
+interface DepartureGroup {
+  schoolId:   number | null;
+  schoolName: string;
+  people:     { employeeId: string; name: string; email: string }[];
+}
+
 /* GET /api/admin/school-years/:id/activation-preview
    Counts open data in the CURRENTLY ACTIVE year that would become hidden
-   if the admin switches to year :id. */
+   if the admin switches to year :id, and names everyone the flip would
+   switch off.
+
+   The departure list is the guard. Activating 2026-2027 on 2026-08-21
+   switched off 378 people who were still on the roster and reported only a
+   count, afterwards — see BACKLOG #38. A count you read after the fact is
+   not a check. Names, grouped by their school, are, because a school
+   showing its entire staff is a truncated roster file and reads as one at
+   a glance.
+
+   It is computed by the same computeDepartures() the roster preview uses,
+   deliberately: a guard that derives the list a second way can disagree
+   with the flip, and a guard that disagrees with the flip is worse than
+   no guard. */
 router.get("/:id/activation-preview", async (req, res) => {
   try {
+    const targetId = Number(req.params.id);
+    if (Number.isNaN(targetId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
     const [activeYear] = await db
       .select()
       .from(schoolYears)
@@ -106,6 +128,7 @@ router.get("/:id/activation-preview", async (req, res) => {
       res.json({
         openDrafts: 0, unresolvedActionSteps: 0, rescoreQueueItems: 0,
         schoolsAffected: 0, activeYearName: null, activeYearId: null,
+        departureCount: 0, departuresBySchool: [],
       });
       return;
     }
@@ -138,6 +161,41 @@ router.get("/:id/activation-preview", async (req, res) => {
         [activeYear.id],
       );
 
+      /* Who the flip would switch off. alsoAssigned is empty because
+         nothing is pending — this asks what activating RIGHT NOW would do,
+         which is exactly the question the admin is being asked to answer. */
+      const lookup     = await loadSchoolLookup();
+      const departures = await computeDepartures({
+        targetYearId:   targetId,
+        outgoingYearId: activeYear.id,
+        lookup,
+        alsoAssigned:   new Set<string>(),
+      });
+
+      /* Grouped by the school they are leaving, biggest group first: the
+         school that lost everyone is the one worth seeing without scrolling.
+         Anyone whose outgoing assignment carries no school lands in a single
+         unattributed group rather than being dropped from the list. */
+      const bySchool = new Map<number | null, DepartureGroup>();
+      for (const d of departures) {
+        let g = bySchool.get(d.schoolId);
+        if (!g) {
+          g = {
+            schoolId:   d.schoolId,
+            schoolName: d.schoolName ?? "No school recorded",
+            people:     [],
+          };
+          bySchool.set(d.schoolId, g);
+        }
+        g.people.push({ employeeId: d.employeeId, name: d.name, email: d.email });
+      }
+      const departuresBySchool = [...bySchool.values()].sort(
+        (a, b) => b.people.length - a.people.length || a.schoolName.localeCompare(b.schoolName),
+      );
+      for (const g of departuresBySchool) {
+        g.people.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
       res.json({
         openDrafts:            Number(draftsRes.rows[0]?.count  ?? 0),
         unresolvedActionSteps: Number(actionRes.rows[0]?.count  ?? 0),
@@ -145,6 +203,8 @@ router.get("/:id/activation-preview", async (req, res) => {
         schoolsAffected:       Number(schoolsRes.rows[0]?.count ?? 0),
         activeYearName:        activeYear.name,
         activeYearId:          activeYear.id,
+        departureCount:        departures.length,
+        departuresBySchool,
       });
     } finally {
       client.release();
