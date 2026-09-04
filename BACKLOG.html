@@ -320,7 +320,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 3 September 2026 &middot; d80e6d0</p>
+    <p class="eyebrow">Live list &middot; updated 3 September 2026 &middot; PENDING_STAMP</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -335,7 +335,7 @@
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
       <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
-      <span><b>409</b> server &middot; <b>330</b> front-end, passing on a database built from empty</span>
+      <span><b>418</b> server &middot; <b>356</b> front-end, passing on a database built from empty</span>
     </div>
   </header>
 
@@ -366,101 +366,6 @@
         <tbody>
           <tr>
             <td class="p">1</td>
-            <td class="idcell">38</td>
-            <td>
-              <div class="task">
-                <h3>The rollover switched off 378 people and told nobody</h3>
-                <p class="lineage">New, 25 Aug. Repaired by hand; the cause of one group is still unexplained. <strong>Recurs next August.</strong></p>
-                <p class="why">
-                  Activating 2026&#8209;2027 on 21 Aug left <strong>46 staff</strong> and
-                  <strong>313 teachers</strong> switched off while still on the current roster, and
-                  a further <strong>19</strong> switched on but absent from it. All were repaired by
-                  hand between 24 and 25 Aug. Two of the three causes are now fixed in code. The
-                  third is not understood.
-                </p>
-                <details>
-                  <summary>The whole investigation, so none of it has to be redone</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>How the flip works.</strong> Activating a year deactivates anyone
-                      holding an open assignment in the outgoing year with none in the incoming one
-                      &mdash; absence from the roster is read as departure. Only
-                      <code>NETWORK_ADMIN</code> is exempt, so teachers go the same way as everyone
-                      else.
-                    </p>
-                    <p><strong>Cause 1 &mdash; a later upload could not switch anyone on.</strong>
-                      The flip switched people off; a roster uploaded afterwards wrote their
-                      assignment and never touched <code>is_active</code>, because
-                      <code>syncDenormalised</code> only ever wrote role and school. 46 staff, mostly
-                      Home Office network leaders, and 250 teachers. <strong>Fixed:</strong> a live
-                      upload now switches on anyone it names and says so per row.
-                    </p>
-                    <p><strong>Cause 2 &mdash; reactivating wrote the flag and not the roster
-                      row.</strong> <code>toggle-active</code> flipped <code>is_active</code> only,
-                      so the account looked active and 403&rsquo;d on every request &mdash; a
-                      dashboard for a few seconds, then a white screen. 19 people, found because one
-                      of them reported it. <strong>Fixed:</strong> reactivation writes the assignment,
-                      and that 403 now lands on a page that explains itself instead of dying.
-                    </p>
-                    <p><strong>Cause 3 &mdash; still unexplained.</strong> 63 teachers were
-                      <em>new hires</em>: no 2025&#8209;2026 assignment at all, so the flip never
-                      considered them. A staged upload creates a new hire inert on purpose, so
-                      nothing takes effect before activation, and step 4b of
-                      <code>activateSchoolYear</code> is meant to switch them on &mdash; its
-                      condition covers exactly this case (open assignment in the incoming year, none
-                      in the outgoing one). It did not.
-                    </p>
-                    <p>
-                      <strong>The lead, unconfirmed.</strong> The two school-year rows both carry
-                      <code>updated_at = 20:06:18.329</code>, so the flip transaction began then.
-                      Roster rows were still being written at <code>20:05:53</code> and
-                      <code>20:06:33</code> &mdash; the upload and the activation overlapped. Somebody
-                      created while the flip was running would be made inert, because the upload
-                      still saw the old year as active, and would be invisible to 4b, because they
-                      did not exist in its snapshot. That fits, but it was not proven, and two
-                      earlier theories this same evening (duplicate records, never-set-up records)
-                      looked just as good and were both wrong. <strong>Confirm against creation
-                      timestamps before changing anything.</strong>
-                    </p>
-                    <p>
-                      <strong>The guard that would have made all of this a five-minute
-                      review.</strong> The flip already counts what it is about to deactivate and
-                      reports the number afterwards. It should show <em>who</em>, and require
-                      confirmation, before doing it. None of the three causes would have reached
-                      production unnoticed.
-                    </p>
-                    <p>
-                      <strong>Why it took four rounds to find.</strong> Every diagnostic and repair
-                      written on 24 Aug carried <code>role &lt;&gt; 'NO_ACCESS'</code>, because the
-                      investigation began with people locked out of signing in. A teacher IS a
-                      NO_ACCESS person, so that silently excluded all 2,061 of them. The staff
-                      repair fixed 46; the 313 teachers in the identical state were left, and
-                      surfaced only as Brendan found them school by school. The scope error was
-                      spotted and corrected in the diagnostics but the repair was never re-run with
-                      the correction.
-                    </p>
-                    <p>
-                      <strong>What was NOT a fault.</strong> Of 14 teachers checked against the
-                      source spreadsheet, 11 were simply absent from it &mdash; Catalyst did what it
-                      was told. 89 teachers with no roster row were reviewed and are correctly
-                      inactive. Duplicate records were ruled out: one in the whole network, and it
-                      reads as a real school move.
-                    </p>
-                    <p>
-                      Scripts from the investigation are in <code>scripts/</code> &mdash;
-                      <code>diagnose-inert-teachers.sql</code> is the one that found the real shape,
-                      and <code>repair-inert-teachers.sql</code> is what fixed it.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Rollover</td>
-            <td><span class="chip u-high">Annual deadline</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">2</td>
             <td class="idcell">45</td>
             <td>
               <div class="task">
@@ -517,7 +422,7 @@
           </tr>
 
           <tr>
-            <td class="p">3</td>
+            <td class="p">2</td>
             <td class="idcell">55</td>
             <td>
               <div class="task">
@@ -562,7 +467,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">56</td>
             <td>
               <div class="task">
@@ -608,7 +513,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -651,7 +556,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -683,7 +588,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -725,7 +630,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -758,7 +663,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -808,7 +713,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -842,7 +747,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -875,7 +780,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -908,7 +813,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -935,7 +840,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -961,7 +866,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -995,7 +900,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -1033,7 +938,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -1063,7 +968,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1098,7 +1003,7 @@
           </tr>
 
           <tr>
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1130,6 +1035,56 @@
             </td>
             <td class="cat">Feedback</td>
             <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">19</td>
+            <td class="idcell">57</td>
+            <td>
+              <div class="task">
+                <h3>CI fails on a mobile test that passes when you run it again</h3>
+                <p class="lineage">New, 3 Sep. Hit during PR&nbsp;#9, whose branch touched no mobile code at all.</p>
+                <p class="why">
+                  <code>observation-draft-restore.test.tsx</code> failed the unit half of CI, then
+                  passed on a plain rerun with nothing changed. It passes locally every time. The
+                  cost is not the red tick &mdash; it is that a build going red for no reason
+                  teaches everyone to click rerun, which is exactly the habit that lets a real
+                  failure through.
+                </p>
+                <details>
+                  <summary>What is actually wrong, and the two ways to fix it</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>It is a timeout, not a broken assertion.</strong> The test renders the
+                      observation page, submits it, and waits up to four seconds for the save to be
+                      called. On a loaded GitHub runner that budget is occasionally missed. The
+                      failure reads as &ldquo;expected&nbsp;<code>vi.fn()</code> to be called at
+                      least once&rdquo;, which looks like broken code and is not.
+                    </p>
+                    <p>
+                      <strong>It has form.</strong> There is already a commit against this same file
+                      &mdash; <code>2d4a664</code>, &ldquo;Fix mobile vitest act() warnings and test
+                      timeouts&rdquo; &mdash; so this is the second time the same tests have been
+                      slow rather than wrong.
+                    </p>
+                    <p>
+                      <strong>Two options.</strong> Raise the <code>waitFor</code> budgets in the
+                      mobile suite, which is one line each and treats the symptom. Or drive the save
+                      with a deterministic wait rather than a wall-clock one, which is the real fix
+                      and a larger change. Worth checking first whether other mobile tests share the
+                      four-second pattern, because fixing one of eight leaves the habit intact.
+                    </p>
+                    <p>
+                      Until then: if a CI unit failure names a mobile <code>waitFor</code> timeout,
+                      check whether the branch touches <code>artifacts/catalyst-mobile</code> before
+                      assuming it is yours.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Test health</td>
+            <td><span class="chip u-low">Small</span></td>
           </tr>
 
           <tr class="deferred">
@@ -1347,6 +1302,113 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">38</td>
+            <td>
+              <div class="task">
+                <h3>A rollover now names everyone it is about to switch off</h3>
+                <p class="lineage"><code>836ae80</code> &rarr; <code>4192057</code> (PR&nbsp;#9) &mdash; shipped 3 Sep. 1 server test, 417 &rarr; 418. Opened 25 Aug after the 21 Aug activation; repaired by hand 24&ndash;25 Aug.</p>
+                <p class="why">
+                  Activating 2026&#8209;2027 switched off <strong>378 people</strong> who were still
+                  on the roster, and reported only a number, afterwards. The activate dialog now
+                  lists them <em>before</em> it does anything &mdash; every name, grouped by the
+                  school they are leaving, biggest group first, because a school showing its whole
+                  staff means the roster file is missing that school rather than that everyone
+                  there resigned. Confirmation is unchanged: you still type the year name.
+                </p>
+                <details>
+                  <summary>The whole investigation, so none of it has to be redone</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>What shipped, and what did not.</strong> The guard did:
+                      the activate dialog now lists everyone the flip would switch
+                      off, by name, grouped by the school they are leaving, largest
+                      group first. Causes&nbsp;1 and&nbsp;2 were already fixed before
+                      this. <strong>Cause&nbsp;3 was not touched and is still
+                      unexplained</strong> &mdash; the note below says to confirm it
+                      against creation timestamps in <code>neondb</code> first, and
+                      production cannot be reached from a shell (see&nbsp;#45). It is
+                      recorded here rather than carried as an open item; if it recurs
+                      next August, start from the lead below.
+                    </p>
+                    <p>
+                      <strong>How the flip works.</strong> Activating a year deactivates anyone
+                      holding an open assignment in the outgoing year with none in the incoming one
+                      &mdash; absence from the roster is read as departure. Only
+                      <code>NETWORK_ADMIN</code> is exempt, so teachers go the same way as everyone
+                      else.
+                    </p>
+                    <p><strong>Cause 1 &mdash; a later upload could not switch anyone on.</strong>
+                      The flip switched people off; a roster uploaded afterwards wrote their
+                      assignment and never touched <code>is_active</code>, because
+                      <code>syncDenormalised</code> only ever wrote role and school. 46 staff, mostly
+                      Home Office network leaders, and 250 teachers. <strong>Fixed:</strong> a live
+                      upload now switches on anyone it names and says so per row.
+                    </p>
+                    <p><strong>Cause 2 &mdash; reactivating wrote the flag and not the roster
+                      row.</strong> <code>toggle-active</code> flipped <code>is_active</code> only,
+                      so the account looked active and 403&rsquo;d on every request &mdash; a
+                      dashboard for a few seconds, then a white screen. 19 people, found because one
+                      of them reported it. <strong>Fixed:</strong> reactivation writes the assignment,
+                      and that 403 now lands on a page that explains itself instead of dying.
+                    </p>
+                    <p><strong>Cause 3 &mdash; still unexplained.</strong> 63 teachers were
+                      <em>new hires</em>: no 2025&#8209;2026 assignment at all, so the flip never
+                      considered them. A staged upload creates a new hire inert on purpose, so
+                      nothing takes effect before activation, and step 4b of
+                      <code>activateSchoolYear</code> is meant to switch them on &mdash; its
+                      condition covers exactly this case (open assignment in the incoming year, none
+                      in the outgoing one). It did not.
+                    </p>
+                    <p>
+                      <strong>The lead, unconfirmed.</strong> The two school-year rows both carry
+                      <code>updated_at = 20:06:18.329</code>, so the flip transaction began then.
+                      Roster rows were still being written at <code>20:05:53</code> and
+                      <code>20:06:33</code> &mdash; the upload and the activation overlapped. Somebody
+                      created while the flip was running would be made inert, because the upload
+                      still saw the old year as active, and would be invisible to 4b, because they
+                      did not exist in its snapshot. That fits, but it was not proven, and two
+                      earlier theories this same evening (duplicate records, never-set-up records)
+                      looked just as good and were both wrong. <strong>Confirm against creation
+                      timestamps before changing anything.</strong>
+                    </p>
+                    <p>
+                      <strong>The guard that would have made all of this a five-minute
+                      review.</strong> The flip already counts what it is about to deactivate and
+                      reports the number afterwards. It should show <em>who</em>, and require
+                      confirmation, before doing it. None of the three causes would have reached
+                      production unnoticed.
+                    </p>
+                    <p>
+                      <strong>Why it took four rounds to find.</strong> Every diagnostic and repair
+                      written on 24 Aug carried <code>role &lt;&gt; 'NO_ACCESS'</code>, because the
+                      investigation began with people locked out of signing in. A teacher IS a
+                      NO_ACCESS person, so that silently excluded all 2,061 of them. The staff
+                      repair fixed 46; the 313 teachers in the identical state were left, and
+                      surfaced only as Brendan found them school by school. The scope error was
+                      spotted and corrected in the diagnostics but the repair was never re-run with
+                      the correction.
+                    </p>
+                    <p>
+                      <strong>What was NOT a fault.</strong> Of 14 teachers checked against the
+                      source spreadsheet, 11 were simply absent from it &mdash; Catalyst did what it
+                      was told. 89 teachers with no roster row were reviewed and are correctly
+                      inactive. Duplicate records were ruled out: one in the whole network, and it
+                      reads as a real school move.
+                    </p>
+                    <p>
+                      Scripts from the investigation are in <code>scripts/</code> &mdash;
+                      <code>diagnose-inert-teachers.sql</code> is the one that found the real shape,
+                      and <code>repair-inert-teachers.sql</code> is what fixed it.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Rollover</td>
+            <td><span class="chip u-done">3 Sep</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">54</td>
