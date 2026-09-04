@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Pencil, Check, ChevronLeft, Trash2, Mail } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -162,6 +162,25 @@ export function ObservationDetailModal({
   const editableStep = assignedSteps.find((s) => s.status === "open") ?? null;
   const [draftStepText, setDraftStepText]       = useState("");
   const [draftStepDueDate, setDraftStepDueDate] = useState("");
+
+  /* The action step box is one line that grows to fit, the same as the box for
+     writing a step during the observation. Only one of the two below — correct
+     the step that is there, or add the first one — is ever on screen, so they
+     share this ref.
+
+     Sized from an effect rather than on mount. The step being CORRECTED
+     arrives from a fetch, so at mount its box is still empty; measuring then
+     would leave a two-line step showing one line and a scrollbar. Keyed on the
+     text, so it fits whenever the text changes, however it got there. */
+  const stepTextRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = stepTextRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    /* Capped so a long step scrolls rather than pushing the glows and grows
+       off the screen. */
+    el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+  }, [draftStepText, editing]);
 
   /* Whether the first action step can be written now, after the fact.
 
@@ -708,9 +727,10 @@ export function ObservationDetailModal({
                           </label>
                           <textarea
                             id={`action-step-text-${step.id}`}
+                            ref={stepTextRef}
                             value={draftStepText}
                             onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
-                            rows={3}
+                            rows={1}
                             placeholder="Describe the specific action step for this teacher…"
                             className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
                             style={{ fontFamily: "'Libre Franklin', sans-serif" }}
@@ -782,29 +802,12 @@ export function ObservationDetailModal({
                         >
                           Action Step
                         </label>
-                        {/* One line, growing to fit — the same box as writing
-                            the step during the observation. Three fixed rows
-                            made the commonest case, a one-line step, look like
-                            a form asking for a paragraph. Capped at 100px so a
-                            long step scrolls rather than pushing the rest of
-                            the observation off the screen. */}
                         <textarea
                           id="action-step-text-new"
-                          ref={(el) => {
-                            if (el && el.value) {
-                              el.style.height = "auto";
-                              el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
-                            }
-                          }}
+                          ref={stepTextRef}
                           rows={1}
                           value={draftStepText}
-                          onChange={(e) => {
-                            const el = e.target;
-                            el.style.height = "auto";
-                            el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
-                            setDraftStepText(e.target.value);
-                            setSaveError(null);
-                          }}
+                          onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
                           placeholder="Describe the specific action step for this teacher…"
                           className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
                           style={{ fontFamily: "'Libre Franklin', sans-serif" }}
