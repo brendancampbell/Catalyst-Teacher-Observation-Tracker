@@ -320,7 +320,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 3 September 2026 &middot; 24ecb39</p>
+    <p class="eyebrow">Live list &middot; updated 4 September 2026 &middot; PENDING_STAMP</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -334,8 +334,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
-      <span><b>418</b> server &middot; <b>356</b> front-end, passing on a database built from empty</span>
+      <span><b>21</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
     </div>
   </header>
 
@@ -423,51 +422,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">55</td>
-            <td>
-              <div class="task">
-                <h3>Add an action step to an observation after the fact</h3>
-                <p class="lineage">Captured 3 Sep. Related to #33 &mdash; both are about how a step gets written.</p>
-                <p class="why">
-                  An action step can only be written while the observation is being written. If an
-                  observation is saved without one, there is no way back in &mdash; the Action Steps
-                  block on a saved observation appears only when a step already exists. An observer
-                  who settles on the step after the debrief has to leave it off the record, or log
-                  the observation again.
-                </p>
-                <details>
-                  <summary>Most of this already works on the server</summary>
-                  <div class="detail">
-                    <p>
-                      Saving an observation already accepts a new action step and creates one when
-                      the observation has none &mdash; that is the path a published draft takes. What
-                      is missing is the way in: <code>ObservationDetailModal</code> renders its
-                      Action Steps block only when a step is already there, so editing one is
-                      possible and adding the first one is not.
-                    </p>
-                    <p>
-                      <strong>One decision to make.</strong> A step created this way is filed under
-                      the <em>active</em> school year rather than the year of the observation it
-                      hangs off, so adding one to last year&rsquo;s observation would count against
-                      this year. Either file it against the observation&rsquo;s own year, or refuse
-                      to add a step to an observation from a closed year &mdash; but not silently do
-                      the first thing.
-                    </p>
-                    <p>
-                      Two existing rules carry over and should stay: the due date must be today or
-                      later, and only an observation of a teacher can carry a step &mdash; one logged
-                      against a school cannot.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Feedback</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">56</td>
             <td>
               <div class="task">
@@ -513,7 +467,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -556,7 +510,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -588,7 +542,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -630,7 +584,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -663,7 +617,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -713,7 +667,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -747,7 +701,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -780,7 +734,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -813,7 +767,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -840,7 +794,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -866,7 +820,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -900,7 +854,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -938,7 +892,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -968,7 +922,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1003,7 +957,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1038,7 +992,7 @@
           </tr>
 
           <tr>
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">57</td>
             <td>
               <div class="task">
@@ -1088,7 +1042,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1102,7 +1056,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">20</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1119,7 +1073,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">22</td>
+            <td class="p">21</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1302,6 +1256,67 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">55</td>
+            <td>
+              <div class="task">
+                <h3>An action step can be written after the observation is filed</h3>
+                <p class="lineage"><code>b291fa4</code> &rarr; <code>88db1a3</code> (PR&nbsp;#10) &mdash; shipped 4 Sep. 3 server tests, 11 front-end. Captured 3 Sep. Related to #33 &mdash; both are about how a step gets written.</p>
+                <p class="why">
+                  An action step could only be written while the observation was. An observation
+                  saved without one had no way back in, so an observer who settled on the step
+                  during the debrief had to leave it off the record or log the observation again.
+                  Pressing <b>Edit Observation</b> now shows the same two boxes used when writing a
+                  step during the observation; leaving both empty changes nothing.
+                </p>
+                <details>
+                  <summary>The school-year decision, and what it settled</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The decision this item asked for.</strong> A step is filed against a
+                      school year, so adding one to an old observation had to choose a year. The
+                      code answered it: every action-step list, the edit endpoint and the mastery
+                      endpoint read the <em>active</em> year only &mdash; a prior-year step already
+                      answers 404 there, which
+                      <code>test-action-step-school-year-scope.ts</code> has guarded for some time.
+                      A step filed against a closed year would be owed by a teacher who never sees
+                      it and could not be marked done by anyone.
+                    </p>
+                    <p>
+                      So the second option was taken: <strong>adding a step to an observation from
+                      a closed year is refused</strong>, with a message saying why. A created step
+                      now takes the observation&rsquo;s own school year rather than the active one
+                      &mdash; the guard has already established the two are the same, so reading it
+                      from the observation stops them drifting apart if that guard is ever loosened.
+                      Nobody will meet the refusal in normal use: the dashboard only shows the open
+                      year&rsquo;s observations, so it is a guard on the route, not a wall in the
+                      app.
+                    </p>
+                    <p>
+                      <strong>The rules that carried over, as required.</strong> Due date today or
+                      later; only an observation of a teacher can carry a step; one step per
+                      observation, so the boxes are not offered when the observation already has
+                      one &mdash; including a step already mastered, which the server would leave
+                      standing rather than replace.
+                    </p>
+                    <p>
+                      <strong>Two things changed that were not asked for.</strong> A failed
+                      observation save now repeats what the server said instead of a flat
+                      &ldquo;Failed to save&rdquo;; the closed-year refusal is the case where the
+                      reason is the whole message. And both action-step boxes on this screen &mdash;
+                      writing the first one, and correcting one that exists &mdash; were three fixed
+                      rows deep and are now one row growing to fit, matching the box in a new
+                      observation. The correcting box is sized from its text rather than on mount,
+                      because its step arrives from a fetch after the box is drawn.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Feedback</td>
+            <td><span class="chip u-done">4 Sep</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">38</td>
