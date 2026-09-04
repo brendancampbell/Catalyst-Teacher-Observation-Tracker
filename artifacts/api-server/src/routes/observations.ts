@@ -1209,6 +1209,32 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
       return;
     }
 
+    /* ── A step can only be added to an observation from the open year ──
+       An action step is filed against a school year, and every list, the edit
+       and the mastery endpoint read only the ACTIVE one — a prior-year step
+       already answers 404 there. So a step created against a closed year
+       would be a step the teacher never sees, the observer cannot correct and
+       nobody can mark mastered: written, owed, and invisible.
+
+       Filing it under the active year instead is the other wrong answer. The
+       step would count against this year's work on the strength of a visit
+       made last year, and its due date — today or later, always — would sit
+       outside the year it was filed under.
+
+       So neither: adding a step to an observation from a closed year is
+       refused, and says which year it belongs to. Only a step being CREATED
+       is stopped. Correcting the wording of one that already exists goes
+       through the upsert below and is not this. */
+    if (willCreateActionStep && !existingStepForObs && existing.schoolYearId !== activeYearIdPut) {
+      res.status(400).json({
+        error:
+          "This observation is from a school year that has closed, so an action step "
+          + "cannot be added to it. A step is tracked against the open year only, and one "
+          + "filed against a closed year would never appear for the teacher.",
+      });
+      return;
+    }
+
     let snapshotGradeSpanPut: string | null = null;
     let snapshotRolePut: string | null = null;
     if (newActionStep && existing.target === "TEACHER" && existing.observedEmployeeId) {
@@ -1330,8 +1356,11 @@ router.put("/:id", observationMutationLimiter, async (req, res) => {
             text:                        newActionStep.text,
             dueDate:                     newActionStep.dueDate,
             status:                      "open",
-            /* Non-null guaranteed by the willCreateActionStep guard above */
-            schoolYearId:                activeYearIdPut!,
+            /* The observation's own year, which the guard above has already
+               established IS the active one. Reading it from the observation
+               rather than from the active year means the two cannot drift
+               apart if that guard is ever loosened. */
+            schoolYearId:                existing.schoolYearId,
             snapshotSchoolId:            existing.schoolId,
             snapshotGradeSpan:           snapshotGradeSpanPut,
             snapshotRole:                snapshotRolePut,

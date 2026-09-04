@@ -203,7 +203,10 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
     }
   }
 
-  async function handleSave(updated: Observation & { observedEmployeeId?: string }) {
+  async function handleSave(updated: Observation & {
+    observedEmployeeId?: string;
+    newActionStep?: { text: string; dueDate: string };
+  }) {
     /* The facts travel with the wording. Sending only strengths, growth areas
        and scores meant a corrected date or a flipped walkthrough toggle was
        dropped here before it reached the server — the edit appeared to save
@@ -216,6 +219,10 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
       time:          updated.time ?? null,
       isWalkthrough: updated.isWalkthrough,
       ...(updated.observedEmployeeId ? { observedEmployeeId: updated.observedEmployeeId } : {}),
+      /* The first action step for an observation filed without one. Absent
+         unless the modal was asked for it, so a plain edit still sends
+         nothing about action steps. */
+      ...(updated.newActionStep ? { newActionStep: updated.newActionStep } : {}),
     });
     onUpdateObs(teacher!.id, saved);
   }

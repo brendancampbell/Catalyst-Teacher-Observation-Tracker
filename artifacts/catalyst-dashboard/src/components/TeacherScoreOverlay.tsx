@@ -738,6 +738,8 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               ...(updated.observedEmployeeId
                 ? { observedEmployeeId: updated.observedEmployeeId }
                 : {}),
+              /* The first action step for an observation filed without one. */
+              ...(updated.newActionStep ? { newActionStep: updated.newActionStep } : {}),
             });
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
             setSelectedObservation(saved);
