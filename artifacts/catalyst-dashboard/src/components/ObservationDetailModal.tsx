@@ -782,11 +782,29 @@ export function ObservationDetailModal({
                         >
                           Action Step
                         </label>
+                        {/* One line, growing to fit — the same box as writing
+                            the step during the observation. Three fixed rows
+                            made the commonest case, a one-line step, look like
+                            a form asking for a paragraph. Capped at 100px so a
+                            long step scrolls rather than pushing the rest of
+                            the observation off the screen. */}
                         <textarea
                           id="action-step-text-new"
+                          ref={(el) => {
+                            if (el && el.value) {
+                              el.style.height = "auto";
+                              el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+                            }
+                          }}
+                          rows={1}
                           value={draftStepText}
-                          onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
-                          rows={3}
+                          onChange={(e) => {
+                            const el = e.target;
+                            el.style.height = "auto";
+                            el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+                            setDraftStepText(e.target.value);
+                            setSaveError(null);
+                          }}
                           placeholder="Describe the specific action step for this teacher…"
                           className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
                           style={{ fontFamily: "'Libre Franklin', sans-serif" }}
