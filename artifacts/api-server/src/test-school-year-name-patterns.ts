@@ -28,6 +28,7 @@ describe("names the suite really creates", () => {
     assert.ok(matchTestYearPattern(`TST SY Cache ${TS}`));
     assert.ok(matchTestYearPattern(`TST-INSIGHTS-OLD-YR-${TS}`));
     assert.ok(matchTestYearPattern(`TST Slug Cross-Year ${TS}`));
+    assert.ok(matchTestYearPattern(`TST Closed Year ${TS}`));
   });
 
   test("still recognises the legacy fixed name", () => {

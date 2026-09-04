@@ -64,6 +64,14 @@ export const TEST_YEAR_PATTERNS: TestYearPattern[] = [
     source: "test-rubric-set-cap-per-year.ts",
   },
   {
+    /* Made only when the database has no inactive year to borrow, so it will
+       usually never exist — which is exactly why it needs to be recognisable
+       on the run where it does. */
+    regex:  new RegExp(`^TST Closed Year ${TS}$`),
+    label:  "TST Closed Year <timestamp>",
+    source: "test-action-step-closed-year.ts",
+  },
+  {
     regex:  new RegExp(`^TST Slug Cross-Year ${TS}$`),
     label:  "TST Slug Cross-Year <timestamp>",
     source: "test-rubric-category-domain-validation.ts",

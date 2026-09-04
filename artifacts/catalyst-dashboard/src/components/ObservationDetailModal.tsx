@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Pencil, Check, ChevronLeft, Trash2, Mail } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -90,7 +90,14 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /* observedEmployeeId rides alongside because Observation itself does not
      carry the teacher — the modal is always shown in the context of one. */
-  onSave: (updated: Observation & { observedEmployeeId?: string; schoolId?: number }) => Promise<void>;
+  /* newActionStep is the first step for an observation that was filed without
+     one. An existing step is corrected through its own endpoint instead — see
+     saveEdit — so the two never travel together. */
+  onSave: (updated: Observation & {
+    observedEmployeeId?: string;
+    schoolId?: number;
+    newActionStep?: { text: string; dueDate: string };
+  }) => Promise<void>;
   /* Teachers at this observation's school. Supplied by callers that have the
      list; without it the teacher cannot be changed, which is the right
      default for anywhere that does not know the roster. */
@@ -144,6 +151,10 @@ export function ObservationDetailModal({
   /* ── Action step data ──────────────────────────────────────────── */
   const [assignedSteps, setAssignedSteps] = useState<ActionStep[]>([]);
   const [masteredSteps, setMasteredSteps] = useState<ActionStep[]>([]);
+  /* Bumped after a save that created a step, to fetch it back. The step is
+     made by the server during the observation's own save, so nothing here
+     knows its id — refetching is how it arrives. */
+  const [stepsRefresh, setStepsRefresh] = useState(0);
 
   /* The action step this observation assigned, correctable alongside the rest
      of it. A mastered step is not offered: the teacher has finished the work,
@@ -151,6 +162,40 @@ export function ObservationDetailModal({
   const editableStep = assignedSteps.find((s) => s.status === "open") ?? null;
   const [draftStepText, setDraftStepText]       = useState("");
   const [draftStepDueDate, setDraftStepDueDate] = useState("");
+
+  /* The action step box is one line that grows to fit, the same as the box for
+     writing a step during the observation. Only one of the two below — correct
+     the step that is there, or add the first one — is ever on screen, so they
+     share this ref.
+
+     Sized from an effect rather than on mount. The step being CORRECTED
+     arrives from a fetch, so at mount its box is still empty; measuring then
+     would leave a two-line step showing one line and a scrollbar. Keyed on the
+     text, so it fits whenever the text changes, however it got there. */
+  const stepTextRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    const el = stepTextRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    /* Capped so a long step scrolls rather than pushing the glows and grows
+       off the screen. */
+    el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
+  }, [draftStepText, editing]);
+
+  /* Whether the first action step can be written now, after the fact.
+
+     An observer who settles on the step during the debrief used to have no way
+     back in: the step could only be written while the observation was, and a
+     saved observation with none showed no Action Steps block at all.
+
+     Not offered when this observation already has a step — even a mastered
+     one. The server treats a step as one per observation and would quietly
+     leave the mastered one standing rather than add a second, so offering the
+     box would be offering something that does nothing.
+
+     A school-wide observation is about a school, not a person, and the server
+     refuses a step on one. */
+  const canAddStep = !schoolWide && !!teacher.employeeId && assignedSteps.length === 0;
 
   const queryClient = useQueryClient();
   const todayIso = new Date().toISOString().split("T")[0]!;
@@ -170,7 +215,7 @@ export function ObservationDetailModal({
       if (!cancelled) { setAssignedSteps([]); setMasteredSteps([]); }
     });
     return () => { cancelled = true; };
-  }, [open, teacher.employeeId, observation.id]);
+  }, [open, teacher.employeeId, observation.id, stepsRefresh]);
 
   /* The steps arrive from a fetch, which can land after Edit has been pressed.
      Seeding them in startEdit alone would leave the boxes empty in that case,
@@ -322,9 +367,39 @@ export function ObservationDetailModal({
       }
     }
 
+    /* No step on this observation yet, and one is being written now. It rides
+       with the observation's own save rather than going first: there is no
+       separate endpoint to create one, and the server makes it in the same
+       request. Both fields are wanted together — a step with no date is not a
+       step, and a date with no step is nothing at all. */
+    let newActionStep: { text: string; dueDate: string } | undefined;
+    if (!editableStep && canAddStep) {
+      const addText = draftStepText.trim();
+      const addDue  = draftStepDueDate;
+      if (addText !== "" || addDue !== "") {
+        if (addText === "") {
+          setSaveError("An action step cannot be blank.");
+          setSaving(false);
+          return;
+        }
+        if (addDue === "") {
+          setSaveError("An action step needs a due date.");
+          setSaving(false);
+          return;
+        }
+        if (addDue < todayIso) {
+          setSaveError("An action step due date must be today or later.");
+          setSaving(false);
+          return;
+        }
+        newActionStep = { text: addText, dueDate: addDue };
+      }
+    }
+
     try {
       await onSave({
         ...observation,
+        ...(newActionStep ? { newActionStep } : {}),
         scores: draftScores,
         strengths: draftStrengths || undefined,
         growthAreas: draftGrowth || undefined,
@@ -338,9 +413,23 @@ export function ObservationDetailModal({
           ? { schoolId: draftSchoolId }
           : {}),
       });
+      if (newActionStep) {
+        /* Fetch the step back so the block that was a form a moment ago now
+           shows the step itself, and tell the teacher's profile and the
+           Action Center — neither would notice a step created here. */
+        setStepsRefresh((n) => n + 1);
+        if (teacher.employeeId) {
+          queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });
+        }
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
+      }
       setEditing(false);
-    } catch {
-      setSaveError("Failed to save — please try again.");
+    } catch (err) {
+      /* Say what the server said. "Failed to save" on its own left an observer
+         who had just been refused — a closed school year, most often — with
+         nothing to act on. */
+      const reason = err instanceof HttpError ? err.message : (err as Error)?.message;
+      setSaveError(reason ? `Could not save: ${reason}` : "Failed to save — please try again.");
     } finally {
       setSaving(false);
     }
@@ -606,7 +695,7 @@ export function ObservationDetailModal({
             ))}
 
             {/* ── Action Steps Section ──────────────────────────── */}
-            {(assignedSteps.length > 0 || masteredSteps.length > 0) && (
+            {(assignedSteps.length > 0 || masteredSteps.length > 0 || (editing && canAddStep)) && (
               <div
                 className="rounded-lg px-4 py-3 space-y-3"
                 style={{ backgroundColor: "#F8FAFC", border: "1.5px solid #dde3f0" }}
@@ -638,9 +727,10 @@ export function ObservationDetailModal({
                           </label>
                           <textarea
                             id={`action-step-text-${step.id}`}
+                            ref={stepTextRef}
                             value={draftStepText}
                             onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
-                            rows={3}
+                            rows={1}
                             placeholder="Describe the specific action step for this teacher…"
                             className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
                             style={{ fontFamily: "'Libre Franklin', sans-serif" }}
@@ -694,6 +784,60 @@ export function ObservationDetailModal({
                     )}
                   </div>
                 ))}
+
+                {/* Writing the first step, after the observation was filed.
+                    Only while editing, and only when there is none — a step
+                    that exists is corrected in the block above instead. */}
+                {editing && canAddStep && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold" style={{ color: "#C2410C" }}>↻ Add an Action Step</p>
+                    <p className="text-xs text-slate-400 leading-snug">
+                      This observation was filed without one. Leave both boxes empty to keep it that way.
+                    </p>
+                    <div className="flex gap-3 items-start flex-wrap pt-0.5">
+                      <div className="flex-1 min-w-[14rem]">
+                        <label
+                          htmlFor="action-step-text-new"
+                          className="block text-xs font-semibold text-slate-500 mb-1"
+                        >
+                          Action Step
+                        </label>
+                        <textarea
+                          id="action-step-text-new"
+                          ref={stepTextRef}
+                          rows={1}
+                          value={draftStepText}
+                          onChange={(e) => { setDraftStepText(e.target.value); setSaveError(null); }}
+                          placeholder="Describe the specific action step for this teacher…"
+                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
+                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                        />
+                      </div>
+                      <div className="shrink-0" style={{ width: 148 }}>
+                        <label
+                          htmlFor="action-step-due-new"
+                          className="block text-xs font-semibold text-slate-500 mb-1"
+                        >
+                          Due Date
+                        </label>
+                        <input
+                          id="action-step-due-new"
+                          type="date"
+                          value={draftStepDueDate}
+                          min={todayIso}
+                          onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
+                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                        />
+                        {/* The observation may be months old; the step is not.
+                            Say the rule before the server does. */}
+                        <p className="text-xs text-slate-400 mt-1 leading-snug">
+                          Today or later.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
