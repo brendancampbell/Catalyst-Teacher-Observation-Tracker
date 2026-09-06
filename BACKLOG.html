@@ -320,7 +320,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 4 September 2026 &middot; 290c88b</p>
+    <p class="eyebrow">Live list &middot; updated 6 September 2026 &middot; 290c88b</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -1301,6 +1301,81 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">59</td>
+            <td>
+              <div class="task">
+                <h3>A draft published from My Drafts never reached the teacher&rsquo;s profile</h3>
+                <p class="lineage"><code>b075e09</code> &rarr; <code>a562ab9</code> (PR&nbsp;#11) &mdash; shipped 4 Sep. 5 front-end tests, 367 &rarr; 372. Never carried an open number: reported, found and fixed in one pass. Split from #58, which is the separate bug found beside it.</p>
+                <p class="why">
+                  Publishing an observation from <b>My Drafts</b> refreshed the drafts list and
+                  nothing else. The teacher profile has no query of its own &mdash; it reads the
+                  observations out of the dashboard&rsquo;s data &mdash; so it kept showing the copy
+                  it already had. The observation saved perfectly, the drafts list correctly emptied,
+                  and the profile stayed blank. &ldquo;Observation submitted!&rdquo; appeared either
+                  way, so it read as a save that had silently failed.
+                </p>
+                <details>
+                  <summary>How it presented, what it was, and the two timestamps that settled it</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Reported as a delay, which it was not.</strong> A leader at UBEM filed
+                      an observation on 3 Sep and said it was not showing; it appeared later that
+                      afternoon. Nothing in the read path can hold data back for hours &mdash; every
+                      server cache is a two-minute hard expiry and is cleared on each write, there is
+                      no HTTP caching on the dashboard endpoint and no scheduled job &mdash; so
+                      &ldquo;it took hours&rdquo; was the wrong question. It was a screen that never
+                      refreshed until something else happened to refetch it.
+                    </p>
+                    <p>
+                      <strong>Two paths, disagreeing.</strong>
+                      <code>Dashboard.handleNewObservation</code> invalidated
+                      <code>dashboard</code>, <code>latestActionSteps</code> and that teacher&rsquo;s
+                      <code>actionSteps</code>. <code>DraftsModal.handleSubmitResumed</code>
+                      invalidated only <code>myDrafts</code>. Both now invalidate the same three, and
+                      a comment on each says they must not drift apart. The Action Center was missing
+                      these too, so an action step assigned on publish did not appear there either.
+                    </p>
+                    <p>
+                      <strong><code>updated_at</code> lies about publishing.</strong>
+                      <code>isDraftAutosave</code> reads the status <em>before</em> the write, so
+                      publishing your <em>own</em> draft still counts as an autosave and skips the
+                      audit stamp. A row published from a draft has <code>updated_at</code> NULL. A
+                      non-NULL value means an edit to an already-published row, or a change by
+                      somebody else &mdash; not a publish. Two hours were spent reading it the other
+                      way round.
+                    </p>
+                    <p>
+                      <strong><code>action_steps.created_at</code> is the publish moment.</strong> A
+                      step is only ever written when an observation is published and carries
+                      <code>assigned_during_observation_id</code>, so it is the only reliable record
+                      of when one went live. That is what closed the case: the observation was
+                      created at 09:53, its step at 10:21, and it was reported missing at 10:29
+                      &mdash; published eight minutes earlier and invisible.
+                    </p>
+                    <p>
+                      <strong>Ruled out on the way, so it need not be redone:</strong> drafts,
+                      the wrong quarter, a rubric set belonging to the wrong year (the #47 class
+                      &mdash; zero rows network-wide), the observation&rsquo;s stamped school, a
+                      roster change mid-flight, and every cache in the system. Three theories were
+                      wrong before this one; the user was right to doubt each of them.
+                    </p>
+                    <p>
+                      <strong>Still open, found beside it.</strong> The teacher profile silently
+                      inherits the dashboard&rsquo;s <code>?view=walkthroughs</code> filter with
+                      nothing on screen saying so, so a profile can hide observations for a reason
+                      the reader cannot see. Not written up as an item; recorded here and in
+                      <code>.agents/memory/observation-publish-paths.md</code>, which also holds the
+                      two timestamp rules above.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Drafts</td>
+            <td><span class="chip u-done">4 Sep</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">55</td>
