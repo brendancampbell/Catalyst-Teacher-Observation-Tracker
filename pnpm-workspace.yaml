@@ -46,25 +46,21 @@ minimumReleaseAgeExclude:
   - '@replit/*'
   - stripe-replit-sync
 
+# Dependency overrides do NOT live here. They live in the root package.json
+# under "pnpm.overrides", and that is the only list pnpm applies — the
+# lockfile header records it verbatim, which is how to confirm it.
+#
+# There used to be an "overrides:" block in this file too. It did nothing.
+# It had also drifted: four of its entries carried LOWER version floors than
+# the live list, including security floors raised in PR #13, so reading it
+# gave the wrong answer about which versions were required. Add overrides to
+# package.json; do not reintroduce a block here.
+
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
   - msw
   - unrs-resolver
-
-overrides:
-  '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
-  brace-expansion@2: '>=2.1.1'
-  esbuild: 0.28.1
-  fast-uri@3: '>=3.1.2'
-  js-cookie: '>=3.0.8'
-  lodash: '>=4.18.1'
-  micromatch>picomatch: 4.0.4
-  path-to-regexp@8: '>=8.4.2'
-  picomatch: '>=2.3.2'
-  postcss: '>=8.5.15'
-  qs: '>=6.15.2'
-  yaml: '>=2.9.0'
 
 allowBuilds:
   esbuild: set this to true or false
