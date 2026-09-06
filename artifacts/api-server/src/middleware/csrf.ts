@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { isProduction } from "../config/env";
+import { isDevelopment } from "../config/env";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -55,7 +55,9 @@ export function buildCsrfMiddleware(allowedOrigins: string[]): RequestHandler {
       return next();
     }
 
-    if (isProduction) {
+    /* Keyed off isDevelopment, not !isProduction, so a deploy that loses
+       NODE_ENV keeps rejecting header-less state-changing requests. */
+    if (!isDevelopment) {
       res.status(403).json({ error: "Forbidden: missing Origin header" });
       return;
     }

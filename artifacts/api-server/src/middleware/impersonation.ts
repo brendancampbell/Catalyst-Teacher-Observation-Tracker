@@ -26,6 +26,22 @@ export async function applyImpersonation(req: Request, res: Response, next: Next
     return next();
   }
 
+  /* Re-check the authorising role on every request, not just at the point
+     POST /api/auth/impersonate granted it.
+
+     deserializeUser already refuses a real user who has been deactivated or
+     downgraded to NO_ACCESS, so those never reach here. Demotion does: an
+     admin moved to COACH or SCHOOL_LEADER still deserializes fine, and
+     without this check their session would keep applying the impersonated
+     identity — which may belong to a different school — until they logged
+     out. Impersonation must not outlive the privilege that authorised it. */
+  const realUser = req.user as Express.User;
+  if (realUser.role !== "NETWORK_ADMIN") {
+    delete req.session.impersonatingEmployeeId;
+    delete req.session.realEmployeeId;
+    return next();
+  }
+
   try {
     const rows = await db
       .select({

@@ -58,7 +58,7 @@ function makeReq(opts: {
   const session: MockSession = opts.session ?? makeSession();
   return {
     isAuthenticated: () => opts.authenticated ?? true,
-    user:            opts.user ?? { employeeId: "ADMIN_001", role: "ADMIN" },
+    user:            opts.user ?? { employeeId: "ADMIN_001", role: "NETWORK_ADMIN" },
     path:            opts.path ?? "/api/observations/1",
     session,
   } as unknown as Request;
@@ -197,7 +197,7 @@ describe("applyImpersonation middleware", () => {
       rescoreDueDate: null, schoolName: "School One",
     }]);
 
-    const req  = makeReq({ user: { employeeId: "ADMIN_001", role: "ADMIN" } });
+    const req  = makeReq({ user: { employeeId: "ADMIN_001", role: "NETWORK_ADMIN" } });
     const res  = makeRes();
     let nextCalled = false;
     const next: NextFunction = () => { nextCalled = true; };
@@ -215,6 +215,46 @@ describe("applyImpersonation middleware", () => {
       "req.realUser must preserve the original admin identity",
     );
   });
+
+  /* 4b ── Real user demoted out of NETWORK_ADMIN → impersonation dropped ──── */
+
+  for (const role of ["COACH", "SCHOOL_LEADER", "NETWORK_LEADER"]) {
+    it(`4b — Real user demoted to ${role} drops impersonation and keeps own identity`, async () => {
+      /* If this reached the database it would swap in the target identity,
+         so a select here is itself the failure. */
+      let selectCalled = false;
+      patchSelect(async () => {
+        selectCalled = true;
+        return [{
+          employeeId: "TARGET_001", firstName: "Jane", lastName: "Doe",
+          email: "jane@example.com", role: "SCHOOL_LEADER", schoolId: 99,
+          googleId: "gid-jane", isActive: true, includeInFeedbackTracker: true,
+          department: "Math", gradeLevel: "9", needsRescore: false,
+          rescoreDueDate: null, schoolName: "Some Other School",
+        }];
+      });
+
+      const req  = makeReq({ user: { employeeId: "ADMIN_001", role } });
+      const res  = makeRes();
+      let nextCalled = false;
+      const next: NextFunction = () => { nextCalled = true; };
+
+      await applyImpersonation(req, res, next);
+      restoreSelect();
+
+      assert.equal(selectCalled, false, "must not resolve the impersonated identity at all");
+      assert.ok(nextCalled, "next() must still be called");
+      assert.equal(
+        req.user!.employeeId, "ADMIN_001",
+        "req.user must remain the demoted user, not the impersonation target",
+      );
+      assert.equal(req.user!.role, role, "req.user.role must remain the demoted role");
+      assert.equal(
+        req.session.impersonatingEmployeeId, undefined,
+        "the stale impersonation must be cleared from the session",
+      );
+    });
+  }
 
   /* 5 ── No impersonation session → passes through ────────────────────────── */
 

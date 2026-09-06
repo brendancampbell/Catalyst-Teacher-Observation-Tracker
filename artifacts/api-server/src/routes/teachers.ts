@@ -6,6 +6,11 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, inArray, ne } from "drizzle-orm";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
+import {
+  canAccessSchoolScopedRecord,
+  effectiveSchoolId,
+  NoSchoolAssignedError,
+} from "../middleware/auth";
 
 /* Build a map of employeeId → { name, email } for observer lookups. */
 async function fetchObserverInfo(
@@ -30,15 +35,42 @@ router.get("/:id", async (req, res) => {
     const employeeId  = req.params.id;
     const quarterSlug = (req.query.quarter as string) || "Q1";
 
+    const currentUser = req.user as Express.User;
+
+    /* Resolve the caller's scope BEFORE any lookup.
+
+       effectiveSchoolId returns the caller's own schoolId for COACH and
+       SCHOOL_LEADER, and null — meaning all schools — only for network
+       roles. For a school-scoped caller with no school assigned it throws
+       instead of returning null, which is the case this route used to get
+       wrong: this router is mounted with requireAuth alone, so unlike the
+       dashboard it has no enforceSchoolScope in front of it to reject that
+       caller first. A person's schoolId is nulled automatically when their
+       school is deleted (onDelete: "set null"), so it is a reachable state,
+       not a hypothetical one. */
+    let scopedSchoolId: number | null;
+    try {
+      scopedSchoolId = effectiveSchoolId(currentUser);
+    } catch (err) {
+      if (err instanceof NoSchoolAssignedError) {
+        res.status(403).json({ error: "No school assigned to this user" });
+        return;
+      }
+      throw err;
+    }
+
     const person = await db.query.people.findFirst({
       where: eq(people.employeeId, employeeId),
     });
     if (!person) { res.status(404).json({ error: "Person not found" }); return; }
 
-    /* School-scope check */
-    const currentUser = req.user as Express.User;
-    const isNetworkScope = currentUser.role === "NETWORK_ADMIN" || currentUser.role === "NETWORK_LEADER";
-    if (!isNetworkScope && person.schoolId !== currentUser.schoolId) {
+    /* School-scope check.
+
+       Must go through canAccessSchoolScopedRecord. The bare comparison this
+       replaced — person.schoolId !== currentUser.schoolId — is fail-OPEN:
+       when both sides are null it is false, so a caller with no school was
+       granted access to every person with no school. */
+    if (!canAccessSchoolScopedRecord(currentUser, person.schoolId)) {
       res.status(403).json({ error: "Cannot access people from another school" });
       return;
     }
@@ -56,8 +88,12 @@ router.get("/:id", async (req, res) => {
     });
     if (!quarter) { res.status(404).json({ error: "Rubric set not found" }); return; }
 
-    const schoolObsFilter = !isNetworkScope && currentUser.schoolId !== null
-      ? eq(observations.schoolId, currentUser.schoolId)
+    /* Undefined (= no filter) only for network roles, which scopedSchoolId
+       represents as null. Previously this also fell through to no filter
+       when a school-scoped caller had no schoolId, returning that person's
+       observations from every school. */
+    const schoolObsFilter = scopedSchoolId !== null
+      ? eq(observations.schoolId, scopedSchoolId)
       : undefined;
 
     const obsRows = await db.select().from(observations)
