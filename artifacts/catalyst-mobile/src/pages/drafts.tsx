@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { FileEdit, Trash2, RotateCcw, FileX, Loader2, AlertCircle } from "lucide-react";
 import { isNetworkScope } from "@/lib/roles";
+import { trackEvent } from "@/lib/analytics";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -50,6 +51,7 @@ export default function DraftsPage() {
     setDeleting(draft.id);
     try {
       await deleteObservation(draft.id);
+      trackEvent("draft_discarded");
       await queryClient.invalidateQueries({ queryKey: ["myDrafts"] });
     } catch {
       /* soft-fail: list will refetch */
@@ -72,6 +74,7 @@ export default function DraftsPage() {
         setSelectedSchool({ id: user.schoolId, displayName: user.schoolName ?? "My School" });
       }
 
+      trackEvent("draft_resumed");
       navigate(`/observation?draftId=${draft.id}`);
     } catch (e) {
       setResumeError(e instanceof Error ? e.message : "Could not resume draft");

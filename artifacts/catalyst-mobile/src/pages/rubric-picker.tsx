@@ -6,6 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, RubricSet } from "@/lib/api";
 import { isNetworkScope } from "@/lib/roles";
+import { trackEvent } from "@/lib/analytics";
 import { ChevronRight, FileText, AlertCircle, Loader2, School, Users, Microscope, BookOpen } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -43,6 +44,14 @@ export default function RubricPickerPage() {
 
   function handleSelect(rubric: RubricSet) {
     setSelectedRubric(rubric);
+    trackEvent("rubric_selected", {
+      rubric_target: rubric.target === "SCHOOL" ? "school" : "teacher",
+      subject_audience: rubric.subjectAudience === "STEM"
+        ? "stem"
+        : rubric.subjectAudience === "HUMANITIES"
+          ? "humanities"
+          : "all",
+    });
     navigate("/observation");
   }
 

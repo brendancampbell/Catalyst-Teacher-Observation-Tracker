@@ -10,6 +10,7 @@ import {
 import AppHeader from "@/components/AppHeader";
 import { toast } from "@/hooks/use-toast";
 import { safeReturnTo } from "@/lib/safeReturnTo";
+import { trackEvent } from "@/lib/analytics";
 import { teacherProfileHref } from "@/lib/school-context";
 import {
   fetchRescoreQueue,
@@ -1144,10 +1145,27 @@ export default function ActionCenterPage() {
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.chatMessages, sessionId] });
+      trackEvent("ai_chat_completed", {
+        surface: "action_center",
+        result: "success",
+        has_structured_results: false,
+      });
     } catch (err) {
-      if ((err as Error)?.name === "AbortError") return;
+      if ((err as Error)?.name === "AbortError") {
+        trackEvent("ai_chat_completed", {
+          surface: "action_center",
+          result: "aborted",
+          has_structured_results: false,
+        });
+        return;
+      }
       setChatTyping(false);
       setStreamingText("");
+      trackEvent("ai_chat_completed", {
+        surface: "action_center",
+        result: "error",
+        has_structured_results: false,
+      });
       /* 429 is handled by the exhaustion modal — don't also show a chat error */
       if (err instanceof HttpError && err.status === 429) return;
       /* Only show error in the chat that sent the message */
@@ -1198,9 +1216,19 @@ export default function ActionCenterPage() {
           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
       );
       queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.chatMessages, capturedSessionId!] });
+      trackEvent("ai_analysis_completed", {
+        surface: "action_center",
+        result: "success",
+        has_structured_results: !!structured,
+      });
     } catch (err) {
       setChatTyping(false);
       setStreamingText("");
+      trackEvent("ai_analysis_completed", {
+        surface: "action_center",
+        result: (err as Error)?.name === "AbortError" ? "aborted" : "error",
+        has_structured_results: false,
+      });
       /* 429 is handled by the exhaustion modal — don't also show a chat error */
       if (!(err instanceof HttpError && err.status === 429)) {
         if (capturedSessionId === null || activeChatIdRef.current === capturedSessionId) {

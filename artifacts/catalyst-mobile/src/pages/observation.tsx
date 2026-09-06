@@ -16,6 +16,7 @@ import {
 import { saveObservation } from "@/lib/observation-save";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import { isNetworkScope } from "@/lib/roles";
+import { trackEvent } from "@/lib/analytics";
 import { CheckCircle, Loader2, AlertCircle, ChevronDown, FileEdit, CloudOff, RefreshCw } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -136,6 +137,7 @@ export default function ObservationPage() {
   const draftIdRef = useRef<string | null>(null);
   const draftJustLoaded = useRef(false);
   const isSubmittingRef = useRef(false);
+  const draftSavedTrackedRef = useRef(false);
 
   const strengthsRef = useRef<HTMLTextAreaElement | null>(null);
   const growthAreasRef = useRef<HTMLTextAreaElement | null>(null);
@@ -216,6 +218,7 @@ export default function ObservationPage() {
 
   function loadDraftIntoForm(draft: DraftObservation) {
     draftJustLoaded.current = true;
+    draftSavedTrackedRef.current = false;
     setDate(draft.date);
     setTime(draft.time ?? nowTime());
     setCourse(draft.course ?? "");
@@ -317,6 +320,7 @@ export default function ObservationPage() {
     setActionStepDueDate("");
     setActionStepDueDateError(null);
     setMarkMastered(false);
+    draftSavedTrackedRef.current = false;
     checkForDraft(teacherId, selectedRubric.id);
     fetchLastActionStep(teacherId);
   }, [teacherId]);
@@ -420,6 +424,10 @@ export default function ObservationPage() {
         setAutoSaveStatus("saved");
         setLastSavedTime(t);
         setLocalDraftRestored(false);
+        if (!draftSavedTrackedRef.current) {
+          trackEvent("draft_saved");
+          draftSavedTrackedRef.current = true;
+        }
       } catch {
         setAutoSaveStatus("error");
       }
@@ -454,6 +462,7 @@ export default function ObservationPage() {
 
   async function confirmSwitch() {
     if (!pendingTeacherId || !selectedRubric) return;
+    const hadUnsavedContent = hasFormContent();
     setSavingBeforeSwitch(true);
     setSwitchSaveError(null);
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -485,6 +494,7 @@ export default function ObservationPage() {
         setDraftId(obs.id);
       }
       /* Save succeeded — now safe to switch */
+      trackEvent("teacher_switched", { had_unsaved_content: hadUnsavedContent });
       setSavingBeforeSwitch(false);
       setSwitchConfirmOpen(false);
       const next = pendingTeacherId;
@@ -512,6 +522,7 @@ export default function ObservationPage() {
   function resetForm() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     isSubmittingRef.current = false;
+    draftSavedTrackedRef.current = false;
     setDraftId(null);
     setAutoSaveStatus("idle");
     setLastSavedTime(null);
@@ -590,6 +601,18 @@ export default function ObservationPage() {
         observerId: user?.id != null ? Number(user.id) : undefined,
       });
       const pendingMasteryWarning = saved.masteryWarning;
+      const actionStepOutcome =
+        masterActionStepIdPayload != null
+          ? "mastered"
+          : newActionStepPayload
+            ? "assigned"
+            : "none";
+      trackEvent("observation_submitted", {
+        surface: "mobile",
+        observation_kind: isWalkthrough ? "walkthrough" : "observation",
+        outcome: currentDraftId ? "updated" : "created",
+        action_step_outcome: actionStepOutcome,
+      });
       clearLocalDraft();
       setConfirmed(true);
       const capturedWarning = pendingMasteryWarning;

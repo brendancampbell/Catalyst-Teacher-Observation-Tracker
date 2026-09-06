@@ -11,6 +11,7 @@ import { EmailFeedbackPanel } from "@/components/EmailFeedbackPanel";
 import { defaultIntro, type EmailSource } from "@/lib/observation-email";
 import { teacherMatchesAudience } from "@/lib/subject-audience";
 import type { SubjectAudience } from "@/lib/subject-audience";
+import { trackEvent } from "@/lib/analytics";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -107,6 +108,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const draftJustLoaded   = useRef(false);
   const isSubmittingRef   = useRef(false);
   const draftIdRef        = useRef<string | null>(null);
+  const draftSaveTracked  = useRef(false);
   /* Just a flag now: the panel builds the email itself from the same source
      the form would have used, so there is nothing to hand it but that. */
   const [emailPreview, setEmailPreview] = useState(false);
@@ -250,6 +252,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       setExtendNote("");
       setActionStepDueDateError(null);
       setTeacherError(null);
+      draftSaveTracked.current = false;
       if (resumeDraftId) {
         loadDraftById(resumeDraftId);
       } else if (!freshStart) {
@@ -366,7 +369,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
           },
         });
         const savedId = obs.id;
-        if (!currentDraftId) setDraftId(savedId);
+        if (!currentDraftId) {
+          setDraftId(savedId);
+        }
+        if (!draftSaveTracked.current) {
+          draftSaveTracked.current = true;
+          trackEvent("draft_saved", { surface: "dashboard" });
+        }
         const now = new Date();
         const t = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         setAutoSaveStatus("saved");
@@ -442,6 +451,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setActionStepDueDateError(null);
     setTeacherError(null);
     setSubmitError(null);
+    draftSaveTracked.current = false;
   }
 
 
@@ -527,6 +537,20 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       return;
     }
     setSavedObsId(obsId ?? null);
+    if (obsId) {
+      trackEvent("observation_submitted", {
+        surface: "dashboard",
+        observation_kind: isWalkthrough ? "walkthrough" : "observation",
+        outcome: draftId ? "updated" : "created",
+        action_step_outcome: extendActionStepPayload
+          ? "extended"
+          : masterActionStepIdPayload
+            ? "mastered"
+            : newActionStepPayload
+              ? "assigned"
+              : "none",
+      });
+    }
     if (emailFeedback) {
       const _t = teachers.find((t) => t.id === teacherId);
       const firstName = _t?.firstName || _t?.name.split(" ")[0] || "Teacher";
