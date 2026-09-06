@@ -334,7 +334,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>21</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
+      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
     </div>
   </header>
 
@@ -1042,8 +1042,71 @@
             <td><span class="chip u-low">Small</span></td>
           </tr>
 
-          <tr class="deferred">
+          <tr>
             <td class="p">19</td>
+            <td class="idcell">60</td>
+            <td>
+              <div class="task">
+                <h3>Say &ldquo;not found&rdquo; to URLs that are not Catalyst pages</h3>
+                <p class="lineage">Added 6 Sep, from looking into roughly 3,000 requests from Bulgaria and the Netherlands in the Replit analytics. That traffic was automated scanning and nothing reached any data &mdash; this is the one change worth making off the back of it.</p>
+                <p class="why">
+                  Ask Catalyst for a page that does not exist &mdash; <code>/wp-login.php</code>,
+                  <code>/.env</code>, anything at all &mdash; and it answers &ldquo;200 OK&rdquo; and
+                  hands back the normal homepage instead of &ldquo;404 not found&rdquo;. Nothing
+                  sensitive is served, but a scanning bot reads 200 as &ldquo;that exists&rdquo; and
+                  comes back with a longer list. Answering 404 makes the site boring to them.
+                </p>
+                <details>
+                  <summary>What was checked first, why it answers 200, and the risk in changing it</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>This is noise, not a hole &mdash; that part was verified, not assumed.</strong>
+                      From outside, with no login: <code>/api/people</code>, <code>/api/teachers</code>,
+                      <code>/api/dashboard</code> and <code>/api/observations</code> all return 401.
+                      The development back doors <code>/api/auth/dev-login</code> and
+                      <code>/api/dev/seed</code> return 404 &mdash; they are not registered in
+                      production at all. And signing in requires a Google account whose email is
+                      already in <code>people</code> with a real role and an active status, so a
+                      stranger cannot create an account. The door is locked; bots are only knocking.
+                    </p>
+                    <p>
+                      <strong>Why it answers 200 to everything.</strong> Catalyst&rsquo;s pages are
+                      not separate files on a server. The homepage loads first and then decides which
+                      screen to show, so the server is set up to hand back the homepage for any URL it
+                      does not recognise &mdash; because most of those are real Catalyst pages. The
+                      catch-all is load-bearing, not an oversight.
+                    </p>
+                    <p>
+                      <strong>The risk runs the other way.</strong> The fix is a list of the URL
+                      shapes that really are Catalyst pages, with a flat 404 for everything else. Get
+                      that list wrong, or leave it short, and a page staff actually use starts
+                      returning &ldquo;not found&rdquo;. Deep links are the ones to watch &mdash; a
+                      teacher profile opened from a pasted link, and everything under
+                      <code>/catalyst-mobile/</code>.
+                    </p>
+                    <p>
+                      <strong>Check where the catch-all lives before starting.</strong> A request to
+                      <code>/</code> comes back with <code>server: Google Frontend</code> and none of
+                      the API&rsquo;s own headers, so it looks like the fallback sits in Replit&rsquo;s
+                      static hosting rather than in <code>app.ts</code>. If that holds, the change is
+                      a deploy-configuration edit and not a code one &mdash; worth confirming first,
+                      because it decides what kind of change this actually is.
+                    </p>
+                    <p>
+                      <strong>Worth knowing either way:</strong> the deployment is autoscale, so every
+                      scanner request wakes billable compute. At a few thousand hits the cost is
+                      trivial &mdash; it only matters if the volume ever climbs.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-low">Small</span></td>
+          </tr>
+
+          <tr class="deferred">
+            <td class="p">20</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1057,7 +1120,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">21</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1074,7 +1137,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">22</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
