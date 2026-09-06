@@ -63,7 +63,7 @@
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "catalog:",
     "input-otp": "^1.4.2",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "lucide-react": "catalog:",
     "next-themes": "^0.4.6",
     "react": "catalog:",
@@ -84,10 +84,10 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@tiptap/react": "^3.25.0",
-    "@tiptap/starter-kit": "^3.25.0",
+    "@tiptap/react": "^3.30.4",
+    "@tiptap/starter-kit": "^3.30.4",
     "@types/papaparse": "^5.5.2",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.13",
     "papaparse": "^5.5.4"
   }
 }
