@@ -19,13 +19,15 @@ import aiQuotaGrantsRouter from "./ai-quota-grants";
 import adminNotificationsRouter from "./admin-notifications";
 import notificationsRouter from "./notifications";
 import { requireAuth, requireNetworkScope, enforceSchoolScope } from "../middleware/auth";
-import { isProduction } from "../config/env";
+import { isDevelopment } from "../config/env";
 
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
-/* Dev-only auth bypass — route is never registered in production */
-if (!isProduction) {
+/* Dev-only auth bypass. Keyed off an explicit NODE_ENV=development, not off
+   "not production", so a deploy that loses NODE_ENV does not silently expose
+   an endpoint that logs anyone in as any employee. See config/env.ts. */
+if (isDevelopment) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { default: devAuthRouter } = require("./dev-auth") as { default: import("express").Router };
   router.use("/auth", devAuthRouter);

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { people} from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { isProduction } from "../config/env";
+import { isDevelopment } from "../config/env";
 import { checkActiveThisYear } from "../lib/passport";
 
 const router = Router();
@@ -17,7 +17,7 @@ const router = Router();
  * Response: { ok: true, user: { employeeId, name, role } }
  */
 router.post("/dev-login", async (req, res, next) => {
-  if (isProduction) {
+  if (!isDevelopment) {
     res.status(404).json({ error: "Not found" });
     return;
   }

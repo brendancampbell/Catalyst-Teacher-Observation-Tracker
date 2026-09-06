@@ -10,7 +10,7 @@ import { configurePassport } from "./lib/passport";
 import { pool } from "@workspace/db";
 import { applyImpersonation } from "./middleware/impersonation";
 import { buildCsrfMiddleware } from "./middleware/csrf";
-import { isProduction } from "./config/env";
+import { isDevelopment, isUnknownEnv, nodeEnvLabel } from "./config/env";
 import { isReady } from "./lib/readiness";
 
 const PgStore = connectPgSimple(session);
@@ -96,9 +96,21 @@ app.use(
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
+/* NODE_ENV is neither "production" nor "development". Every switch above
+   has already defaulted to the safe side, so this is a warning rather than
+   a refusal to boot — but it always means someone lost the variable. */
+if (isUnknownEnv) {
+  logger.warn(
+    { nodeEnv: nodeEnvLabel },
+    "NODE_ENV is neither \"production\" nor \"development\". Treating this as production: " +
+    "dev-login and seed routes are NOT registered, session cookies require HTTPS, " +
+    "and SESSION_SECRET is required. Set NODE_ENV explicitly.",
+  );
+}
+
 const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret && isProduction) {
-  throw new Error("SESSION_SECRET environment variable must be set in production");
+if (!sessionSecret && !isDevelopment) {
+  throw new Error("SESSION_SECRET environment variable must be set outside development");
 }
 
 app.use(
@@ -111,10 +123,10 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: isProduction,
+      secure: !isDevelopment,
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: isProduction ? "none" : "lax",
+      sameSite: isDevelopment ? "lax" : "none",
     },
   }),
 );

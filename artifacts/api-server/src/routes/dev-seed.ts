@@ -13,7 +13,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { actionSteps, people } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { isProduction } from "../config/env";
+import { isDevelopment } from "../config/env";
 import { getActiveSchoolYearId } from "../lib/active-school-year";
 
 const router = Router();
@@ -28,7 +28,7 @@ const router = Router();
    Response: { ok: true, id: number }
 */
 router.post("/overdue-action-step", async (req, res) => {
-  if (isProduction) { res.status(404).json({ error: "Not found" }); return; }
+  if (!isDevelopment) { res.status(404).json({ error: "Not found" }); return; }
 
   const { teacherEmployeeId, assignedByEmployeeId, text, dueDate } = req.body as {
     teacherEmployeeId?:    unknown;
@@ -85,7 +85,7 @@ router.post("/overdue-action-step", async (req, res) => {
    Response: { ok: true }
 */
 router.delete("/overdue-action-step/:id", async (req, res) => {
-  if (isProduction) { res.status(404).json({ error: "Not found" }); return; }
+  if (!isDevelopment) { res.status(404).json({ error: "Not found" }); return; }
 
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) {
