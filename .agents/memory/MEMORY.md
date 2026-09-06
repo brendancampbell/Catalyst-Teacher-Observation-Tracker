@@ -7,3 +7,4 @@
 - [Deep-linking to a teacher's profile](teacher-profile-deep-link.md) — profile is an overlay, not a route; two separate bugs sank it (URL-sync strips `?teacher=` on a cold load; a bare link is the DISTRICT dashboard for network roles), and a school-leader test is blind to the second
 - [Observation publish paths](observation-publish-paths.md) — every publish path must invalidate the same caches; how to date a publish from action_steps.created_at, and why updated_at lies
 - [Fixing pnpm audit findings](dependency-audit-overrides.md) — only root package.json overrides are live (workspace YAML is dead); forcing a patched transitive broke jsdom 29 via undici internals — bump the dependent instead
+- [Fail-open authorization patterns](fail-open-authorization-patterns.md) — two shipped bugs, same shape: `a !== b` when both can be null, and `!isProduction` as a gate; substitute null into any access check and see if it grants
