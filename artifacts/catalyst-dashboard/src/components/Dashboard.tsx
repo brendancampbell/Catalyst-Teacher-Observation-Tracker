@@ -543,7 +543,12 @@ export default function Dashboard() {
     masterActionStepId?: number,
     extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
-    if (!rubricSetId) return "";
+    /* Quieter version of the same bug: with no rubric loaded this returned an
+       empty string, the modal took it for a saved observation and closed. Say
+       so instead — the form stays open and the observation is still there. */
+    if (!rubricSetId) {
+      throw new Error("The rubric is still loading, so this observation was not saved. Wait a moment and submit again.");
+    }
     setSaving(true);
     try {
       /* One description of the observation, whichever call it goes out on.
@@ -565,8 +570,11 @@ export default function Dashboard() {
       await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacherId] });
       return obs.id;
     } catch (err) {
+      /* Passed on, not swallowed. The modal shows it and keeps the form; a
+         caught-and-logged failure here closed the window on written feedback
+         that had never left the browser. */
       console.error("Failed to save observation:", err);
-      return "";
+      throw err;
     } finally {
       setSaving(false);
     }
