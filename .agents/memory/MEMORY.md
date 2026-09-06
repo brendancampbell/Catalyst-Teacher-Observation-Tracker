@@ -6,3 +6,4 @@
 - [Migration 0005 schema hardening](migration-0005-schema-hardening.md) — migration renames edited_at→updated_at, drops observer/observer_email, changes rubric_set FK to RESTRICT; force-delete route must delete observations first
 - [Deep-linking to a teacher's profile](teacher-profile-deep-link.md) — profile is an overlay, not a route; two separate bugs sank it (URL-sync strips `?teacher=` on a cold load; a bare link is the DISTRICT dashboard for network roles), and a school-leader test is blind to the second
 - [Observation publish paths](observation-publish-paths.md) — every publish path must invalidate the same caches; how to date a publish from action_steps.created_at, and why updated_at lies
+- [Fixing pnpm audit findings](dependency-audit-overrides.md) — only root package.json overrides are live (workspace YAML is dead); forcing a patched transitive broke jsdom 29 via undici internals — bump the dependent instead
