@@ -334,7 +334,7 @@
     </p>
     <div class="state">
       <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>22</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
+      <span><b>21</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
     </div>
   </header>
 
@@ -423,50 +423,6 @@
 
           <tr>
             <td class="p">2</td>
-            <td class="idcell">58</td>
-            <td>
-              <div class="task">
-                <h3>Tell the observer when an observation fails to save</h3>
-                <p class="lineage">Found 4 Sep while tracing why a published observation was not appearing on a teacher&rsquo;s profile. It was not the cause of that &mdash; a missing refresh when publishing from My Drafts was, fixed the same day &mdash; but it sits in the same code path.</p>
-                <p class="why">
-                  When saving an observation fails on the dashboard, nothing says so. The error goes
-                  to the browser console, the form is cleared, and the window closes exactly as it
-                  does on success. The observer walks away believing the observation is filed. It is
-                  not &mdash; and no draft is left behind either, so the written feedback is simply gone.
-                </p>
-                <details>
-                  <summary>Where it is, and what it should do instead</summary>
-                  <div class="detail">
-                    <p>
-                      <code>handleNewObservation</code> in
-                      <code>artifacts/catalyst-dashboard/src/components/Dashboard.tsx</code> catches
-                      the failure, writes it to the console, and returns an empty string. The modal
-                      never looks at that value: it calls <code>reset()</code> and closes. A second,
-                      quieter path does the same thing &mdash; if the rubric has not finished
-                      loading, submit returns early and the window still closes without ever
-                      attempting to save.
-                    </p>
-                    <p>
-                      <strong>The phone already gets this right.</strong> On mobile a failed submit
-                      shows the error on screen, leaves the form filled in so it can be sent again,
-                      and keeps a copy in the browser. The fix is to make the dashboard behave the
-                      same way, not to invent anything new.
-                    </p>
-                    <p>
-                      <strong>How often this bites is unknowable.</strong> A save that fails this way
-                      leaves no trace anywhere &mdash; no row, no draft, no log &mdash; so there is no
-                      query that can count how many observations have been lost to it. That is itself
-                      an argument for fixing it rather than measuring it first.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Data safety</td>
-            <td><span class="chip u-low">Small</span></td>
-          </tr>
-          <tr>
-            <td class="p">3</td>
             <td class="idcell">56</td>
             <td>
               <div class="task">
@@ -512,7 +468,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">53</td>
             <td>
               <div class="task">
@@ -555,7 +511,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">51</td>
             <td>
               <div class="task">
@@ -587,7 +543,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">50</td>
             <td>
               <div class="task">
@@ -629,7 +585,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -662,7 +618,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -712,7 +668,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -746,7 +702,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -779,7 +735,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -812,7 +768,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -839,7 +795,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -865,7 +821,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -899,7 +855,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -937,7 +893,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -967,7 +923,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -1002,7 +958,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -1037,7 +993,7 @@
           </tr>
 
           <tr>
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">57</td>
             <td>
               <div class="task">
@@ -1087,7 +1043,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1101,7 +1057,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">20</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1118,7 +1074,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">22</td>
+            <td class="p">21</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1301,6 +1257,72 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+
+          <tr>
+            <td class="idcell">58</td>
+            <td>
+              <div class="task">
+                <h3>Tell the observer when an observation fails to save</h3>
+                <p class="lineage"><code>572ccce</code> &rarr; <code>13790f1</code> (PR&nbsp;#12) &mdash; shipped 6 Sep. 13 front-end tests, 372 &rarr; 385. Found 4 Sep beside #59 and split from it.</p>
+                <p class="why">
+                  A save that failed looked exactly like a save that worked. The error went to the
+                  browser console, the form was cleared and the window closed &mdash; the same as on
+                  success. The observer walked away believing the observation was filed. It was not,
+                  and with the form wiped and no draft left behind, the written feedback was gone.
+                  The form now stays open, says so in red above <b>Submit</b>, and keeps every score
+                  and every word ready to send again.
+                </p>
+                <details>
+                  <summary>What it does now, the two quiet paths, and why this cannot be measured</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>What the observer sees.</strong> The failure is reported on screen, in
+                      the server&rsquo;s own words where it has any. Submitting again sends the same
+                      observation; the window closes only once it has really saved. Closing on top
+                      of a failed save asks first, the way an unfinished draft already did. Autosave
+                      stands down while a submit is in flight and is let back in afterwards, so the
+                      next edit writes a draft behind the still-open form.
+                    </p>
+                    <p>
+                      <strong>Three forms, not one.</strong> The item described the dashboard, but
+                      the Action Center and publishing from <b>My Drafts</b> share that form and had
+                      the same bug. Each of the three handlers caught the failure and returned an
+                      empty string, which the form read as a saved observation. Fixing only the
+                      dashboard would have left the other two closing silently, so all three pass
+                      the failure on now.
+                    </p>
+                    <p>
+                      <strong>The two paths that never even tried.</strong> The dashboard&rsquo;s
+                      rubric-not-yet-loaded guard and the Drafts modal&rsquo;s missing-draft guard
+                      both returned early, and the window closed without a save having been
+                      attempted at all. Both say so instead.
+                    </p>
+                    <p>
+                      <strong>My Drafts lost a toast.</strong> Its &ldquo;Failed to submit
+                      observation&rdquo; message is gone. A toast floating over a window that had
+                      already closed and cleared itself was the problem rather than the fix &mdash;
+                      the form underneath now reports the same failure and holds the observation
+                      with it.
+                    </p>
+                    <p>
+                      <strong>Still unmeasurable, which was the argument for fixing it.</strong> A
+                      save that failed this way left no row, no draft and no log, so nothing can
+                      count how many observations went this way before 6 Sep. Analytics landed on
+                      <code>main</code> the same day and now records a submit, but only a successful
+                      one &mdash; it is not a count of what was lost.
+                    </p>
+                    <p>
+                      <strong>The phone was always right.</strong> None of this is new behaviour:
+                      <code>catalyst-mobile</code>&rsquo;s observation page has always shown the
+                      error, kept the form and held a local copy. This is the dashboard catching up.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Data safety</td>
+            <td><span class="chip u-done">6 Sep</span></td>
+          </tr>
 
           <tr>
             <td class="idcell">59</td>
