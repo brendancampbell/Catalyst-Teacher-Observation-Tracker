@@ -6,6 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
 import { apiFetch, School } from "@/lib/api";
 import { isNetworkScope } from "@/lib/roles";
+import { trackEvent } from "@/lib/analytics";
 import { ChevronRight, School as SchoolIcon, AlertCircle, Loader2 } from "lucide-react";
 
 const NAVY = "#1034B4";
@@ -33,6 +34,7 @@ export default function SchoolPickerPage() {
 
   function handleSelect(school: School) {
     setSelectedSchool(school);
+    trackEvent("school_selected", { selection_scope: "network" });
     navigate("/rubric-picker");
   }
 

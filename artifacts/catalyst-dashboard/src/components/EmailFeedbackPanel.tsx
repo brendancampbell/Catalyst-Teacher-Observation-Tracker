@@ -4,6 +4,7 @@ import {
   defaultSections, normaliseSections, SECTION_LABELS,
   type EmailSource, type EmailSections,
 } from "@/lib/observation-email";
+import { trackEvent } from "@/lib/analytics";
 
 const NAVY = "#1034B4";
 
@@ -89,10 +90,10 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
       range.selectNodeContents(div);
       sel?.removeAllRanges();
       sel?.addRange(range);
-      document.execCommand("copy");
+      const copied = document.execCommand("copy");
       sel?.removeAllRanges();
       document.body.removeChild(div);
-      return;
+      if (copied) return;
     } catch { /* fall through */ }
 
     // 3. Last resort — raw HTML markup as plain text
@@ -100,8 +101,13 @@ export function EmailFeedbackPanel({ src, initialIntro, initialGlows, initialGro
   }
 
   async function handleCopyHtml(html: string) {
-    try { await writeRichHtmlToClipboard(html); } catch { /* ignore */ }
+    try {
+      await writeRichHtmlToClipboard(html);
+    } catch {
+      return;
+    }
     setCopiedHtml(true);
+    trackEvent("feedback_email_copied", { surface: "dashboard" });
     setTimeout(() => setCopiedHtml(false), 3500);
   }
 

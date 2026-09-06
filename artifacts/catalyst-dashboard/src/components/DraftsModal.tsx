@@ -18,6 +18,7 @@ import { saveObservation } from "@/lib/observation-save";
 import { NewObservationModal } from "@/components/NewObservationModal";
 import { toast } from "@/hooks/use-toast";
 import type { Teacher, DomainEntry, Score } from "@/data/dummy";
+import { trackEvent } from "@/lib/analytics";
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
@@ -179,6 +180,7 @@ export function DraftsModal({ open, onOpenChange }: Props) {
       removeFromList([draft.id]);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: "Draft deleted" });
+      trackEvent("draft_discarded", { surface: "dashboard" });
     } catch {
       toast({ title: "Could not delete draft", variant: "destructive" });
     } finally {
@@ -198,6 +200,7 @@ export function DraftsModal({ open, onOpenChange }: Props) {
       removeFromList(ids);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
       toast({ title: `Deleted ${count} draft${count !== 1 ? "s" : ""}` });
+      trackEvent("draft_discarded", { surface: "dashboard" });
     } catch {
       toast({ title: "Some drafts could not be deleted", variant: "destructive" });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
@@ -220,6 +223,7 @@ export function DraftsModal({ open, onOpenChange }: Props) {
          worked through without reopening the menu each time. */
       onOpenChange(false);
       setResumeOpen(true);
+      trackEvent("draft_resumed", { surface: "dashboard" });
     } catch {
       toast({ title: "Could not load draft data", variant: "destructive" });
     } finally {
@@ -626,6 +630,7 @@ export function DraftsModal({ open, onOpenChange }: Props) {
           onDraftDiscarded={(id) => {
             removeFromList([id]);
             void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myDrafts });
+            trackEvent("draft_discarded", { surface: "dashboard" });
           }}
           observerName={currentUser?.name}
           canMarkWalkthrough={true}
