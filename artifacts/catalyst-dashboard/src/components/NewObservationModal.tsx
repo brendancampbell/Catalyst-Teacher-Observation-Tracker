@@ -136,6 +136,15 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const [extendNote, setExtendNote]           = useState("");
   const [actionStepDueDateError, setActionStepDueDateError] = useState<string | null>(null);
   const [teacherError, setTeacherError] = useState<string | null>(null);
+  /*
+   * The save was attempted and the server said no.
+   *
+   * Set means: nothing was filed, and everything on this form is the only
+   * copy of it. The form stays open and filled in until it saves or the
+   * person deliberately closes it — closing used to happen by itself, on
+   * failure, exactly as it does on success. See attemptClose below.
+   */
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   /* Keep draftIdRef in sync so setTimeout callbacks always see latest value */
   useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
@@ -441,6 +450,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     setExtendNote("");
     setActionStepDueDateError(null);
     setTeacherError(null);
+    setSubmitError(null);
     draftSaveTracked.current = false;
   }
 
@@ -497,13 +507,35 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       ? latestActionStep.id
       : undefined;
 
-    const obsId = await onSubmit(
-      teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course,
-      draftId ?? undefined,
-      newActionStepPayload,
-      masterActionStepIdPayload,
-      extendActionStepPayload,
-    );
+    setSubmitError(null);
+
+    /* A failed save used to look exactly like a successful one: the error went
+       to the console, the form was wiped and the window closed, and the
+       observer walked away believing the observation was filed. Nothing was —
+       and with the form cleared, the written feedback was gone with it. So the
+       failure is said out loud and everything typed stays where it is, ready
+       to send again. This is what the phone has always done. */
+    let obsId: string;
+    try {
+      obsId = await onSubmit(
+        teacherId, date, scores as Record<string, Score>, strengths, growthAreas, isWalkthrough, time, course,
+        draftId ?? undefined,
+        newActionStepPayload,
+        masterActionStepIdPayload,
+        extendActionStepPayload,
+      );
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error && err.message
+          ? err.message
+          : "This observation could not be saved.",
+      );
+      /* Autosave stands down during a submit. Let it back in: from here on
+         what is on screen is the only copy, and the next edit should write a
+         draft behind it. */
+      isSubmittingRef.current = false;
+      return;
+    }
     setSavedObsId(obsId ?? null);
     if (obsId) {
       trackEvent("observation_submitted", {
@@ -547,7 +579,13 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
      and the Drafts page is not somewhere they would think to look unless
      told. */
   function attemptClose() {
-    if (autoSaveStatus === "saving" || autoSaveStatus === "error") {
+    /* A submit that failed is the strongest version of this: the observation
+       was never filed, so what is on screen is all there is. */
+    if (submitError) {
+      if (!window.confirm(
+        "This observation was not saved.\n\nIf you close now, what you have entered will be lost. Close anyway?",
+      )) return;
+    } else if (autoSaveStatus === "saving" || autoSaveStatus === "error") {
       const message = autoSaveStatus === "error"
         ? "This observation could not be saved.\n\nIf you close now, what you have entered will be lost. Close anyway?"
         : "This observation has not finished saving.\n\nIf you close now, your most recent changes may be lost. Close anyway?";
@@ -1056,6 +1094,23 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             <div className="flex items-center justify-end gap-2 px-4 sm:px-6 pt-3 text-xs font-semibold text-red-700">
               <AlertCircle size={13} className="shrink-0" />
               {teacherError}
+            </div>
+          )}
+          {/* Where the failed submit is said. Loud, because everything above
+              it is unfiled and the window staying open is the only thing
+              keeping it. */}
+          {submitError && (
+            <div
+              role="alert"
+              className="mx-4 sm:mx-6 mt-3 flex items-start gap-2 px-3 py-2.5 rounded border border-red-200 bg-red-50 text-xs font-semibold text-red-700"
+            >
+              <AlertCircle size={14} className="shrink-0 mt-px" />
+              <span>
+                {submitError}
+                <span className="block mt-0.5 font-normal">
+                  Nothing has been filed. Your notes are still here — submit again when you are ready.
+                </span>
+              </span>
             </div>
           )}
           <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">

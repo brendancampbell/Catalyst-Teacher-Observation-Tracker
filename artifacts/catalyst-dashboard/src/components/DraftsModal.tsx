@@ -251,7 +251,9 @@ export function DraftsModal({ open, onOpenChange }: Props) {
     masterActionStepId?: number,
     extendActionStep?: { actionStepId: number; newDueDate: string; note?: string },
   ): Promise<string> {
-    if (!resumeData) return "";
+    if (!resumeData) {
+      throw new Error("This draft could not be read, so it was not submitted. Close and reopen My Drafts, then try again.");
+    }
     setResumeSaving(true);
     try {
       const fields = {
@@ -287,9 +289,11 @@ export function DraftsModal({ open, onOpenChange }: Props) {
       if (!obs.masteryWarning) toast({ title: "Observation submitted!" });
       return String(obs.id);
     } catch (err) {
+      /* Passed on rather than turned into a toast. A toast over a window that
+         had already closed and cleared itself was the whole problem: the form
+         now stays open with the wording still in it, and says so there. */
       console.error("Failed to submit observation:", err);
-      toast({ title: "Failed to submit observation", variant: "destructive" });
-      return "";
+      throw err;
     } finally {
       setResumeSaving(false);
     }

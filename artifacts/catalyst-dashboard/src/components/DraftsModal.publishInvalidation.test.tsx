@@ -231,18 +231,22 @@ describe("Drafts pop-up — publishing refreshes the screens that show the obser
   it("does not invalidate when the submit fails, because nothing changed", async () => {
     /* A failed publish leaves the draft where it is. Invalidating anyway would
        refetch every screen for no reason and, worse, make a failure look like
-       a successful save that had simply not appeared yet. */
+       a successful save that had simply not appeared yet.
+
+       The failure is also handed back to the form rather than logged and
+       dropped — backlog #58. The form is what keeps the observation on screen
+       and says it was not saved, and it can only do that if it is told. */
     const qc = await renderModal();
     mockUpdate.mockRejectedValueOnce(new Error("network"));
     const spy = vi.spyOn(qc, "invalidateQueries");
     await clickResume();
 
     await act(async () => {
-      await capturedOnSubmit!(
+      await expect(capturedOnSubmit!(
         "teacher-1", "2026-09-03", { "d-1": 1 }, "<p>Strong</p>", "<p>Grow</p>",
         false, "09:53", "Math",
         "draft-abc",
-      );
+      )).rejects.toThrow("network");
     });
 
     expect(invalidatedKeys(spy)).not.toContain(JSON.stringify(QUERY_KEYS.dashboard));

@@ -942,8 +942,10 @@ export default function ActionCenterPage() {
       }
       return obs.id;
     } catch (err) {
+      /* Passed on so the form can show it and stay open — same reason as
+         Dashboard.handleNewObservation. */
       console.error("Failed to save observation:", err);
-      return "";
+      throw err;
     } finally {
       setSaving(false);
     }
