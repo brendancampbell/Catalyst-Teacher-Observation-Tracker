@@ -10,7 +10,7 @@ import { type Teacher, type Observation } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { rubricSetsForTeacher } from "@/lib/subject-audience";
-import { ObservationCard } from "@/components/ObservationCard";
+import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
@@ -271,17 +271,19 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
   );
 }
 
-/* ── Summary views ────────────────────────────────────────────────
+/* ── Domain score views ───────────────────────────────────────────
  *
- * The cards at the top of a profile, and the domain breakdown under them,
- * answer "how is this teacher doing" — but that question has more than one
- * honest answer, and which one a leader wants changes by the day. So the
- * summary is switchable over three readings of the same history.
+ * "How is this teacher doing" has more than one honest answer, and which one a
+ * leader wants changes by the day — the last visit, the walkthroughs on their
+ * own, or the whole rubric. So the domain breakdown is switchable over three
+ * readings of the same history.
  *
- * The switch deliberately stops at the domain breakdown. Observation History
- * below it always lists everything: filtering it down to a single row in
- * "Most Recent" would empty the section that exists precisely to show the
- * whole record.
+ * The switch reaches the domain panel and nothing else, which is why it lives
+ * inside that panel's header rather than in the page header. The cards above
+ * stay on the full rubric average so there is always one fixed number to
+ * compare against, and Observation History below always lists everything —
+ * filtering it to a single row under "Most Recent" would empty the section
+ * that exists precisely to show the whole record.
  */
 export type SummaryView = "rubric" | "recent" | "walkthrough";
 
@@ -292,8 +294,8 @@ export const SUMMARY_VIEWS: { id: SummaryView; label: string }[] = [
 ];
 
 /**
- * The observations a given summary view is computed over. Takes the history
- * already sorted newest-first and returns a subset in the same order.
+ * The observations a given domain-score view is computed over. Takes the
+ * history already sorted newest-first and returns a subset in the same order.
  *
  * "Rubric Average" is every observation, which is what makes it an average
  * over the full rubric rather than over one visit: a domain the latest
@@ -504,8 +506,6 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
     [sortedObs, summaryView],
   );
 
-  const summaryRecent = summaryObs[0];
-
   const allScores = useMemo(
     () => domainScoreRows(activeCategories, summaryObs),
     [summaryObs, activeCategories],
@@ -514,7 +514,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   /* Most-recent score for a specific domain — walks observations newest→oldest,
      returns the first observation that actually scored this domain. */
   function getMostRecentDomainScore(domainId: string): number | null {
-    for (const obs of summaryObs) {
+    for (const obs of sortedObs) {
       const score = obs.scores[domainId];
       if (score !== undefined) return score as number;
     }
@@ -647,56 +647,6 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                     })}
                   </div>
                 )}
-
-                {/* ── Summary view selector ─── */}
-                {/* Deliberately a different shape from the rubric pills above:
-                    that one changes which rubric the page is about, this one
-                    changes how the same rubric is summarised. Two identical
-                    rows of pills would read as one control. */}
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  <span
-                    className="text-xs uppercase tracking-wider font-semibold"
-                    style={{ color: "rgba(147,197,253,0.85)" }}
-                  >
-                    Summary
-                  </span>
-                  <div
-                    className="inline-flex rounded-lg overflow-hidden"
-                    style={{ border: "1px solid rgba(255,255,255,0.25)" }}
-                    role="group"
-                    aria-label="Summary view"
-                  >
-                    {SUMMARY_VIEWS.map((v) => {
-                      const isActive = v.id === summaryView;
-                      return (
-                        <button
-                          key={v.id}
-                          onClick={() => setSummaryView(v.id)}
-                          aria-pressed={isActive}
-                          className="px-3 py-1 transition-all"
-                          style={{
-                            fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: 13,
-                            letterSpacing: "0.04em",
-                            fontWeight: 700,
-                            backgroundColor: isActive ? "rgba(255,255,255,0.92)" : "transparent",
-                            color: isActive ? NAVY : "rgba(255,255,255,0.85)",
-                          }}
-                        >
-                          {v.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* A teacher with no walkthroughs on file would otherwise get a
-                    page of zeroes and dashes that looks like lost data. */}
-                {summaryView === "walkthrough" && summaryObs.length === 0 && (
-                  <p className="mt-2" style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
-                    No walkthroughs recorded for this teacher yet &mdash; the full history is still below.
-                  </p>
-                )}
               </div>
 
               <div className="flex gap-2 sm:gap-3 flex-wrap">
@@ -704,9 +654,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   className="text-center rounded-lg px-4 py-2.5 min-w-[80px]"
                   style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                 >
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
-                    {summaryView === "recent" ? "Most Recent" : summaryView === "walkthrough" ? "Walkthrough Avg" : "Current Avg"}
-                  </p>
+                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Current Avg</p>
                   <p
                     className="font-bold mt-0.5"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, color: YELLOW, lineHeight: 1 }}
@@ -718,28 +666,24 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   className="text-center rounded-lg px-4 py-2.5 min-w-[80px]"
                   style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                 >
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
-                    {summaryView === "walkthrough" ? "Walkthroughs" : "Observations"}
-                  </p>
+                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Observations</p>
                   <p
                     className="font-bold text-white mt-0.5"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1 }}
                   >
-                    {summaryObs.length}
+                    {activeTeacher.observations.length}
                   </p>
                 </div>
-                {summaryRecent && (() => {
+                {recent && (() => {
                   const daysSince = Math.floor(
-                    (Date.now() - new Date(summaryRecent.date + "T00:00:00").getTime()) / 86_400_000
+                    (Date.now() - new Date(recent.date + "T00:00:00").getTime()) / 86_400_000
                   );
                   return (
                     <div
                       className="text-center rounded-lg px-4 py-2.5 min-w-[90px]"
                       style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                     >
-                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
-                        {summaryView === "walkthrough" ? "Last Walkthrough" : "Last Observed"}
-                      </p>
+                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Last Observed</p>
                       <p
                         className="font-bold text-white mt-0.5 leading-none"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30 }}
@@ -747,7 +691,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                         {daysSince}
                         <span className="text-base font-semibold ml-0.5">d</span>
                       </p>
-                      <p className="text-blue-200 text-xs mt-1">{formatDate(summaryRecent.date)}</p>
+                      <p className="text-blue-200 text-xs mt-1">{formatDate(recent.date)}</p>
                     </div>
                   );
                 })()}
@@ -764,12 +708,56 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             <DomainScorePanel
               categories={activeCategories}
               allScores={allScores}
-              heading={
-                summaryView === "recent"
-                  ? "Domain Scores — Latest Observation"
-                  : summaryView === "walkthrough"
-                  ? "Domain Scores — Walkthroughs"
-                  : "Domain Scores — Most Recent"
+              heading="Domain Scores"
+              viewSwitcher={
+                /* Sits inside the panel header, directly above the rows it
+                   filters, so there is no question what it applies to. The
+                   cards above and the history below are unaffected. */
+                <div
+                  className="flex mt-2.5 rounded-lg overflow-hidden"
+                  style={{ border: "1px solid #dde3f0" }}
+                  role="group"
+                  aria-label="Domain score view"
+                >
+                  {SUMMARY_VIEWS.map((v) => {
+                    const isActive = v.id === summaryView;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => setSummaryView(v.id)}
+                        aria-pressed={isActive}
+                        className="flex-1 px-3 py-1.5 transition-colors"
+                        style={{
+                          fontFamily: "'Bebas Neue', sans-serif",
+                          fontSize: 13,
+                          letterSpacing: "0.04em",
+                          fontWeight: 700,
+                          backgroundColor: isActive ? NAVY : "white",
+                          color: isActive ? "white" : "#64748b",
+                        }}
+                      >
+                        {v.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              }
+              note={
+                /* A teacher with no walkthroughs on file would otherwise get a
+                   panel of dashes that looks like lost data. */
+                summaryView === "walkthrough" && summaryObs.length === 0 ? (
+                  <p className="text-xs text-slate-500 mt-2">
+                    No walkthroughs recorded for this teacher yet &mdash; the full history is still below.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-2">
+                    {summaryView === "recent"
+                      ? "Scores from the latest observation only."
+                      : summaryView === "walkthrough"
+                      ? `Scores from walkthroughs only (${summaryObs.length}).`
+                      : "Each domain's most recent score, across every observation."}
+                  </p>
+                )
               }
             />
           </div>
@@ -805,17 +793,11 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               {sortedObs.length}
             </span>
           </h2>
-          <div className="space-y-4">
-            {sortedObs.map((obs, i) => (
-              <ObservationCard
-                key={obs.id}
-                obs={obs}
-                index={i}
-                categories={activeCategories}
-                onClick={() => setSelectedObservation(obs)}
-              />
-            ))}
-          </div>
+          <ObservationHistoryTable
+            observations={sortedObs}
+            categories={activeCategories}
+            onSelect={setSelectedObservation}
+          />
         </div>
 
       </main>

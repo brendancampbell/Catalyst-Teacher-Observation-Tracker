@@ -65,30 +65,46 @@ export function domainScoreRows(
 }
 
 /**
- * `heading` exists because a teacher's profile can now summarise the same
- * rubric three ways, and the panel has to say which one it is showing. A
- * school's observation history has only ever had one reading, so it leaves the
- * prop off and keeps the original wording.
+ * `viewSwitcher` and `note` are how a teacher's profile hangs its summary
+ * switch on this panel.
+ *
+ * The switch sits here, inside the panel's own header, rather than up in the
+ * page header where it started — a control that lives on the thing it changes
+ * cannot be misread as changing the whole page. The cards above are a fixed
+ * reference point and do not move with it.
+ *
+ * A school's observation history has only ever had one reading of its scores,
+ * so it passes neither prop and renders exactly as before.
  */
 export function DomainScorePanel({
-  categories, allScores, heading = "Domain Scores — Most Recent",
-}: { categories: CategoryEntry[]; allScores: DomainScoreRow[]; heading?: string }) {
+  categories, allScores, heading = "Domain Scores — Most Recent", viewSwitcher, note,
+}: {
+  categories:   CategoryEntry[];
+  allScores:    DomainScoreRow[];
+  heading?:     string;
+  viewSwitcher?: React.ReactNode;
+  note?:        React.ReactNode;
+}) {
   return (
             <div
               className="bg-white rounded-xl shadow-sm overflow-hidden"
               style={{ border: "1px solid #dde3f0" }}
             >
               <div
-                className="px-4 py-3 flex items-center gap-2"
+                className="px-4 py-3"
                 style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}
               >
-                <BookOpen size={16} style={{ color: NAVY }} />
-                <h2
-                  className="font-bold uppercase tracking-wide"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
-                >
-                  {heading}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <BookOpen size={16} style={{ color: NAVY }} />
+                  <h2
+                    className="font-bold uppercase tracking-wide"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
+                  >
+                    {heading}
+                  </h2>
+                </div>
+                {viewSwitcher}
+                {note}
               </div>
 
               <div className="divide-y divide-slate-100">
@@ -128,7 +144,23 @@ export function DomainScorePanel({
   );
 }
 
-/** The glows and grows from the most recent observation. */
+/**
+ * The glows and grows from the most recent observation.
+ *
+ * Both cards say so in their own header rather than only in the footnote
+ * underneath. Sitting beside a domain panel that can be switched between three
+ * readings, "most recent" has to be legible without reading to the bottom of
+ * the card — otherwise these look like they answer to the switch too, and a
+ * leader could take last term's feedback for this week's.
+ */
+function FeedbackScope({ date }: { date: string }) {
+  return (
+    <span className="text-xs font-semibold text-slate-400 ml-auto whitespace-nowrap">
+      Most recent &middot; {new Date(date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+    </span>
+  );
+}
+
 export function RecentFeedbackCards({ recent }: { recent: Observation }) {
   return (
     <>
@@ -147,6 +179,7 @@ export function RecentFeedbackCards({ recent }: { recent: Observation }) {
                     >
                       ✦ Teacher Strengths (Glows)
                     </h2>
+                    <FeedbackScope date={recent.date} />
                   </div>
                   <div className="px-4 py-4">
                     <RichTextDisplay
@@ -173,6 +206,7 @@ export function RecentFeedbackCards({ recent }: { recent: Observation }) {
                     >
                       ↑ Growth Areas (Grows)
                     </h2>
+                    <FeedbackScope date={recent.date} />
                   </div>
                   <div className="px-4 py-4">
                     <RichTextDisplay

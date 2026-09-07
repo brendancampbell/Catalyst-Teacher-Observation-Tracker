@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { TablePagination, usePagination } from "@/components/TablePagination";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { CalendarRange, Search } from "lucide-react";
 import { fetchUsage } from "@/lib/api";
 import type { UsageRow } from "@workspace/api-types";
 
@@ -44,8 +45,7 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
   /* Pagination. Page 1 is the only safe landing spot after the visible set
      changes underneath it — narrowing a filter while on page 6 would otherwise
      show an empty table rather than the matches. */
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+
 
   const rows = data?.rows ?? [];
 
@@ -78,12 +78,8 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
     });
   }, [rows, search, roleFilter, schoolFilter, sortKey, ascending]);
 
-  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
-  /* Clamp rather than trust `page`: the row set can shrink between renders
-     (a filter, or a refetch) and leave the stored page past the end. */
-  const safePage  = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * pageSize;
-  const paged     = visible.slice(pageStart, pageStart + pageSize);
+  const { page: safePage, setPage, pageSize, setPageSize, totalPages, pageStart, paged } =
+    usePagination(visible, 25);
 
   function toggleSort(key: SortKey) {
     setPage(1);
@@ -221,89 +217,18 @@ export function UsageTable({ schoolId }: { schoolId?: number | null }) {
         </div>
       </div>
 
-      {/* Pagination footer — same controls as the Admin > Users table, so the
-          two lists of people in the tool behave identically. */}
-      <div className="grid items-center pt-1 pb-2" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
-        <p className="text-xs text-slate-400">
-          {visible.length === 0
-            ? "No one to show"
-            : `Showing ${pageStart + 1}–${Math.min(pageStart + pageSize, visible.length)} of ${visible.length} ${visible.length === 1 ? "person" : "people"}`}
-        </p>
-
-        {/* Page buttons — center */}
-        <div className="flex items-center gap-1">
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
-            style={{ borderColor: "#dde3f0", color: NAVY }}
-            disabled={safePage === 1}
-            onClick={() => setPage(1)}
-            title="First page"
-            aria-label="First page"
-          ><ChevronLeft size={12} /><ChevronLeft size={12} /></button>
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
-            style={{ borderColor: "#dde3f0", color: NAVY }}
-            disabled={safePage === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            title="Previous page"
-            aria-label="Previous page"
-          ><ChevronLeft size={14} /></button>
-
-          {/* Page number pills — first, last, and the neighbours of the current
-              page; the gaps collapse to an ellipsis. */}
-          {Array.from({ length: totalPages }, (_, i) => i + 1)
-            .filter((n) => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
-            .reduce<(number | "…")[]>((acc, n, idx, arr) => {
-              if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push("…");
-              acc.push(n);
-              return acc;
-            }, [])
-            .map((n, i) =>
-              n === "…"
-                ? <span key={`ellipsis-${i}`} className="w-7 h-7 flex items-center justify-center text-xs text-slate-400">…</span>
-                : <button
-                    key={n}
-                    className="w-7 h-7 flex items-center justify-center rounded text-xs font-bold transition-colors"
-                    style={n === safePage
-                      ? { backgroundColor: NAVY, color: "white" }
-                      : { border: "1px solid #dde3f0", color: NAVY }}
-                    onClick={() => setPage(n as number)}
-                    aria-label={`Page ${n}`}
-                    aria-current={n === safePage ? "page" : undefined}
-                  >{n}</button>
-            )}
-
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
-            style={{ borderColor: "#dde3f0", color: NAVY }}
-            disabled={safePage === totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            title="Next page"
-            aria-label="Next page"
-          ><ChevronRight size={14} /></button>
-          <button
-            className="w-7 h-7 flex items-center justify-center rounded border text-xs font-semibold transition-colors disabled:opacity-30"
-            style={{ borderColor: "#dde3f0", color: NAVY }}
-            disabled={safePage === totalPages}
-            onClick={() => setPage(totalPages)}
-            title="Last page"
-            aria-label="Last page"
-          ><ChevronRight size={12} /><ChevronRight size={12} /></button>
-        </div>
-
-        {/* Per-page picker — right */}
-        <label className="flex items-center justify-end gap-1.5 text-xs text-slate-500">
-          Per page
-          <select
-            className="border border-slate-200 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-            value={pageSize}
-            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-            aria-label="Rows per page"
-          >
-            {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </label>
-      </div>
+      {/* Pagination footer — shared with the observation history tables, so
+          every long list in the tool pages the same way. */}
+      <TablePagination
+        total={visible.length}
+        page={safePage}
+        pageSize={pageSize}
+        pageStart={pageStart}
+        totalPages={totalPages}
+        onPage={setPage}
+        onPageSize={setPageSize}
+        noun={["person", "people"]}
+      />
 
       <div style={{ height: 4, backgroundColor: YELLOW, borderRadius: 2, opacity: 0 }} />
     </div>

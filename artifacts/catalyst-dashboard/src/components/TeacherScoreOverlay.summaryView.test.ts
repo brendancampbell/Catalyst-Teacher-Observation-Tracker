@@ -1,9 +1,9 @@
 /**
- * The teacher profile's top summary can be read three ways over the same
- * history — rubric average, most recent, walkthroughs only — and every number
- * above Observation History is computed from whichever subset this returns.
- * Get the subset wrong and the cards lie quietly, so it is tested on its own
- * rather than through the screen.
+ * The teacher profile's domain breakdown can be read three ways over the same
+ * history — rubric average, most recent, walkthroughs only — and every score
+ * in that panel is computed from whichever subset this returns. Get the subset
+ * wrong and the panel lies quietly rather than breaking, so it is tested on
+ * its own rather than through the screen.
  */
 import { describe, it, expect } from "vitest";
 import { observationsForSummaryView, SUMMARY_VIEWS } from "@/components/TeacherScoreOverlay";
