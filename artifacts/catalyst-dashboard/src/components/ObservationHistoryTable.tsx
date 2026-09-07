@@ -88,7 +88,7 @@ export function ObservationHistoryTable({
                         ? <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#EEF1FB", color: NAVY }}>
                             <Footprints size={11} /> Walkthrough
                           </span>
-                        : <span className="text-xs text-slate-500">Full Observation</span>}
+                        : <span className="text-xs text-slate-500">Observation</span>}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">{obs.observer}</td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">

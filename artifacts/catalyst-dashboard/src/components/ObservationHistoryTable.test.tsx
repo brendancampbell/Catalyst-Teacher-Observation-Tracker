@@ -87,7 +87,7 @@ describe("observation history table", () => {
     ] as unknown as Observation[];
     renderTable([full!, walk!]);
     expect(screen.getByText("Walkthrough")).toBeTruthy();
-    expect(screen.getByText("Full Observation")).toBeTruthy();
+    expect(screen.getByText("Observation")).toBeTruthy();
   });
 
   it("says so plainly when there is no history at all", () => {

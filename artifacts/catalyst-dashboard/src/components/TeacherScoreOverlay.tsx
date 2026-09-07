@@ -294,6 +294,49 @@ export const SUMMARY_VIEWS: { id: SummaryView; label: string }[] = [
 ];
 
 /**
+ * The switch itself.
+ *
+ * A component rather than inline JSX so there is exactly one definition of it:
+ * it is rendered through DomainScorePanel's `viewSwitcher` slot, which means a
+ * second copy written at another call site would look identical and drift
+ * silently.
+ */
+export function DomainScoreViewSwitcher({
+  value, onChange,
+}: { value: SummaryView; onChange: (v: SummaryView) => void }) {
+  return (
+    <div
+      className="flex rounded-lg overflow-hidden"
+      style={{ border: "1px solid #dde3f0" }}
+      role="group"
+      aria-label="Domain score view"
+    >
+      {SUMMARY_VIEWS.map((v) => {
+        const isActive = v.id === value;
+        return (
+          <button
+            key={v.id}
+            onClick={() => onChange(v.id)}
+            aria-pressed={isActive}
+            className="px-3 py-1 transition-colors whitespace-nowrap"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 13,
+              letterSpacing: "0.04em",
+              fontWeight: 700,
+              backgroundColor: isActive ? NAVY : "white",
+              color: isActive ? "white" : "#64748b",
+            }}
+          >
+            {v.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * The observations a given domain-score view is computed over. Takes the
  * history already sorted newest-first and returns a subset in the same order.
  *
@@ -709,39 +752,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               categories={activeCategories}
               allScores={allScores}
               heading="Domain Scores"
-              viewSwitcher={
-                /* Sits inside the panel header, directly above the rows it
-                   filters, so there is no question what it applies to. The
-                   cards above and the history below are unaffected. */
-                <div
-                  className="flex mt-2.5 rounded-lg overflow-hidden"
-                  style={{ border: "1px solid #dde3f0" }}
-                  role="group"
-                  aria-label="Domain score view"
-                >
-                  {SUMMARY_VIEWS.map((v) => {
-                    const isActive = v.id === summaryView;
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => setSummaryView(v.id)}
-                        aria-pressed={isActive}
-                        className="flex-1 px-3 py-1.5 transition-colors"
-                        style={{
-                          fontFamily: "'Bebas Neue', sans-serif",
-                          fontSize: 13,
-                          letterSpacing: "0.04em",
-                          fontWeight: 700,
-                          backgroundColor: isActive ? NAVY : "white",
-                          color: isActive ? "white" : "#64748b",
-                        }}
-                      >
-                        {v.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              }
+              viewSwitcher={<DomainScoreViewSwitcher value={summaryView} onChange={setSummaryView} />}
               note={
                 /* A teacher with no walkthroughs on file would otherwise get a
                    panel of dashes that looks like lost data. */

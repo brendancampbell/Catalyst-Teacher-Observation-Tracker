@@ -94,7 +94,11 @@ export function DomainScorePanel({
                 className="px-4 py-3"
                 style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}
               >
-                <div className="flex items-center gap-2">
+                {/* Title and switcher share one line — the switcher is the
+                    reason this header exists at all, and stacking it under the
+                    title cost a row of height on every profile. It wraps
+                    beneath on a narrow window rather than crushing the title. */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <BookOpen size={16} style={{ color: NAVY }} />
                   <h2
                     className="font-bold uppercase tracking-wide"
@@ -102,8 +106,8 @@ export function DomainScorePanel({
                   >
                     {heading}
                   </h2>
+                  {viewSwitcher && <div className="ml-auto">{viewSwitcher}</div>}
                 </div>
-                {viewSwitcher}
                 {note}
               </div>
 
