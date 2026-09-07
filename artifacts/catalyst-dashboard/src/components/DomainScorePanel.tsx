@@ -64,9 +64,15 @@ export function domainScoreRows(
   });
 }
 
+/**
+ * `heading` exists because a teacher's profile can now summarise the same
+ * rubric three ways, and the panel has to say which one it is showing. A
+ * school's observation history has only ever had one reading, so it leaves the
+ * prop off and keeps the original wording.
+ */
 export function DomainScorePanel({
-  categories, allScores,
-}: { categories: CategoryEntry[]; allScores: DomainScoreRow[] }) {
+  categories, allScores, heading = "Domain Scores — Most Recent",
+}: { categories: CategoryEntry[]; allScores: DomainScoreRow[]; heading?: string }) {
   return (
             <div
               className="bg-white rounded-xl shadow-sm overflow-hidden"
@@ -81,7 +87,7 @@ export function DomainScorePanel({
                   className="font-bold uppercase tracking-wide"
                   style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
                 >
-                  Domain Scores — Most Recent
+                  {heading}
                 </h2>
               </div>
 

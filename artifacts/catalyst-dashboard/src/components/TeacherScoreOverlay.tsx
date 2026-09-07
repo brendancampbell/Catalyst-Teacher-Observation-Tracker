@@ -271,6 +271,47 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
   );
 }
 
+/* ── Summary views ────────────────────────────────────────────────
+ *
+ * The cards at the top of a profile, and the domain breakdown under them,
+ * answer "how is this teacher doing" — but that question has more than one
+ * honest answer, and which one a leader wants changes by the day. So the
+ * summary is switchable over three readings of the same history.
+ *
+ * The switch deliberately stops at the domain breakdown. Observation History
+ * below it always lists everything: filtering it down to a single row in
+ * "Most Recent" would empty the section that exists precisely to show the
+ * whole record.
+ */
+export type SummaryView = "rubric" | "recent" | "walkthrough";
+
+export const SUMMARY_VIEWS: { id: SummaryView; label: string }[] = [
+  { id: "rubric",      label: "Rubric Average" },
+  { id: "recent",      label: "Most Recent" },
+  { id: "walkthrough", label: "Walkthroughs" },
+];
+
+/**
+ * The observations a given summary view is computed over. Takes the history
+ * already sorted newest-first and returns a subset in the same order.
+ *
+ * "Rubric Average" is every observation, which is what makes it an average
+ * over the full rubric rather than over one visit: a domain the latest
+ * observation skipped still gets its score from the last time anyone scored
+ * it. "Most Recent" narrows to that single latest visit, so a domain it did
+ * not cover reads as unscored instead of borrowing an older number. Those two
+ * views agree whenever the newest observation happened to score everything —
+ * they only part company on a partial one, which is the case worth seeing.
+ */
+export function observationsForSummaryView(
+  sortedObs: Observation[],
+  view: SummaryView,
+): Observation[] {
+  if (view === "recent")      return sortedObs.slice(0, 1);
+  if (view === "walkthrough") return sortedObs.filter((o) => o.isWalkthrough === true);
+  return sortedObs;
+}
+
 interface Props {
   teacher: Teacher;
   onBack: () => void;
@@ -393,6 +434,11 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   /* ── Rubric switching ─────────────────────────────────────────── */
   const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
 
+  /* ── Summary view switching ───────────────────────────────────── */
+  /* Defaults to the rubric average, which is what this page showed before the
+     switch existed — so an unchanged habit gets an unchanged page. */
+  const [summaryView, setSummaryView] = useState<SummaryView>("rubric");
+
   /*
    * Rubrics this teacher can actually be scored on.
    *
@@ -451,15 +497,24 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
   const recent = sortedObs[0];
 
+  /* Everything above Observation History reads from here rather than from the
+     full list, which is what makes the switch a switch. */
+  const summaryObs = useMemo(
+    () => observationsForSummaryView(sortedObs, summaryView),
+    [sortedObs, summaryView],
+  );
+
+  const summaryRecent = summaryObs[0];
+
   const allScores = useMemo(
-    () => domainScoreRows(activeCategories, activeTeacher.observations),
-    [activeTeacher, activeCategories],
+    () => domainScoreRows(activeCategories, summaryObs),
+    [summaryObs, activeCategories],
   );
 
   /* Most-recent score for a specific domain — walks observations newest→oldest,
      returns the first observation that actually scored this domain. */
   function getMostRecentDomainScore(domainId: string): number | null {
-    for (const obs of sortedObs) {
+    for (const obs of summaryObs) {
       const score = obs.scores[domainId];
       if (score !== undefined) return score as number;
     }
@@ -592,6 +647,56 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                     })}
                   </div>
                 )}
+
+                {/* ── Summary view selector ─── */}
+                {/* Deliberately a different shape from the rubric pills above:
+                    that one changes which rubric the page is about, this one
+                    changes how the same rubric is summarised. Two identical
+                    rows of pills would read as one control. */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <span
+                    className="text-xs uppercase tracking-wider font-semibold"
+                    style={{ color: "rgba(147,197,253,0.85)" }}
+                  >
+                    Summary
+                  </span>
+                  <div
+                    className="inline-flex rounded-lg overflow-hidden"
+                    style={{ border: "1px solid rgba(255,255,255,0.25)" }}
+                    role="group"
+                    aria-label="Summary view"
+                  >
+                    {SUMMARY_VIEWS.map((v) => {
+                      const isActive = v.id === summaryView;
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => setSummaryView(v.id)}
+                          aria-pressed={isActive}
+                          className="px-3 py-1 transition-all"
+                          style={{
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            fontSize: 13,
+                            letterSpacing: "0.04em",
+                            fontWeight: 700,
+                            backgroundColor: isActive ? "rgba(255,255,255,0.92)" : "transparent",
+                            color: isActive ? NAVY : "rgba(255,255,255,0.85)",
+                          }}
+                        >
+                          {v.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* A teacher with no walkthroughs on file would otherwise get a
+                    page of zeroes and dashes that looks like lost data. */}
+                {summaryView === "walkthrough" && summaryObs.length === 0 && (
+                  <p className="mt-2" style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}>
+                    No walkthroughs recorded for this teacher yet &mdash; the full history is still below.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2 sm:gap-3 flex-wrap">
@@ -599,7 +704,9 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   className="text-center rounded-lg px-4 py-2.5 min-w-[80px]"
                   style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                 >
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Current Avg</p>
+                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
+                    {summaryView === "recent" ? "Most Recent" : summaryView === "walkthrough" ? "Walkthrough Avg" : "Current Avg"}
+                  </p>
                   <p
                     className="font-bold mt-0.5"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, color: YELLOW, lineHeight: 1 }}
@@ -611,24 +718,28 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   className="text-center rounded-lg px-4 py-2.5 min-w-[80px]"
                   style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                 >
-                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Observations</p>
+                  <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
+                    {summaryView === "walkthrough" ? "Walkthroughs" : "Observations"}
+                  </p>
                   <p
                     className="font-bold text-white mt-0.5"
                     style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30, lineHeight: 1 }}
                   >
-                    {activeTeacher.observations.length}
+                    {summaryObs.length}
                   </p>
                 </div>
-                {recent && (() => {
+                {summaryRecent && (() => {
                   const daysSince = Math.floor(
-                    (Date.now() - new Date(recent.date + "T00:00:00").getTime()) / 86_400_000
+                    (Date.now() - new Date(summaryRecent.date + "T00:00:00").getTime()) / 86_400_000
                   );
                   return (
                     <div
                       className="text-center rounded-lg px-4 py-2.5 min-w-[90px]"
                       style={{ backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}
                     >
-                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">Last Observed</p>
+                      <p className="text-blue-300 text-xs uppercase tracking-wider font-semibold">
+                        {summaryView === "walkthrough" ? "Last Walkthrough" : "Last Observed"}
+                      </p>
                       <p
                         className="font-bold text-white mt-0.5 leading-none"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", fontWeight: 800, fontSize: 30 }}
@@ -636,7 +747,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                         {daysSince}
                         <span className="text-base font-semibold ml-0.5">d</span>
                       </p>
-                      <p className="text-blue-200 text-xs mt-1">{formatDate(recent.date)}</p>
+                      <p className="text-blue-200 text-xs mt-1">{formatDate(summaryRecent.date)}</p>
                     </div>
                   );
                 })()}
@@ -650,7 +761,17 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
           {/* LEFT: Domain score breakdown */}
           <div className="lg:col-span-3 space-y-4">
-            <DomainScorePanel categories={activeCategories} allScores={allScores} />
+            <DomainScorePanel
+              categories={activeCategories}
+              allScores={allScores}
+              heading={
+                summaryView === "recent"
+                  ? "Domain Scores — Latest Observation"
+                  : summaryView === "walkthrough"
+                  ? "Domain Scores — Walkthroughs"
+                  : "Domain Scores — Most Recent"
+              }
+            />
           </div>
 
           {/* RIGHT: Action Steps → Glows → Grows */}
