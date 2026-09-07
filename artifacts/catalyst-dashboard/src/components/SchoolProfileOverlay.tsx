@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { School, ChevronDown, LayoutDashboard, FileX, Loader2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
-import { ObservationCard } from "@/components/ObservationCard";
+import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
 import { useUser } from "@/context/UserContext";
@@ -242,15 +242,11 @@ export function SchoolProfileOverlay({
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
               {observations.length} observation{observations.length !== 1 ? "s" : ""} · {activeRubricName}
             </p>
-            {observations.map((obs, i) => (
-              <ObservationCard
-                key={obs.id}
-                obs={obs}
-                index={i}
-                categories={categories}
-                onClick={() => setSelected(obs)}
-              />
-            ))}
+            <ObservationHistoryTable
+              observations={observations}
+              categories={categories}
+              onSelect={setSelected}
+            />
           </div>
         )}
       </main>

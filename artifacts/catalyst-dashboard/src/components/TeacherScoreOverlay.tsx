@@ -10,7 +10,7 @@ import { type Teacher, type Observation } from "@/data/dummy";
 import { fetchDashboard, updateObservation, deleteObservation, fetchActionSteps, masterActionStep, unmasterActionStep, type ActionStep, type CategoryEntry, type RubricSetRow } from "@/lib/api";
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { rubricSetsForTeacher } from "@/lib/subject-audience";
-import { ObservationCard } from "@/components/ObservationCard";
+import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
@@ -59,7 +59,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
             <CheckCircle2 size={16} style={{ color: NAVY }} />
             <h2
               className="font-bold uppercase tracking-wide"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 20, letterSpacing: "0.02em" }}
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
             >
               Action Steps
             </h2>
@@ -271,6 +271,92 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
   );
 }
 
+/* ── Domain score views ───────────────────────────────────────────
+ *
+ * "How is this teacher doing" has more than one honest answer, and which one a
+ * leader wants changes by the day — the last visit, the walkthroughs on their
+ * own, or the whole rubric. So the domain breakdown is switchable over three
+ * readings of the same history.
+ *
+ * The switch reaches the domain panel and nothing else, which is why it lives
+ * inside that panel's header rather than in the page header. The cards above
+ * stay on the full rubric average so there is always one fixed number to
+ * compare against, and Observation History below always lists everything —
+ * filtering it to a single row under "Most Recent" would empty the section
+ * that exists precisely to show the whole record.
+ */
+export type SummaryView = "rubric" | "recent" | "walkthrough";
+
+export const SUMMARY_VIEWS: { id: SummaryView; label: string }[] = [
+  { id: "rubric",      label: "Rubric Average" },
+  { id: "recent",      label: "Most Recent" },
+  { id: "walkthrough", label: "Walkthroughs" },
+];
+
+/**
+ * The switch itself.
+ *
+ * A component rather than inline JSX so there is exactly one definition of it:
+ * it is rendered through DomainScorePanel's `viewSwitcher` slot, which means a
+ * second copy written at another call site would look identical and drift
+ * silently.
+ */
+export function DomainScoreViewSwitcher({
+  value, onChange,
+}: { value: SummaryView; onChange: (v: SummaryView) => void }) {
+  return (
+    <div
+      className="flex rounded-lg overflow-hidden"
+      style={{ border: "1px solid #dde3f0" }}
+      role="group"
+      aria-label="Domain score view"
+    >
+      {SUMMARY_VIEWS.map((v) => {
+        const isActive = v.id === value;
+        return (
+          <button
+            key={v.id}
+            onClick={() => onChange(v.id)}
+            aria-pressed={isActive}
+            className="px-3 py-1 transition-colors whitespace-nowrap"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 13,
+              letterSpacing: "0.04em",
+              fontWeight: 700,
+              backgroundColor: isActive ? NAVY : "white",
+              color: isActive ? "white" : "#64748b",
+            }}
+          >
+            {v.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The observations a given domain-score view is computed over. Takes the
+ * history already sorted newest-first and returns a subset in the same order.
+ *
+ * "Rubric Average" is every observation, which is what makes it an average
+ * over the full rubric rather than over one visit: a domain the latest
+ * observation skipped still gets its score from the last time anyone scored
+ * it. "Most Recent" narrows to that single latest visit, so a domain it did
+ * not cover reads as unscored instead of borrowing an older number. Those two
+ * views agree whenever the newest observation happened to score everything —
+ * they only part company on a partial one, which is the case worth seeing.
+ */
+export function observationsForSummaryView(
+  sortedObs: Observation[],
+  view: SummaryView,
+): Observation[] {
+  if (view === "recent")      return sortedObs.slice(0, 1);
+  if (view === "walkthrough") return sortedObs.filter((o) => o.isWalkthrough === true);
+  return sortedObs;
+}
+
 interface Props {
   teacher: Teacher;
   onBack: () => void;
@@ -393,6 +479,11 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   /* ── Rubric switching ─────────────────────────────────────────── */
   const [selectedRubricSlug, setSelectedRubricSlug] = useState(initialRubricSet);
 
+  /* ── Summary view switching ───────────────────────────────────── */
+  /* Defaults to the rubric average, which is what this page showed before the
+     switch existed — so an unchanged habit gets an unchanged page. */
+  const [summaryView, setSummaryView] = useState<SummaryView>("rubric");
+
   /*
    * Rubrics this teacher can actually be scored on.
    *
@@ -451,9 +542,31 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
   const recent = sortedObs[0];
 
+  /*
+   * The step assigned during each observation, for the history table.
+   *
+   * Keyed off assignedDuringObservationId, which is the only link between the
+   * two — a teacher's steps are fetched as a flat list, not per observation.
+   * Observations with no step assigned are simply absent from the map.
+   */
+  const actionStepByObservationId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const step of actionSteps) {
+      if (step.assignedDuringObservationId) map[step.assignedDuringObservationId] = step.text;
+    }
+    return map;
+  }, [actionSteps]);
+
+  /* Everything above Observation History reads from here rather than from the
+     full list, which is what makes the switch a switch. */
+  const summaryObs = useMemo(
+    () => observationsForSummaryView(sortedObs, summaryView),
+    [sortedObs, summaryView],
+  );
+
   const allScores = useMemo(
-    () => domainScoreRows(activeCategories, activeTeacher.observations),
-    [activeTeacher, activeCategories],
+    () => domainScoreRows(activeCategories, summaryObs),
+    [summaryObs, activeCategories],
   );
 
   /* Most-recent score for a specific domain — walks observations newest→oldest,
@@ -533,7 +646,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   <div>
                     <h1
                       className="text-white font-bold leading-tight"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, letterSpacing: "0.02em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, letterSpacing: "0.02em" }}
                     >
                       {teacher.name}
                     </h1>
@@ -650,7 +763,29 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
           {/* LEFT: Domain score breakdown */}
           <div className="lg:col-span-3 space-y-4">
-            <DomainScorePanel categories={activeCategories} allScores={allScores} />
+            <DomainScorePanel
+              categories={activeCategories}
+              allScores={allScores}
+              heading="Domain Scores"
+              viewSwitcher={<DomainScoreViewSwitcher value={summaryView} onChange={setSummaryView} />}
+              note={
+                /* A teacher with no walkthroughs on file would otherwise get a
+                   panel of dashes that looks like lost data. */
+                summaryView === "walkthrough" && summaryObs.length === 0 ? (
+                  <p className="text-xs text-slate-500 mt-2">
+                    No walkthroughs recorded for this teacher yet &mdash; the full history is still below.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-2">
+                    {summaryView === "recent"
+                      ? "Scores from the latest observation only."
+                      : summaryView === "walkthrough"
+                      ? `Scores from walkthroughs only (${summaryObs.length}).`
+                      : "Each domain's most recent score, across every observation."}
+                  </p>
+                )
+              }
+            />
           </div>
 
           {/* RIGHT: Action Steps → Glows → Grows */}
@@ -674,27 +809,22 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
         <div>
           <h2
             className="font-bold uppercase tracking-wide mb-3"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.02em" }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
           >
             Observation History
             <span
-              className="ml-3 text-base font-semibold rounded-full px-2.5 py-0.5"
+              className="ml-3 text-sm font-semibold rounded-full px-2.5 py-0.5"
               style={{ backgroundColor: YELLOW, color: NAVY }}
             >
               {sortedObs.length}
             </span>
           </h2>
-          <div className="space-y-4">
-            {sortedObs.map((obs, i) => (
-              <ObservationCard
-                key={obs.id}
-                obs={obs}
-                index={i}
-                categories={activeCategories}
-                onClick={() => setSelectedObservation(obs)}
-              />
-            ))}
-          </div>
+          <ObservationHistoryTable
+            observations={sortedObs}
+            categories={activeCategories}
+            onSelect={setSelectedObservation}
+            actionStepByObservationId={actionStepByObservationId}
+          />
         </div>
 
       </main>

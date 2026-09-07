@@ -414,7 +414,7 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
                         <div>
                           <p className="text-sm font-semibold text-slate-700">{obs.observer}</p>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {obs.isWalkthrough ? "Walkthrough" : "Full Observation"}
+                            {obs.isWalkthrough ? "Walkthrough" : "Observation"}
                             {obs.time ? ` · ${obs.time}` : ""}
                           </p>
                         </div>
