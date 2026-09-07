@@ -59,7 +59,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
             <CheckCircle2 size={16} style={{ color: NAVY }} />
             <h2
               className="font-bold uppercase tracking-wide"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 20, letterSpacing: "0.02em" }}
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
             >
               Action Steps
             </h2>
@@ -542,6 +542,21 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
   const recent = sortedObs[0];
 
+  /*
+   * The step assigned during each observation, for the history table.
+   *
+   * Keyed off assignedDuringObservationId, which is the only link between the
+   * two — a teacher's steps are fetched as a flat list, not per observation.
+   * Observations with no step assigned are simply absent from the map.
+   */
+  const actionStepByObservationId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const step of actionSteps) {
+      if (step.assignedDuringObservationId) map[step.assignedDuringObservationId] = step.text;
+    }
+    return map;
+  }, [actionSteps]);
+
   /* Everything above Observation History reads from here rather than from the
      full list, which is what makes the switch a switch. */
   const summaryObs = useMemo(
@@ -631,7 +646,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
                   <div>
                     <h1
                       className="text-white font-bold leading-tight"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, letterSpacing: "0.02em" }}
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, letterSpacing: "0.02em" }}
                     >
                       {teacher.name}
                     </h1>
@@ -794,11 +809,11 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
         <div>
           <h2
             className="font-bold uppercase tracking-wide mb-3"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 22, letterSpacing: "0.02em" }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}
           >
             Observation History
             <span
-              className="ml-3 text-base font-semibold rounded-full px-2.5 py-0.5"
+              className="ml-3 text-sm font-semibold rounded-full px-2.5 py-0.5"
               style={{ backgroundColor: YELLOW, color: NAVY }}
             >
               {sortedObs.length}
@@ -808,6 +823,7 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
             observations={sortedObs}
             categories={activeCategories}
             onSelect={setSelectedObservation}
+            actionStepByObservationId={actionStepByObservationId}
           />
         </div>
 

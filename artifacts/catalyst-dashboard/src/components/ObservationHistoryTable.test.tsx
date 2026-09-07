@@ -90,6 +90,56 @@ describe("observation history table", () => {
     expect(screen.getByText("Observation")).toBeTruthy();
   });
 
+  /* The column is opt-in: a school-wide observation has no teacher, so no step
+     can be assigned during it and the column would be an empty stripe. */
+  it("leaves out the action step column unless steps are supplied", () => {
+    renderTable(makeObs(2));
+    expect(screen.queryByText("Action Step")).toBeNull();
+  });
+
+  it("shows the step assigned during each observation", () => {
+    render(
+      <ObservationHistoryTable
+        observations={makeObs(2)}
+        categories={categories}
+        onSelect={vi.fn()}
+        actionStepByObservationId={{ "obs-1": "Narrate the positive during independent work." }}
+      />,
+    );
+    expect(screen.getByText("Action Step")).toBeTruthy();
+    expect(screen.getByText("Narrate the positive during independent work.")).toBeTruthy();
+  });
+
+  /* An observation that assigned no step still needs a cell, or the row shifts
+     its remaining columns left and stops lining up with the rest. */
+  it("marks an observation that assigned no step", () => {
+    render(
+      <ObservationHistoryTable
+        observations={makeObs(2)}
+        categories={categories}
+        onSelect={vi.fn()}
+        actionStepByObservationId={{ "obs-1": "A step." }}
+      />,
+    );
+    const rows = screen.getAllByRole("button");
+    expect(rows[1]!.textContent).toContain("—");
+  });
+
+  /* The full text has to stay reachable: the cell is clipped to one line, so
+     the untruncated step lives in the title attribute for a hover. */
+  it("keeps the whole step text available on hover", () => {
+    const long = "Narrate the positive during the first five minutes of independent work so the norm is set before anyone drifts.";
+    render(
+      <ObservationHistoryTable
+        observations={makeObs(1)}
+        categories={categories}
+        onSelect={vi.fn()}
+        actionStepByObservationId={{ "obs-1": long }}
+      />,
+    );
+    expect(screen.getByText(long).getAttribute("title")).toBe(long);
+  });
+
   it("says so plainly when there is no history at all", () => {
     renderTable([]);
     expect(screen.getByText(/no observations recorded yet/i)).toBeTruthy();

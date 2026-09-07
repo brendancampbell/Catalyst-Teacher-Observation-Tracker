@@ -42,12 +42,19 @@ export function observationAverage(obs: Observation, categories: CategoryEntry[]
  */
 export function ObservationHistoryTable({
   observations, categories, onSelect, noun = ["observation", "observations"],
+  actionStepByObservationId,
 }: {
   observations: Observation[];
   categories:   CategoryEntry[];
   onSelect:     (obs: Observation) => void;
   noun?:        [string, string];
+  /* Action step assigned during each observation, by observation id. Omitted
+     by the school-wide history: a school-wide observation has no teacher, so
+     there is nobody for a step to be assigned to and the column would be an
+     empty stripe. */
+  actionStepByObservationId?: Record<string, string>;
 }) {
+  const showActionStep = actionStepByObservationId !== undefined;
   const { page, setPage, pageSize, setPageSize, totalPages, pageStart, paged } =
     usePagination(observations, 10);
 
@@ -57,12 +64,25 @@ export function ObservationHistoryTable({
     <div>
       <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className={`w-full text-sm ${showActionStep ? "table-fixed" : ""}`}>
+            {/* Fixed widths only when the action step is shown: the column has
+                to be told to be wide, and truncation needs a width to truncate
+                against. Without it the table sizes itself as it always did. */}
+            {showActionStep && (
+              <colgroup>
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "50%" }} />
+                <col style={{ width: "9%" }} />
+              </colgroup>
+            )}
             <thead>
               <tr style={{ backgroundColor: "#f0f3fc", borderBottom: `2px solid ${NAVY}` }}>
                 <th className={th} style={{ color: NAVY }}>Date</th>
                 <th className={th} style={{ color: NAVY }}>Type</th>
                 <th className={th} style={{ color: NAVY }}>Observer</th>
+                {showActionStep && <th className={th} style={{ color: NAVY }}>Action Step</th>}
                 <th className={`${th} text-right`} style={{ color: NAVY }}>Avg</th>
               </tr>
             </thead>
@@ -85,24 +105,33 @@ export function ObservationHistoryTable({
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       {obs.isWalkthrough
-                        ? <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#EEF1FB", color: NAVY }}>
+                        ? <span className="inline-flex items-center gap-1 text-sm font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#EEF1FB", color: NAVY }}>
                             <Footprints size={11} /> Walkthrough
                           </span>
-                        : <span className="text-xs text-slate-500">Observation</span>}
+                        : <span className="text-slate-500">Observation</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">{obs.observer}</td>
+                    <td className="px-4 py-2.5 text-slate-600 truncate">{obs.observer}</td>
+                    {showActionStep && (
+                      /* One line, always. A step can run to a paragraph, and a
+                         row that grows to fit one undoes the compactness the
+                         table exists for — the whole text is in the pop-up the
+                         row opens, and in the title for a hover. */
+                      <td className="px-4 py-2.5 text-slate-600 truncate" title={actionStepByObservationId![obs.id] ?? undefined}>
+                        {actionStepByObservationId![obs.id] ?? <span className="text-slate-300">—</span>}
+                      </td>
+                    )}
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       {avg !== null
-                        ? <span className={`inline-block px-2 py-0.5 rounded font-bold text-xs ${getScoreColor(avg)}`}>
+                        ? <span className={`inline-block px-2 py-0.5 rounded font-bold text-sm ${getScoreColor(avg)}`}>
                             {avg.toFixed(1)}
                           </span>
-                        : <span className="text-xs text-slate-400 italic">not scored</span>}
+                        : <span className="text-sm text-slate-400 italic">not scored</span>}
                     </td>
                   </tr>
                 );
               })}
               {observations.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-400">
+                <tr><td colSpan={showActionStep ? 5 : 4} className="px-4 py-8 text-center text-sm text-slate-400">
                   No {noun[1]} recorded yet.
                 </td></tr>
               )}
