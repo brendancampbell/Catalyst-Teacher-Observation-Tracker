@@ -6,19 +6,20 @@
  */
 import { describe, it, expect } from "vitest";
 import type { CategoryEntry, DistrictSchoolRow } from "@workspace/api-types";
-import { BANDS, allRegions, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor, schoolDashboardHref } from "@/lib/proficiencyBands";
+import { BANDS, allRegions, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor, rubricGradeSpans, schoolDashboardHref, schoolsInScope } from "@/lib/proficiencyBands";
 
 const school = (
   name: string,
   region: string,
   overall: number | null,
   domainAverages: Record<string, number | null> = {},
+  gradeSpan = "K-8",
 ): DistrictSchoolRow => ({
   id: name.length + name.charCodeAt(0),
   name,
   abbreviation: name.slice(0, 3).toUpperCase(),
   region,
-  gradeSpan: "K-8",
+  gradeSpan,
   teacherCount: 10,
   observedCount: 5,
   domainAverages,
@@ -270,5 +271,53 @@ describe("schoolDashboardHref", () => {
   it("leaves out an abbreviation the school does not have", () => {
     const odd = { ...school("Alpha", "NYC", 0.8), abbreviation: null };
     expect(params(schoolDashboardHref(odd, "Q1", "")).has("schoolAbbreviation")).toBe(false);
+  });
+});
+
+describe("rubricGradeSpans", () => {
+  it("reads the comma-separated list off the rubric", () => {
+    expect(rubricGradeSpans("ES,MS")).toEqual(["ES", "MS"]);
+  });
+
+  it("treats a rubric with no scope as covering everything", () => {
+    expect(rubricGradeSpans(null)).toEqual([]);
+    expect(rubricGradeSpans(undefined)).toEqual([]);
+    expect(rubricGradeSpans("")).toEqual([]);
+  });
+
+  it("drops the empty entry a trailing comma leaves behind", () => {
+    expect(rubricGradeSpans("ES,")).toEqual(["ES"]);
+  });
+});
+
+describe("schoolsInScope", () => {
+  const schools = [
+    school("Elem",  "NYC", 0.8, {}, "ES"),
+    school("Mid",   "NYC", 0.8, {}, "MS"),
+    school("High",  "NYC", 0.8, {}, "HS"),
+  ];
+
+  /* The summary returns every school whatever the rubric covers. Left in, a
+     rubric scoped to elementary shows the middle and high schools as never
+     observed, which reads as a coverage gap rather than as out of scope. */
+  it("drops the schools a scoped rubric does not cover", () => {
+    expect(schoolsInScope(schools, ["ES"], []).map((s) => s.name)).toEqual(["Elem"]);
+  });
+
+  it("keeps every school for a rubric that is not scoped", () => {
+    expect(schoolsInScope(schools, [], [])).toHaveLength(3);
+  });
+
+  it("applies the chosen grade spans", () => {
+    expect(schoolsInScope(schools, [], ["MS", "HS"]).map((s) => s.name)).toEqual(["Mid", "High"]);
+  });
+
+  /* The rubric's own scope is not something a filter can widen. */
+  it("cannot be talked out of the rubric's scope by the filter", () => {
+    expect(schoolsInScope(schools, ["ES"], ["HS"])).toEqual([]);
+  });
+
+  it("leaves the schools it keeps untouched", () => {
+    expect(schoolsInScope(schools, [], [])).toEqual(schools);
   });
 });

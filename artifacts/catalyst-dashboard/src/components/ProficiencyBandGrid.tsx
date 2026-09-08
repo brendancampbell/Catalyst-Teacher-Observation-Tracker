@@ -4,13 +4,15 @@ import { Loader2 } from "lucide-react";
 import type { DistrictSchoolRow } from "@workspace/api-types";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { QUERY_KEYS } from "@/lib/queryKeys";
-import { fetchDistrictSummary } from "@/lib/api";
+import { fetchDistrictSummary, GRADE_SPANS } from "@/lib/api";
 import {
   BANDS,
   allRegions,
   buildBandMatrix,
   lensOptionsFor,
+  rubricGradeSpans,
   schoolDashboardHref,
+  schoolsInScope,
   type Lens,
 } from "@/lib/proficiencyBands";
 
@@ -21,6 +23,11 @@ const barLabel = "font-bold uppercase tracking-widest shrink-0";
 const barLabelStyle = { color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" } as const;
 const dividerStyle  = { width: 1, height: 24, backgroundColor: "#dde3f0" } as const;
 const headCellStyle = { boxShadow: "inset 0 -1px 0 #cbd5e1" } as const;
+
+/* Spelled out in the scope badge, abbreviated in the filter menu — the same
+   split the dashboard makes. */
+const gradeSpanLabel = (s: string) =>
+  s === "ES" ? "Elementary" : s === "MS" ? "Middle" : s === "HS" ? "High School" : s;
 
 type Level = "overall" | "category" | "domain";
 
@@ -53,7 +60,8 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
   /* Empty means every region, which is what an unset filter means everywhere
      else on the dashboard. Following that convention rather than inventing a
      second one is also what removes "no regions selected" as a state. */
-  const [filterRegion, setFilterRegion] = useState<string[]>([]);
+  const [filterRegion,    setFilterRegion]    = useState<string[]>([]);
+  const [filterGradeSpan, setFilterGradeSpan] = useState<string[]>([]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: [...QUERY_KEYS.districtSummary, rubricSlug, basis, "network-bands"],
@@ -62,8 +70,16 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
     staleTime: 60_000,
   });
 
-  const schools    = data?.schools ?? [];
   const categories = data?.categories ?? [];
+
+  /* A rubric scoped to some grade spans already answers the question this
+     filter asks, so the dashboard hides the filter and says so instead. */
+  const rubricSpans = useMemo(() => rubricGradeSpans(data?.rubricSet?.gradeSpan), [data]);
+
+  const schools = useMemo(
+    () => schoolsInScope(data?.schools ?? [], rubricSpans, filterGradeSpan),
+    [data, rubricSpans, filterGradeSpan],
+  );
 
   const options = useMemo(() => lensOptionsFor(level, categories), [level, categories]);
 
@@ -81,7 +97,7 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
   const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
   const schoolHref = (school: DistrictSchoolRow) => schoolDashboardHref(school, rubricSlug, basePath);
 
-  const regions = useMemo(() => allRegions(schools), [schools]);
+  const regions = useMemo(() => allRegions(data?.schools ?? []), [data]);
 
   const rows = useMemo(
     () => buildBandMatrix(schools, lens, categories, filterRegion.length ? filterRegion : null),
@@ -149,9 +165,27 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
           options={regions}
         />
 
-        {filterRegion.length > 0 && (
+        {rubricSpans.length === 0 && (
+          <FilterMultiSelect
+            label="Grade Span"
+            values={filterGradeSpan}
+            onChange={setFilterGradeSpan}
+            options={[...GRADE_SPANS]}
+          />
+        )}
+
+        {rubricSpans.length > 0 && (
+          <span
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border"
+            style={{ color: NAVY, backgroundColor: "rgba(16,52,180,0.07)", borderColor: "rgba(16,52,180,0.25)" }}
+          >
+            Showing: {rubricSpans.map(gradeSpanLabel).join(", ")}
+          </span>
+        )}
+
+        {(filterRegion.length > 0 || filterGradeSpan.length > 0) && (
           <button
-            onClick={() => setFilterRegion([])}
+            onClick={() => { setFilterRegion([]); setFilterGradeSpan([]); }}
             className="font-semibold underline underline-offset-2"
             style={{ color: NAVY, fontSize: 14 }}
           >

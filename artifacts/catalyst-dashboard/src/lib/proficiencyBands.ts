@@ -171,6 +171,34 @@ export function buildBandMatrix(
 }
 
 /**
+ * The grade spans a rubric is scoped to, or none for a rubric that covers
+ * everything. Stored as a comma-separated list on the rubric set.
+ */
+export function rubricGradeSpans(gradeSpan: string | null | undefined): string[] {
+  return gradeSpan ? gradeSpan.split(",").filter(Boolean) : [];
+}
+
+/**
+ * The schools the grid should be placing at all.
+ *
+ * The district summary returns every school regardless of the rubric, so a
+ * rubric scoped to elementary still arrives with the middle and high schools
+ * attached. Left in, they fill the Not Yet Scored column with schools that
+ * were never in scope — which reads as a coverage gap rather than as a rubric
+ * that does not apply to them. The dashboard drops them for the same reason.
+ */
+export function schoolsInScope(
+  schools:         readonly DistrictSchoolRow[],
+  rubricSpans:     readonly string[],
+  gradeSpanFilter: readonly string[],
+): DistrictSchoolRow[] {
+  let rows = [...schools];
+  if (rubricSpans.length)     rows = rows.filter((s) => rubricSpans.includes(s.gradeSpan));
+  if (gradeSpanFilter.length) rows = rows.filter((s) => gradeSpanFilter.includes(s.gradeSpan));
+  return rows;
+}
+
+/**
  * Where a school pill goes: the same query string the district dashboard
  * builds when you drill into a school from its own table.
  *
