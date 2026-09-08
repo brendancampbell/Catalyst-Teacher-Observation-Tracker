@@ -21,18 +21,27 @@ export type BandId = "proficient" | "working" | "needs" | "unscored";
 export interface BandMeta {
   id:    BandId;
   label: string;
+  /* The scores this band covers, printed in the column header. Null where
+     there is no range to state. */
+  range: string | null;
   /* Tailwind classes for the column header and for a school chip inside it. */
   head:  string;
   chip:  string;
 }
 
+/* Written from the thresholds rather than typed out, so the header can never
+   claim a line the banding does not actually draw. The top of the middle band
+   is one hundredth below the proficient line because banding happens at two
+   decimals — a school at 0.695 prints 0.70 and counts as proficient. */
+const TOP_OF_MIDDLE = PROFICIENCY_THRESHOLD - 0.01;
+
 /* Column order is the reading order of the page: best first, then the two
    that need a response, then the schools nobody has been to. */
 export const BANDS: readonly BandMeta[] = [
-  { id: "proficient", label: "Proficient",        head: "bg-green-50 text-green-800",   chip: "bg-green-600 text-white" },
-  { id: "working",    label: "Working Towards",   head: "bg-yellow-50 text-yellow-800", chip: "bg-yellow-300 text-yellow-900" },
-  { id: "needs",      label: "Needs Improvement", head: "bg-red-50 text-red-800",       chip: "bg-red-300 text-red-900" },
-  { id: "unscored",   label: "Not Yet Scored",    head: "bg-slate-50 text-slate-600",   chip: "bg-slate-200 text-slate-600" },
+  { id: "proficient", label: "Proficient",        range: `\u2265 ${PROFICIENCY_THRESHOLD.toFixed(2)}`,                    head: "bg-green-50 text-green-800",   chip: "bg-green-600 text-white" },
+  { id: "working",    label: "Working Towards",   range: `${WARNING_THRESHOLD.toFixed(2)}\u2013${TOP_OF_MIDDLE.toFixed(2)}`, head: "bg-yellow-50 text-yellow-800", chip: "bg-yellow-300 text-yellow-900" },
+  { id: "needs",      label: "Needs Improvement", range: `< ${WARNING_THRESHOLD.toFixed(2)}`,                             head: "bg-red-50 text-red-800",       chip: "bg-red-300 text-red-900" },
+  { id: "unscored",   label: "Not Yet Scored",    range: null,                                                           head: "bg-slate-50 text-slate-600",   chip: "bg-slate-200 text-slate-600" },
 ] as const;
 
 /**
@@ -109,17 +118,25 @@ export interface RegionRow {
  * the same shape week to week. Any region the data carries that is not one of
  * the five is appended rather than dropped — a school with an unexpected
  * region is a data problem worth seeing, not one worth hiding.
+ *
+ * regionFilter narrows that to a single region. It filters the rows drawn, not
+ * the schools counted inside one, so a region's own counts read the same
+ * whether it is shown alone or alongside the others.
  */
 export function buildBandMatrix(
-  schools:    readonly DistrictSchoolRow[],
-  lens:       Lens,
-  categories: readonly CategoryEntry[],
+  schools:      readonly DistrictSchoolRow[],
+  lens:         Lens,
+  categories:   readonly CategoryEntry[],
+  regionFilter: string | null = null,
 ): RegionRow[] {
   const extras = [...new Set(schools.map((s) => s.region))]
     .filter((r) => !(REGIONS as readonly string[]).includes(r))
     .sort();
 
-  return [...REGIONS, ...extras].map((region) => {
+  const wanted = [...REGIONS, ...extras]
+    .filter((r) => !regionFilter || r === regionFilter);
+
+  return wanted.map((region) => {
     const bands = Object.fromEntries(BANDS.map((b) => [b.id, [] as BandedSchool[]])) as Record<BandId, BandedSchool[]>;
     let total = 0;
 

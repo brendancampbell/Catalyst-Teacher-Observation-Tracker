@@ -275,23 +275,9 @@ export default function NetworkActionCenterPage() {
           </>
         )}
 
-        {tab === "bands" && (
-          <>
-            {isLoading && (
-              <div className="flex items-center justify-center py-20 gap-2 text-slate-400">
-                <Loader2 size={20} className="animate-spin" /> Loading the network…
-              </div>
-            )}
-            {isError && (
-              <p className="text-center py-20 text-red-600 text-sm font-semibold">
-                Could not load the network summary.
-              </p>
-            )}
-            {!isLoading && !isError && (
-              <ProficiencyBandGrid schools={schools} categories={categories} />
-            )}
-          </>
-        )}
+        {/* Loads on its own: the walkthrough filter changes what the server
+            aggregates, so it cannot reuse the summary's rows. */}
+        {tab === "bands" && <ProficiencyBandGrid rubricSlug={activeSlug} />}
 
         {/* Usage already answers this network-wide for network roles — it is
             the same table the school action center shows, unscoped. */}

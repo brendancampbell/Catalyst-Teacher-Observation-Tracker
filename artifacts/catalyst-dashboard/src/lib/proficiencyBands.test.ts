@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { CategoryEntry, DistrictSchoolRow } from "@workspace/api-types";
-import { bandFor, scoreForLens, buildBandMatrix, lensOptionsFor } from "@/lib/proficiencyBands";
+import { BANDS, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor } from "@/lib/proficiencyBands";
 
 const school = (
   name: string,
@@ -145,5 +145,64 @@ describe("lensOptionsFor", () => {
   it("offers the groups, then every domain flattened across them", () => {
     expect(lensOptionsFor("category", categories).map((o) => o.label)).toEqual(["Instruction", "Culture"]);
     expect(lensOptionsFor("domain", categories).map((o) => o.label)).toEqual(["Pacing", "Checks", "Routines"]);
+  });
+});
+
+/* The header states the line each column draws. Stating a line the banding
+   does not actually draw is worse than stating none, so the two are checked
+   against each other rather than against a typed-out string. */
+describe("the ranges printed in the column headers", () => {
+  const range = (id: string) => BANDS.find((b) => b.id === id)!.range;
+
+  it("names the lines the banding actually uses", () => {
+    expect(range("proficient")).toBe("\u2265 0.70");
+    expect(range("working")).toBe("0.50\u20130.69");
+    expect(range("needs")).toBe("< 0.50");
+  });
+
+  it("states no range for the column that is not a score", () => {
+    expect(range("unscored")).toBeNull();
+  });
+
+  it("agrees with bandFor at both edges and just inside them", () => {
+    expect(bandFor(0.70)).toBe("proficient");
+    expect(bandFor(0.69)).toBe("working");
+    expect(bandFor(0.50)).toBe("working");
+    expect(bandFor(0.49)).toBe("needs");
+  });
+});
+
+describe("the region filter", () => {
+  const schools = [
+    school("Alpha", "NYC",    0.85),
+    school("Bravo", "NYC",    0.20),
+    school("Echo",  "Newark", 0.95),
+  ];
+
+  it("draws one region alone when asked for one", () => {
+    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, "NYC");
+    expect(rows.map((r) => r.region)).toEqual(["NYC"]);
+    expect(rows[0]!.total).toBe(2);
+  });
+
+  it("draws all five when the filter is empty", () => {
+    expect(buildBandMatrix(schools, { kind: "overall" }, categories, null)).toHaveLength(5);
+  });
+
+  /* Filtering rows, not schools: a region shown alone has to read exactly as
+     it did in the full grid, or the filter changes the answer rather than the
+     view. */
+  it("leaves a region's own contents identical to the unfiltered grid", () => {
+    const alone = buildBandMatrix(schools, { kind: "overall" }, categories, "NYC")[0]!;
+    const among = buildBandMatrix(schools, { kind: "overall" }, categories).find((r) => r.region === "NYC")!;
+    expect(alone.bands.proficient.map((b) => b.school.name)).toEqual(among.bands.proficient.map((b) => b.school.name));
+    expect(alone.bands.needs.map((b) => b.school.name)).toEqual(among.bands.needs.map((b) => b.school.name));
+    expect(alone.total).toBe(among.total);
+  });
+
+  it("gives an empty grid for a region with no schools rather than falling back to all", () => {
+    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, "Boston");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.total).toBe(0);
   });
 });
