@@ -466,65 +466,6 @@
 
           <tr>
             <td class="p">3</td>
-            <td class="idcell">62</td>
-            <td>
-              <div class="task">
-                <h3>Check that ES departments line up with the rubrics ES teachers are scored on</h3>
-                <p class="lineage">New, 8 Sep. Raised for the ES walkthrough team. The same filter was left unconfirmed under #48 &mdash; this is the question that entry deferred, asked about elementary.</p>
-                <p class="why">
-                  The department list was built around middle and high school subjects. An
-                  elementary teacher teaches a grade, not a subject &mdash; and a teacher whose
-                  department does not sit under the rubric being used does not appear in the list of
-                  people to observe at all. Before the ES walkthrough team leans on this, somebody
-                  has to confirm an ES walkthrough can actually reach every ES teacher.
-                </p>
-                <details>
-                  <summary>What to check, and how it would go wrong</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>The departments are secondary-shaped.</strong> The eleven values are
-                      English, Math, Science, History, Spanish, Physical Education,
-                      Comp&nbsp;Sci/Engineering, Visual Arts, College, SpEd and Other, in
-                      <code>lib/api-types/src/subject-audience.ts</code>. None of them describes a
-                      third-grade classroom.
-                    </p>
-                    <p>
-                      <strong>Unclassified is the narrowest setting, not the widest.</strong> Every
-                      department maps to STEM, Humanities or ALL, and ALL here means &ldquo;belongs
-                      to neither&rdquo;. A teacher filed under Other, or with no department, shows up
-                      only when the rubric&rsquo;s own audience is ALL, and vanishes from any STEM or
-                      Humanities rubric. SpEd is the single exception, deliberately shown on all of
-                      them. So an ES roster that landed in Other is invisible on a subject rubric
-                      rather than merely mislabelled.
-                    </p>
-                    <p>
-                      <strong>The same filter runs in three places</strong> &mdash; the dashboard
-                      teacher list, the New Observation modal and the mobile observation form.
-                      Whatever is true here is true on a phone in a classroom, which is where
-                      walkthroughs actually get logged.
-                    </p>
-                    <p>
-                      <strong>Two facts settle it and neither is in the code.</strong> What
-                      departments ES teachers actually carry in <code>neondb</code>, and what
-                      audience and grade span are set on the rubrics an ES school is offered. A
-                      rubric is only offered to a school whose grade span it lists, so the ES rubric
-                      has to say ES as well as carry the right audience.
-                    </p>
-                    <p>
-                      Only then is the fix knowable. It may be roster data, it may be an audience set
-                      wrong on one rubric, or elementary may need departments the list does not have
-                      yet &mdash; which is a new enum value and a migration, not a settings change.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Walkthroughs</td>
-            <td><span class="chip u-defer">Needs defining</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">4</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -557,7 +498,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">4</td>
             <td class="idcell">61</td>
             <td>
               <div class="task">
@@ -609,7 +550,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -659,7 +600,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -693,7 +634,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -726,7 +667,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -759,7 +700,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -786,7 +727,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -812,7 +753,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -846,7 +787,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -884,7 +825,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -914,7 +855,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -949,7 +890,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -984,7 +925,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">57</td>
             <td>
               <div class="task">
@@ -1034,7 +975,7 @@
           </tr>
 
           <tr>
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">60</td>
             <td>
               <div class="task">
@@ -1097,7 +1038,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1111,7 +1052,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1128,7 +1069,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">21</td>
+            <td class="p">20</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1209,6 +1150,11 @@
             <td class="cat">Retired</td>
           </tr>
           <tr>
+            <td class="cat">#62</td>
+            <td>ES departments against rubrics, 8 Sep. Withdrawn the same day &mdash; every rubric is being marked for all teachers, so the filter it was about cannot exclude anybody. The reasoning is under <strong>Settled</strong>; the number is <strong>not reused</strong>.</td>
+            <td class="cat">Retired</td>
+          </tr>
+          <tr>
             <td class="cat">&ldquo;Task #2&rdquo;, &ldquo;Task #4&rdquo;</td>
             <td>Replit Agent&rsquo;s numbering from the original build, visible in old commit messages (<code>9d15a8b</code>, <code>a0d538b</code>). Unrelated to anything current.</td>
             <td class="cat">Ignore</td>
@@ -1227,6 +1173,24 @@
       </p>
     </div>
     <div class="settled">
+      <div class="settled-row">
+        <h3>Every rubric is for all teachers, so departments cannot exclude anybody</h3>
+        <p>
+          Raised on 8 Sep as #62, for the ES walkthrough team. Elementary teachers do not have one of
+          the eleven secondary subjects, and a department that classifies to ALL appears only when the
+          rubric&rsquo;s own audience is ALL &mdash; so an ES roster filed under Other would have gone
+          missing from a STEM or Humanities rubric rather than merely reading oddly. The team settled
+          it the other way: every rubric is marked for all teachers, and an ALL rubric shows every
+          teacher whatever their department. Nothing to build, and #62 was withdrawn.
+        </p>
+        <p>
+          The condition is the whole of the answer, so it is worth writing down:
+          <code>teacherMatchesAudience</code> is still in the code and still filters. Setting any one
+          rubric to STEM or Humanities brings this back, and it fails quietly &mdash; the teacher is
+          simply absent from the list of people to observe, with nothing on screen saying why. #48
+          recorded the same trap from the other direction.
+        </p>
+      </div>
       <div class="settled-row">
         <h3>The leftover drafts stay where they are &mdash; declined</h3>
         <p>
