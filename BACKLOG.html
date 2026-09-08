@@ -332,10 +332,6 @@
       after it moves to Done, so <code>#6</code> means the same thing next month. New work takes the
       next free <code>#</code>, and retired numbers are never reused.
     </p>
-    <div class="state">
-      <span><b>2026&#8209;2027</b> staged &mdash; activation is an operational step</span>
-      <span><b>20</b> open &middot; <b>3</b> deferred &middot; <b>0</b> unranked</span>
-    </div>
   </header>
 
   <section>
@@ -467,51 +463,9 @@
             <td><span class="chip u-med">Large</span></td>
           </tr>
 
-          <tr>
-            <td class="p">3</td>
-            <td class="idcell">53</td>
-            <td>
-              <div class="task">
-                <h3>Group schools by proficiency band on the network action center</h3>
-                <p class="lineage">Captured 1 Sep.</p>
-                <p class="why">
-                  The network summary marks a school Proficient or Not Proficient &mdash; one line at
-                  0.7, and everything below it looks the same. A school at 0.68 and a school at 0.3
-                  need different responses, and the page does not distinguish them. Three bands
-                  &mdash; proficient, working towards, needs improvement &mdash; would say which
-                  schools to go to first.
-                </p>
-                <details>
-                  <summary>What already exists, and the part that is undecided</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>The middle band is already there, one level down.</strong> The school
-                      action center&rsquo;s domain bars use two thresholds, 0.7 and 0.5, in three
-                      colours. The network page uses only the first. Reusing both is the obvious
-                      starting point &mdash; but whether 0.5 is the right line for a whole school, as
-                      opposed to a single domain, is a judgement call and not a technical one.
-                    </p>
-                    <p>
-                      <strong>Splitting the bands by domain is unresolved.</strong> The user&rsquo;s
-                      own note says &ldquo;maybe &mdash; unclear&rdquo;. A school is rarely weak
-                      everywhere, so a per-domain view would be more useful and much busier; it is a
-                      second piece of work, not part of this one. Decide the school-level bands first
-                      and see whether the domain question is still live.
-                    </p>
-                    <p>
-                      Lives in <code>artifacts/catalyst-dashboard/src/pages/network-action-center.tsx</code>;
-                      the thresholds are in <code>action-center.tsx</code>.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Analytics</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
 
                               <tr>
-            <td class="p">4</td>
+            <td class="p">3</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -540,6 +494,58 @@
               </div>
             </td>
             <td class="cat">Reporting</td>
+            <td><span class="chip u-med">Medium</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">4</td>
+            <td class="idcell">61</td>
+            <td>
+              <div class="task">
+                <h3>Fix back and forward navigation</h3>
+                <p class="lineage">New, 7 Sep.</p>
+                <p class="why">
+                  Back does not take you back to what you were looking at. The browser returns to
+                  the page, but not to the school you had drilled into, the tab you were on, or the
+                  filters you had set &mdash; so the way back out of anything is to set it all up
+                  again.
+                </p>
+                <details>
+                  <summary>The two separate causes, and which one to settle first</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>Most of what you are looking at is not in the address.</strong> Some
+                      of it is &mdash; <code>schoolId</code>, <code>rubric</code> and
+                      <code>teacher</code> are read from the query string, which is why those deep
+                      links work. But which tab, which filters and which view are component state
+                      and live nowhere else, so the browser has nothing to restore them from. That
+                      makes them equally impossible to share: there is no link that opens the view
+                      you are looking at.
+                    </p>
+                    <p>
+                      <strong>Drilling in is a page load, not a navigation.</strong> Opening a
+                      school assigns <code>window.location.href</code> rather than routing, in
+                      <code>Dashboard.tsx</code>, <code>ImpersonationBanner.tsx</code> and
+                      <code>admin.tsx</code>. The app already routes with wouter, so these are the
+                      three places that step around it and reload everything.
+                    </p>
+                    <p>
+                      <strong>Needs deciding before it can be built.</strong> Which state belongs in
+                      the address. Everything is the honest answer and the noisy one &mdash; every
+                      filter change becomes a history entry, and back starts walking through
+                      filters one at a time instead of leaving the page. The usual split is that
+                      what you navigated to goes in the history and what you filtered replaces the
+                      entry rather than adding one, but that line has to be drawn deliberately.
+                    </p>
+                    <p>
+                      Worth doing in that order: the routing calls are three small edits, and the
+                      URL question is the one that decides how the whole app behaves.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
             <td><span class="chip u-med">Medium</span></td>
           </tr>
 
@@ -1246,6 +1252,68 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+          <tr>
+            <td class="idcell">53</td>
+            <td>
+              <div class="task">
+                <h3>Group schools by proficiency band on the network action center</h3>
+                <p class="lineage"><code>2729f19</code> &rarr; <code>a4d10cc</code> (PR&nbsp;#17) &mdash; shipped 7 Sep. 41 front-end tests, 409 &rarr; 450. Captured 1 Sep.</p>
+                <p class="why">
+                  A third tab, <b>Schools by Band</b>, that lays the network out rather than ranking
+                  it: regions down the side, bands across the top, and every school placed in a
+                  cell. A region reads across in one line &mdash; how many are fine, how many are
+                  slipping, how many need somebody this week. Each column header states the scores
+                  it covers, and each school is a link into its own dashboard.
+                </p>
+                <details>
+                  <summary>The questions the item raised, how they were answered, and what grew</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The middle band kept 0.5.</strong> The item asked whether the school
+                      action center&rsquo;s second threshold was the right line for a whole school
+                      rather than a single domain. It was kept, so a colour means the same thing on
+                      both pages. The headers now print the lines they draw &mdash; and print them
+                      from the thresholds themselves, so a header cannot claim a line the banding
+                      does not draw.
+                    </p>
+                    <p>
+                      <strong>A fourth column, for the schools nobody has scored.</strong> Not in
+                      the item. A school with no observations is the most urgent case on the page,
+                      and the ranked list it replaced dropped those schools silently.
+                    </p>
+                    <p>
+                      <strong>The domain split came too.</strong> The item deferred it &mdash;
+                      &ldquo;a second piece of work, not part of this one&rdquo; &mdash; and it was
+                      asked for during the build instead. The grid regroups by the whole rubric, one
+                      group of domains, or a single domain. Region grouping was asked for at the
+                      same time. That is most of why this ran larger than its Medium.
+                    </p>
+                    <p>
+                      <strong>It found the grid counting schools that were never in scope.</strong>
+                      The district summary returns every school whatever the rubric covers, so a
+                      rubric scoped to elementary filled Not Yet Scored with middle and high schools
+                      &mdash; reading as a coverage gap rather than as a rubric that does not apply
+                      to them. They are dropped now, as the dashboard already dropped them.
+                    </p>
+                    <p>
+                      <strong>No back end.</strong> The summary already returned each school&rsquo;s
+                      region, its per-domain averages and the categories grouping them. No
+                      migration, no new route, nothing added to the authorization surface.
+                    </p>
+                    <p>
+                      One thing to know: the tab defaults to <b>Rubric Wide</b>, averaging every
+                      observation, while the Summary tab beside it still shows most-recent scores.
+                      The same school can sit in a different band on the two tabs. Deliberate, and
+                      the reason the switch is there.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Analytics</td>
+            <td><span class="chip u-done">7 Sep</span></td>
+          </tr>
+
 
           <tr>
             <td class="idcell">50</td>
