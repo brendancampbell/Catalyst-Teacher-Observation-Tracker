@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart2, Activity, Building2, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { BarChart2, Activity, Building2, Grid3x3, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { UsageTable } from "@/components/UsageTable";
+import ProficiencyBandGrid from "@/components/ProficiencyBandGrid";
 import { SummaryStatCard, NoStatYet } from "@/components/SummaryStatCard";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/context/UserContext";
@@ -32,7 +33,7 @@ export default function NetworkActionCenterPage() {
   const { currentUser } = useUser();
   const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-  const [tab, setTab] = useState<"summary" | "usage">("summary");
+  const [tab, setTab] = useState<"summary" | "bands" | "usage">("summary");
 
   const { data: rubricSets = [] } = useQuery<RubricSetRow[]>({
     queryKey: QUERY_KEYS.rubricSets,
@@ -115,12 +116,13 @@ export default function NetworkActionCenterPage() {
         )}
       </div>
 
-      {/* ── Two tabs, and only two ── */}
+      {/* ── Three tabs ── */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-4 sm:px-6">
         <div className="flex">
           {([
-            { value: "summary", label: "Summary", icon: <BarChart2 size={15} /> },
-            { value: "usage",   label: "Usage",   icon: <Activity  size={15} /> },
+            { value: "summary", label: "Summary",         icon: <BarChart2 size={15} /> },
+            { value: "bands",   label: "Schools by Band", icon: <Grid3x3   size={15} /> },
+            { value: "usage",   label: "Usage",           icon: <Activity  size={15} /> },
           ] as const).map(({ value, label, icon }) => (
             <button
               key={value}
@@ -272,6 +274,10 @@ export default function NetworkActionCenterPage() {
             )}
           </>
         )}
+
+        {/* Loads on its own: the walkthrough filter changes what the server
+            aggregates, so it cannot reuse the summary's rows. */}
+        {tab === "bands" && <ProficiencyBandGrid rubricSlug={activeSlug} />}
 
         {/* Usage already answers this network-wide for network roles — it is
             the same table the school action center shows, unscoped. */}
