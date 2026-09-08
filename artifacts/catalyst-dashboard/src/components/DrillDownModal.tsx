@@ -16,6 +16,7 @@ import { updateObservation, deleteObservation, type CategoryEntry } from "@/lib/
 import { canEditObservation } from "@/lib/observation-permissions";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
+import { useUrlState } from "@/lib/urlState";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -136,7 +137,15 @@ interface Props {
 
 export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenChange, onUpdateObs, onDeleteObs, onTeacherClick, categories, canEdit }: Props) {
   const { currentUser } = useUser();
-  const [detailObsId, setDetailObsId] = useState<string | null>(null);
+  /* The open observation lives in the address, so Back closes it (#61). The
+     drill-down chart and the teacher overlay are mutually exclusive branches,
+     so they can share the one ?obs= without colliding. */
+  const { params: obsParams, setParams: setObsParams, closeParams: closeObsParams } = useUrlState();
+  const detailObsId = obsParams.get("obs");
+  const setDetailObsId = (id: string | null) =>
+    id === null
+      ? closeObsParams({ obs: null })
+      : setObsParams({ obs: id }, "push");
   const [pendingGroup, setPendingGroup] = useState<ChartPoint | null>(null);
 
   const chartData = useMemo<ChartPoint[]>(() => {
@@ -195,8 +204,8 @@ export function DrillDownModal({ teacher, domainId, domainLabel, open, onOpenCha
     if (!data?.activePayload?.[0]) return;
     const point = data.activePayload[0].payload;
     if (point.count === 1) {
-      setDetailObsId(point.obsIds[0]);
       setPendingGroup(null);
+      setDetailObsId(point.obsIds[0]);
     } else {
       setPendingGroup(point);
       setDetailObsId(null);

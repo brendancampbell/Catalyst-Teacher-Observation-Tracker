@@ -14,6 +14,7 @@ import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
+import { useUrlState } from "@/lib/urlState";
 import AppHeader from "@/components/AppHeader";
 
 const NAVY = "#1034B4";
@@ -403,8 +404,16 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
     currentUser?.role === "NETWORK_LEADER" ||
     currentUser?.role === "NETWORK_ADMIN";
 
-  /* ── Observation modal state ──────────────────────────────────── */
-  const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
+  /* ── Observation modal state ────────────────────────────────────
+     The open observation lives in the address, so Back closes it (#61). Only
+     the id is stored; the observation itself is looked up below, once
+     activeTeacher is known, with any unsaved-to-cache edit applied on top. */
+  const { params: obsParams, setParams: setObsParams, closeParams: closeObsParams } = useUrlState();
+  const selectedObsId = obsParams.get("obs");
+  const setSelectedObservation = (o: Observation | null) =>
+    o === null
+      ? closeObsParams({ obs: null })
+      : setObsParams({ obs: o.id }, "push");
   const [localObsOverrides, setLocalObsOverrides] = useState<Record<string, Observation>>({});
 
   /* ── Action Steps drawer ──────────────────────────────────────── */
@@ -531,6 +540,15 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
   const activeTeacher: Teacher = isInitialRubric
     ? teacher
     : (altData?.teachers.find((t) => t.id === teacher.id) ?? teacher);
+
+  /* An edited observation may have been reassigned to somebody else, so it is
+     no longer in this teacher's list — the override still holds it, which is
+     why that is checked first. */
+  const selectedObservation: Observation | null = selectedObsId
+    ? (localObsOverrides[selectedObsId]
+        ?? activeTeacher.observations.find((o) => o.id === selectedObsId)
+        ?? null)
+    : null;
 
   const sortedObs = useMemo(
     () =>
@@ -842,14 +860,14 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
 
       {/* ── Observation detail modal ──────────────────────── */}
       {selectedObservation && (() => {
-        const shown = localObsOverrides[selectedObservation.id] ?? selectedObservation;
+        const shown = selectedObservation;
         const canEditThisObs = canEditObservation(shown, currentUser);
         return (
         <ObservationDetailModal
           reassignableTeachers={reassignableTeachers}
           teacher={activeTeacher}
           priorObservations={activeTeacher.observations}
-          observation={localObsOverrides[selectedObservation.id] ?? selectedObservation}
+          observation={selectedObservation}
           categories={activeCategories}
           /* Per observation, not per person — canEdit above is the role half,
              and stays as it is for the action-step drawer, which is a
@@ -871,8 +889,9 @@ export function TeacherScoreOverlay({ teacher, onBack, onNewObs, rubricSets, ini
               /* The first action step for an observation filed without one. */
               ...(updated.newActionStep ? { newActionStep: updated.newActionStep } : {}),
             });
+            /* No re-select: the override above is what the derivation reads,
+               and re-setting the same id would push a duplicate entry. */
             setLocalObsOverrides((prev) => ({ ...prev, [saved.id]: saved }));
-            setSelectedObservation(saved);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.latestActionSteps });
             await queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.actionSteps, teacher.employeeId] });

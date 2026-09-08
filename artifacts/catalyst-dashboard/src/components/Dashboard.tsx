@@ -383,7 +383,24 @@ export default function Dashboard() {
   /* ── Modal state ───────────────────────────────────── */
   const [newObsOpen, setNewObsOpen]                     = useState(false);
   const [newObsDefaultTeacherId, setNewObsDefaultTeacherId] = useState<string | undefined>(undefined);
-  const [drillDown, setDrillDown]                       = useState<DrillDownTarget | null>(null);
+  /* The open drill-down lives in the address, so Back closes it (#61). Only
+     the two ids are stored — the label is looked up from the rubric, which
+     keeps the link short and stops a renamed domain showing its old name. */
+  const drillDown: DrillDownTarget | null = (() => {
+    const raw = searchParams.get("drill");
+    if (!raw) return null;
+    const [teacherId, domainId] = raw.split("~");
+    if (!teacherId || !domainId) return null;
+    return {
+      teacherId,
+      domainId,
+      domainLabel: allDomains.find((d) => d.id === domainId)?.label ?? "",
+    };
+  })();
+  const setDrillDown = (t: DrillDownTarget | null) =>
+    t === null
+      ? closeParams({ drill: null })
+      : setParams({ drill: `${t.teacherId}~${t.domainId}` }, "push");
   const [saving, setSaving]                             = useState(false);
 
   /* ── Derived lists (always computed — hooks must come before any return) */
@@ -496,7 +513,7 @@ export default function Dashboard() {
      must not carry the network view's open panel, or another school's
      filters, along with it. */
   const CLEARED_ON_DRILL_IN = {
-    schoolProfile: null, teacher: null,
+    schoolProfile: null, teacher: null, drill: null, obs: null,
     subjects: null, grades: null, prof: null,
     view: null, by: null,
   } as const;
@@ -1320,9 +1337,10 @@ export default function Dashboard() {
         onUpdateObs={handleUpdateObs}
         onDeleteObs={handleDeleteObs}
         onTeacherClick={() => {
+          /* One write: swapping the drill-down for the profile. Back returns
+             to the drill-down it was opened from. */
           if (drillDown) {
-            setTeacherProfileId(drillDown.teacherId);
-            setDrillDown(null);
+            setParams({ drill: null, teacher: drillDown.teacherId }, "push");
           }
         }}
         categories={categories}
