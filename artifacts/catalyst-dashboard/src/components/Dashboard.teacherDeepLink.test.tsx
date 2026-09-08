@@ -76,22 +76,7 @@ vi.mock("@/context/UserContext", () => ({
 /* Reads the live URL and re-renders when history is rewritten, which is what
    the real wouter does. A static string here would hide the whole bug: the
    component under test is the one calling replaceState. */
-vi.mock("wouter", () => {
-  const subscribe = (cb: () => void) => {
-    window.addEventListener("catalyst:test-navigate", cb);
-    return () => window.removeEventListener("catalyst:test-navigate", cb);
-  };
-  const useSearch = () => {
-    const [, force] = React.useReducer((n: number) => n + 1, 0);
-    React.useEffect(() => subscribe(force), []);
-    return window.location.search.replace(/^\?/, "");
-  };
-  return {
-    useSearch,
-    useLocation: () => [window.location.pathname, vi.fn()],
-    Link: ({ children }: { children: React.ReactNode }) => children,
-  };
-});
+vi.mock("wouter", async () => (await import("@/test/wouterStub")).makeWouterStub());
 
 class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
 

@@ -71,12 +71,7 @@ vi.mock("@/context/UserContext", () => ({
   UserContext: {},
 }));
 
-/* Reads the live URL — the helper under test builds from window.location. */
-vi.mock("wouter", () => ({
-  useSearch:   () => window.location.search.replace(/^\?/, ""),
-  useLocation: () => ["/action-center", vi.fn()],
-  Link:        ({ children }: { children: React.ReactNode }) => children,
-}));
+vi.mock("wouter", async () => (await import("@/test/wouterStub")).makeWouterStub());
 
 class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
 
