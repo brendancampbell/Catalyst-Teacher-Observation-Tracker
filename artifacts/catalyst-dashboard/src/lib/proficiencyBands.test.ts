@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { CategoryEntry, DistrictSchoolRow } from "@workspace/api-types";
-import { BANDS, allRegions, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor } from "@/lib/proficiencyBands";
+import { BANDS, allRegions, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor, schoolDashboardHref } from "@/lib/proficiencyBands";
 
 const school = (
   name: string,
@@ -233,5 +233,42 @@ describe("the region filter", () => {
     const rows = buildBandMatrix(schools, { kind: "overall" }, categories, ["Boston"]);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.total).toBe(0);
+  });
+});
+
+/* A pill that opens the wrong school does not look broken — it looks like that
+   school has someone else's numbers. */
+describe("schoolDashboardHref", () => {
+  const params = (href: string) => new URLSearchParams(href.split("?")[1]);
+
+  it("carries the school, its name and the rubric being viewed", () => {
+    const p = params(schoolDashboardHref(school("Alpha", "NYC", 0.8), "Q1", ""));
+    expect(p.get("schoolId")).toBe(String(school("Alpha", "NYC", 0.8).id));
+    expect(p.get("schoolName")).toBe("Alpha");
+    expect(p.get("rubric")).toBe("Q1");
+  });
+
+  it("keeps the grade span and abbreviation the school view expects", () => {
+    const p = params(schoolDashboardHref(school("Alpha", "NYC", 0.8), "Q1", ""));
+    expect(p.get("schoolGradeSpan")).toBe("K-8");
+    expect(p.get("schoolAbbreviation")).toBe("ALP");
+  });
+
+  it("sits under the base path the app is served from", () => {
+    expect(schoolDashboardHref(school("Alpha", "NYC", 0.8), "Q1", "/catalyst")).toMatch(/^\/catalyst\/\?/);
+  });
+
+  /* School names carry ampersands and spaces; an unescaped one would truncate
+     the query string and drop everything after it. */
+  it("escapes a name that would otherwise break the query string", () => {
+    const odd = { ...school("A & B Prep", "NYC", 0.8), abbreviation: null };
+    const href = schoolDashboardHref(odd, "Q1", "");
+    expect(href).not.toContain("A & B");
+    expect(params(href).get("schoolName")).toBe("A & B Prep");
+  });
+
+  it("leaves out an abbreviation the school does not have", () => {
+    const odd = { ...school("Alpha", "NYC", 0.8), abbreviation: null };
+    expect(params(schoolDashboardHref(odd, "Q1", "")).has("schoolAbbreviation")).toBe(false);
   });
 });

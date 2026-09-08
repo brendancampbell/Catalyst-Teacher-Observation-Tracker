@@ -170,6 +170,28 @@ export function buildBandMatrix(
   });
 }
 
+/**
+ * Where a school pill goes: the same query string the district dashboard
+ * builds when you drill into a school from its own table.
+ *
+ * Kept here, and tested, because a link to the wrong school does not look
+ * broken — it looks like a different school's numbers.
+ */
+export function schoolDashboardHref(
+  school:     DistrictSchoolRow,
+  rubricSlug: string,
+  basePath:   string,
+): string {
+  const p: Record<string, string> = {
+    schoolId:   String(school.id),
+    schoolName: school.name,
+    rubric:     rubricSlug,
+  };
+  if (school.gradeSpan)    p.schoolGradeSpan    = school.gradeSpan;
+  if (school.abbreviation) p.schoolAbbreviation = school.abbreviation;
+  return `${basePath}/?${new URLSearchParams(p).toString()}`;
+}
+
 export interface LensOption { id: string; label: string }
 
 /** The choices behind the second control, for whichever level is picked. */

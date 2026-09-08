@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import type { DistrictSchoolRow } from "@workspace/api-types";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary } from "@/lib/api";
@@ -9,6 +10,7 @@ import {
   allRegions,
   buildBandMatrix,
   lensOptionsFor,
+  schoolDashboardHref,
   type Lens,
 } from "@/lib/proficiencyBands";
 
@@ -18,6 +20,7 @@ const NAVY = "#1034B4";
 const barLabel = "font-bold uppercase tracking-widest shrink-0";
 const barLabelStyle = { color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" } as const;
 const dividerStyle  = { width: 1, height: 24, backgroundColor: "#dde3f0" } as const;
+const headCellStyle = { boxShadow: "inset 0 -1px 0 #cbd5e1" } as const;
 
 type Level = "overall" | "category" | "domain";
 
@@ -72,6 +75,11 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
     if (level === "overall" || !activeId) return { kind: "overall" };
     return level === "category" ? { kind: "category", id: activeId } : { kind: "domain", id: activeId };
   }, [level, activeId]);
+
+  /* A pill lands where the district dashboard's own drill-down lands, rather
+     than on a second, nearly-identical school view. */
+  const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+  const schoolHref = (school: DistrictSchoolRow) => schoolDashboardHref(school, rubricSlug, basePath);
 
   const regions = useMemo(() => allRegions(schools), [schools]);
 
@@ -191,19 +199,27 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
       {/* ── The grid ── */}
       {!isLoading && !isError && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          {/* Five columns do not fit a phone, so the table scrolls inside its own
-              box rather than pushing the page sideways. */}
-          <div className="overflow-x-auto">
+          {/* Scrolls in both directions inside its own box: five columns do not
+              fit a phone, and one region's schools stack tall enough to push
+              the header off the top. Capping the height is what gives the
+              sticky header something to stick to. */}
+          <div className="overflow-auto max-h-[70vh]">
             <table className="w-full min-w-[52rem] border-collapse">
               <thead>
                 <tr>
-                  <th className="text-left text-xs font-bold uppercase tracking-wide text-slate-500 px-4 py-2.5 border-b border-slate-200 w-32">
+                  {/* border-collapse drops a sticky cell's borders, so the rule
+                      under the header is drawn as an inset shadow instead. */}
+                  <th
+                    className="sticky top-0 z-10 bg-white text-left text-xs font-bold uppercase tracking-wide text-slate-500 px-4 py-2.5 w-32"
+                    style={headCellStyle}
+                  >
                     Region
                   </th>
                   {BANDS.map((b) => (
                     <th
                       key={b.id}
-                      className={`text-left text-xs font-bold uppercase tracking-wide px-4 py-2.5 border-b border-slate-200 ${b.head}`}
+                      className={`sticky top-0 z-10 text-left text-xs font-bold uppercase tracking-wide px-4 py-2.5 ${b.head}`}
+                      style={headCellStyle}
                     >
                       {b.label}
                       {b.range && <span className="font-semibold normal-case opacity-75"> ({b.range})</span>}
@@ -211,11 +227,20 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((row) => (
-                  <tr key={row.region} className="align-top">
+              <tbody>
+                {rows.map((row, i) => (
+                  /* Banded rows and a firmer rule between them: the regions were
+                     grey on grey and ran together. */
+                  <tr
+                    key={row.region}
+                    className="align-top"
+                    style={{
+                      backgroundColor: i % 2 === 1 ? "#F8FAFC" : "white",
+                      borderTop: i === 0 ? undefined : "1px solid #cbd5e1",
+                    }}
+                  >
                     <td className="px-4 py-3">
-                      <div className="text-sm font-bold text-slate-700">{row.region}</div>
+                      <div className="text-sm font-bold" style={{ color: NAVY }}>{row.region}</div>
                       <div className="text-xs text-slate-400">
                         {row.total} school{row.total !== 1 ? "s" : ""}
                       </div>
@@ -229,16 +254,19 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
                           ) : (
                             <div className="flex flex-col gap-1.5">
                               {cell.map(({ school, score }) => (
-                                <div
+                                /* A link rather than a click handler, so a school
+                                   opens in a new tab the ordinary way. */
+                                <a
                                   key={school.id}
-                                  className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs font-semibold ${b.chip}`}
+                                  href={schoolHref(school)}
+                                  className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs font-semibold transition-opacity hover:opacity-80 ${b.chip}`}
                                   title={`${school.name} — ${score !== null ? score.toFixed(2) : "no score yet"}`}
                                 >
                                   <span className="truncate">{school.abbreviation || school.name}</span>
                                   <span className="tabular-nums shrink-0">
                                     {score !== null ? score.toFixed(2) : "—"}
                                   </span>
-                                </div>
+                                </a>
                               ))}
                             </div>
                           )}
