@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Grid3x3, Loader2 } from "lucide-react";
+import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary } from "@/lib/api";
 import {
@@ -13,6 +14,11 @@ import {
 
 const NAVY   = "#1034B4";
 const YELLOW = "#FFB500";
+
+/* The dashboard's filter-bar furniture, matched rather than approximated. */
+const barLabel = "font-bold uppercase tracking-widest shrink-0";
+const barLabelStyle = { color: NAVY, fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.03em" } as const;
+const dividerStyle  = { width: 1, height: 24, backgroundColor: "#dde3f0" } as const;
 
 type Level = "overall" | "category" | "domain";
 
@@ -42,9 +48,10 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
   const [pick,  setPick]  = useState<string>("");
   const [basis, setBasis] = useState<Basis>("average");
 
-  /* Null rather than a full list, because the regions are not known until the
-     query lands. Null means every region there turns out to be. */
-  const [picked, setPicked] = useState<string[] | null>(null);
+  /* Empty means every region, which is what an unset filter means everywhere
+     else on the dashboard. Following that convention rather than inventing a
+     second one is also what removes "no regions selected" as a state. */
+  const [filterRegion, setFilterRegion] = useState<string[]>([]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: [...QUERY_KEYS.districtSummary, rubricSlug, basis, "network-bands"],
@@ -70,113 +77,105 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
   const regions = useMemo(() => allRegions(schools), [schools]);
 
   const rows = useMemo(
-    () => buildBandMatrix(schools, lens, categories, picked),
-    [schools, lens, categories, picked],
+    () => buildBandMatrix(schools, lens, categories, filterRegion.length ? filterRegion : null),
+    [schools, lens, categories, filterRegion],
   );
-
-  const isOn = (r: string) => picked === null || picked.includes(r);
-
-  /* Toggling back up to the full set stores null again, so "all regions"
-     is one state rather than two that look the same. */
-  const toggleRegion = (r: string) => {
-    const base = picked ?? regions;
-    const next = base.includes(r) ? base.filter((x) => x !== r) : [...base, r];
-    setPicked(next.length === regions.length ? null : next);
-  };
-
-  const selectClass = "border border-slate-200 rounded px-2 py-1.5 text-sm bg-white";
 
   return (
     <div className="space-y-4">
-      {/* ── The controls ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold text-slate-600">Measure by</span>
-        <select
-          value={level}
-          onChange={(e) => { setLevel(e.target.value as Level); setPick(""); }}
-          aria-label="Measure by"
-          className={selectClass}
-        >
-          <option value="overall">Overall</option>
-          <option value="category">Group of domains</option>
-          <option value="domain">Individual domain</option>
-        </select>
+      {/* ── The controls, built like the dashboard's own filter bar: a Bebas
+          label, a navy segmented switch, the shared filter menus, and the
+          score basis off to the right. ── */}
+      <div
+        className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
+        style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
+      >
+        <span className={barLabel} style={barLabelStyle}>Measure By</span>
 
-        {level !== "overall" && (
-          <select
-            value={activeId}
-            onChange={(e) => setPick(e.target.value)}
-            aria-label={level === "category" ? "Choose a group of domains" : "Choose a domain"}
-            className={`${selectClass} max-w-[18rem]`}
-          >
-            {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            {options.length === 0 && <option value="">Nothing on this rubric</option>}
-          </select>
-        )}
-
-        {/* Two states, so a switch rather than a menu — and the same switch the
-            school action center puts above its domain comparison. */}
-        <div
-          className="flex items-center gap-0.5 rounded-lg p-0.5 ml-auto"
-          style={{ backgroundColor: "#f1f5f9" }}
-          role="group"
-          aria-label="Observations to include"
-        >
+        <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
           {([
-            { key: "average",      label: "Rubric wide" },
-            { key: "walkthroughs", label: "Walkthroughs" },
-          ] as { key: Basis; label: string }[]).map(({ key, label }) => (
+            { key: "overall",  label: "Overall" },
+            { key: "category", label: "By Group" },
+            { key: "domain",   label: "By Domain" },
+          ] as { key: Level; label: string }[]).map(({ key, label }, i, arr) => (
             <button
               key={key}
               type="button"
-              onClick={() => setBasis(key)}
-              aria-pressed={basis === key}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+              onClick={() => { setLevel(key); setPick(""); }}
+              className="px-3 sm:px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
               style={{
-                backgroundColor: basis === key ? "white" : "transparent",
-                color:           basis === key ? NAVY : "#64748b",
-                boxShadow:       basis === key ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+                backgroundColor: level === key ? NAVY : "transparent",
+                color:           level === key ? "white" : NAVY,
+                letterSpacing: "0.02em",
+                fontSize: 15,
+                borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
               }}
             >
               {label}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* ── Regions, on their own line: five of them will not share a row with
-          the rest of the controls on anything narrower than a laptop. ── */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-sm font-semibold text-slate-600 mr-1">Regions</span>
-        <button
-          type="button"
-          onClick={() => setPicked(null)}
-          aria-pressed={picked === null}
-          className="px-3 py-1 text-xs font-semibold rounded-full border transition-colors"
-          style={{
-            backgroundColor: picked === null ? NAVY : "white",
-            color:           picked === null ? "white" : "#64748b",
-            borderColor:     picked === null ? NAVY : "#dde3f0",
-          }}
-        >
-          All
-        </button>
-        {regions.map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => toggleRegion(r)}
-            aria-pressed={isOn(r)}
-            className="px-3 py-1 text-xs font-semibold rounded-full border transition-colors"
-            style={{
-              backgroundColor: isOn(r) ? "#EEF2FF" : "white",
-              color:           isOn(r) ? NAVY : "#94a3b8",
-              borderColor:     isOn(r) ? NAVY : "#dde3f0",
-            }}
+        {/* Which group, or which domain. One choice rather than several, so a
+            plain menu dressed as one of the filter buttons beside it. */}
+        {level !== "overall" && (
+          <select
+            value={activeId}
+            onChange={(e) => setPick(e.target.value)}
+            aria-label={level === "category" ? "Choose a group of domains" : "Choose a domain"}
+            className="px-3 py-1.5 rounded font-semibold text-sm max-w-[16rem]"
+            style={{ border: "1.5px solid #dde3f0", backgroundColor: "white", color: "#334155", fontFamily: "'Libre Franklin', sans-serif" }}
           >
-            {r}
+            {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            {options.length === 0 && <option value="">Nothing on this rubric</option>}
+          </select>
+        )}
+
+        <div style={dividerStyle} className="hidden sm:block" />
+
+        <span className={barLabel} style={barLabelStyle}>Filters</span>
+
+        <FilterMultiSelect
+          label="Region"
+          values={filterRegion}
+          onChange={setFilterRegion}
+          options={regions}
+        />
+
+        {filterRegion.length > 0 && (
+          <button
+            onClick={() => setFilterRegion([])}
+            className="font-semibold underline underline-offset-2"
+            style={{ color: NAVY, fontSize: 14 }}
+          >
+            Clear all
           </button>
-        ))}
+        )}
+
+        <div style={dividerStyle} className="hidden sm:block" />
+
+        <div className="ml-auto flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
+          {([
+            { key: "average",      label: "Rubric Wide" },
+            { key: "walkthroughs", label: "Walkthroughs" },
+          ] as { key: Basis; label: string }[]).map(({ key, label }, i, arr) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setBasis(key)}
+              className="px-4 py-1.5 font-bold uppercase tracking-wider transition-colors"
+              style={{
+                backgroundColor: basis === key ? NAVY : "transparent",
+                color:           basis === key ? "white" : NAVY,
+                letterSpacing: "0.02em",
+                fontSize: 15,
+                borderRight: i < arr.length - 1 ? `1px solid ${NAVY}` : undefined,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading && (
@@ -190,14 +189,8 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
         </p>
       )}
 
-      {!isLoading && !isError && rows.length === 0 && (
-        <p className="text-center py-16 text-sm text-slate-400">
-          No regions selected. Pick at least one above.
-        </p>
-      )}
-
       {/* ── The grid ── */}
-      {!isLoading && !isError && rows.length > 0 && (
+      {!isLoading && !isError && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
           <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}>
             <Grid3x3 size={16} style={{ color: NAVY }} />
