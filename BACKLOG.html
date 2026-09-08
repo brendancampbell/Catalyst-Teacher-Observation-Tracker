@@ -320,7 +320,7 @@
 <div class="page">
 
   <header class="masthead">
-    <p class="eyebrow">Live list &middot; updated 7 September 2026 &middot; 0647b67</p>
+    <p class="eyebrow">Live list &middot; updated 8 September 2026 &middot; fd34131</p>
     <h1>Catalyst Backlog</h1>
     <p class="standfirst">
       <b>Code changes only.</b> Operating the tool &mdash; copying rubrics forward, activating a
@@ -464,8 +464,67 @@
           </tr>
 
 
-                              <tr>
+          <tr>
             <td class="p">3</td>
+            <td class="idcell">62</td>
+            <td>
+              <div class="task">
+                <h3>Check that ES departments line up with the rubrics ES teachers are scored on</h3>
+                <p class="lineage">New, 8 Sep. Raised for the ES walkthrough team.</p>
+                <p class="why">
+                  The department list was built around middle and high school subjects. An
+                  elementary teacher teaches a grade, not a subject &mdash; and a teacher whose
+                  department does not sit under the rubric being used does not appear in the list of
+                  people to observe at all. Before the ES walkthrough team leans on this, somebody
+                  has to confirm an ES walkthrough can actually reach every ES teacher.
+                </p>
+                <details>
+                  <summary>What to check, and how it would go wrong</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The departments are secondary-shaped.</strong> The eleven values are
+                      English, Math, Science, History, Spanish, Physical Education,
+                      Comp&nbsp;Sci/Engineering, Visual Arts, College, SpEd and Other, in
+                      <code>lib/api-types/src/subject-audience.ts</code>. None of them describes a
+                      third-grade classroom.
+                    </p>
+                    <p>
+                      <strong>Unclassified is the narrowest setting, not the widest.</strong> Every
+                      department maps to STEM, Humanities or ALL, and ALL here means &ldquo;belongs
+                      to neither&rdquo;. A teacher filed under Other, or with no department, shows up
+                      only when the rubric&rsquo;s own audience is ALL, and vanishes from any STEM or
+                      Humanities rubric. SpEd is the single exception, deliberately shown on all of
+                      them. So an ES roster that landed in Other is invisible on a subject rubric
+                      rather than merely mislabelled.
+                    </p>
+                    <p>
+                      <strong>The same filter runs in three places</strong> &mdash; the dashboard
+                      teacher list, the New Observation modal and the mobile observation form.
+                      Whatever is true here is true on a phone in a classroom, which is where
+                      walkthroughs actually get logged.
+                    </p>
+                    <p>
+                      <strong>Two facts settle it and neither is in the code.</strong> What
+                      departments ES teachers actually carry in <code>neondb</code>, and what
+                      audience and grade span are set on the rubrics an ES school is offered. A
+                      rubric is only offered to a school whose grade span it lists, so the ES rubric
+                      has to say ES as well as carry the right audience.
+                    </p>
+                    <p>
+                      Only then is the fix knowable. It may be roster data, it may be an audience set
+                      wrong on one rubric, or elementary may need departments the list does not have
+                      yet &mdash; which is a new enum value and a migration, not a settings change.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Walkthroughs</td>
+            <td><span class="chip u-defer">Needs defining</span></td>
+          </tr>
+
+          <tr>
+            <td class="p">4</td>
             <td class="idcell">32</td>
             <td>
               <div class="task">
@@ -498,7 +557,7 @@
           </tr>
 
           <tr>
-            <td class="p">4</td>
+            <td class="p">5</td>
             <td class="idcell">61</td>
             <td>
               <div class="task">
@@ -550,7 +609,7 @@
           </tr>
 
           <tr>
-            <td class="p">5</td>
+            <td class="p">6</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -600,7 +659,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">7</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -634,7 +693,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">8</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -667,7 +726,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">9</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -700,7 +759,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">10</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -727,7 +786,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">11</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -753,7 +812,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">12</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -787,7 +846,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">13</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -825,7 +884,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">14</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -855,7 +914,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">15</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -890,7 +949,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">16</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -925,7 +984,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">17</td>
             <td class="idcell">57</td>
             <td>
               <div class="task">
@@ -975,7 +1034,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">18</td>
             <td class="idcell">60</td>
             <td>
               <div class="task">
@@ -1038,7 +1097,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">18</td>
+            <td class="p">19</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1052,7 +1111,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">19</td>
+            <td class="p">20</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1069,7 +1128,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">21</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
