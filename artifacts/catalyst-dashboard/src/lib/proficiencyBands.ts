@@ -97,6 +97,20 @@ export function scoreForLens(
   return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 
+/**
+ * Every region the grid can draw, in the order it draws them.
+ *
+ * The five the network is built from, then anything else the data actually
+ * carries. An unexpected region has to be offered as a choice as well as
+ * drawn, or the filter would be the one thing that could hide it.
+ */
+export function allRegions(schools: readonly DistrictSchoolRow[]): string[] {
+  const extras = [...new Set(schools.map((s) => s.region))]
+    .filter((r) => !(REGIONS as readonly string[]).includes(r))
+    .sort();
+  return [...REGIONS, ...extras];
+}
+
 export interface BandedSchool {
   school: DistrictSchoolRow;
   score:  number | null;
@@ -119,22 +133,19 @@ export interface RegionRow {
  * the five is appended rather than dropped — a school with an unexpected
  * region is a data problem worth seeing, not one worth hiding.
  *
- * regionFilter narrows that to a single region. It filters the rows drawn, not
- * the schools counted inside one, so a region's own counts read the same
- * whether it is shown alone or alongside the others.
+ * regionFilter narrows that to a chosen few. Null means every region; a list
+ * means exactly those, and an empty list means none. It filters the rows
+ * drawn, not the schools counted inside one, so a region's own counts read the
+ * same whether it is shown alone or alongside the others.
  */
 export function buildBandMatrix(
   schools:      readonly DistrictSchoolRow[],
   lens:         Lens,
   categories:   readonly CategoryEntry[],
-  regionFilter: string | null = null,
+  regionFilter: readonly string[] | null = null,
 ): RegionRow[] {
-  const extras = [...new Set(schools.map((s) => s.region))]
-    .filter((r) => !(REGIONS as readonly string[]).includes(r))
-    .sort();
-
-  const wanted = [...REGIONS, ...extras]
-    .filter((r) => !regionFilter || r === regionFilter);
+  const wanted = allRegions(schools)
+    .filter((r) => regionFilter === null || regionFilter.includes(r));
 
   return wanted.map((region) => {
     const bands = Object.fromEntries(BANDS.map((b) => [b.id, [] as BandedSchool[]])) as Record<BandId, BandedSchool[]>;

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Grid3x3, Loader2 } from "lucide-react";
-import { REGIONS } from "@workspace/api-types";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary } from "@/lib/api";
 import {
   BANDS,
+  allRegions,
   buildBandMatrix,
   lensOptionsFor,
   type Lens,
@@ -38,10 +38,13 @@ interface Props {
  * to a result that has already been averaged.
  */
 export default function ProficiencyBandGrid({ rubricSlug }: Props) {
-  const [level,  setLevel]  = useState<Level>("overall");
-  const [pick,   setPick]   = useState<string>("");
-  const [basis,  setBasis]  = useState<Basis>("average");
-  const [region, setRegion] = useState<string>("");
+  const [level, setLevel] = useState<Level>("overall");
+  const [pick,  setPick]  = useState<string>("");
+  const [basis, setBasis] = useState<Basis>("average");
+
+  /* Null rather than a full list, because the regions are not known until the
+     query lands. Null means every region there turns out to be. */
+  const [picked, setPicked] = useState<string[] | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: [...QUERY_KEYS.districtSummary, rubricSlug, basis, "network-bands"],
@@ -64,18 +67,22 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
     return level === "category" ? { kind: "category", id: activeId } : { kind: "domain", id: activeId };
   }, [level, activeId]);
 
+  const regions = useMemo(() => allRegions(schools), [schools]);
+
   const rows = useMemo(
-    () => buildBandMatrix(schools, lens, categories, region || null),
-    [schools, lens, categories, region],
+    () => buildBandMatrix(schools, lens, categories, picked),
+    [schools, lens, categories, picked],
   );
 
-  const shown = rows.reduce((a, r) => a + r.total, 0);
+  const isOn = (r: string) => picked === null || picked.includes(r);
 
-  const measuring = level === "overall"
-    ? "the whole rubric"
-    : options.find((o) => o.id === activeId)?.label ?? "the whole rubric";
-
-  const basisLabel = basis === "average" ? "all observations" : "walkthroughs only";
+  /* Toggling back up to the full set stores null again, so "all regions"
+     is one state rather than two that look the same. */
+  const toggleRegion = (r: string) => {
+    const base = picked ?? regions;
+    const next = base.includes(r) ? base.filter((x) => x !== r) : [...base, r];
+    setPicked(next.length === regions.length ? null : next);
+  };
 
   const selectClass = "border border-slate-200 rounded px-2 py-1.5 text-sm bg-white";
 
@@ -107,29 +114,69 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
           </select>
         )}
 
-        <select
-          value={basis}
-          onChange={(e) => setBasis(e.target.value as Basis)}
+        {/* Two states, so a switch rather than a menu — and the same switch the
+            school action center puts above its domain comparison. */}
+        <div
+          className="flex items-center gap-0.5 rounded-lg p-0.5 ml-auto"
+          style={{ backgroundColor: "#f1f5f9" }}
+          role="group"
           aria-label="Observations to include"
-          className={selectClass}
         >
-          <option value="average">Rubric wide</option>
-          <option value="walkthroughs">Walkthroughs only</option>
-        </select>
+          {([
+            { key: "average",      label: "Rubric wide" },
+            { key: "walkthroughs", label: "Walkthroughs" },
+          ] as { key: Basis; label: string }[]).map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setBasis(key)}
+              aria-pressed={basis === key}
+              className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+              style={{
+                backgroundColor: basis === key ? "white" : "transparent",
+                color:           basis === key ? NAVY : "#64748b",
+                boxShadow:       basis === key ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        <select
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          aria-label="Filter by region"
-          className={selectClass}
+      {/* ── Regions, on their own line: five of them will not share a row with
+          the rest of the controls on anything narrower than a laptop. ── */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-sm font-semibold text-slate-600 mr-1">Regions</span>
+        <button
+          type="button"
+          onClick={() => setPicked(null)}
+          aria-pressed={picked === null}
+          className="px-3 py-1 text-xs font-semibold rounded-full border transition-colors"
+          style={{
+            backgroundColor: picked === null ? NAVY : "white",
+            color:           picked === null ? "white" : "#64748b",
+            borderColor:     picked === null ? NAVY : "#dde3f0",
+          }}
         >
-          <option value="">All regions</option>
-          {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-        </select>
-
-        <span className="text-xs text-slate-500 ml-auto">
-          {shown} school{shown !== 1 ? "s" : ""}, {measuring}, {basisLabel}
-        </span>
+          All
+        </button>
+        {regions.map((r) => (
+          <button
+            key={r}
+            type="button"
+            onClick={() => toggleRegion(r)}
+            aria-pressed={isOn(r)}
+            className="px-3 py-1 text-xs font-semibold rounded-full border transition-colors"
+            style={{
+              backgroundColor: isOn(r) ? "#EEF2FF" : "white",
+              color:           isOn(r) ? NAVY : "#94a3b8",
+              borderColor:     isOn(r) ? NAVY : "#dde3f0",
+            }}
+          >
+            {r}
+          </button>
+        ))}
       </div>
 
       {isLoading && (
@@ -143,8 +190,14 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
         </p>
       )}
 
+      {!isLoading && !isError && rows.length === 0 && (
+        <p className="text-center py-16 text-sm text-slate-400">
+          No regions selected. Pick at least one above.
+        </p>
+      )}
+
       {/* ── The grid ── */}
-      {!isLoading && !isError && (
+      {!isLoading && !isError && rows.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
           <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}>
             <Grid3x3 size={16} style={{ color: NAVY }} />

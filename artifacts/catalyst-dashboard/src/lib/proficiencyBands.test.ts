@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { CategoryEntry, DistrictSchoolRow } from "@workspace/api-types";
-import { BANDS, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor } from "@/lib/proficiencyBands";
+import { BANDS, allRegions, bandFor, scoreForLens, buildBandMatrix, lensOptionsFor } from "@/lib/proficiencyBands";
 
 const school = (
   name: string,
@@ -172,6 +172,24 @@ describe("the ranges printed in the column headers", () => {
   });
 });
 
+describe("allRegions", () => {
+  it("offers the five in order, whether or not they hold schools", () => {
+    expect(allRegions([])).toEqual(["Boston", "Camden", "NYC", "Newark", "Rochester"]);
+  });
+
+  /* An unexpected region has to be selectable as well as drawn, or the filter
+     becomes the one thing that can hide it. */
+  it("offers an unexpected region too, after the five", () => {
+    expect(allRegions([school("Odd", "Atlantis", 0.9)])).toEqual(
+      ["Boston", "Camden", "NYC", "Newark", "Rochester", "Atlantis"],
+    );
+  });
+
+  it("does not repeat a region two schools share", () => {
+    expect(allRegions([school("A", "NYC", 0.5), school("B", "NYC", 0.5)])).toHaveLength(5);
+  });
+});
+
 describe("the region filter", () => {
   const schools = [
     school("Alpha", "NYC",    0.85),
@@ -179,29 +197,40 @@ describe("the region filter", () => {
     school("Echo",  "Newark", 0.95),
   ];
 
-  it("draws one region alone when asked for one", () => {
-    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, "NYC");
+  it("draws one region alone when only one is picked", () => {
+    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, ["NYC"]);
     expect(rows.map((r) => r.region)).toEqual(["NYC"]);
     expect(rows[0]!.total).toBe(2);
   });
 
-  it("draws all five when the filter is empty", () => {
+  it("draws several when several are picked, in the network's own order", () => {
+    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, ["Newark", "Boston"]);
+    expect(rows.map((r) => r.region)).toEqual(["Boston", "Newark"]);
+  });
+
+  it("draws all five when nothing is filtering", () => {
     expect(buildBandMatrix(schools, { kind: "overall" }, categories, null)).toHaveLength(5);
+  });
+
+  /* An empty pick is a real state the grid reports, not a stand-in for "all".
+     Treating it as all would quietly undo the click that emptied it. */
+  it("draws nothing when the pick is empty", () => {
+    expect(buildBandMatrix(schools, { kind: "overall" }, categories, [])).toEqual([]);
   });
 
   /* Filtering rows, not schools: a region shown alone has to read exactly as
      it did in the full grid, or the filter changes the answer rather than the
      view. */
   it("leaves a region's own contents identical to the unfiltered grid", () => {
-    const alone = buildBandMatrix(schools, { kind: "overall" }, categories, "NYC")[0]!;
+    const alone = buildBandMatrix(schools, { kind: "overall" }, categories, ["NYC"])[0]!;
     const among = buildBandMatrix(schools, { kind: "overall" }, categories).find((r) => r.region === "NYC")!;
     expect(alone.bands.proficient.map((b) => b.school.name)).toEqual(among.bands.proficient.map((b) => b.school.name));
     expect(alone.bands.needs.map((b) => b.school.name)).toEqual(among.bands.needs.map((b) => b.school.name));
     expect(alone.total).toBe(among.total);
   });
 
-  it("gives an empty grid for a region with no schools rather than falling back to all", () => {
-    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, "Boston");
+  it("gives an empty region rather than falling back to all", () => {
+    const rows = buildBandMatrix(schools, { kind: "overall" }, categories, ["Boston"]);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.total).toBe(0);
   });
