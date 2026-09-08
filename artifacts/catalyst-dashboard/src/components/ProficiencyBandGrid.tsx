@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Grid3x3, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchDistrictSummary } from "@/lib/api";
@@ -12,8 +12,7 @@ import {
   type Lens,
 } from "@/lib/proficiencyBands";
 
-const NAVY   = "#1034B4";
-const YELLOW = "#FFB500";
+const NAVY = "#1034B4";
 
 /* The dashboard's filter-bar furniture, matched rather than approximated. */
 const barLabel = "font-bold uppercase tracking-widest shrink-0";
@@ -90,7 +89,7 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
         className="bg-white rounded-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-wrap gap-2 sm:gap-3 items-center"
         style={{ border: "1px solid #dde3f0", borderLeft: `3px solid ${NAVY}` }}
       >
-        <span className={barLabel} style={barLabelStyle}>Measure By</span>
+        <span className={barLabel} style={barLabelStyle}>View By</span>
 
         <div className="flex rounded-md overflow-hidden shrink-0" style={{ border: `1.5px solid ${NAVY}`, fontFamily: "'Bebas Neue', sans-serif" }}>
           {([
@@ -192,13 +191,6 @@ export default function ProficiencyBandGrid({ rubricSlug }: Props) {
       {/* ── The grid ── */}
       {!isLoading && !isError && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid #dde3f0" }}>
-          <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: `3px solid ${NAVY}`, borderLeft: `4px solid ${YELLOW}` }}>
-            <Grid3x3 size={16} style={{ color: NAVY }} />
-            <h2 className="font-bold uppercase tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", color: NAVY, fontSize: 18, letterSpacing: "0.02em" }}>
-              Schools by Band
-            </h2>
-          </div>
-
           {/* Five columns do not fit a phone, so the table scrolls inside its own
               box rather than pushing the page sideways. */}
           <div className="overflow-x-auto">
