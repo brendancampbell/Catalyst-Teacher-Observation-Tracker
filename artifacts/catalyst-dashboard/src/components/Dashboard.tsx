@@ -2,7 +2,7 @@ import { Fragment, useState, useMemo, useEffect, useLayoutEffect, useRef } from 
 import { calcOverallAvgFromScores } from "@/lib/utils";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import AppHeader from "@/components/AppHeader";
-import { useSearch } from "wouter";
+import { useUrlState, readList, writeList, readEnum } from "@/lib/urlState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { removeObservationFromDashboards } from "@/lib/observation-cache";
@@ -166,9 +166,10 @@ export default function Dashboard() {
   const { currentUser } = useUser();
   const queryClient = useQueryClient();
 
-  /* ── URL params: schoolId for district drill-down ─── */
-  const search = useSearch();
-  const searchParams = useMemo(() => new URLSearchParams(search), [search]);
+  /* ── URL params: schoolId for district drill-down ───
+     The address is the source of truth for everything below, so Back
+     rewrites the query string and the view follows it (#61). */
+  const { params: searchParams, setParams, closeParams } = useUrlState();
   const schoolId = useMemo(() => {
     const v = searchParams.get("schoolId");
     return v ? Number(v) : null;
@@ -239,17 +240,29 @@ export default function Dashboard() {
   // Use URL schoolId for district drill-down; otherwise fall back to user's own school
   const effectiveSchoolId = schoolId ?? (currentUser?.schoolId ?? null);
 
-  /* ── View toggles — must be before walkthroughsOnly derivation ─── */
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const v = new URLSearchParams(window.location.search).get("view");
-    return (v === "periodAvg" || v === "walkthroughs") ? v : "recent";
-  });
-  const [viewBy, setViewBy] = useState<ViewBy>(() => {
-    const v = new URLSearchParams(window.location.search).get("by");
-    return (v === "subject" || v === "grade") ? v : "teacher";
-  });
+  /* ── View toggles — must be before walkthroughsOnly derivation ───
+     Read straight off the address and written back with "replace": these
+     belong in a link you can paste, but switching a view is not a step you
+     should have to press Back through (#61). */
+  const VIEW_MODES = ["recent", "periodAvg", "walkthroughs"] as const;
+  const VIEW_BYS   = ["teacher", "subject", "grade"] as const;
 
-  const [schoolProfileId, setSchoolProfileId] = useState<number | null>(null);
+  const viewMode = readEnum<ViewMode>(searchParams, "view", VIEW_MODES, "recent");
+  const viewBy   = readEnum<ViewBy>(searchParams, "by",   VIEW_BYS,   "teacher");
+
+  /* The default stays out of the address so a plain dashboard link is not
+     cluttered with the settings it would have used anyway. */
+  const setViewMode = (v: ViewMode) => setParams({ view: v === "recent"  ? null : v }, "replace");
+  const setViewBy   = (v: ViewBy)   => setParams({ by:   v === "teacher" ? null : v }, "replace");
+
+  /* A school profile opened over the network view IS a drill-in, so it
+     pushes an entry and Back closes it. */
+  const schoolProfileParam = searchParams.get("schoolProfile");
+  const schoolProfileId    = schoolProfileParam ? Number(schoolProfileParam) : null;
+  const setSchoolProfileId = (id: number | null) =>
+    id === null
+      ? closeParams({ schoolProfile: null })
+      : setParams({ schoolProfile: String(id) }, "push");
 
   const walkthroughsOnly = viewMode === "walkthroughs";
 
@@ -307,38 +320,35 @@ export default function Dashboard() {
     [teachers],
   );
 
-  /* ── Filter state ──────────────────────────────────── */
-  const [subject, setSubject] = useState<string[]>(() => {
-    const v = new URLSearchParams(window.location.search).get("subjects");
-    return v ? v.split(",").filter(Boolean) : [];
-  });
-  const [grade, setGrade] = useState<string[]>(() => {
-    const v = new URLSearchParams(window.location.search).get("grades");
-    return v ? v.split(",").filter(Boolean) : [];
-  });
-  const [proficiency, setProficiency] = useState<string[]>(() => {
-    const v = new URLSearchParams(window.location.search).get("prof");
-    return v ? v.split(",").filter(Boolean) : [];
-  });
+  /* ── Filter state ────────────────────────────────────
+     In the address so the link matches the screen, but always "replace":
+     setting three filters must not cost three Back presses (#61). */
+  const subject     = readList(searchParams, "subjects");
+  const grade       = readList(searchParams, "grades");
+  const proficiency = readList(searchParams, "prof");
 
-  /* ── Teacher profile ───────────────────────────────── */
-  const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
+  const setSubject     = (v: string[]) => setParams({ subjects: writeList(v) }, "replace");
+  const setGrade       = (v: string[]) => setParams({ grades:   writeList(v) }, "replace");
+  const setProficiency = (v: string[]) => setParams({ prof:     writeList(v) }, "replace");
+  /* One write, not three — three separate setParams calls in a tick would
+     each rebuild from the live address and only the last would survive. */
+  const clearFilters   = () =>
+    setParams({ subjects: null, grades: null, prof: null }, "replace");
 
-  /* Auto-open profile when ?teacher=<id> is present.
+  /* ── Teacher profile ─────────────────────────────────
+     ?teacher=<id> IS the open profile now, rather than being copied into a
+     useState that the address was then rebuilt from. That mirror is what
+     made Back inert here, and it also raced on a cold load: the sync effect
+     stripped ?teacher= before the roster arrived, so arriving from the
+     Action Center opened nothing. Reading the param directly removes both.
 
-     Captured on mount rather than after the teacher list arrives. The
-     "sync view state → URL" effect below also runs on mount, and it rebuilds
-     the query string from state in which teacherProfileId is still null — so
-     on a cold load it stripped ?teacher= before the data landed, and waiting
-     for teachers.length meant this never saw the id at all. That is every
-     arrival from the Action Center, which is a full page load.
-
-     Holding the id early costs nothing: profileTeacher stays null until the
-     list resolves, so the plain dashboard renders until there is someone to
-     show. */
-  useEffect(() => {
-    if (urlTeacherId) setTeacherProfileId(urlTeacherId);
-  }, [urlTeacherId]);
+     profileTeacher stays null until the roster resolves, so the plain
+     dashboard renders until there is someone to show. */
+  const teacherProfileId = urlTeacherId;
+  const setTeacherProfileId = (id: string | null) =>
+    id === null
+      ? closeParams({ teacher: null })
+      : setParams({ teacher: id }, "push");
 
   /* Auto-open observation modal when ?draft=<teacherId> param is present
      (set by the Drafts page Resume button). The modal's checkForDraft
@@ -350,7 +360,10 @@ export default function Dashboard() {
       if (found) {
         setNewObsDefaultTeacherId(urlDraftTeacherId);
         setNewObsOpen(true);
-        window.history.replaceState({}, "", window.location.pathname);
+        /* Clear only ?draft=. This used to reset the address to the bare
+           pathname, which also threw away schoolId, schoolName and rubric —
+           so resuming a draft silently dropped the school you were in. */
+        setParams({ draft: null }, "replace");
       }
     }
   }, [urlDraftTeacherId, teachers.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -464,22 +477,29 @@ export default function Dashboard() {
     });
   }, [groupRows, profActive, categories, viewMode]);
 
-  /* ── Sync view state → URL (for shareability) ──────── */
+  /* ── Mirror the chosen rubric into the address ────────
+     Everything else that used to be rebuilt here — view, filters, the open
+     teacher — now lives in the address already and is written at the point
+     it changes. Rebuilding the whole query string from component state is
+     what made Back inert: it overwrote whatever Back had just restored.
+
+     The rubric is the one holdout, because its default is resolved from the
+     roster and localStorage rather than read from the link. Replace, never
+     push: choosing a rubric is not a step to press Back through. */
   useEffect(() => {
-    const p = new URLSearchParams();
-    if (schoolId != null)       p.set("schoolId",          String(schoolId));
-    if (schoolName)             p.set("schoolName",         schoolName);
-    if (schoolAbbreviation)     p.set("schoolAbbreviation", schoolAbbreviation);
-    if (activeRubricSet)        p.set("rubric",     activeRubricSet);
-    if (viewMode !== "recent")  p.set("view",       viewMode);
-    if (viewBy   !== "teacher") p.set("by",         viewBy);
-    if (teacherProfileId)       p.set("teacher",    teacherProfileId);
-    if (subject.length)         p.set("subjects",   subject.join(","));
-    if (grade.length)           p.set("grades",     grade.join(","));
-    if (proficiency.length)     p.set("prof",       proficiency.join(","));
-    const qs = p.toString();
-    window.history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
-  }, [activeRubricSet, viewMode, viewBy, teacherProfileId, schoolId, schoolName, subject, grade, proficiency]);
+    if (!activeRubricSet) return;
+    if (searchParams.get("rubric") === activeRubricSet) return;
+    setParams({ rubric: activeRubricSet }, "replace");
+  }, [activeRubricSet, searchParams, setParams]);
+
+  /* View state that belongs to the screen being left. Drilling into a school
+     must not carry the network view's open panel, or another school's
+     filters, along with it. */
+  const CLEARED_ON_DRILL_IN = {
+    schoolProfile: null, teacher: null,
+    subjects: null, grades: null, prof: null,
+    view: null, by: null,
+  } as const;
 
   /* ── Route DISTRICT_ADMIN → DistrictDashboard ─────── */
   if (isDistrictHome) {
@@ -496,9 +516,14 @@ export default function Dashboard() {
           onOpenSchoolDashboard={() => {
             /* No rubric in the link on purpose: a school-wide one means
                nothing on a classroom dashboard, so the reader lands on
-               whichever rubric they last used. */
-            const p: Record<string, string> = { schoolId: String(schoolProfileId) };
-            window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
+               whichever rubric they last used.
+
+               A push, not a reload (#61): opening the school is a step, so
+               Back returns to the network view instead of leaving the app. */
+            setParams(
+              { ...CLEARED_ON_DRILL_IN, schoolId: String(schoolProfileId), rubric: null },
+              "push",
+            );
           }}
         />
       );
@@ -509,10 +534,17 @@ export default function Dashboard() {
         onRubricChange={setActiveRubricSet}
         onSchoolProfile={setSchoolProfileId}
         onDrillDown={(id, name, gradeSpan, abbr) => {
-          const p: Record<string, string> = { schoolId: String(id), schoolName: name, rubric: activeRubricSet };
-          if (gradeSpan) p.schoolGradeSpan     = gradeSpan;
-          if (abbr)      p.schoolAbbreviation  = abbr;
-          window.location.href = `${BASE_PATH}/?${new URLSearchParams(p).toString()}`;
+          /* A push, not a full reload (#61). The whole app used to remount
+             here, which is why Back could never return you to the network
+             list you drilled in from. */
+          setParams({
+            ...CLEARED_ON_DRILL_IN,
+            schoolId:           String(id),
+            schoolName:         name,
+            rubric:             activeRubricSet,
+            schoolGradeSpan:    gradeSpan ?? null,
+            schoolAbbreviation: abbr ?? null,
+          }, "push");
         }}
       />
     );
@@ -670,7 +702,7 @@ export default function Dashboard() {
             schoolAbbreviation={schoolAbbreviation ?? currentUser.schoolAbbreviation ?? null}
             basePath={BASE_PATH}
             onAddObservation={() => { setNewObsDefaultTeacherId(undefined); setNewObsOpen(true); }}
-            actionCenterHref={`${BASE_PATH}/action-center?rubric=${encodeURIComponent(activeRubricSet)}${schoolId != null ? `&schoolId=${schoolId}` : ""}${searchParams.get("schoolName") ? `&schoolName=${encodeURIComponent(searchParams.get("schoolName")!)}` : ""}${schoolAbbreviation ? `&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+            actionCenterHref={`${BASE_PATH}/action-center?rubric=${encodeURIComponent(activeRubricSet)}${schoolId != null ? `&schoolId=${schoolId}` : ""}${schoolName ? `&schoolName=${encodeURIComponent(schoolName)}` : ""}${schoolAbbreviation ? `&schoolAbbreviation=${encodeURIComponent(schoolAbbreviation)}` : ""}&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
             userName={currentUser.name}
             userEmail={currentUser.email}
             userRole={currentUser.role}
@@ -746,7 +778,7 @@ export default function Dashboard() {
 
           {hasFilters && (
             <button
-              onClick={() => { setSubject([]); setGrade([]); setProficiency([]); }}
+              onClick={clearFilters}
               className="font-semibold underline underline-offset-2"
               style={{ color: NAVY, fontSize: 14 }}
             >
