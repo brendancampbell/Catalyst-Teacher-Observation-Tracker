@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useUrlState, readList, writeList, readEnum } from "@/lib/urlState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
@@ -612,7 +613,9 @@ export default function ActionCenterPage() {
     } catch { /* storage may be blocked */ }
   }, [currentUser?.id]);
 
-  const searchParams = new URLSearchParams(window.location.search);
+  /* Reactive, so Back rewrites the query string and this page follows it.
+     The plain window.location read this replaces never did (#61). */
+  const { params: searchParams, setParams } = useUrlState();
   const rubricFromUrl    = searchParams.get("rubric") ?? undefined;
   const schoolIdFromUrl  = searchParams.get("schoolId");
   const _parsedSchoolId  = schoolIdFromUrl ? parseInt(schoolIdFromUrl, 10) : null;
@@ -672,9 +675,7 @@ export default function ActionCenterPage() {
   useEffect(() => {
     if (quartersLoading || !rawRubricFromUrl || quarters.length === 0) return;
     if (!quarters.some((q) => q.slug === rawRubricFromUrl)) {
-      const sp = new URLSearchParams(window.location.search);
-      sp.set("rubric", quarters[0].slug);
-      window.location.replace(`${window.location.pathname}?${sp.toString()}`);
+      setParams({ rubric: quarters[0].slug }, "replace");
     }
   }, [quartersLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -721,9 +722,17 @@ export default function ActionCenterPage() {
      separate tab — it is what the retired Overdue Action Steps tab did, and
      it reads hasOverdueStep so a teacher with an old overdue step and a newer
      one still appears. */
-  const [stepGradeFilter, setStepGradeFilter] = useState<string[]>([]);
-  const [stepDeptFilter,  setStepDeptFilter]  = useState<string[]>([]);
-  const [stepOverdueOnly, setStepOverdueOnly] = useState(false);
+  const stepGradeFilter = readList(searchParams, "stepGrades");
+  const stepDeptFilter  = readList(searchParams, "stepDepts");
+  const stepOverdueOnly = searchParams.get("stepOverdue") === "1";
+
+  const setStepGradeFilter = (v: string[]) => setParams({ stepGrades: writeList(v) }, "replace");
+  const setStepDeptFilter  = (v: string[]) => setParams({ stepDepts:  writeList(v) }, "replace");
+  const setStepOverdueOnly = (v: boolean)  => setParams({ stepOverdue: v ? "1" : null }, "replace");
+  /* One write, not three: separate calls in a tick each rebuild from the live
+     address, so only the last would survive. */
+  const clearStepFilters   = () =>
+    setParams({ stepGrades: null, stepDepts: null, stepOverdue: null }, "replace");
 
   /* Filter options come from the rows themselves, so an option never offers a
      grade or department that would return nothing. GRADE_LEVELS supplies the
@@ -789,14 +798,37 @@ export default function ActionCenterPage() {
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
-  /* ── Active tab ─────────────────────────────────────── */
-  const [activeTab, setActiveTab] = useState("summary");
+  /* ── Active tab ───────────────────────────────────────
+     In the address, so there is finally a link that opens a particular tab.
+     Always "replace": a tab is not a step to press Back through (#61).
+
+     The last two tabs are NETWORK_ADMIN only, so the allowed set is built
+     from the same condition the tab bar uses. A coach opening an admin's
+     ?tab=analysis link falls back to Summary rather than being shown an
+     empty tab body. */
+  const ADMIN_TABS  = ["analysis", "report-generator"] as const;
+  const COMMON_TABS = ["summary", "intervention"] as const;
+  const allowedTabs = currentUser?.role === "NETWORK_ADMIN"
+    ? ([...COMMON_TABS, ...ADMIN_TABS] as const)
+    : COMMON_TABS;
+
+  const activeTab    = readEnum<string>(searchParams, "tab", allowedTabs, "summary");
+  const setActiveTab = (v: string) =>
+    setParams({ tab: v === "summary" ? null : v }, "replace");
 
   /* ── Intervention sub-tab ───────────────────────────── */
-  const [interventionTab, setInterventionTab] = useState<"rescore" | "overdue" | "calibration" | "latestActionSteps" | "usage">("usage");
+  type InterventionTab = "rescore" | "overdue" | "calibration" | "latestActionSteps" | "usage";
+  const INTERVENTION_TABS = ["rescore", "overdue", "calibration", "latestActionSteps", "usage"] as const;
+  const interventionTab    = readEnum<InterventionTab>(searchParams, "sub", INTERVENTION_TABS, "usage");
+  const setInterventionTab = (v: InterventionTab) =>
+    setParams({ sub: v === "usage" ? null : v }, "replace");
 
   /* ── Domain comparison ───────────────────────────────── */
-  const [domainSeg, setDomainSeg] = useState<"school" | "dept" | "grade">("school");
+  type DomainSeg = "school" | "dept" | "grade";
+  const DOMAIN_SEGS = ["school", "dept", "grade"] as const;
+  const domainSeg    = readEnum<DomainSeg>(searchParams, "seg", DOMAIN_SEGS, "school");
+  const setDomainSeg = (v: DomainSeg) =>
+    setParams({ seg: v === "school" ? null : v }, "replace");
 
   const domainCompData = useMemo(() => {
     if (!allTeachers.length || !allDomains.length) return null;
@@ -1303,11 +1335,9 @@ export default function ActionCenterPage() {
               onAddObservation={() => handleAddObsClick("")}
               rubricSets={quarters.filter((q) => q.target === "TEACHER").map((q) => ({ slug: q.slug, name: q.name, target: q.target, subjectAudience: q.subjectAudience }))}
               activeRubricSet={activeQuarter}
-              onRubricChange={(slug) => {
-                const sp = new URLSearchParams(window.location.search);
-                sp.set("rubric", slug);
-                window.location.replace(`${window.location.pathname}?${sp.toString()}`);
-              }}
+              /* Replaces the entry rather than reloading the page: choosing
+                 a rubric is not a step to press Back through (#61). */
+              onRubricChange={(slug) => setParams({ rubric: slug }, "replace")}
             />
           )}
 
@@ -1867,7 +1897,7 @@ export default function ActionCenterPage() {
                     <FilterMultiSelect label="Department" values={stepDeptFilter}  onChange={setStepDeptFilter}  options={availableStepDepts} />
                     <button
                       type="button"
-                      onClick={() => setStepOverdueOnly((v) => !v)}
+                      onClick={() => setStepOverdueOnly(!stepOverdueOnly)}
                       aria-pressed={stepOverdueOnly}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-sm transition-colors"
                       style={{
@@ -1885,7 +1915,7 @@ export default function ActionCenterPage() {
                     {(stepGradeFilter.length > 0 || stepDeptFilter.length > 0 || stepOverdueOnly) && (
                       <button
                         type="button"
-                        onClick={() => { setStepGradeFilter([]); setStepDeptFilter([]); setStepOverdueOnly(false); }}
+                        onClick={clearStepFilters}
                         className="text-sm font-semibold underline underline-offset-2 px-1"
                         style={{ color: "#64748b" }}
                       >

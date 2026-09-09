@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useUrlState, readEnum } from "@/lib/urlState";
 import { createPortal } from "react-dom";
 import { parseSchoolCsv, CSV_HEADERS } from "@/utils/parseSchoolCsv";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -3451,12 +3452,29 @@ const SYSTEM_SECTIONS: { id: SystemSection; label: string }[] = [
 
 export default function AdminPage() {
   const { currentUser, isLoading: userLoading } = useUser();
-  const [activeTab, setActiveTab] = useState<AdminTab>("rubric");
-  /* Opens on the first sub-tab, matching how the tabs above behave. */
-  const [systemSection, setSystemSection] = useState<SystemSection>("rescore");
-
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const _adminSearch = new URLSearchParams(window.location.search);
+  const { params: searchParams, setParams } = useUrlState();
+  const _adminSearch = searchParams;
+
+  /* Tab and sub-tab live in the address, so there is a link that opens a
+     particular settings tab and Back returns to the one you were on. Always
+     "replace": a tab is not a step to press Back through (#61).
+
+     No role check here on purpose — visibleTab below already falls back to
+     whatever this person's leftmost tab is, so a pasted link to a tab they
+     cannot see lands them somewhere real rather than on a blank panel. */
+  const ADMIN_TABS = ["rubric", "people", "schools", "school-years", "system"] as const;
+  const activeTab    = readEnum<AdminTab>(searchParams, "tab", ADMIN_TABS, "rubric");
+  const setActiveTab = (v: AdminTab) =>
+    setParams({ tab: v === "rubric" ? null : v }, "replace");
+
+  /* Opens on the first sub-tab, matching how the tabs above behave. */
+  const SYSTEM_SECTION_IDS = ["rescore", "notifications", "ai-quota"] as const;
+  const systemSection    = readEnum<SystemSection>(searchParams, "section", SYSTEM_SECTION_IDS, "rescore");
+  const setSystemSection = (v: SystemSection) =>
+    setParams({ section: v === "rescore" ? null : v }, "replace");
+
+
   const returnTo = safeReturnTo(
     _adminSearch.get("returnTo"),
     BASE + "/",

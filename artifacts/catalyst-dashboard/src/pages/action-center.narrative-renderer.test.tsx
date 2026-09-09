@@ -46,11 +46,7 @@ vi.mock("@/context/UserContext", () => ({
   UserContext: {},
 }));
 
-vi.mock("wouter", () => ({
-  useSearch:   () => "",
-  useLocation: () => ["/action-center", vi.fn()],
-  Link:        ({ children }: { children: React.ReactNode }) => children,
-}));
+vi.mock("wouter", async () => (await import("@/test/wouterStub")).makeWouterStub());
 
 class ResizeObserverStub {
   observe()    {}

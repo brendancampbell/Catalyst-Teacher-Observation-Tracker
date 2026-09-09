@@ -10,12 +10,24 @@ Center is one.
 either works. Do not "fix" a profile-not-opening bug by matching both fields;
 that changes nothing. This was tried on 31 Aug 2026 and was a no-op.
 
-## Two effects race, and the URL loses
+## Two effects race, and the URL loses — resolved 8 Sep 2026 by #61
 
-`Dashboard.tsx` has a "sync view state → URL" effect that rebuilds the whole
-query string from component state and calls `replaceState`. It runs on mount,
-**before** the dashboard query resolves, when `teacherProfileId` is still null —
-so it writes a URL with no `teacher` parameter and the id is gone.
+**This race no longer exists.** `#61` removed the mirror that caused it: the
+address is now the single source of truth, `teacherProfileId` **is**
+`?teacher=`, and there is no state to race with the URL. The auto-open effect
+and the `urlTeacherId` capture below are gone. The history that follows is kept
+because the shape of the bug recurs, not because the code still looks like this.
+
+The closing warning has changed accordingly: reading a URL parameter into a
+`useState` is the mistake now. Do not — read it from `lib/urlState.ts` and write
+it back through `setParams`. See `url-is-the-view-state.md`.
+
+---
+
+`Dashboard.tsx` had a "sync view state → URL" effect that rebuilt the whole
+query string from component state and called `replaceState`. It ran on mount,
+**before** the dashboard query resolved, when `teacherProfileId` was still null —
+so it wrote a URL with no `teacher` parameter and the id was gone.
 
 The auto-open effect used to wait for `teachers.length > 0`. On a cold load the
 teacher list arrives after the URL has already been rewritten, so it never saw
@@ -33,8 +45,10 @@ renders nothing. Guarded by `Dashboard.teacherDeepLink.test.tsx`, which mocks
 `useSearch` against the live URL — a static-string mock cannot see this bug,
 because the component under test is the one rewriting the URL.
 
-**Anything new that reads a URL parameter into state has this same race.** The
-URL-sync effect will delete a parameter it does not know about.
+**Anything that reads a URL parameter into state has this same race** wherever
+a sync effect rebuilds the query string. Both are gone from this app; the rule
+now is simply that state which belongs in the address should not also live in a
+`useState`.
 
 ## The school has to travel with the link
 

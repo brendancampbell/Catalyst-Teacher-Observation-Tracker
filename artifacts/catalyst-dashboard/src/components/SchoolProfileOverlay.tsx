@@ -5,6 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
+import { useUrlState } from "@/lib/urlState";
 import { useUser } from "@/context/UserContext";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { fetchSchoolObservations, fetchDistrictSummary, updateObservation, deleteObservation } from "@/lib/api";
@@ -47,7 +48,17 @@ export function SchoolProfileOverlay({
 
   const [selectedSlug, setSelectedSlug] = useState(initialRubricSet);
   const [rubricMenuOpen, setRubricMenuOpen] = useState(false);
-  const [selected, setSelected] = useState<Observation | null>(null);
+  /* The open observation lives in the address, so Back closes it (#61). Only
+     the id is stored; the record is looked up from the loaded list below. The
+     override carries a just-saved version until the refetch lands, so an edit
+     does not flash the old wording back at you. */
+  const { params: obsParams, setParams: setObsParams, closeParams: closeObsParams } = useUrlState();
+  const selectedId = obsParams.get("obs");
+  const [obsOverride, setObsOverride] = useState<Observation | null>(null);
+  const setSelected = (o: Observation | null) =>
+    o === null
+      ? closeObsParams({ obs: null })
+      : setObsParams({ obs: o.id }, "push");
 
   /* Only school-wide rubrics belong in the switcher. A classroom rubric has no
      school-wide history, and the endpoint refuses one outright. */
@@ -63,6 +74,11 @@ export function SchoolProfileOverlay({
   });
 
   const observations = data?.observations ?? [];
+  const selected: Observation | null = selectedId
+    ? (obsOverride?.id === selectedId
+        ? obsOverride
+        : observations.find((o) => o.id === selectedId) ?? null)
+    : null;
   const categories   = data?.categories   ?? [];
   const school       = data?.school;
   const activeRubricName =
@@ -281,7 +297,9 @@ export function SchoolProfileOverlay({
             if (updated.schoolId !== undefined && updated.schoolId !== schoolId) {
               setSelected(null);
             } else {
-              setSelected(saved);
+              /* The override, not a re-select: re-setting the same id would
+                 push a duplicate history entry. */
+              setObsOverride(saved);
             }
             await refresh();
           }}

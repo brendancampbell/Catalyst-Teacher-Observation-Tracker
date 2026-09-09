@@ -59,11 +59,7 @@ vi.mock("@/context/UserContext", () => ({
 }));
 vi.mock("@/data/dummy",            () => ({ SUBJECTS: [], GRADE_LEVELS: [] }));
 vi.mock("@/utils/parseSchoolCsv",  () => ({ parseSchoolCsv: async () => [], CSV_HEADERS: [] }));
-vi.mock("wouter", () => ({
-  useSearch:   () => "",
-  useLocation: () => ["/admin", vi.fn()],
-  Link:        ({ children }: { children: React.ReactNode }) => children,
-}));
+vi.mock("wouter", async () => (await import("@/test/wouterStub")).makeWouterStub());
 
 /* ── Stub ResizeObserver ─────────────────────────────────────────────────── */
 class ResizeObserverStub {

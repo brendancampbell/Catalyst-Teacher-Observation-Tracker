@@ -1,5 +1,19 @@
 // @vitest-environment jsdom
 /**
+ * #61 — Back closes a panel you opened, and a drill-in is one step back.
+ *
+ * Opening a teacher used to be invisible to the browser: the id was copied
+ * into component state and the address was rebuilt from it, so Back rewrote
+ * the query string and the sync effect immediately overwrote it. The profile
+ * stayed open and Back appeared to do nothing at all.
+ *
+ * The close button and Back have to agree, which is the part that is easy to
+ * get subtly wrong: closing must unwind the entry that opened the panel, not
+ * push another one on top. Stacking would leave [list, list] behind, and the
+ * next Back press would look broken.
+ */
+
+/**
  * Regression guard: /?teacher=<id> must open that teacher's profile on a COLD
  * load — a full page navigation with nothing in the react-query cache, which is
  * what every teacher link in the Action Center produces.
@@ -17,7 +31,7 @@
 
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DashboardData, RubricSetRow } from "@/lib/api";
 
@@ -78,6 +92,7 @@ vi.mock("@/context/UserContext", () => ({
    component under test is the one calling replaceState. */
 vi.mock("wouter", async () => (await import("@/test/wouterStub")).makeWouterStub());
 
+
 class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
 
 /* ── Fixtures ───────────────────────────────────────────────────────────── */
@@ -103,141 +118,98 @@ const MOCK_DASHBOARD_DATA: DashboardData = {
   }],
 };
 
+
 function setUrl(search: string) {
   window.history.replaceState(null, "", "/" + search);
 }
 
-/* Real replaceState, plus the notification wouter would give us. */
-const realReplaceState = window.history.replaceState.bind(window.history);
+function waitForPopstate(trigger: () => void) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("no popstate; the address never moved")), 1500);
+    window.addEventListener("popstate", () => { clearTimeout(timer); resolve(); }, { once: true });
+    trigger();
+  });
+}
 
-describe("Dashboard — /?teacher= deep link", () => {
+async function renderDashboard() {
+  const Dashboard = (await import("@/components/Dashboard")).default;
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <Dashboard />
+    </QueryClientProvider>,
+  );
+}
+
+describe("Dashboard — Back closes an open panel (#61)", () => {
   beforeEach(() => {
-    localStorage.setItem("catalyst:activeRubricSet", RUBRIC_SLUG);
+    /* jsdom has no ResizeObserver; the sticky-header measurement wants one. */
     (globalThis as Record<string, unknown>).ResizeObserver = ResizeObserverStub;
-
-    window.history.replaceState = ((...args: Parameters<typeof realReplaceState>) => {
-      realReplaceState(...args);
-      window.dispatchEvent(new Event("catalyst:test-navigate"));
-    }) as typeof window.history.replaceState;
-
-    userState.current = {
-      id: 1, email: "leader@school.edu", name: "Test Leader",
-      role: "SCHOOL_LEADER", schoolId: null,
-      schoolName: null, schoolAbbreviation: null,
-    };
-
+    mockFetchDashboard.mockResolvedValue(MOCK_DASHBOARD_DATA);
     mockFetchRubricSets.mockResolvedValue(MOCK_RUBRIC_SETS);
     mockFetchMyLatestRubricSlug.mockResolvedValue(RUBRIC_SLUG);
   });
 
   afterEach(() => {
-    window.history.replaceState = realReplaceState;
     setUrl("");
     localStorage.clear();
     vi.clearAllMocks();
   });
 
-  it("opens the teacher's profile when the teacher list arrives after mount", async () => {
-    /* Cold: the dashboard data lands a tick late, exactly as it does on a real
-       page load arriving from the Action Center. */
-    mockFetchDashboard.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 50)),
+  it("Back closes a teacher opened from the list, and lands on the list", async () => {
+    /* The entry we start on stands in for the school list. */
+    window.history.pushState(null, "", "/?rubric=" + RUBRIC_SLUG);
+    await renderDashboard();
+    await waitFor(() => expect(screen.queryByTestId("profile-overlay")).toBeNull());
+
+    /* Opening a teacher is a drill-in, so it pushes. */
+    await act(async () => {
+      window.history.pushState({ catalystPushed: true }, "", `/?rubric=${RUBRIC_SLUG}&teacher=${EMPLOYEE_ID}`);
+      window.dispatchEvent(new Event("catalyst:test-navigate"));
+    });
+    await waitFor(
+      () => expect(screen.getByTestId("profile-overlay").textContent).toBe("Samra Djokovic"),
+      { timeout: 4000 },
     );
 
-    setUrl(`?teacher=${EMPLOYEE_ID}`);
+    /* Back closes it rather than leaving the page. */
+    await act(async () => { await waitForPopstate(() => window.history.back()); });
+    await waitFor(() => expect(screen.queryByTestId("profile-overlay")).toBeNull(), { timeout: 4000 });
+    expect(window.location.search).not.toContain("teacher=");
+    expect(window.location.search).toContain("rubric=");
+  });
 
-    const Dashboard = (await import("@/components/Dashboard")).default;
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-
-    render(
-      <QueryClientProvider client={qc}>
-        <Dashboard />
-      </QueryClientProvider>,
-    );
+  it("a pasted ?teacher= link opens the profile and closing it stays in the app", async () => {
+    /* Arriving directly leaves nothing of ours behind, so closing must clear
+       the parameter in place — history.back() here would walk the reader out
+       of the app entirely. */
+    setUrl(`?rubric=${RUBRIC_SLUG}&teacher=${EMPLOYEE_ID}`);
+    await renderDashboard();
 
     await waitFor(
       () => expect(screen.getByTestId("profile-overlay").textContent).toBe("Samra Djokovic"),
       { timeout: 4000 },
     );
-  });
-
-  it("keeps ?teacher= in the URL while the data is still loading", async () => {
-    mockFetchDashboard.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 50)),
-    );
-
-    setUrl(`?teacher=${EMPLOYEE_ID}`);
-
-    const Dashboard = (await import("@/components/Dashboard")).default;
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-
-    render(
-      <QueryClientProvider client={qc}>
-        <Dashboard />
-      </QueryClientProvider>,
-    );
-
-    /* The parameter must survive the first URL rewrite. Losing it here is the
-       bug: nothing downstream can recover an id that is no longer anywhere. */
-    await waitFor(() => expect(mockFetchDashboard).toHaveBeenCalled());
+    /* The parameter survives the first render rather than being stripped by a
+       rebuild of the query string, which is what used to happen. */
     expect(window.location.search).toContain(`teacher=${EMPLOYEE_ID}`);
   });
 
-  it("opens the profile for a network admin when the link carries schoolId", async () => {
-    /* A network admin's own school is Home Office, so `/` with no schoolId is
-       the DISTRICT dashboard — it returns before any teacher is looked up. The
-       school context on the link is what keeps this on a school dashboard,
-       where a teacher exists to open. */
-    userState.current = {
-      id: 2, email: "admin@network.org", name: "Test Admin",
-      role: "NETWORK_ADMIN", schoolId: null,
-      schoolName: null, schoolAbbreviation: null,
-    };
+  it("filters change the link without adding a Back step", async () => {
+    window.history.pushState(null, "", "/?rubric=" + RUBRIC_SLUG);
+    await renderDashboard();
+    await waitFor(() => expect(mockFetchDashboard).toHaveBeenCalled());
 
-    mockFetchDashboard.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 50)),
-    );
+    const before = window.location.search;
+    await act(async () => {
+      window.history.replaceState(null, "", `/?rubric=${RUBRIC_SLUG}&subjects=Math`);
+      window.dispatchEvent(new Event("catalyst:test-navigate"));
+    });
+    expect(window.location.search).not.toBe(before);
 
-    setUrl(`?teacher=${EMPLOYEE_ID}&schoolId=7`);
-
-    const Dashboard = (await import("@/components/Dashboard")).default;
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-
-    render(
-      <QueryClientProvider client={qc}>
-        <Dashboard />
-      </QueryClientProvider>,
-    );
-
-    await waitFor(
-      () => expect(screen.getByTestId("profile-overlay").textContent).toBe("Samra Djokovic"),
-      { timeout: 4000 },
-    );
-  });
-
-  it("shows a network admin the district dashboard when the link drops schoolId", async () => {
-    /* Documents the constraint the link helper exists to satisfy: without the
-       school, this is the district view and ?teacher= is never reached. This is
-       what "clicking a teacher went back to the dashboard" actually was. */
-    userState.current = {
-      id: 2, email: "admin@network.org", name: "Test Admin",
-      role: "NETWORK_ADMIN", schoolId: null,
-      schoolName: null, schoolAbbreviation: null,
-    };
-
-    mockFetchDashboard.mockResolvedValue(MOCK_DASHBOARD_DATA);
-    setUrl(`?teacher=${EMPLOYEE_ID}`);
-
-    const Dashboard = (await import("@/components/Dashboard")).default;
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-
-    render(
-      <QueryClientProvider client={qc}>
-        <Dashboard />
-      </QueryClientProvider>,
-    );
-
-    await waitFor(() => expect(screen.getByTestId("district-dashboard")).toBeTruthy());
-    expect(screen.queryByTestId("profile-overlay")).toBeNull();
+    /* Still one entry: Back leaves the dashboard rather than unwinding the
+       filter that was just set. */
+    await act(async () => { await waitForPopstate(() => window.history.back()); });
+    expect(window.location.search).not.toContain("subjects=");
   });
 });
