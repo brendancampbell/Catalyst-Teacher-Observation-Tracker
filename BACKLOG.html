@@ -499,58 +499,6 @@
 
           <tr>
             <td class="p">4</td>
-            <td class="idcell">61</td>
-            <td>
-              <div class="task">
-                <h3>Fix back and forward navigation</h3>
-                <p class="lineage">New, 7 Sep.</p>
-                <p class="why">
-                  Back does not take you back to what you were looking at. The browser returns to
-                  the page, but not to the school you had drilled into, the tab you were on, or the
-                  filters you had set &mdash; so the way back out of anything is to set it all up
-                  again.
-                </p>
-                <details>
-                  <summary>The two separate causes, and which one to settle first</summary>
-                  <div class="detail">
-                    <p>
-                      <strong>Most of what you are looking at is not in the address.</strong> Some
-                      of it is &mdash; <code>schoolId</code>, <code>rubric</code> and
-                      <code>teacher</code> are read from the query string, which is why those deep
-                      links work. But which tab, which filters and which view are component state
-                      and live nowhere else, so the browser has nothing to restore them from. That
-                      makes them equally impossible to share: there is no link that opens the view
-                      you are looking at.
-                    </p>
-                    <p>
-                      <strong>Drilling in is a page load, not a navigation.</strong> Opening a
-                      school assigns <code>window.location.href</code> rather than routing, in
-                      <code>Dashboard.tsx</code>, <code>ImpersonationBanner.tsx</code> and
-                      <code>admin.tsx</code>. The app already routes with wouter, so these are the
-                      three places that step around it and reload everything.
-                    </p>
-                    <p>
-                      <strong>Needs deciding before it can be built.</strong> Which state belongs in
-                      the address. Everything is the honest answer and the noisy one &mdash; every
-                      filter change becomes a history entry, and back starts walking through
-                      filters one at a time instead of leaving the page. The usual split is that
-                      what you navigated to goes in the history and what you filtered replaces the
-                      entry rather than adding one, but that line has to be drawn deliberately.
-                    </p>
-                    <p>
-                      Worth doing in that order: the routing calls are three small edits, and the
-                      URL question is the one that decides how the whole app behaves.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            </td>
-            <td class="cat">Product</td>
-            <td><span class="chip u-med">Medium</span></td>
-          </tr>
-
-          <tr>
-            <td class="p">5</td>
             <td class="idcell">39</td>
             <td>
               <div class="task">
@@ -600,7 +548,7 @@
           </tr>
 
           <tr>
-            <td class="p">6</td>
+            <td class="p">5</td>
             <td class="idcell">29</td>
             <td>
               <div class="task">
@@ -634,7 +582,7 @@
           </tr>
 
           <tr>
-            <td class="p">7</td>
+            <td class="p">6</td>
             <td class="idcell">28</td>
             <td>
               <div class="task">
@@ -667,7 +615,7 @@
           </tr>
 
           <tr>
-            <td class="p">8</td>
+            <td class="p">7</td>
             <td class="idcell">31</td>
             <td>
               <div class="task">
@@ -700,7 +648,7 @@
           </tr>
 
           <tr>
-            <td class="p">9</td>
+            <td class="p">8</td>
             <td class="idcell">17</td>
             <td>
               <div class="task">
@@ -727,7 +675,7 @@
           </tr>
 
           <tr>
-            <td class="p">10</td>
+            <td class="p">9</td>
             <td class="idcell">18</td>
             <td>
               <div class="task">
@@ -753,7 +701,7 @@
           </tr>
 
           <tr>
-            <td class="p">11</td>
+            <td class="p">10</td>
             <td class="idcell">49</td>
             <td>
               <div class="task">
@@ -787,7 +735,7 @@
           </tr>
 
           <tr>
-            <td class="p">12</td>
+            <td class="p">11</td>
             <td class="idcell">27</td>
             <td>
               <div class="task">
@@ -825,7 +773,7 @@
           </tr>
 
           <tr>
-            <td class="p">13</td>
+            <td class="p">12</td>
             <td class="idcell">30</td>
             <td>
               <div class="task">
@@ -855,7 +803,7 @@
           </tr>
 
           <tr>
-            <td class="p">14</td>
+            <td class="p">13</td>
             <td class="idcell">52</td>
             <td>
               <div class="task">
@@ -890,7 +838,7 @@
           </tr>
 
           <tr>
-            <td class="p">15</td>
+            <td class="p">14</td>
             <td class="idcell">33</td>
             <td>
               <div class="task">
@@ -925,7 +873,7 @@
           </tr>
 
           <tr>
-            <td class="p">16</td>
+            <td class="p">15</td>
             <td class="idcell">57</td>
             <td>
               <div class="task">
@@ -975,7 +923,7 @@
           </tr>
 
           <tr>
-            <td class="p">17</td>
+            <td class="p">16</td>
             <td class="idcell">60</td>
             <td>
               <div class="task">
@@ -1038,7 +986,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">18</td>
+            <td class="p">17</td>
             <td class="idcell">10</td>
             <td>
               <div class="task">
@@ -1052,7 +1000,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">19</td>
+            <td class="p">18</td>
             <td class="idcell">11</td>
             <td>
               <div class="task">
@@ -1069,7 +1017,7 @@
           </tr>
 
           <tr class="deferred">
-            <td class="p">20</td>
+            <td class="p">19</td>
             <td class="idcell">13</td>
             <td>
               <div class="task">
@@ -1275,6 +1223,86 @@
           <tr><th class="col-p">ID</th><th>Shipped</th><th class="col-cat">Category</th><th class="col-urg">When</th></tr>
         </thead>
         <tbody>
+          <tr>
+            <td class="idcell">61</td>
+            <td>
+              <div class="task">
+                <h3>Fix back and forward navigation</h3>
+                <p class="lineage"><code>f243128</code> &rarr; <code>eb60bd7</code> (PR&nbsp;#18) &mdash; shipped 8 Sep. 24 front-end tests, 450 &rarr; 474. Raised 7 Sep.</p>
+                <p class="why">
+                  Back takes you back to what you were looking at. Opening a school, a teacher or a
+                  panel is one press to undo; changing a tab or a filter is not, so setting three
+                  filters still costs one press to leave the page. The address now matches the
+                  screen everywhere, which means there is finally a link that opens a particular
+                  Action Center or Settings tab &mdash; there was none before.
+                </p>
+                <details>
+                  <summary>The line that was drawn, what it cost, and the three things left alone</summary>
+                  <div class="detail">
+                    <p>
+                      <strong>The question the item flagged was answered before any code.</strong>
+                      Which state belongs in the address, and what counts as a step backwards.
+                      Everything goes in the address, so a pasted link shows a colleague the same
+                      screen; only drilling in adds a history entry. &ldquo;Everything is a
+                      step&rdquo; was considered and rejected &mdash; three filters would have meant
+                      three presses to leave a page.
+                    </p>
+                    <p>
+                      <strong>Filters nearly came out of the link, and that was reversed.</strong>
+                      Hiding them was chosen first, on the grounds that a colleague opening your
+                      link should not inherit your filters. It was put back once it was clear Back
+                      would then have nowhere to restore them from &mdash; and that a link which
+                      silently drops your filters shows somebody different numbers than the ones
+                      you were looking at.
+                    </p>
+                    <p>
+                      <strong>The item said three stray page reloads. There were four, and two of
+                      them stay.</strong> Starting and stopping impersonation reload deliberately:
+                      that reload is what drops the previous person&rsquo;s cached teacher and
+                      observation data. Routing them client-side would carry one person&rsquo;s
+                      cache into another&rsquo;s session. Two more reloads were removed that the
+                      item had not counted &mdash; choosing a rubric in the Action Center, and its
+                      fallback when a link names a rubric that no longer exists.
+                    </p>
+                    <p>
+                      <strong>Back closes what you are reading, not what you are writing.</strong>
+                      Teacher profile, school profile, domain drill-down and observation detail all
+                      close on Back. The new-observation form does not, and that is on purpose:
+                      Back must never discard a half-written observation.
+                    </p>
+                    <p>
+                      <strong>Two bugs fell out that were not in the item.</strong> Resuming a draft
+                      reset the address completely, so it silently dropped the school you were in.
+                      And arriving from the Action Center on a teacher link sometimes opened
+                      nothing at all &mdash; a race between two effects, now gone by construction
+                      rather than patched.
+                    </p>
+                    <p>
+                      <strong>Shared links cannot show somebody a tab they may not open.</strong>
+                      The Action Center&rsquo;s last two tabs are Network Admin only, so its allowed
+                      set is built from the same condition its tab bar uses; a coach opening an
+                      admin&rsquo;s link lands on Summary rather than an empty panel. A stale link,
+                      shared before something was renamed, falls back the same way.
+                    </p>
+                    <p>
+                      <strong>It found nine test files that could not have caught this.</strong>
+                      They stubbed the router with a navigate that did nothing, so clicking a tab
+                      moved no address and a test could pass for entirely the wrong reason.
+                      Replacing them with one shared double that writes real history fixed six
+                      failures in files this change had not otherwise touched.
+                    </p>
+                    <p>
+                      No migration, no database change, no new route, nothing added to the
+                      authorization surface.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </td>
+            <td class="cat">Product</td>
+            <td><span class="chip u-done">8 Sep</span></td>
+          </tr>
+
           <tr>
             <td class="idcell">53</td>
             <td>
