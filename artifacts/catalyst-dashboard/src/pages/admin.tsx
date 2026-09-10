@@ -1151,6 +1151,20 @@ const ALL_ROLES_MAP: Record<PersonRole, string> = {
   NO_ACCESS:      "No Access",
 };
 
+/** The page's own error box for a save the server refused — the same look as
+    the failed-submit box in New Observation. */
+function FormError({ message }: { message: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 px-3 py-2.5 rounded border border-red-200 bg-red-50 text-xs font-semibold text-red-700"
+    >
+      <AlertCircle size={14} className="shrink-0 mt-px" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
 function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetworkAdmin: boolean; canBulkImport: boolean; canWrite: boolean }) {
   const queryClient = useQueryClient();
   const qKey = ["admin", "teachers"] as const;
@@ -1180,6 +1194,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
   const [addDept,      setAddDept]      = useState("");
   const [addGrades,    setAddGrades]    = useState<string[]>([]);
   const [addObservable, setAddObservable] = useState(true);
+  const [addError,     setAddError]     = useState<string | null>(null);
 
   /* Edit form state */
   const [editId,          setEditId]          = useState<string | null>(null);
@@ -1205,6 +1220,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
    */
   const [editUnknownGrades, setEditUnknownGrades] = useState<string[]>([]);
   const [editObservable,  setEditObservable]  = useState(false);
+  const [editError,       setEditError]       = useState<string | null>(null);
 
   /* Reassign modal state */
   const [reassignTarget,  setReassignTarget]  = useState<PersonRow | null>(null);
@@ -1245,7 +1261,11 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
       setAdding(false);
       setAddFirstName(""); setAddLastName(""); setAddEmpId(""); setAddEmail(""); setAddRole("COACH"); setAddSchoolId(realSchools[0]?.id ?? null); setAddDept(""); setAddGrades([]); setAddObservable(true);
     },
-    onError: (err: Error) => alert(err.message),
+    /* Shown inside the form, next to the fields it is about, rather than in a
+       browser alert — the server's message says who already holds the email
+       or employee ID, and the form has to stay readable to act on it. */
+    onMutate: () => setAddError(null),
+    onError:  (err: Error) => setAddError(err.message),
   });
 
   const updateMut = useMutation({
@@ -1259,7 +1279,8 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
       includeInFeedbackTracker: editObservable,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: qKey }); setEditId(null); },
-    onError: (err: Error) => alert(err.message),
+    onMutate: () => setEditError(null),
+    onError:  (err: Error) => setEditError(err.message),
   });
 
   const toggleMut = useMutation({
@@ -1279,6 +1300,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
     setEditGrades(p.gradeLevel.filter((g) => (GRADE_LEVELS as readonly string[]).includes(g)));
     setEditUnknownGrades(p.gradeLevel.filter((g) => !(GRADE_LEVELS as readonly string[]).includes(g)));
     setEditObservable(p.includeInFeedbackTracker);
+    setEditError(null);
     setAdding(false);
   }
 
@@ -1403,7 +1425,7 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
         {canWrite && (
         <div className="ml-auto">
           <button
-            onClick={() => { setAdding(true); setEditId(null); setAddRole("COACH"); setAddSchoolId(realSchools[0]?.id ?? null); }}
+            onClick={() => { setAdding(true); setAddError(null); setEditId(null); setAddRole("COACH"); setAddSchoolId(realSchools[0]?.id ?? null); }}
             className="flex items-center gap-1.5 font-bold rounded-md px-4 py-2 text-sm transition-opacity hover:opacity-90 shrink-0"
             style={{ backgroundColor: NAVY, color: "white", fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.02em" }}
           >
@@ -1473,13 +1495,14 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
               Feedback tracker participants cannot be assigned to the Home Office school.
             </p>
           )}
+          {addError && <FormError message={addError} />}
           <div className="flex gap-2">
             <button className="px-4 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }}
               onClick={() => createMut.mutate()}
               disabled={createMut.isPending || !addFirstName.trim() || !addLastName.trim() || !addEmpId.trim() || !addEmail.trim() || (isNetworkAdmin && !addSchoolId) || addRoleSchoolMismatch || (addObservable && addSchoolIsHO)}>
               {createMut.isPending ? "Adding…" : "Add Person"}
             </button>
-            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="px-4 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => { setAdding(false); setAddError(null); }}>Cancel</button>
           </div>
         </div>
       )}
@@ -1561,9 +1584,10 @@ function PeopleManagement({ isNetworkAdmin, canBulkImport, canWrite }: { isNetwo
                           Feedback tracker participants cannot be assigned to the Home Office school.
                         </p>
                       )}
+                      {editError && <FormError message={editError} />}
                       <div className="flex gap-2">
                         <button className="px-3 py-1.5 rounded font-bold text-white text-sm disabled:opacity-50" style={{ backgroundColor: NAVY }} onClick={() => updateMut.mutate()} disabled={updateMut.isPending || (editObservable && editSchoolIsHO)}>{updateMut.isPending ? "Saving…" : "Save"}</button>
-                        <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => setEditId(null)}>Cancel</button>
+                        <button className="px-3 py-1.5 rounded font-semibold text-slate-600 text-sm hover:bg-slate-100" onClick={() => { setEditId(null); setEditError(null); }}>Cancel</button>
                       </div>
                     </div>
                   </td>
