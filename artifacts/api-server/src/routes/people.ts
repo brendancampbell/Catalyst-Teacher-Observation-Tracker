@@ -120,6 +120,88 @@ async function validateRoleSchool(
   return null;
 }
 
+/**
+ * Explains why a new person cannot be added because they already exist, or
+ * returns null when nobody matches.
+ *
+ * The database refuses a second person with the same email or employee ID,
+ * and that refusal used to reach the admin as one catch-all line — no name, no
+ * school, no hint that the match was a deactivated record they could simply
+ * turn back on. So the match is looked up first and described in terms of
+ * what the caller can do about it:
+ *
+ *   - someone the caller manages, deactivated → reactivate them
+ *   - someone the caller manages, active      → they are already here
+ *   - someone outside the caller's reach      → name the school, contact support
+ *
+ * "Manages" mirrors the toggle-active route exactly, so the message never
+ * tells somebody to reactivate a person the server would refuse to let them
+ * reactivate. Outside that reach only the school is named, never the person.
+ */
+async function describeExistingPerson(
+  currentUser: Express.User,
+  email: string,
+  employeeId: string,
+  requestedSchoolId: number | null,
+): Promise<string | null> {
+  const matches = await db
+    .select({
+      firstName:  people.firstName,
+      lastName:   people.lastName,
+      email:      people.email,
+      role:       people.role,
+      schoolId:   people.schoolId,
+      schoolName: schools.displayName,
+      isActive:   people.isActive,
+    })
+    .from(people)
+    .leftJoin(schools, eq(people.schoolId, schools.id))
+    .where(or(eq(people.email, email), eq(people.employeeId, employeeId)));
+
+  if (matches.length === 0) return null;
+
+  /* Email and employee ID can match two different people. Report the email
+     match — it is the one the person signs in with. */
+  const match = matches.find((m) => m.email === email) ?? matches[0]!;
+  const matchedOn = match.email === email ? `The email ${email}` : `Employee ID ${employeeId}`;
+
+  const targetIsNetwork = NETWORK_ROLES.includes(match.role as UserRole);
+  let canManage: boolean;
+  if (currentUser.role === "NETWORK_ADMIN") {
+    canManage = true;
+  } else if (currentUser.role === "NETWORK_LEADER") {
+    canManage = !targetIsNetwork && (
+      match.schoolId == null || (await assertNetworkSchoolAccess(currentUser, match.schoolId)).ok
+    );
+  } else {
+    canManage = !targetIsNetwork && canAccessSchoolScopedRecord(currentUser, match.schoolId);
+  }
+
+  if (!canManage) {
+    return `${matchedOn} already belongs to someone at ${match.schoolName ?? "another school"}. ` +
+      "Contact Catalyst support.";
+  }
+
+  const name = `${match.firstName} ${match.lastName}`.trim();
+  const isSchoolScoped = currentUser.role !== "NETWORK_ADMIN" && currentUser.role !== "NETWORK_LEADER";
+  const at = isSchoolScoped
+    ? "at your school"
+    : match.schoolName ? `at ${match.schoolName}` : "with no school assigned";
+
+  if (!match.isActive) {
+    return `${matchedOn} already belongs to ${name}, who is deactivated ${at}. ` +
+      `Reactivate them instead of adding them again — tick "Show inactive only" in the Users list to find them.`;
+  }
+
+  let message = `${matchedOn} already belongs to ${name}, an active user ${at}.`;
+  if (match.schoolId !== requestedSchoolId) {
+    message += currentUser.role === "NETWORK_ADMIN"
+      ? " To move them to a different school, use Reassign."
+      : " Contact Catalyst support to move them to a different school.";
+  }
+  return message;
+}
+
 /* ── GET /api/people ──────────────────────────────────────────────
    Query params:
    - includeInFeedbackTracker=true   → filter to observable people
@@ -296,6 +378,13 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
       res.status(400).json({ error: "employeeId is required" }); return;
     }
 
+    /* After every permission check above, so only someone allowed to add
+       this person in the first place learns whether they already exist. */
+    const duplicate = await describeExistingPerson(currentUser, trimmedEmail, trimmedEmpId, assignedSchoolId);
+    if (duplicate) {
+      res.status(409).json({ error: duplicate }); return;
+    }
+
     const activeSchoolYearId = await getActiveSchoolYearId();
     if (!activeSchoolYearId) {
       res.status(503).json({ error: "No active school year found — contact your administrator" }); return;
@@ -337,6 +426,8 @@ router.post("/", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NETWORK_ADMIN")
     invalidateAllCaches();
     res.status(201).json(withName(withSchool!));
   } catch (err: unknown) {
+    /* Only reachable if the same person is added twice at the same moment —
+       describeExistingPerson catches every other duplicate before the insert. */
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
       res.status(409).json({ error: "A person with that email or employee ID already exists" });
       return;
