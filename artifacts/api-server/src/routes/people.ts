@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { people, schools, assignments, schoolYears } from "@workspace/db/schema";
-import { eq, and, or, isNull, desc } from "drizzle-orm";
+import { eq, and, or, ne, isNull, desc } from "drizzle-orm";
 import { requireRole, assertNetworkSchoolAccess, canAccessSchoolScopedRecord, type UserRole } from "../middleware/auth";
 import { DEPARTMENT_VALUES } from "@workspace/db/schema";
 import {
@@ -120,51 +120,41 @@ async function validateRoleSchool(
   return null;
 }
 
-/**
- * Explains why a new person cannot be added because they already exist, or
- * returns null when nobody matches.
- *
- * The database refuses a second person with the same email or employee ID,
- * and that refusal used to reach the admin as one catch-all line — no name, no
- * school, no hint that the match was a deactivated record they could simply
- * turn back on. So the match is looked up first and described in terms of
- * what the caller can do about it:
- *
- *   - someone the caller manages, deactivated → reactivate them
- *   - someone the caller manages, active      → they are already here
- *   - someone outside the caller's reach      → name the school, contact support
- *
- * "Manages" mirrors the toggle-active route exactly, so the message never
- * tells somebody to reactivate a person the server would refuse to let them
- * reactivate. Outside that reach only the school is named, never the person.
- */
-async function describeExistingPerson(
+/* ── Explaining a duplicate ─────────────────────────────────────────
+   The database refuses two people with the same email or employee ID, and
+   that refusal used to reach the admin as one catch-all line — no name, no
+   school, no hint that the match was a deactivated record they could simply
+   turn back on. Adding and editing now look the match up first and describe
+   it in terms of what the caller can do about it.
+
+   What the caller may see mirrors the toggle-active route exactly, so a
+   message never suggests acting on a person the server would refuse to let
+   them touch. Outside that reach only the school is named, never the person. */
+
+const EXISTING_PERSON_SELECT = {
+  firstName:  people.firstName,
+  lastName:   people.lastName,
+  email:      people.email,
+  role:       people.role,
+  schoolId:   people.schoolId,
+  schoolName: schools.displayName,
+  isActive:   people.isActive,
+} as const;
+
+type ExistingPerson = {
+  firstName:  string;
+  lastName:   string;
+  role:       string;
+  schoolId:   number | null;
+  schoolName: string | null;
+};
+
+/** The person's name and where they are, phrased for the caller — or null
+    when they are outside the caller's reach and must not be named. */
+async function describeWithinReach(
   currentUser: Express.User,
-  email: string,
-  employeeId: string,
-  requestedSchoolId: number | null,
-): Promise<string | null> {
-  const matches = await db
-    .select({
-      firstName:  people.firstName,
-      lastName:   people.lastName,
-      email:      people.email,
-      role:       people.role,
-      schoolId:   people.schoolId,
-      schoolName: schools.displayName,
-      isActive:   people.isActive,
-    })
-    .from(people)
-    .leftJoin(schools, eq(people.schoolId, schools.id))
-    .where(or(eq(people.email, email), eq(people.employeeId, employeeId)));
-
-  if (matches.length === 0) return null;
-
-  /* Email and employee ID can match two different people. Report the email
-     match — it is the one the person signs in with. */
-  const match = matches.find((m) => m.email === email) ?? matches[0]!;
-  const matchedOn = match.email === email ? `The email ${email}` : `Employee ID ${employeeId}`;
-
+  match: ExistingPerson,
+): Promise<{ name: string; at: string } | null> {
   const targetIsNetwork = NETWORK_ROLES.includes(match.role as UserRole);
   let canManage: boolean;
   if (currentUser.role === "NETWORK_ADMIN") {
@@ -176,30 +166,93 @@ async function describeExistingPerson(
   } else {
     canManage = !targetIsNetwork && canAccessSchoolScopedRecord(currentUser, match.schoolId);
   }
+  if (!canManage) return null;
 
-  if (!canManage) {
-    return `${matchedOn} already belongs to someone at ${match.schoolName ?? "another school"}. ` +
-      "Contact Catalyst support.";
-  }
-
-  const name = `${match.firstName} ${match.lastName}`.trim();
   const isSchoolScoped = currentUser.role !== "NETWORK_ADMIN" && currentUser.role !== "NETWORK_LEADER";
-  const at = isSchoolScoped
-    ? "at your school"
-    : match.schoolName ? `at ${match.schoolName}` : "with no school assigned";
+  return {
+    name: `${match.firstName} ${match.lastName}`.trim(),
+    at: isSchoolScoped
+      ? "at your school"
+      : match.schoolName ? `at ${match.schoolName}` : "with no school assigned",
+  };
+}
+
+function outOfReachMessage(matchedOn: string, match: ExistingPerson): string {
+  return `${matchedOn} already belongs to someone at ${match.schoolName ?? "another school"}. ` +
+    "Contact Catalyst support.";
+}
+
+/**
+ * POST: why a new person cannot be added, or null when nobody matches.
+ *
+ *   - someone the caller manages, deactivated → reactivate them
+ *   - someone the caller manages, active      → they are already here
+ *   - someone outside the caller's reach      → name the school, contact support
+ */
+async function describeExistingPerson(
+  currentUser: Express.User,
+  email: string,
+  employeeId: string,
+  requestedSchoolId: number | null,
+): Promise<string | null> {
+  const matches = await db
+    .select(EXISTING_PERSON_SELECT)
+    .from(people)
+    .leftJoin(schools, eq(people.schoolId, schools.id))
+    .where(or(eq(people.email, email), eq(people.employeeId, employeeId)));
+
+  if (matches.length === 0) return null;
+
+  /* Email and employee ID can match two different people. Report the email
+     match — it is the one the person signs in with. */
+  const match = matches.find((m) => m.email === email) ?? matches[0]!;
+  const matchedOn = match.email === email ? `The email ${email}` : `Employee ID ${employeeId}`;
+
+  const reach = await describeWithinReach(currentUser, match);
+  if (!reach) return outOfReachMessage(matchedOn, match);
 
   if (!match.isActive) {
-    return `${matchedOn} already belongs to ${name}, who is deactivated ${at}. ` +
+    return `${matchedOn} already belongs to ${reach.name}, who is deactivated ${reach.at}. ` +
       `Reactivate them instead of adding them again — tick "Show inactive only" in the Users list to find them.`;
   }
 
-  let message = `${matchedOn} already belongs to ${name}, an active user ${at}.`;
+  let message = `${matchedOn} already belongs to ${reach.name}, an active user ${reach.at}.`;
   if (match.schoolId !== requestedSchoolId) {
     message += currentUser.role === "NETWORK_ADMIN"
       ? " To move them to a different school, use Reassign."
       : " Contact Catalyst support to move them to a different school.";
   }
   return message;
+}
+
+/**
+ * PATCH: why a person's email cannot be changed to one somebody else already
+ * holds, or null when it is free. A deactivated person still holds theirs —
+ * the database does not distinguish, and reactivating them later must not
+ * collide — so the message says so rather than leaving it a mystery.
+ */
+async function describeEmailTaken(
+  currentUser: Express.User,
+  email: string,
+  editingEmployeeId: string,
+): Promise<string | null> {
+  const [match] = await db
+    .select(EXISTING_PERSON_SELECT)
+    .from(people)
+    .leftJoin(schools, eq(people.schoolId, schools.id))
+    .where(and(eq(people.email, email), ne(people.employeeId, editingEmployeeId)))
+    .limit(1);
+
+  if (!match) return null;
+
+  const matchedOn = `The email ${email}`;
+  const reach = await describeWithinReach(currentUser, match);
+  if (!reach) return outOfReachMessage(matchedOn, match);
+
+  return match.isActive
+    ? `${matchedOn} already belongs to ${reach.name}, an active user ${reach.at}. Each person needs their own email.`
+    : `${matchedOn} already belongs to ${reach.name}, who is deactivated ${reach.at}. ` +
+      "Each person needs their own email, even after they are deactivated.";
 }
 
 /* ── GET /api/people ──────────────────────────────────────────────
@@ -703,6 +756,15 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
       res.status(400).json({ error: "Nothing to update" }); return;
     }
 
+    /* The edit form sends the email on every save, so only look when it
+       actually changed — and after the permission checks above. */
+    if (trimmedEmail !== undefined && trimmedEmail !== target.email) {
+      const emailTaken = await describeEmailTaken(currentUser, trimmedEmail, empId);
+      if (emailTaken) {
+        res.status(409).json({ error: emailTaken }); return;
+      }
+    }
+
     /* ── Keep the assignment ledger in step with a role change ──────────
        people.role is a denormalised copy; `assignments` is the historical
        record of who held which role, at which school, in which year.
@@ -769,6 +831,8 @@ router.patch("/:employeeId", requireRole("SCHOOL_LEADER", "NETWORK_LEADER", "NET
     invalidateAllCaches();
     res.json(withName(withSchool));
   } catch (err: unknown) {
+    /* Only reachable if two saves claim the same email at the same moment —
+       describeEmailTaken catches every other collision before the update. */
     if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === "23505") {
       res.status(409).json({ error: "A person with that email already exists" });
       return;

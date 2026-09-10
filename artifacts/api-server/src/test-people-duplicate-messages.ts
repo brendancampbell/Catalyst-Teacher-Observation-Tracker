@@ -1,23 +1,30 @@
 /**
- * Integration tests: adding a person who already exists says who and where.
+ * Integration tests: a duplicate email or employee ID says who and where.
  *
  * Run with:
- *   pnpm --filter @workspace/api-server run test:people-create-duplicate
+ *   pnpm --filter @workspace/api-server run test:people-duplicate-messages
  *
  * Requires the dev server (NODE_ENV=development) for /api/auth/dev-login.
  *
- * POST /api/people used to answer every duplicate with one catch-all line, so
- * an admin could not tell a typo from a deactivated teacher they could simply
- * turn back on. The message now depends on whether the caller manages the
- * existing person — and outside that reach it names the school, never the
- * person, which the cross-school test below holds it to.
+ * Adding a person (POST /api/people) and changing someone's email
+ * (PATCH /api/people/:id) both used to answer a collision with one catch-all
+ * line, so an admin could not tell a typo from a deactivated teacher they could
+ * simply turn back on. The message now depends on whether the caller manages
+ * the existing person — and outside that reach it names the school, never the
+ * person, which the cross-school tests below hold it to.
  *
- *   1. School leader, active duplicate at own school   → names them, says active
+ *   Adding
+ *   1. School leader, active duplicate at own school      → names them, says active
  *   2. School leader, deactivated duplicate at own school → says reactivate
- *   3. School leader, duplicate at another school      → school name + support, no name
- *   4. Network admin, deactivated duplicate elsewhere  → names the school, says reactivate
- *   5. Network admin, active duplicate at another school → points at Reassign
+ *   3. School leader, duplicate at another school         → school name + support, no name
+ *   4. Network admin, deactivated duplicate elsewhere     → names the school, says reactivate
+ *   5. Network admin, active duplicate at another school  → points at Reassign
  *   6. A genuinely new person is still created
+ *
+ *   Editing
+ *   7. School leader, email held by a deactivated person at own school → names them, says deactivated
+ *   8. School leader, email held by someone at another school          → school name + support, no name
+ *   9. Saving with an unchanged email still works
  */
 
 import { test, describe, before, after } from "node:test";
@@ -29,15 +36,16 @@ import { eq, inArray, asc, and, ne } from "drizzle-orm";
 const BASE = `http://localhost:${process.env.PORT ?? 8080}/api`;
 
 const STAMP       = Date.now();
-const LEADER      = `TST_PCD_SL_${STAMP}`;
-const ADMIN       = `TST_PCD_NA_${STAMP}`;
-const ACTIVE_A    = `TST_PCD_ACTA_${STAMP}`;
-const INACTIVE_A  = `TST_PCD_INAA_${STAMP}`;
-const ACTIVE_B    = `TST_PCD_ACTB_${STAMP}`;
-const INACTIVE_B  = `TST_PCD_INAB_${STAMP}`;
-const NEW_PERSON  = `TST_PCD_NEW_${STAMP}`;
-const ATTEMPT     = `TST_PCD_TRY_${STAMP}`;
-const ALL_EIDS = [LEADER, ADMIN, ACTIVE_A, INACTIVE_A, ACTIVE_B, INACTIVE_B, NEW_PERSON, ATTEMPT];
+const LEADER      = `TST_PDM_SL_${STAMP}`;
+const ADMIN       = `TST_PDM_NA_${STAMP}`;
+const ACTIVE_A    = `TST_PDM_ACTA_${STAMP}`;
+const INACTIVE_A  = `TST_PDM_INAA_${STAMP}`;
+const ACTIVE_B    = `TST_PDM_ACTB_${STAMP}`;
+const INACTIVE_B  = `TST_PDM_INAB_${STAMP}`;
+const EDITED      = `TST_PDM_EDIT_${STAMP}`;
+const NEW_PERSON  = `TST_PDM_NEW_${STAMP}`;
+const ATTEMPT     = `TST_PDM_TRY_${STAMP}`;
+const ALL_EIDS = [LEADER, ADMIN, ACTIVE_A, INACTIVE_A, ACTIVE_B, INACTIVE_B, EDITED, NEW_PERSON, ATTEMPT];
 
 const emailFor = (eid: string) => `${eid}@example.com`.toLowerCase();
 
@@ -67,7 +75,7 @@ async function loginAs(employeeId: string): Promise<Jar> {
 const attempt = (employeeId: string, email: string, schoolId: number) => ({
   employeeId,
   email,
-  firstName: "Pcd",
+  firstName: "Pdm",
   lastName:  "Attempt",
   role:      "NO_ACCESS",
   schoolId,
@@ -78,13 +86,18 @@ async function rowsFor(employeeId: string) {
   return db.select({ employeeId: people.employeeId }).from(people).where(eq(people.employeeId, employeeId));
 }
 
+async function emailOf(employeeId: string) {
+  const [row] = await db.select({ email: people.email }).from(people).where(eq(people.employeeId, employeeId));
+  return row?.email;
+}
+
 let leaderJar: Jar;
 let adminJar:  Jar;
 let schoolA: number;
 let schoolB: number;
 let schoolBName: string;
 
-describe("Adding a person who already exists explains the match", () => {
+describe("A duplicate email or employee ID explains the match", () => {
   before(async () => {
     const [a] = await db.select({ id: schools.id }).from(schools)
       .where(eq(schools.isHomeOffice, false)).orderBy(asc(schools.id)).limit(1);
@@ -103,17 +116,18 @@ describe("Adding a person who already exists explains the match", () => {
 
     const person = (employeeId: string, lastName: string, role: "SCHOOL_LEADER" | "NETWORK_ADMIN" | "NO_ACCESS",
                     schoolId: number | null, isActive: boolean) => ({
-      employeeId, firstName: "Pcd", lastName, email: emailFor(employeeId),
+      employeeId, firstName: "Pdm", lastName, email: emailFor(employeeId),
       role, schoolId, isActive, includeInFeedbackTracker: role === "NO_ACCESS",
     });
 
     await db.insert(people).values([
-      person(LEADER,     "Leader",       "SCHOOL_LEADER", schoolA,       true),
-      person(ADMIN,      "Admin",        "NETWORK_ADMIN", ho?.id ?? null, true),
-      person(ACTIVE_A,   "ActiveHere",   "NO_ACCESS",     schoolA,       true),
-      person(INACTIVE_A, "InactiveHere", "NO_ACCESS",     schoolA,       false),
-      person(ACTIVE_B,   "Elsewhere",    "NO_ACCESS",     schoolB,       true),
-      person(INACTIVE_B, "GoneElsewhere", "NO_ACCESS",    schoolB,       false),
+      person(LEADER,     "Leader",        "SCHOOL_LEADER", schoolA,        true),
+      person(ADMIN,      "Admin",         "NETWORK_ADMIN", ho?.id ?? null, true),
+      person(ACTIVE_A,   "ActiveHere",    "NO_ACCESS",     schoolA,        true),
+      person(INACTIVE_A, "InactiveHere",  "NO_ACCESS",     schoolA,        false),
+      person(ACTIVE_B,   "Elsewhere",     "NO_ACCESS",     schoolB,        true),
+      person(INACTIVE_B, "GoneElsewhere", "NO_ACCESS",     schoolB,        false),
+      person(EDITED,     "BeingEdited",   "NO_ACCESS",     schoolA,        true),
     ]).onConflictDoNothing();
 
     leaderJar = await loginAs(LEADER);
@@ -124,6 +138,8 @@ describe("Adding a person who already exists explains the match", () => {
     await db.delete(people).where(inArray(people.employeeId, ALL_EIDS)).catch(() => {});
     await pool.end().catch(() => {});
   });
+
+  /* ── Adding ─────────────────────────────────────────────────────── */
 
   test("1 — school leader re-adding an active teacher at their school is told they are already here", async () => {
     const res = await request("POST", "/people", attempt(ATTEMPT, emailFor(ACTIVE_A), schoolA), leaderJar);
@@ -172,5 +188,32 @@ describe("Adding a person who already exists explains the match", () => {
     const res = await request("POST", "/people", attempt(NEW_PERSON, emailFor(NEW_PERSON), schoolA), leaderJar);
     assert.equal(res.status, 201, `expected 201, got ${res.status}: ${JSON.stringify(res.body)}`);
     assert.equal((await rowsFor(NEW_PERSON)).length, 1);
+  });
+
+  /* ── Editing ────────────────────────────────────────────────────── */
+
+  test("7 — school leader changing an email to a deactivated colleague's is told whose it is", async () => {
+    const res = await request("PATCH", `/people/${EDITED}`, { email: emailFor(INACTIVE_A) }, leaderJar);
+    assert.equal(res.status, 409, `expected 409, got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.match(res.body.error, /InactiveHere/);
+    assert.match(res.body.error, /deactivated at your school/);
+    assert.match(res.body.error, /even after they are deactivated/);
+    assert.equal(await emailOf(EDITED), emailFor(EDITED), "the email should not have changed");
+  });
+
+  test("8 — school leader changing an email to one held at another school gets the school, not the name", async () => {
+    const res = await request("PATCH", `/people/${EDITED}`, { email: emailFor(ACTIVE_B) }, leaderJar);
+    assert.equal(res.status, 409, `expected 409, got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok(res.body.error.includes(schoolBName), `should name ${schoolBName}: ${res.body.error}`);
+    assert.match(res.body.error, /Contact Catalyst support/);
+    assert.doesNotMatch(res.body.error, /Elsewhere/, "another school's person must not be named");
+    assert.equal(await emailOf(EDITED), emailFor(EDITED), "the email should not have changed");
+  });
+
+  test("9 — saving with the person's own unchanged email still works", async () => {
+    const res = await request("PATCH", `/people/${EDITED}`,
+      { email: emailFor(EDITED), firstName: "Pdm2" }, leaderJar);
+    assert.equal(res.status, 200, `expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.equal(res.body.firstName, "Pdm2");
   });
 });
