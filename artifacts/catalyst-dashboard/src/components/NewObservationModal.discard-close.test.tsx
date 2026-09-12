@@ -40,11 +40,12 @@ vi.mock("@radix-ui/react-dialog", () => ({
 }));
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value, onChange, placeholder }: {
-    value: string; onChange: (v: string) => void; placeholder?: string;
+  RichTextEditor: ({ value, onChange, placeholder, ariaLabel }: {
+    value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string;
   }) =>
     React.createElement("textarea", {
       "data-testid": "rich-editor",
+      "aria-label": ariaLabel,
       placeholder,
       value,
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),

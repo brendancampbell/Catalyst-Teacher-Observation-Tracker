@@ -1,5 +1,5 @@
 import { getWindows } from "../lib/system-settings";
-import { describeWindow } from "@workspace/api-types";
+import { describeWindow, richTextToPlainText } from "@workspace/api-types";
 /*
  * ai-service.ts
  *
@@ -130,6 +130,9 @@ export function buildQualitativeSection(teachers: TeacherQualitativeData[]): str
     if (hasActionSteps) {
       lines.push("\n**Action steps**");
       for (const s of t.actionSteps) {
+        /* Steps can carry formatting. Tags are noise to the model, and one it
+           quotes back would show in the narrative as literal "<p>". */
+        const stepText = richTextToPlainText(s.text, { singleLine: true });
         const assignedDate = s.createdAt.toISOString().slice(0, 10);
         if (s.status === "mastered" && s.masteredAt) {
           const masteredDate = s.masteredAt.toISOString().slice(0, 10);
@@ -137,10 +140,10 @@ export function buildQualitativeSection(teachers: TeacherQualitativeData[]): str
             (s.masteredAt.getTime() - s.createdAt.getTime()) / (1000 * 60 * 60 * 24),
           );
           lines.push(
-            `- mastered in ${daysToMaster} day(s) (assigned ${assignedDate}, mastered ${masteredDate}): "${s.text}"`,
+            `- mastered in ${daysToMaster} day(s) (assigned ${assignedDate}, mastered ${masteredDate}): "${stepText}"`,
           );
         } else {
-          lines.push(`- open — assigned ${assignedDate}, due ${s.dueDate}: "${s.text}"`);
+          lines.push(`- open — assigned ${assignedDate}, due ${s.dueDate}: "${stepText}"`);
         }
       }
     }

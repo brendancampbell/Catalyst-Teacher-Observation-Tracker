@@ -58,6 +58,29 @@ describe("the feedback email", () => {
       expect(html).toContain("Tighten the do-now");
     });
 
+    it("keeps a step's bold and bullets", () => {
+      const html = buildEmailHtml(
+        src({ steps: { assigned: {
+          text: "<p><strong>Cold call</strong> widely</p><ul><li><p>Wait three seconds</p></li></ul>",
+          dueDate: "2026-09-01",
+        } } }),
+        "i", "g", "r", ALL);
+      expect(html).toContain("<strong>Cold call</strong> widely");
+      expect(html).toMatch(/<ul[^>]*><li[^>]*><p[^>]*>Wait three seconds<\/p><\/li><\/ul>/);
+    });
+
+    it("keeps nothing in a step but the formatting", () => {
+      const html = buildEmailHtml(
+        src({ steps: { stillOpen: {
+          text: '<p onclick="steal()">Cold call<img src=x onerror=alert(1)></p>',
+          dueDate: "2026-09-01",
+        } } }),
+        "i", "g", "r", ALL);
+      expect(html).toContain("Cold call");
+      expect(html).not.toContain("<img");
+      expect(html).not.toContain("onclick");
+    });
+
     it("says nothing about action steps when there were none", () => {
       const html = buildEmailHtml(src(), "i", "g", "r", ALL);
       expect(html).not.toContain("Action Step");

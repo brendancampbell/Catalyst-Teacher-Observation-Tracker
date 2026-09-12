@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
+import { richTextToPlainText } from "@workspace/api-types";
 import {
   apiFetch,
   Teacher,
@@ -343,7 +345,9 @@ export default function ObservationPage() {
 
   function handleRepeatLast() {
     if (!lastActionStep) return;
-    setActionStepText(lastActionStep.text);
+    /* The box here is plain text, and a step written on the dashboard may be
+       formatted. Its bullets come across as "• " lines; the tags would not. */
+    setActionStepText(richTextToPlainText(lastActionStep.text));
     setActionStepDueDate(lastActionStep.dueDate);
     const err = validateActionStepDueDate(lastActionStep.dueDate);
     setActionStepDueDateError(err);
@@ -980,7 +984,7 @@ export default function ObservationPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-semibold text-slate-800 leading-snug">{lastActionStep.text}</p>
+                  <RichTextDisplay content={lastActionStep.text} className="font-semibold text-slate-800" />
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                     <span>
                       Assigned:{" "}

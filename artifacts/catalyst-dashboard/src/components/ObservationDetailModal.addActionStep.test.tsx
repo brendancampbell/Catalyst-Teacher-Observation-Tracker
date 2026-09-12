@@ -66,7 +66,16 @@ vi.mock("@/components/ui/alert-dialog", () => {
 });
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value }: { value: string }) => React.createElement("div", null, value),
+  /* The glows and grows only need showing. The action step box is typed into,
+     so it stands in as a labelled textarea. */
+  RichTextEditor: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel?: string }) =>
+    ariaLabel
+      ? React.createElement("textarea", {
+          "aria-label": ariaLabel,
+          value,
+          onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
+        })
+      : React.createElement("div", null, value),
 }));
 vi.mock("@/components/RichTextDisplay", () => ({
   RichTextDisplay: ({ content }: { content?: string }) => React.createElement("div", null, content ?? ""),

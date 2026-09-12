@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator, MemoryStore, type Store, type ClientRateLimitInfo } from "express-rate-limit";
+import { richTextToPlainText } from "@workspace/api-types";
 import { db, pool } from "@workspace/db";
 import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
 import {
@@ -1355,7 +1356,7 @@ export function buildOverdueActionStepsSummary(
 
   for (const t of overdue) {
     for (const s of t.steps) {
-      lines.push(`- ${t.teacherName}: "${s.text}" (due ${s.dueDate})`);
+      lines.push(`- ${t.teacherName}: "${richTextToPlainText(s.text, { singleLine: true })}" (due ${s.dueDate})`);
     }
   }
 

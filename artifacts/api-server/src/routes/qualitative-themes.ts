@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { richTextToPlainText } from "@workspace/api-types";
 import { checkAndConsumeQuotaGrant } from "../lib/quota-grants";
 import { db, pool } from "@workspace/db";
 import {
@@ -269,7 +270,7 @@ router.post("/generate", qualitativeGenerationLimiter, async (req, res) => {
     const stepsBlock = allSteps.length > 0
       ? allSteps.map((s) => {
           const status = s.status === "mastered" ? "resolved" : s.dueDate && s.dueDate < today ? "overdue" : "open";
-          return `- ${s.teacherEmployeeId} | ${status} | "${s.text}"`;
+          return `- ${s.teacherEmployeeId} | ${status} | "${richTextToPlainText(s.text, { singleLine: true })}"`;
         }).join("\n")
       : "(no action steps found)";
 

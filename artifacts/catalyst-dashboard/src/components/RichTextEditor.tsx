@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { decideEditorSync } from "@/lib/rich-text-sync";
+import { decideEditorSync, toEditorHtml } from "@/lib/rich-text-sync";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, List, ListOrdered, IndentDecrease, IndentIncrease, Maximize2, Minimize2 } from "lucide-react";
@@ -11,6 +11,9 @@ interface Props {
   focusBorderColor?: string;
   minHeight?: number;
   expandedHeight?: number;
+  /** Announced by screen readers. A visible label beside the editor is not
+      associated with it — there is no form control for it to point at. */
+  ariaLabel?: string;
 }
 
 export function RichTextEditor({
@@ -20,9 +23,11 @@ export function RichTextEditor({
   focusBorderColor = "#93c5fd",
   minHeight = 100,
   expandedHeight = 320,
+  ariaLabel,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const effectiveMinHeight = isExpanded ? expandedHeight : minHeight;
+  const editorHtml = toEditorHtml(value);
 
   /* Force a re-render on every editor transaction so toolbar active-states
      (bold, italic, list) update immediately — including when no text is
@@ -32,7 +37,7 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [StarterKit],
-    content: value || "",
+    content: editorHtml,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -40,6 +45,9 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         style: `min-height:${effectiveMinHeight}px;outline:none;padding:8px 12px;font-size:13px;line-height:1.6;`,
+        role: "textbox",
+        "aria-multiline": "true",
+        ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
       },
     },
   });
@@ -60,7 +68,7 @@ export function RichTextEditor({
   useEffect(() => {
     if (!editor) return;
     const action = decideEditorSync({
-      incoming:        value,
+      incoming:        editorHtml,
       currentHtml:     editor.getHTML(),
       editorIsEmpty:   editor.isEmpty,
       editorIsFocused: editor.isFocused,
@@ -70,9 +78,9 @@ export function RichTextEditor({
     } else if (action === "replace") {
       /* emitUpdate false: this is the parent's own value coming back in, and
          announcing it as an edit would loop straight back here. */
-      editor.commands.setContent(value, { emitUpdate: false });
+      editor.commands.setContent(editorHtml, { emitUpdate: false });
     }
-  }, [value, editor]);
+  }, [editorHtml, editor]);
 
   if (!editor) return null;
 

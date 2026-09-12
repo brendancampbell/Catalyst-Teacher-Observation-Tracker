@@ -56,11 +56,12 @@ vi.mock("@radix-ui/react-dialog", () => ({
 }));
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value, onChange, placeholder }: {
-    value: string; onChange: (v: string) => void; placeholder?: string;
+  RichTextEditor: ({ value, onChange, placeholder, ariaLabel }: {
+    value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string;
   }) =>
     React.createElement("textarea", {
       "data-testid": "rich-editor",
+      "aria-label": ariaLabel,
       placeholder,
       value,
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
@@ -115,9 +116,11 @@ function makeProps(overrides: Record<string, unknown> = {}) {
 /* The observation as the observer left it: a score and written feedback. */
 async function fillIn() {
   await act(async () => { fireEvent.click(screen.getByTitle("Proficient")); });
-  const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
+  /* By placeholder, not position: the action step box is an editor too, and
+     it comes first. */
+  const glows = screen.getByPlaceholderText("What is this teacher doing well?") as HTMLTextAreaElement;
   await act(async () => {
-    fireEvent.change(editors[0]!, { target: { value: "<p>Strong do-now, tight transitions</p>" } });
+    fireEvent.change(glows, { target: { value: "<p>Strong do-now, tight transitions</p>" } });
   });
 }
 
@@ -186,8 +189,8 @@ describe("When the save fails", () => {
     await submit();
 
     expect((screen.getByTitle("Proficient") as HTMLElement).className).toMatch(/bg-green/);
-    const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
-    expect(editors[0]!.value).toBe("<p>Strong do-now, tight transitions</p>");
+    const glows = screen.getByPlaceholderText("What is this teacher doing well?") as HTMLTextAreaElement;
+    expect(glows.value).toBe("<p>Strong do-now, tight transitions</p>");
   });
 
   it("sends the same observation again when submitted a second time", async () => {

@@ -36,11 +36,12 @@ vi.mock("@radix-ui/react-dialog", () => ({
 }));
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value, onChange, placeholder }: {
-    value: string; onChange: (v: string) => void; placeholder?: string;
+  RichTextEditor: ({ value, onChange, placeholder, ariaLabel }: {
+    value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string;
   }) =>
     React.createElement("textarea", {
       "data-testid": "rich-editor",
+      "aria-label": ariaLabel,
       placeholder,
       value,
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
@@ -212,9 +213,11 @@ describe("Switching from one teacher to another", () => {
     render(React.createElement(NewObservationModal, props));
 
     await act(async () => { fireEvent.click(screen.getByTitle("Proficient")); });
-    const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
+    /* By placeholder, not position: the action step box is an editor too, and
+       it comes first. */
+    const glows = screen.getByPlaceholderText("What is this teacher doing well?") as HTMLTextAreaElement;
     await act(async () => {
-      fireEvent.change(editors[0]!, { target: { value: "<p>Strong do-now</p>" } });
+      fireEvent.change(glows, { target: { value: "<p>Strong do-now</p>" } });
     });
     return props;
   }
@@ -227,8 +230,8 @@ describe("Switching from one teacher to another", () => {
     });
 
     expect((screen.getByTitle("Proficient") as HTMLElement).className).toMatch(/bg-green/);
-    const editors = screen.getAllByTestId("rich-editor") as HTMLTextAreaElement[];
-    expect(editors[0]!.value).toBe("<p>Strong do-now</p>");
+    const glows = screen.getByPlaceholderText("What is this teacher doing well?") as HTMLTextAreaElement;
+    expect(glows.value).toBe("<p>Strong do-now</p>");
   });
 
   it("files the kept work against the teacher now selected", async () => {

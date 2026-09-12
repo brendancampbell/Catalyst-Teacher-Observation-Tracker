@@ -167,7 +167,7 @@ All routes mounted at `/api`:
 - `components/ObservationDetailModal.tsx` — View/edit individual observation
 - `pages/admin.tsx` — Rubric Settings, Users, Schools, School Years, AI Quota, Notifications tabs; tab visibility is role-gated and COACH is blocked entirely
 - `pages/action-center.tsx` — Rescore queue table with status badges and due dates
-- `components/RichTextDisplay.tsx` — Renders stored glows/grows, sanitised with DOMPurify
+- `components/RichTextDisplay.tsx` — Renders stored glows, grows and action steps, sanitised with DOMPurify. All three are written in `RichTextEditor` and stored as HTML (older and mobile-written entries are plain text). Where HTML cannot render — one-line table cells, hover titles, the phone's plain text box, AI prompts — use `richTextToPlainText` from `@workspace/api-types`; to test for an empty box use `isBlankRichText`, since an emptied editor is `<p></p>`, not `""`
 
 ### Vite Proxy
 

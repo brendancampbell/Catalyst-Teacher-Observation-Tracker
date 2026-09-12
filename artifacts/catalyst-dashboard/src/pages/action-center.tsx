@@ -47,7 +47,8 @@ import {
 import type { Teacher, Score } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry } from "@/lib/api";
 import { fetchSystemSettings } from "@/lib/api";
-import { describeWindow, DEFAULT_WINDOW_DAYS } from "@workspace/api-types";
+import { describeWindow, DEFAULT_WINDOW_DAYS, richTextToPlainText } from "@workspace/api-types";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { FilterMultiSelect } from "@/components/FilterMultiSelect";
 import { matchesActionStepFilters } from "@/lib/action-step-filters";
 import { GRADE_LEVELS } from "@/data/dummy";
@@ -2029,7 +2030,9 @@ export default function ActionCenterPage() {
                                           long step must not push every other
                                           row off the screen. */}
                                       <td className="px-4 py-3 text-slate-700">
-                                        <p className="line-clamp-3 leading-snug" title={step.text}>{step.text}</p>
+                                        <div title={richTextToPlainText(step.text)}>
+                                          <RichTextDisplay content={step.text} className="line-clamp-3" />
+                                        </div>
                                       </td>
                                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatStepDate(step.assignedDate)}</td>
                                       <td className="px-4 py-3 text-slate-600">

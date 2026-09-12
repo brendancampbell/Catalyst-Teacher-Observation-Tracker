@@ -27,6 +27,26 @@ export function isEmptyRichText(html: string | null | undefined): boolean {
   return trimmed === "" || trimmed === EMPTY_HTML || trimmed === "<p><br></p>";
 }
 
+/**
+ * What to hand the editor for a stored value.
+ *
+ * HTML goes in as it is. Plain text — older entries, and anything typed on the
+ * phone — is split into paragraphs first: TipTap reads a bare string as HTML,
+ * where a line break is just whitespace, so a step written on three lines
+ * would open as one run-on line and be saved back that way.
+ */
+export function toEditorHtml(value: string | null | undefined): string {
+  if (!value) return "";
+  if (/<[a-z][\s\S]*>/i.test(value)) return value;
+  return value
+    .split("\n")
+    .map((line) => {
+      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<p>${escaped}</p>`;
+    })
+    .join("");
+}
+
 export type EditorSyncAction = "none" | "clear" | "replace";
 
 export interface EditorSyncState {

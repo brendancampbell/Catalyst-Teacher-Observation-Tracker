@@ -43,13 +43,16 @@ vi.mock("@/components/RichTextEditor", () => ({
     value,
     onChange,
     placeholder,
+    ariaLabel,
   }: {
     value: string;
     onChange: (v: string) => void;
     placeholder?: string;
+    ariaLabel?: string;
   }) =>
     React.createElement("textarea", {
       "data-testid": "rich-editor",
+      "aria-label": ariaLabel,
       placeholder,
       value,
       onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decideEditorSync, isEmptyRichText, type EditorSyncState } from "@/lib/rich-text-sync";
+import { decideEditorSync, isEmptyRichText, toEditorHtml, type EditorSyncState } from "@/lib/rich-text-sync";
 
 /* A settled editor, quietly holding what the parent gave it. */
 const at = (html: string, over: Partial<EditorSyncState> = {}): EditorSyncState => ({
@@ -23,6 +23,27 @@ describe("isEmptyRichText", () => {
   it("does not mistake real text for empty", () => {
     expect(isEmptyRichText("<p>Strong questioning technique</p>")).toBe(false);
     expect(isEmptyRichText("<p>0</p>")).toBe(false);
+  });
+});
+
+describe("toEditorHtml", () => {
+  it("hands HTML to the editor as it is", () => {
+    expect(toEditorHtml("<p><strong>Cold call</strong></p>")).toBe("<p><strong>Cold call</strong></p>");
+  });
+
+  it("keeps the line breaks of plain text", () => {
+    /* A step typed on the phone over two lines must not open on the dashboard
+       as one run-on line — and be saved back that way. */
+    expect(toEditorHtml("Cold call widely\nWait three seconds")).toBe("<p>Cold call widely</p><p>Wait three seconds</p>");
+  });
+
+  it("escapes plain text so it is not read as markup", () => {
+    expect(toEditorHtml("3 < 5 & rising")).toBe("<p>3 &lt; 5 &amp; rising</p>");
+  });
+
+  it("leaves empty as empty", () => {
+    expect(toEditorHtml("")).toBe("");
+    expect(toEditorHtml(null)).toBe("");
   });
 });
 
