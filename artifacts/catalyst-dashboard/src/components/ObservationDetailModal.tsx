@@ -701,45 +701,44 @@ export function ObservationDetailModal({
                   <div key={step.id} className="space-y-1">
                     <p className="text-xs font-semibold" style={{ color: "#C2410C" }}>↻ New Action Step Assigned</p>
                     {editing && step.status === "open" ? (
-                      <div className="flex gap-3 items-start flex-wrap pt-0.5">
-                        <div className="flex-1 min-w-[14rem]">
-                          <p className="block text-xs font-semibold text-slate-500 mb-1">
-                            Action Step
-                          </p>
-                          <RichTextEditor
-                            ariaLabel="Action Step"
-                            value={draftStepText}
-                            onChange={(html) => { setDraftStepText(html); setSaveError(null); }}
-                            placeholder="Describe the specific action step for this teacher…"
-                            focusBorderColor="#bfdbfe"
-                            minHeight={60}
-                          />
-                        </div>
-                        <div className="shrink-0" style={{ width: 148 }}>
-                          <label
-                            htmlFor={`action-step-due-${step.id}`}
-                            className="block text-xs font-semibold text-slate-500 mb-1"
-                          >
-                            Due Date
-                          </label>
-                          <input
-                            id={`action-step-due-${step.id}`}
-                            type="date"
-                            value={draftStepDueDate}
-                            min={todayIso}
-                            onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
-                            className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
-                            style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                          />
-                          {/* An overdue step is the common case for editing one,
-                              and its own date is no longer a date it can be
-                              given. Say so before the server does. */}
-                          {step.dueDate < todayIso && (
-                            <p className="text-xs text-slate-400 mt-1 leading-snug">
-                              Overdue — a new date must be today or later.
-                            </p>
-                          )}
-                        </div>
+                      <div className="pt-0.5">
+                        {/* The same box as on the observation form: full width,
+                            blue edge, due date in the bar along its bottom. */}
+                        <RichTextEditor
+                          ariaLabel="Action Step"
+                          value={draftStepText}
+                          onChange={(html) => { setDraftStepText(html); setSaveError(null); }}
+                          placeholder="Describe the specific action step for this teacher…"
+                          focusBorderColor="#93c5fd"
+                          accent={{ color: "#3B82F6", tint: "#EFF6FF", border: "#93C5FD" }}
+                          footer={
+                            <>
+                              {/* An overdue step is the common case for editing
+                                  one, and its own date is no longer a date it
+                                  can be given. Say so before the server does. */}
+                              {step.dueDate < todayIso && (
+                                <span className="mr-auto pl-1 text-xs text-slate-500 leading-snug">
+                                  Overdue — a new date must be today or later.
+                                </span>
+                              )}
+                              <label
+                                htmlFor={`action-step-due-${step.id}`}
+                                className="text-xs font-semibold text-slate-600"
+                              >
+                                Due Date
+                              </label>
+                              <input
+                                id={`action-step-due-${step.id}`}
+                                type="date"
+                                value={draftStepDueDate}
+                                min={todayIso}
+                                onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
+                                className="px-2 py-1 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                                style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                              />
+                            </>
+                          }
+                        />
                       </div>
                     ) : (
                       <>
@@ -773,42 +772,39 @@ export function ObservationDetailModal({
                     <p className="text-xs text-slate-400 leading-snug">
                       This observation was filed without one. Leave both boxes empty to keep it that way.
                     </p>
-                    <div className="flex gap-3 items-start flex-wrap pt-0.5">
-                      <div className="flex-1 min-w-[14rem]">
-                        <p className="block text-xs font-semibold text-slate-500 mb-1">
-                          Action Step
-                        </p>
-                        <RichTextEditor
-                          ariaLabel="Action Step"
-                          value={draftStepText}
-                          onChange={(html) => { setDraftStepText(html); setSaveError(null); }}
-                          placeholder="Describe the specific action step for this teacher…"
-                          focusBorderColor="#bfdbfe"
-                          minHeight={60}
-                        />
-                      </div>
-                      <div className="shrink-0" style={{ width: 148 }}>
-                        <label
-                          htmlFor="action-step-due-new"
-                          className="block text-xs font-semibold text-slate-500 mb-1"
-                        >
-                          Due Date
-                        </label>
-                        <input
-                          id="action-step-due-new"
-                          type="date"
-                          value={draftStepDueDate}
-                          min={todayIso}
-                          onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
-                          className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
-                          style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                        />
-                        {/* The observation may be months old; the step is not.
-                            Say the rule before the server does. */}
-                        <p className="text-xs text-slate-400 mt-1 leading-snug">
-                          Today or later.
-                        </p>
-                      </div>
+                    <div className="pt-0.5">
+                      <RichTextEditor
+                        ariaLabel="Action Step"
+                        value={draftStepText}
+                        onChange={(html) => { setDraftStepText(html); setSaveError(null); }}
+                        placeholder="Describe the specific action step for this teacher…"
+                        focusBorderColor="#93c5fd"
+                        accent={{ color: "#3B82F6", tint: "#EFF6FF", border: "#93C5FD" }}
+                        footer={
+                          <>
+                            {/* The observation may be months old; the step is
+                                not. Say the rule before the server does. */}
+                            <span className="mr-auto pl-1 text-xs text-slate-500 leading-snug">
+                              Today or later.
+                            </span>
+                            <label
+                              htmlFor="action-step-due-new"
+                              className="text-xs font-semibold text-slate-600"
+                            >
+                              Due Date
+                            </label>
+                            <input
+                              id="action-step-due-new"
+                              type="date"
+                              value={draftStepDueDate}
+                              min={todayIso}
+                              onChange={(e) => { setDraftStepDueDate(e.target.value); setSaveError(null); }}
+                              className="px-2 py-1 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                              style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                            />
+                          </>
+                        }
+                      />
                     </div>
                   </div>
                 )}
@@ -830,7 +826,6 @@ export function ObservationDetailModal({
                     onChange={setDraftStrengths}
                     placeholder="What is this teacher doing well?"
                     focusBorderColor="#86efac"
-                    minHeight={90}
                   />
                 ) : (
                   <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2.5 min-h-[60px]">
@@ -855,7 +850,6 @@ export function ObservationDetailModal({
                     onChange={setDraftGrowth}
                     placeholder="Where should this teacher focus next?"
                     focusBorderColor="#fdba74"
-                    minHeight={90}
                   />
                 ) : (
                   <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2.5 min-h-[60px]">

@@ -8,8 +8,10 @@
  * of the text on every character typed.
  *
  * Kept apart from the component, and pure, so the rules can be tested without a
- * DOM. The dashboard's test environment is `node`, so anything importing
- * @tiptap/react cannot be tested at all.
+ * DOM — the dashboard's test environment is `node`, so anything importing
+ * @tiptap/react cannot be tested at all. Shared rather than in either app
+ * because the dashboard and the phone each have an editor, and both must
+ * follow the same rules.
  *
  * Backlog #36: a resumed draft showed empty glows and grows. The editor had
  * already been created with empty content by the time the saved text arrived,

@@ -984,46 +984,45 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             {/* Hidden while extending: an observation either extends the
                 existing step or assigns a new one, never both. */}
             {extendingStepId === null && (
-            <div
-              className="rounded-lg px-4 py-3 space-y-3 bg-blue-50"
-              style={{ border: "1px solid #93C5FD", borderLeft: "4px solid #3B82F6" }}
-            >
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: NAVY }}>
                 → Assign New Action Step <span className="font-normal text-slate-400 normal-case">(optional)</span>
-              </p>
-              <div className="flex gap-3 items-start">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Action Step</label>
-                  {/* The same editor as the glows and grows, so a step can be
-                      bulleted or bolded the same way. ariaLabel because the
-                      label above is not associated with it — screen readers
-                      had nothing to announce. */}
-                  <RichTextEditor
-                    ariaLabel="Action Step"
-                    value={newActionStepText}
-                    onChange={(html) => {
-                      setNewActionStepText(html);
-                      setActionStepDueDateError(null);
-                    }}
-                    placeholder="Describe the specific action step for this teacher…"
-                    focusBorderColor="#bfdbfe"
-                    minHeight={60}
-                  />
-                </div>
-                <div className="shrink-0" style={{ width: 148 }}>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newActionStepDueDate}
-                    min={todayIso}
-                    onChange={(e) => { setNewActionStepDueDate(e.target.value); setActionStepDueDateError(null); }}
-                    className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
-                    style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                  />
-                </div>
-              </div>
+              </label>
+              {/* Full width and the same editor as the glows and grows, so a
+                  step can be bulleted or bolded the same way. The blue edge and
+                  tinted bars set it apart from them; the due date sits in the
+                  bar along its bottom because it belongs to this box alone.
+                  ariaLabel because the label above is not associated with it —
+                  screen readers had nothing to announce. */}
+              <RichTextEditor
+                ariaLabel="Action Step"
+                value={newActionStepText}
+                onChange={(html) => {
+                  setNewActionStepText(html);
+                  setActionStepDueDateError(null);
+                }}
+                placeholder="Describe the specific action step for this teacher…"
+                focusBorderColor="#93c5fd"
+                accent={{ color: "#3B82F6", tint: "#EFF6FF", border: "#93C5FD" }}
+                footer={
+                  <>
+                    <label htmlFor="new-action-step-due" className="text-xs font-semibold text-slate-600">
+                      Due Date
+                    </label>
+                    <input
+                      id="new-action-step-due"
+                      type="date"
+                      value={newActionStepDueDate}
+                      min={todayIso}
+                      onChange={(e) => { setNewActionStepDueDate(e.target.value); setActionStepDueDateError(null); }}
+                      className="px-2 py-1 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                      style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                    />
+                  </>
+                }
+              />
               {actionStepDueDateError && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-red-700">
+                <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-red-700">
                   <AlertCircle size={12} className="shrink-0" />
                   {actionStepDueDateError}
                 </div>
@@ -1042,7 +1041,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                   onChange={setStrengths}
                   placeholder="What is this teacher doing well?"
                   focusBorderColor="#86efac"
-                  minHeight={90}
                 />
               </div>
               <div>
@@ -1054,7 +1052,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                   onChange={setGrowthAreas}
                   placeholder="Where should this teacher focus next?"
                   focusBorderColor="#fdba74"
-                  minHeight={90}
                 />
               </div>
             </div>

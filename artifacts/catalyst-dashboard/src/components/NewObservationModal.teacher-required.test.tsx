@@ -36,16 +36,18 @@ vi.mock("@radix-ui/react-dialog", () => ({
 }));
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value, onChange, placeholder, ariaLabel }: {
-    value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string;
+  RichTextEditor: ({ value, onChange, placeholder, ariaLabel, footer }: {
+    value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string; footer?: React.ReactNode;
   }) =>
-    React.createElement("textarea", {
-      "data-testid": "rich-editor",
-      "aria-label": ariaLabel,
-      placeholder,
-      value,
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
-    }),
+    React.createElement(React.Fragment, null,
+      React.createElement("textarea", {
+        "data-testid": "rich-editor",
+        "aria-label": ariaLabel,
+        placeholder,
+        value,
+        onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
+      }),
+      footer),
 }));
 
 vi.mock("lucide-react", () => ({

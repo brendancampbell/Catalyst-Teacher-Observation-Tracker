@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decideEditorSync, isEmptyRichText, toEditorHtml, type EditorSyncState } from "@/lib/rich-text-sync";
+import { decideEditorSync, isEmptyRichText, toEditorHtml, type EditorSyncState } from "@workspace/api-types";
 
 /* A settled editor, quietly holding what the parent gave it. */
 const at = (html: string, over: Partial<EditorSyncState> = {}): EditorSyncState => ({
