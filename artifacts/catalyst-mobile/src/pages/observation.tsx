@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { AppHeader } from "@/components/AppHeader";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { isBlankRichText } from "@workspace/api-types";
 import {
   apiFetch,
   Teacher,
@@ -139,30 +142,6 @@ export default function ObservationPage() {
   const isSubmittingRef = useRef(false);
   const draftSavedTrackedRef = useRef(false);
 
-  const strengthsRef = useRef<HTMLTextAreaElement | null>(null);
-  const growthAreasRef = useRef<HTMLTextAreaElement | null>(null);
-  const actionStepTextRef = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    const el = strengthsRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-  }, [strengths]);
-
-  useEffect(() => {
-    const el = growthAreasRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-  }, [growthAreas]);
-
-  useEffect(() => {
-    const el = actionStepTextRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-  }, [actionStepText]);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActionStepReqRef = useRef(0);
 
@@ -326,7 +305,8 @@ export default function ObservationPage() {
   }, [teacherId]);
 
   /* ── Action step validation ─────────────────────────────────────── */
-  const hasActionStepText = actionStepText.trim().length > 0;
+  /* Blank as the editor spells it: an emptied box is "<p></p>", not "". */
+  const hasActionStepText = !isBlankRichText(actionStepText);
   const hasActionStepDate = actionStepDueDate.length > 0;
   const actionStepPartiallyFilled = hasActionStepText || hasActionStepDate;
 
@@ -343,6 +323,7 @@ export default function ObservationPage() {
 
   function handleRepeatLast() {
     if (!lastActionStep) return;
+    /* Formatting and all — the box here is the same editor as the dashboard's. */
     setActionStepText(lastActionStep.text);
     setActionStepDueDate(lastActionStep.dueDate);
     const err = validateActionStepDueDate(lastActionStep.dueDate);
@@ -361,9 +342,9 @@ export default function ObservationPage() {
 
     const hasContent =
       Object.keys(scores).length > 0 ||
-      strengths.trim().length > 0 ||
-      growthAreas.trim().length > 0 ||
-      actionStepText.trim().length > 0 ||
+      !isBlankRichText(strengths) ||
+      !isBlankRichText(growthAreas) ||
+      !isBlankRichText(actionStepText) ||
       actionStepDueDate.length > 0;
     if (!hasContent) return;
 
@@ -392,7 +373,7 @@ export default function ObservationPage() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
     const newActionStepDraft =
-      actionStepText.trim().length > 0 && actionStepDueDate.length > 0
+      !isBlankRichText(actionStepText) && actionStepDueDate.length > 0
         ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
         : undefined;
 
@@ -443,9 +424,9 @@ export default function ObservationPage() {
   function hasFormContent(): boolean {
     return (
       Object.keys(scores).length > 0 ||
-      strengths.trim().length > 0 ||
-      growthAreas.trim().length > 0 ||
-      actionStepText.trim().length > 0 ||
+      !isBlankRichText(strengths) ||
+      !isBlankRichText(growthAreas) ||
+      !isBlankRichText(actionStepText) ||
       actionStepDueDate.length > 0
     );
   }
@@ -471,7 +452,7 @@ export default function ObservationPage() {
       const masterActionStepId =
         markMastered && lastActionStep?.status === "open" ? lastActionStep.id : null;
       const newActionStepDraft =
-        actionStepText.trim().length > 0 && actionStepDueDate.length > 0
+        !isBlankRichText(actionStepText) && actionStepDueDate.length > 0
           ? { text: actionStepText.trim(), dueDate: actionStepDueDate }
           : undefined;
       const obs = await saveObservation({
@@ -895,52 +876,33 @@ export default function ObservationPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#16a34a" }}>
                   ✦ Teacher Strengths (Glows)
                 </label>
-                <textarea
-                  ref={(el) => {
-                    strengthsRef.current = el;
-                    if (el) {
-                      el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-                    }
-                  }}
+                <RichTextEditor
+                  ariaLabel="Teacher Strengths (Glows)"
                   value={strengths}
-                  onChange={(e) => {
-                    setStrengths(e.target.value);
-                  }}
+                  onChange={setStrengths}
                   placeholder="What is this teacher doing well?"
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-green-300 bg-white text-slate-800"
-                  style={{ minHeight: 80 }}
+                  focusBorderColor="#86efac"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#ea580c" }}>
                   ↑ Growth Areas (Grows)
                 </label>
-                <textarea
-                  ref={(el) => {
-                    growthAreasRef.current = el;
-                    if (el) {
-                      el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-                    }
-                  }}
+                <RichTextEditor
+                  ariaLabel="Growth Areas (Grows)"
                   value={growthAreas}
-                  onChange={(e) => {
-                    setGrowthAreas(e.target.value);
-                  }}
+                  onChange={setGrowthAreas}
                   placeholder="Where should this teacher focus next?"
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-orange-200 bg-white text-slate-800"
-                  style={{ minHeight: 80 }}
+                  focusBorderColor="#fdba74"
                 />
               </div>
             </div>
 
             {/* ── Action Steps section ──────────────────────────────── */}
-            <div
-              data-testid="action-step-section"
-              className="rounded-xl p-4 shadow-sm flex flex-col gap-3"
-              style={{ backgroundColor: "#EFF6FF", border: "1px solid #93C5FD", borderLeft: "4px solid #1034B4" }}
-            >
+            {/* No blue card around it any more: the previous step stands on its
+                own, as on the dashboard, and the new step has a card the same
+                width as the glows and grows. */}
+            <div data-testid="action-step-section" className="flex flex-col gap-3">
               {/* Loading spinner */}
               {loadingLastActionStep && (
                 <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -954,7 +916,7 @@ export default function ObservationPage() {
                 const displayMastered = alreadyMastered || (lastActionStep.status === "open" && markMastered);
                 return (
                 <div
-                  className="rounded-lg px-3 py-3 space-y-2"
+                  className="rounded-xl px-4 py-3 space-y-2 shadow-sm"
                   style={{
                     backgroundColor: displayMastered ? "#F0FDF4" : "#FFF7ED",
                     border: `1.5px solid ${displayMastered ? "#86EFAC" : "#FED7AA"}`,
@@ -980,7 +942,7 @@ export default function ObservationPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-semibold text-slate-800 leading-snug">{lastActionStep.text}</p>
+                  <RichTextDisplay content={lastActionStep.text} className="font-semibold text-slate-800" />
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                     <span>
                       Assigned:{" "}
@@ -1042,65 +1004,53 @@ export default function ObservationPage() {
                 );
               })()}
 
-              {/* New action step fields — flat inside the outer blue card */}
-              <p className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: "#1034B4" }}>
-                → Assign New Action Step <span className="font-normal text-slate-500 normal-case">(optional)</span>
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="min-w-0 overflow-hidden">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                    Action Step
-                  </label>
-                  <textarea
-                    ref={(el) => {
-                      actionStepTextRef.current = el;
-                      if (el) {
-                        el.style.height = "auto";
-                        el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
-                      }
-                    }}
-                    value={actionStepText}
-                    onChange={(e) => {
-                      setActionStepText(e.target.value);
-                    }}
-                    placeholder="Describe the action step for this teacher…"
-                    className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 text-sm resize-none overflow-hidden focus:outline-none focus:ring-2 bg-white text-slate-800"
-                    style={{ boxSizing: "border-box", borderColor: actionStepPartiallyFilled && !hasActionStepText ? "#f87171" : undefined, minHeight: 80 }}
-                  />
-                  {actionStepPartiallyFilled && !hasActionStepText && (
-                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle size={11} className="shrink-0" /> Description is required when a due date is set.
-                    </p>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                    Due Date <span className="font-normal">(required if action step is entered)</span>
-                  </label>
-                  <div
-                    className="w-full overflow-hidden rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500"
-                    style={{ border: `1px solid ${(actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0"}` }}
-                  >
-                    <input
-                      type="date"
-                      value={actionStepDueDate}
-                      min={todayIso}
-                      onChange={(e) => handleActionStepDueDateChange(e.target.value)}
-                      className="w-full min-w-0 px-3 py-2.5 text-sm focus:outline-none bg-white text-slate-800"
-                      style={{ boxSizing: "border-box", border: "none", display: "block" }}
-                    />
-                  </div>
-                  {actionStepPartiallyFilled && !hasActionStepDate && (
-                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
-                    </p>
-                  )}
-                  {actionStepDueDateError && (
-                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle size={11} className="shrink-0" /> {actionStepDueDateError}
-                    </p>
-                  )}
-                </div>
+              {/* New action step — a card of its own, as wide as the glows and
+                  grows. The blue edge and tinted bars on the box set it apart,
+                  and the due date sits in the bar along its bottom. */}
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: NAVY }}>
+                  → Assign New Action Step <span className="font-normal text-slate-500 normal-case">(optional)</span>
+                </label>
+                <RichTextEditor
+                  ariaLabel="Action Step"
+                  value={actionStepText}
+                  onChange={setActionStepText}
+                  placeholder="Describe the action step for this teacher…"
+                  focusBorderColor="#93c5fd"
+                  accent={{ color: "#3B82F6", tint: "#EFF6FF", border: "#93C5FD" }}
+                  invalid={actionStepPartiallyFilled && !hasActionStepText}
+                  footer={
+                    <>
+                      <label htmlFor="action-step-due-date" className="text-xs font-semibold text-slate-600">
+                        Due Date
+                      </label>
+                      <input
+                        id="action-step-due-date"
+                        type="date"
+                        value={actionStepDueDate}
+                        min={todayIso}
+                        onChange={(e) => handleActionStepDueDateChange(e.target.value)}
+                        className="min-w-0 px-2 py-1.5 rounded-md text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ border: `1px solid ${(actionStepPartiallyFilled && !hasActionStepDate) || actionStepDueDateError ? "#f87171" : "#e2e8f0"}` }}
+                      />
+                    </>
+                  }
+                />
+                {actionStepPartiallyFilled && !hasActionStepText && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> Description is required when a due date is set.
+                  </p>
+                )}
+                {actionStepPartiallyFilled && !hasActionStepDate && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> Due date is required when an action step is entered.
+                  </p>
+                )}
+                {actionStepDueDateError && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> {actionStepDueDateError}
+                  </p>
+                )}
               </div>
             </div>
 

@@ -59,6 +59,24 @@ vi.mock("@/components/AppHeader", () => ({
   AppHeader: () => null,
 }));
 
+/* The editor is TipTap, which fireEvent cannot type into. A textarea stands in,
+   carrying the placeholder, label and bottom bar (the due date) the page gives it. */
+vi.mock("@/components/RichTextEditor", async () => {
+  const React = await import("react");
+  return {
+    RichTextEditor: ({ value, onChange, placeholder, ariaLabel, footer }: {
+      value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel?: string;
+      footer?: import("react").ReactNode;
+    }) =>
+      React.createElement(React.Fragment, null,
+        React.createElement("textarea", {
+          "aria-label": ariaLabel, placeholder, value,
+          onChange: (e: import("react").ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
+        }),
+        footer),
+  };
+});
+
 vi.mock("@/lib/roles", () => ({
   isNetworkScope: () => false,
 }));

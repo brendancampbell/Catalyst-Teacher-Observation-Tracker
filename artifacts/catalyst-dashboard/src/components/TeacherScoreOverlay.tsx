@@ -14,6 +14,7 @@ import { ObservationHistoryTable } from "@/components/ObservationHistoryTable";
 import { DomainScorePanel, RecentFeedbackCards, domainScoreRows } from "@/components/DomainScorePanel";
 import { useUser } from "@/context/UserContext";
 import { ObservationDetailModal } from "@/components/ObservationDetailModal";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { useUrlState } from "@/lib/urlState";
 import AppHeader from "@/components/AppHeader";
 
@@ -120,7 +121,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                           </button>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-slate-800 leading-snug">{step.text}</p>
+                      <RichTextDisplay content={step.text} className="font-semibold text-slate-800" />
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
                         <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                         <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = step.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
@@ -148,7 +149,7 @@ function ActionStepsDrawer({ open, onClose, actionSteps, canEdit, masteringId, h
                       <CheckCircle2 size={14} className="text-green-600" />
                       <span className="text-xs font-bold uppercase tracking-wider text-green-700">Mastered</span>
                     </div>
-                    <p className="text-sm font-medium text-slate-700 leading-snug line-through decoration-green-400">{step.text}</p>
+                    <RichTextDisplay content={step.text} className="font-medium text-slate-700 line-through decoration-green-400" />
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
                       <span>Assigned: <span className="font-semibold text-slate-700">{new Date(step.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                       {step.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{step.assignedByName}</span></span>}
@@ -256,9 +257,10 @@ function ActionStepsCard({ actionSteps, loading, onClick }: ActionStepsCardProps
                   {isOpen ? (isOverdue ? "Overdue" : "Open") : "Mastered"}
                 </span>
               </div>
-              <p className={`text-sm font-semibold text-slate-800 leading-snug${!isOpen ? " line-through decoration-green-400" : ""}`}>
-                {preview.text}
-              </p>
+              <RichTextDisplay
+                content={preview.text}
+                className={`font-semibold text-slate-800${!isOpen ? " line-through decoration-green-400" : ""}`}
+              />
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                 <span>Due: <span className={`font-semibold ${isOverdue ? "text-red-600" : "text-slate-700"}`}>{(() => { const [y, m, d] = preview.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
                 {preview.assignedByName && <span>Assigned By: <span className="font-semibold text-slate-700">{preview.assignedByName}</span></span>}

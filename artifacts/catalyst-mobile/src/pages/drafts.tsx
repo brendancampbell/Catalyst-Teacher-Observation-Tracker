@@ -14,6 +14,7 @@ import {
 import { FileEdit, Trash2, RotateCcw, FileX, Loader2, AlertCircle } from "lucide-react";
 import { isNetworkScope } from "@/lib/roles";
 import { trackEvent } from "@/lib/analytics";
+import { isBlankRichText, richTextToPlainText } from "@workspace/api-types";
 
 const NAVY = "#1034B4";
 const YELLOW = "#FFB500";
@@ -25,6 +26,13 @@ function formatDate(iso: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+/* Glows and grows are written in the editor, so they are stored as HTML. The
+   list has room for one plain line of each. */
+function preview(value: string): string {
+  const plain = richTextToPlainText(value, { singleLine: true });
+  return plain.length > 90 ? plain.slice(0, 90) + "…" : plain;
 }
 
 export default function DraftsPage() {
@@ -191,18 +199,18 @@ export default function DraftsPage() {
                         · {scoreCount > 0 ? `${scoreCount} domain${scoreCount !== 1 ? "s" : ""} scored` : "No domains scored yet"}
                       </span>
                     </div>
-                    {(draft.strengths || draft.growthAreas) && (
+                    {(!isBlankRichText(draft.strengths) || !isBlankRichText(draft.growthAreas)) && (
                       <div className="mt-1.5 flex flex-col gap-0.5">
-                        {draft.strengths && (
+                        {!isBlankRichText(draft.strengths) && (
                           <p className="text-xs text-slate-500 truncate">
                             <span className="font-semibold text-green-700">Glows:</span>{" "}
-                            {draft.strengths.length > 90 ? draft.strengths.slice(0, 90) + "…" : draft.strengths}
+                            {preview(draft.strengths!)}
                           </p>
                         )}
-                        {draft.growthAreas && (
+                        {!isBlankRichText(draft.growthAreas) && (
                           <p className="text-xs text-slate-500 truncate">
                             <span className="font-semibold text-amber-700">Grows:</span>{" "}
-                            {draft.growthAreas.length > 90 ? draft.growthAreas.slice(0, 90) + "…" : draft.growthAreas}
+                            {preview(draft.growthAreas!)}
                           </p>
                         )}
                       </div>

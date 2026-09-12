@@ -63,7 +63,21 @@ vi.mock("@/components/ui/alert-dialog", () => {
 });
 
 vi.mock("@/components/RichTextEditor", () => ({
-  RichTextEditor: ({ value }: { value: string }) => React.createElement("div", null, value),
+  /* The glows and grows only need showing. The action step box is typed into,
+     so it stands in as a labelled textarea. */
+  RichTextEditor: ({ value, onChange, ariaLabel, footer }: {
+    value: string; onChange: (v: string) => void; ariaLabel?: string; footer?: React.ReactNode;
+  }) =>
+    ariaLabel
+      ? React.createElement(React.Fragment, null,
+          React.createElement("textarea", {
+            "aria-label": ariaLabel,
+            value,
+            onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
+          }),
+          /* The due date lives in the editor's bottom bar. */
+          footer)
+      : React.createElement("div", null, value),
 }));
 vi.mock("@/components/RichTextDisplay", () => ({
   RichTextDisplay: ({ content }: { content?: string }) => React.createElement("div", null, content ?? ""),
@@ -190,6 +204,20 @@ describe("Editing the action step on a filed observation", () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(mockUpdateActionStep).not.toHaveBeenCalled();
+  });
+
+  it("treats an emptied editor as blank, not as wording", async () => {
+    /* The editor hands back "<p></p>" once its text is deleted, which a
+       .trim() check would take for a real step. */
+    mockFetchActionSteps.mockResolvedValue([makeStep()]);
+    await renderModal();
+
+    fireEvent.change(screen.getByLabelText("Action Step"), { target: { value: "<p></p>" } });
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    await screen.findByText("An action step cannot be blank.");
+    expect(mockUpdateActionStep).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("refuses a blank action step, and saves nothing at all", async () => {

@@ -1,16 +1,21 @@
 import DOMPurify from "dompurify";
 
-/** Renders stored glows, grows and action steps — handles both old plain-text and new HTML from TipTap. */
+/**
+ * Renders a stored action step — HTML from the dashboard's editor, or plain
+ * text typed here.
+ *
+ * The same as the dashboard's RichTextDisplay, kept in step with it by hand:
+ * the two apps share no components. Without it a step bulleted on the
+ * dashboard arrived on the phone as a line of raw "<ul><li><p>" tags.
+ */
 export function RichTextDisplay({
   content,
   className = "",
-  emptyNode,
 }: {
   content: string | null | undefined;
   className?: string;
-  emptyNode?: React.ReactNode;
 }) {
-  if (!content?.trim()) return <>{emptyNode ?? null}</>;
+  if (!content?.trim()) return null;
 
   const isHtml = /<[a-z][\s\S]*>/i.test(content);
   const rawHtml = isHtml

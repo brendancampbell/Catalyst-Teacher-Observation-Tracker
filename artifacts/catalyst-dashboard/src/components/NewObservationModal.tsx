@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Plus, Loader2, RotateCcw, AlertCircle, RefreshCw } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { RichTextDisplay } from "@/components/RichTextDisplay";
+import { isBlankRichText } from "@workspace/api-types";
 import { type Score, type Teacher } from "@/data/dummy";
 import type { CategoryEntry, DomainEntry, ActionStep } from "@/lib/api";
 import { fetchMyDrafts, deleteObservation, fetchLatestActionStep } from "@/lib/api";
@@ -302,13 +304,17 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
   const textContent = (html: string) =>
     html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 
+  /* The action step is written in the same editor, so it has the same
+     "<p></p>" problem — and an abandoned bullet list besides. */
+  const hasNewStepText = !isBlankRichText(newActionStepText);
+
   /* Has anything been written that would be lost? */
   function hasUnsavedContent(): boolean {
     return (
       Object.keys(scores).length > 0 ||
       textContent(strengths).length > 0 ||
       textContent(growthAreas).length > 0 ||
-      newActionStepText.trim().length > 0
+      hasNewStepText
     );
   }
 
@@ -320,7 +326,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       Object.keys(scores).length > 0 ||
       textContent(strengths).length > 0 ||
       textContent(growthAreas).length > 0 ||
-      (newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0) ||
+      (hasNewStepText && newActionStepDueDate.length > 0) ||
       markMastered;
     if (!hasContent) return;
 
@@ -335,7 +341,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     const staleDueDate = newActionStepDueDate.length > 0 && newActionStepDueDate < todayIso;
 
     let newActionStepDraft =
-      newActionStepText.trim().length > 0 && newActionStepDueDate.length > 0
+      hasNewStepText && newActionStepDueDate.length > 0
         ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
         : undefined;
 
@@ -413,7 +419,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
         stillOpen: (latestActionStep?.status === "open" && !markMastered)
           ? { text: latestActionStep.text, dueDate: latestActionStep.dueDate, assignedByName: latestActionStep.assignedByName }
           : undefined,
-        assigned: (newActionStepText.trim() && newActionStepDueDate)
+        assigned: (hasNewStepText && newActionStepDueDate)
           ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
           : undefined,
       },
@@ -466,9 +472,9 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
     }
 
     /* ── Action step validation ── */
-    const hasNewStep = newActionStepText.trim().length > 0 || newActionStepDueDate.length > 0;
+    const hasNewStep = hasNewStepText || newActionStepDueDate.length > 0;
     if (hasNewStep) {
-      if (!newActionStepText.trim() || !newActionStepDueDate) {
+      if (!hasNewStepText || !newActionStepDueDate) {
         setActionStepDueDateError("Both action step text and a due date are required.");
         isSubmittingRef.current = false;
         return;
@@ -495,7 +501,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
       }
     }
 
-    const newActionStepPayload = hasNewStep && newActionStepText.trim() && newActionStepDueDate
+    const newActionStepPayload = hasNewStep && hasNewStepText && newActionStepDueDate
       ? { text: newActionStepText.trim(), dueDate: newActionStepDueDate }
       : undefined;
     /* Never both: the new action step box is hidden while extending, and the
@@ -866,7 +872,7 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}>Overdue</span>
                   )}
                 </div>
-                <p className="text-sm font-semibold text-slate-800 leading-snug">{latestActionStep.text}</p>
+                <RichTextDisplay content={latestActionStep.text} className="font-semibold text-slate-800" />
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>Assigned: <span className="font-semibold text-slate-700">{new Date(latestActionStep.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
                   <span>Due: <span className="font-semibold text-slate-700">{(() => { const [y, m, d] = latestActionStep.dueDate.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()}</span></span>
@@ -978,54 +984,45 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
             {/* Hidden while extending: an observation either extends the
                 existing step or assigns a new one, never both. */}
             {extendingStepId === null && (
-            <div
-              className="rounded-lg px-4 py-3 space-y-3 bg-blue-50"
-              style={{ border: "1px solid #93C5FD", borderLeft: "4px solid #3B82F6" }}
-            >
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: NAVY }}>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: NAVY }}>
                 → Assign New Action Step <span className="font-normal text-slate-400 normal-case">(optional)</span>
-              </p>
-              <div className="flex gap-3 items-start">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Action Step</label>
-                  {/* aria-label because the label above is not associated with
-                      this control — screen readers had nothing to announce. */}
-                  <textarea
-                    aria-label="Action Step"
-                    ref={(el) => {
-                      if (el && el.value) {
-                        el.style.height = "auto";
-                        el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
-                      }
-                    }}
-                    rows={1}
-                    value={newActionStepText}
-                    onChange={(e) => {
-                      const el = e.target;
-                      el.style.height = "auto";
-                      el.style.height = `${Math.min(el.scrollHeight, 100)}px`;
-                      setNewActionStepText(e.target.value);
-                      setActionStepDueDateError(null);
-                    }}
-                    placeholder="Describe the specific action step for this teacher…"
-                    className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white resize-none overflow-y-auto"
-                    style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                  />
-                </div>
-                <div className="shrink-0" style={{ width: 148 }}>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newActionStepDueDate}
-                    min={todayIso}
-                    onChange={(e) => { setNewActionStepDueDate(e.target.value); setActionStepDueDateError(null); }}
-                    className="w-full px-3 py-2 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
-                    style={{ fontFamily: "'Libre Franklin', sans-serif" }}
-                  />
-                </div>
-              </div>
+              </label>
+              {/* Full width and the same editor as the glows and grows, so a
+                  step can be bulleted or bolded the same way. The blue edge and
+                  tinted bars set it apart from them; the due date sits in the
+                  bar along its bottom because it belongs to this box alone.
+                  ariaLabel because the label above is not associated with it —
+                  screen readers had nothing to announce. */}
+              <RichTextEditor
+                ariaLabel="Action Step"
+                value={newActionStepText}
+                onChange={(html) => {
+                  setNewActionStepText(html);
+                  setActionStepDueDateError(null);
+                }}
+                placeholder="Describe the specific action step for this teacher…"
+                focusBorderColor="#93c5fd"
+                accent={{ color: "#3B82F6", tint: "#EFF6FF", border: "#93C5FD" }}
+                footer={
+                  <>
+                    <label htmlFor="new-action-step-due" className="text-xs font-semibold text-slate-600">
+                      Due Date
+                    </label>
+                    <input
+                      id="new-action-step-due"
+                      type="date"
+                      value={newActionStepDueDate}
+                      min={todayIso}
+                      onChange={(e) => { setNewActionStepDueDate(e.target.value); setActionStepDueDateError(null); }}
+                      className="px-2 py-1 rounded border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white"
+                      style={{ fontFamily: "'Libre Franklin', sans-serif" }}
+                    />
+                  </>
+                }
+              />
               {actionStepDueDateError && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-red-700">
+                <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-red-700">
                   <AlertCircle size={12} className="shrink-0" />
                   {actionStepDueDateError}
                 </div>
@@ -1044,7 +1041,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                   onChange={setStrengths}
                   placeholder="What is this teacher doing well?"
                   focusBorderColor="#86efac"
-                  minHeight={90}
                 />
               </div>
               <div>
@@ -1056,7 +1052,6 @@ export function NewObservationModal({ teachers: allTeachers, categories, allDoma
                   onChange={setGrowthAreas}
                   placeholder="Where should this teacher focus next?"
                   focusBorderColor="#fdba74"
-                  minHeight={90}
                 />
               </div>
             </div>

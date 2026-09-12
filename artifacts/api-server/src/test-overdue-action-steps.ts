@@ -12,6 +12,7 @@
  *  3. Mastered steps          → excluded even if due date is in the past
  *  4. Open overdue steps      → correct Markdown with teacher name + step details
  *  5. Multiple teachers       → all appear; count in header is correct
+ *  6. Formatted steps         → reach the AI as plain text, not HTML
  */
 
 import { test, describe } from "node:test";
@@ -122,6 +123,21 @@ describe("buildOverdueActionStepsSummary", () => {
     assert.match(result, /Ethan Cross/);
     assert.match(result, /Step for Teacher1/);
     assert.match(result, /Step for Teacher2/);
+  });
+
+  test("gives the AI a formatted step as plain text", () => {
+    /* A tag the model quotes back would show in the narrative as literal "<p>". */
+    const map = new Map<string, ActionStepEntry[]>([
+      ["emp1", [makeStep({
+        text:    "<p><strong>Cold call</strong> widely</p><ul><li><p>Wait &amp; watch</p></li></ul>",
+        dueDate: "2026-06-01",
+        status:  "open",
+      })]],
+    ]);
+    const result = buildOverdueActionStepsSummary(map, new Map([["emp1", "Bob Jones"]]), TODAY);
+
+    assert.match(result, /"Cold call widely • Wait & watch"/);
+    assert.doesNotMatch(result, /<|&amp;/);
   });
 
   test("falls back to employeeId when teacher name is missing from nameMap", () => {

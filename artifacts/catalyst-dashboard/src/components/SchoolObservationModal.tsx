@@ -246,7 +246,6 @@ export default function SchoolObservationModal({
                   onChange={setStrengths}
                   placeholder="What is this school doing well?"
                   focusBorderColor="#86efac"
-                  minHeight={90}
                 />
               </div>
               <div>
@@ -258,7 +257,6 @@ export default function SchoolObservationModal({
                   onChange={setGrowthAreas}
                   placeholder="Where should this school focus next?"
                   focusBorderColor="#fdba74"
-                  minHeight={90}
                 />
               </div>
             </div>

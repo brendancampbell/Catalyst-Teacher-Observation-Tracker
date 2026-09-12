@@ -8,4 +8,5 @@
 - [Observation publish paths](observation-publish-paths.md) — every publish path must invalidate the same caches; how to date a publish from action_steps.created_at, and why updated_at lies
 - [Fixing pnpm audit findings](dependency-audit-overrides.md) — only root package.json overrides are live (workspace YAML is dead); forcing a patched transitive broke jsdom 29 via undici internals — bump the dependent instead
 - [Fail-open authorization patterns](fail-open-authorization-patterns.md) — two shipped bugs, same shape: `a !== b` when both can be null, and `!isProduction` as a gate; substitute null into any access check and see if it grants
+- [Rich-text fields](rich-text-fields.md) — glows, grows and action steps may be HTML or plain text; editor/display copied in both apps; richTextToPlainText where HTML can't go, isBlankRichText for empty (an emptied editor is `<p></p>`); test mocks must render `footer`
 - [The address is the view state](url-is-the-view-state.md) — #61: URL is the single source of truth; push for drill-ins, replace for tabs and filters; why closing a panel unwinds instead of stacking

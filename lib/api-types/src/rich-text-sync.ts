@@ -8,8 +8,10 @@
  * of the text on every character typed.
  *
  * Kept apart from the component, and pure, so the rules can be tested without a
- * DOM. The dashboard's test environment is `node`, so anything importing
- * @tiptap/react cannot be tested at all.
+ * DOM — the dashboard's test environment is `node`, so anything importing
+ * @tiptap/react cannot be tested at all. Shared rather than in either app
+ * because the dashboard and the phone each have an editor, and both must
+ * follow the same rules.
  *
  * Backlog #36: a resumed draft showed empty glows and grows. The editor had
  * already been created with empty content by the time the saved text arrived,
@@ -25,6 +27,26 @@ export function isEmptyRichText(html: string | null | undefined): boolean {
   if (!html) return true;
   const trimmed = html.trim();
   return trimmed === "" || trimmed === EMPTY_HTML || trimmed === "<p><br></p>";
+}
+
+/**
+ * What to hand the editor for a stored value.
+ *
+ * HTML goes in as it is. Plain text — older entries, and anything typed on the
+ * phone — is split into paragraphs first: TipTap reads a bare string as HTML,
+ * where a line break is just whitespace, so a step written on three lines
+ * would open as one run-on line and be saved back that way.
+ */
+export function toEditorHtml(value: string | null | undefined): string {
+  if (!value) return "";
+  if (/<[a-z][\s\S]*>/i.test(value)) return value;
+  return value
+    .split("\n")
+    .map((line) => {
+      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<p>${escaped}</p>`;
+    })
+    .join("");
 }
 
 export type EditorSyncAction = "none" | "clear" | "replace";

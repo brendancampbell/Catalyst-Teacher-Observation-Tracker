@@ -1,5 +1,6 @@
 import { Footprints } from "lucide-react";
 import type { Observation, CategoryEntry } from "@workspace/api-types";
+import { richTextToPlainText } from "@workspace/api-types";
 import { type Score } from "@/data/dummy";
 import { getScoreColor } from "@/components/ScoreCell";
 import { TablePagination, usePagination } from "@/components/TablePagination";
@@ -115,9 +116,16 @@ export function ObservationHistoryTable({
                       /* One line, always. A step can run to a paragraph, and a
                          row that grows to fit one undoes the compactness the
                          table exists for — the whole text is in the pop-up the
-                         row opens, and in the title for a hover. */
-                      <td className="px-4 py-2.5 text-slate-600 truncate" title={actionStepByObservationId![obs.id] ?? undefined}>
-                        {actionStepByObservationId![obs.id] ?? <span className="text-slate-300">—</span>}
+                         row opens, and in the title for a hover. A formatted
+                         step has no room for its bullets here, so both are
+                         shown as plain text. */
+                      <td
+                        className="px-4 py-2.5 text-slate-600 truncate"
+                        title={actionStepByObservationId![obs.id] != null ? richTextToPlainText(actionStepByObservationId![obs.id]) : undefined}
+                      >
+                        {actionStepByObservationId![obs.id] != null
+                          ? richTextToPlainText(actionStepByObservationId![obs.id], { singleLine: true })
+                          : <span className="text-slate-300">—</span>}
                       </td>
                     )}
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
